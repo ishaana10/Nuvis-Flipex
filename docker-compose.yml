@@ -1,0 +1,34 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports: ["8080:80"]
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [php]
+  php:
+    build: ./docker/php
+    volumes: ["./backend:/var/www/html"]
+    env_file: ./backend/.env
+    depends_on: [db]
+  worker:
+    build: ./docker/php
+    command: php bin/worker.php
+    volumes: ["./backend:/var/www/html"]
+    env_file: ./backend/.env
+    depends_on: [db]
+    restart: unless-stopped
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: flipbook
+      MYSQL_USER: flipbook
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: root
+    ports: ["3306:3306"]
+    volumes: ["dbdata:/var/lib/mysql"]
+  mailhog:
+    image: mailhog/mailhog
+    ports: ["8025:8025"]
+volumes:
+  dbdata:
