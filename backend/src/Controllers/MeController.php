@@ -14,10 +14,13 @@ final class MeController
     {
         $u = $req->getAttribute('user');
         $plan = Db::one('SELECT * FROM plans WHERE id = ?', [$u['plan_id']]);
+        $tenant = $u['tenant_id'] ? Db::one('SELECT id, name, slug FROM tenants WHERE id = ?', [$u['tenant_id']]) : null;
         return Http::json($res, [
             'id' => (int) $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'role' => $u['role'],
             'avatarPath' => $u['avatar_path'], 'emailVerified' => $u['email_verified_at'] !== null,
             'createdAt' => $u['created_at'], 'plan' => $plan,
+            'tenantId' => $tenant ? (int) $tenant['id'] : null,
+            'companyName' => $tenant ? $tenant['name'] : null,
         ]);
     }
 

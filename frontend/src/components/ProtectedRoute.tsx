@@ -8,8 +8,17 @@ export function ProtectedRoute() {
   return (
     <>
       <header className="nav">
-        <Link to="/dashboard"><b>📖 FlipBook</b></Link>
+        <Link to="/dashboard" className="nuvis-brand-link">
+          <img src="/logo.png" alt="Nuvis Flipex" className="nuvis-brand-logo" />
+          <span className="nuvis-brand-text">Nuvis Flipex</span>
+        </Link>
         <nav>
+          {user.role === 'admin' && (
+            <Link to="/admin" className="admin-nav-link">
+              🛡️ Admin Panel
+            </Link>
+          )}
+          <Link to="/dashboard">Publications</Link>
           <Link to="/settings">{user.name}</Link>
           <LogoutButton />
         </nav>

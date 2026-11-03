@@ -4,6 +4,10 @@ import { ApiError } from '../api/client';
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="auth-wrap">
+      <div className="auth-brand-header">
+        <img src="/logo.png" alt="Nuvis Flipex" className="nuvis-brand-logo" />
+        <span className="nuvis-brand-text" style={{ fontSize: '24px' }}>Nuvis Flipex</span>
+      </div>
       <div className="card">
         <h1>{title}</h1>
         {children}

@@ -24,7 +24,7 @@ final class Auth implements MiddlewareInterface
             return Http::error(new SlimResponse(), 'Unauthorized', 401);
         }
         $user = Db::one(
-            'SELECT id, email, name, avatar_path, role, plan_id, status, email_verified_at, created_at
+            'SELECT id, email, name, avatar_path, role, plan_id, tenant_id, status, email_verified_at, created_at
              FROM users WHERE id = ? AND deleted_at IS NULL',
             [$claims->sub]
         );

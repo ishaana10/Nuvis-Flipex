@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
+use App\Controllers\AdminController;
 use App\Controllers\AnalyticsController;
 use App\Controllers\AuthController;
 use App\Controllers\FlipbookController;
@@ -92,6 +93,27 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $m->delete('/sessions/{id}', [MeController::class, 'revokeSession']);
         $m->delete('', [MeController::class, 'delete']);
     })->add(new Auth());
+
+    $g->group('/admin', function (RouteCollectorProxy $adm) {
+        $adm->get('/stats', [AdminController::class, 'stats']);
+
+        // User Management
+        $adm->get('/users', [AdminController::class, 'users']);
+        $adm->post('/users', [AdminController::class, 'createUser']);
+        $adm->patch('/users/{id:[0-9]+}', [AdminController::class, 'updateUser']);
+        $adm->post('/users/{id:[0-9]+}/reset-password', [AdminController::class, 'resetUserPassword']);
+        $adm->delete('/users/{id:[0-9]+}', [AdminController::class, 'deleteUser']);
+
+        // Company (Tenant) Management
+        $adm->get('/companies', [AdminController::class, 'companies']);
+        $adm->post('/companies', [AdminController::class, 'createCompany']);
+        $adm->patch('/companies/{id:[0-9]+}', [AdminController::class, 'updateCompany']);
+        $adm->delete('/companies/{id:[0-9]+}', [AdminController::class, 'deleteCompany']);
+
+        // Company Subscriptions & Plans
+        $adm->get('/plans', [AdminController::class, 'plans']);
+        $adm->patch('/plans/{id:[0-9]+}', [AdminController::class, 'updatePlan']);
+    })->add(new Auth('admin'));
 });
 
 $app->run();

@@ -463,8 +463,11 @@ export default function FlipbookViewer({
       {/* Top Floating Header Bar */}
       <div className="hz-header">
         <div className="hz-title-wrap">
+          <img src="/logo.png" alt="Nuvis Flipex" className="hz-header-logo" />
           {title && <span className="hz-book-title">{title}</span>}
-          {settings.brandText && <span className="hz-brand-badge">{settings.brandText}</span>}
+          <span className="nuvis-brand-text hz-brand-badge-golden">
+            {settings.brandText || 'Nuvis Flipex'}
+          </span>
         </div>
 
         <div className="hz-top-actions">

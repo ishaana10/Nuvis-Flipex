@@ -14,6 +14,7 @@ import PublicViewer from './pages/PublicViewer';
 import Preview from './pages/Preview';
 import HotspotEditor from './pages/HotspotEditor';
 import Analytics from './pages/Analytics';
+import AdminPanel from './pages/AdminPanel';
 import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/dashboard/preview/:id" element={<Preview />} />
             <Route path="/dashboard/editor/:id" element={<HotspotEditor />} />
             <Route path="/dashboard/analytics/:id" element={<Analytics />} />
+            <Route path="/admin" element={<AdminPanel />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
