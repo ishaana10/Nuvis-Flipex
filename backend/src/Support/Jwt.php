@@ -20,6 +20,16 @@ final class Jwt
         );
     }
 
+    public static function issue2fa(int $userId): string
+    {
+        $now = time();
+        return FirebaseJwt::encode(
+            ['sub' => $userId, 'type' => '2fa', 'iat' => $now, 'exp' => $now + 600],
+            $_ENV['JWT_SECRET'],
+            'HS256'
+        );
+    }
+
     public static function verify(string $token): ?object
     {
         try {

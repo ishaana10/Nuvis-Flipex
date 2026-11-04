@@ -13,15 +13,27 @@ final class MeController
     public function show(Request $req, Response $res): Response
     {
         $u = $req->getAttribute('user');
+        $fullUser = Db::one('SELECT * FROM users WHERE id = ?', [$u['id']]);
         $plan = Db::one('SELECT * FROM plans WHERE id = ?', [$u['plan_id']]);
         $tenant = $u['tenant_id'] ? Db::one('SELECT id, name, slug FROM tenants WHERE id = ?', [$u['tenant_id']]) : null;
         return Http::json($res, [
             'id' => (int) $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'role' => $u['role'],
             'avatarPath' => $u['avatar_path'], 'emailVerified' => $u['email_verified_at'] !== null,
+            'twoFactorEnabled' => !empty($fullUser['two_factor_enabled']),
             'createdAt' => $u['created_at'], 'plan' => $plan,
             'tenantId' => $tenant ? (int) $tenant['id'] : null,
             'companyName' => $tenant ? $tenant['name'] : null,
         ]);
+    }
+
+    public function toggleTwoFactor(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $b = (array) $req->getParsedBody();
+        $enabled = !empty($b['enabled']) ? 1 : 0;
+
+        Db::run('UPDATE users SET two_factor_enabled = ? WHERE id = ?', [$enabled, $u['id']]);
+        return Http::json($res, ['twoFactorEnabled' => (bool) $enabled]);
     }
 
     public function update(Request $req, Response $res): Response

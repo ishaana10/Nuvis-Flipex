@@ -85,6 +85,20 @@ function convertPdf(int $flipbookId): void
     }
     Db::run("UPDATE flipbooks SET status = 'ready', page_count = ? WHERE id = ?", [count($files), $flipbookId]);
     echo "Converted flipbook $flipbookId: " . count($files) . " pages\n";
+
+    // Customer Notification
+    try {
+        $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'notify_customer_on_publish'");
+        if (!$setting || $setting['setting_value'] !== '0') {
+            $owner = Db::one('SELECT u.email, u.name, f.title, f.slug FROM flipbooks f JOIN users u ON u.id = f.user_id WHERE f.id = ?', [$flipbookId]);
+            if ($owner) {
+                $readerUrl = ($_ENV['APP_URL'] ?? 'http://localhost:5173') . '/v/' . $owner['slug'];
+                \App\Support\Mailer::publicationConverted($owner['email'], $owner['name'], $owner['title'], $readerUrl);
+            }
+        }
+    } catch (\Throwable $e) {
+        echo "Notification warning: " . $e->getMessage() . "\n";
+    }
 }
 
 function run(array $cmd): void

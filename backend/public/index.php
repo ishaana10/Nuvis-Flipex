@@ -51,8 +51,11 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->get('/health', fn($req, $res) => Http::json($res, ['status' => 'ok']));
 
     $g->group('/auth', function (RouteCollectorProxy $a) {
+        $a->get('/registration-status', [AuthController::class, 'registrationStatus']);
         $a->post('/register', [AuthController::class, 'register'])->add(new RateLimit('register', 10, 3600));
         $a->post('/login', [AuthController::class, 'login'])->add(new RateLimit('login', 10, 300));
+        $a->post('/verify-2fa', [AuthController::class, 'verify2fa'])->add(new RateLimit('2fa', 15, 300));
+        $a->post('/resend-2fa', [AuthController::class, 'resend2fa'])->add(new RateLimit('2fa_resend', 5, 300));
         $a->post('/refresh', [AuthController::class, 'refresh']);
         $a->post('/logout', [AuthController::class, 'logout']);
         $a->post('/verify-email', [AuthController::class, 'verifyEmail']);
@@ -89,6 +92,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $m->get('', [MeController::class, 'show']);
         $m->patch('', [MeController::class, 'update']);
         $m->put('/password', [MeController::class, 'changePassword']);
+        $m->post('/two-factor', [MeController::class, 'toggleTwoFactor']);
         $m->get('/sessions', [MeController::class, 'sessions']);
         $m->delete('/sessions/{id}', [MeController::class, 'revokeSession']);
         $m->delete('', [MeController::class, 'delete']);
@@ -113,6 +117,13 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         // Company Subscriptions & Plans
         $adm->get('/plans', [AdminController::class, 'plans']);
         $adm->patch('/plans/{id:[0-9]+}', [AdminController::class, 'updatePlan']);
+
+        // Platform Settings & Email Setup
+        $adm->get('/settings', [AdminController::class, 'settings']);
+        $adm->patch('/settings', [AdminController::class, 'updateSettings']);
+        $adm->post('/settings/test-email', [AdminController::class, 'testEmail']);
+        $adm->get('/email-logs', [AdminController::class, 'emailLogs']);
+        $adm->post('/notifications/broadcast', [AdminController::class, 'sendBroadcast']);
     })->add(new Auth('admin'));
 });
 

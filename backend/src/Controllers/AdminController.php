@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\Mailer;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -338,5 +339,132 @@ final class AdminController
         );
 
         return Http::json($res, ['ok' => true]);
+    }
+
+    /** Get Platform System & Email Settings */
+    public function settings(Request $req, Response $res): Response
+    {
+        $rows = Db::all('SELECT setting_key, setting_value FROM system_settings');
+        $map = [];
+        foreach ($rows as $r) {
+            $map[$r['setting_key']] = $r['setting_value'];
+        }
+
+        return Http::json($res, [
+            'allowSelfRegistration' => ($map['allow_self_registration'] ?? '1') === '1',
+            'smtpHost' => $map['smtp_host'] ?? '127.0.0.1',
+            'smtpPort' => (int) ($map['smtp_port'] ?? 1025),
+            'smtpUser' => $map['smtp_user'] ?? '',
+            'smtpPass' => $map['smtp_pass'] ?? '',
+            'smtpEncryption' => $map['smtp_encryption'] ?? 'none',
+            'smtpFromEmail' => $map['smtp_from_email'] ?? 'noreply@nuvisflipex.com',
+            'smtpFromName' => $map['smtp_from_name'] ?? 'Nuvis Flipex',
+            'notifyWelcomeEmail' => ($map['notify_welcome_email'] ?? '1') === '1',
+            'notifyCustomerOnPublish' => ($map['notify_customer_on_publish'] ?? '1') === '1',
+        ]);
+    }
+
+    /** Update Platform & Email Settings */
+    public function updateSettings(Request $req, Response $res): Response
+    {
+        $b = (array) $req->getParsedBody();
+
+        $keys = [
+            'allow_self_registration' => isset($b['allowSelfRegistration']) ? ($b['allowSelfRegistration'] ? '1' : '0') : null,
+            'smtp_host' => isset($b['smtpHost']) ? trim((string) $b['smtpHost']) : null,
+            'smtp_port' => isset($b['smtpPort']) ? (string) (int) $b['smtpPort'] : null,
+            'smtp_user' => isset($b['smtpUser']) ? trim((string) $b['smtpUser']) : null,
+            'smtp_pass' => isset($b['smtpPass']) ? (string) $b['smtpPass'] : null,
+            'smtp_encryption' => isset($b['smtpEncryption']) ? trim((string) $b['smtpEncryption']) : null,
+            'smtp_from_email' => isset($b['smtpFromEmail']) ? trim((string) $b['smtpFromEmail']) : null,
+            'smtp_from_name' => isset($b['smtpFromName']) ? trim((string) $b['smtpFromName']) : null,
+            'notify_welcome_email' => isset($b['notifyWelcomeEmail']) ? ($b['notifyWelcomeEmail'] ? '1' : '0') : null,
+            'notify_customer_on_publish' => isset($b['notifyCustomerOnPublish']) ? ($b['notifyCustomerOnPublish'] ? '1' : '0') : null,
+        ];
+
+        foreach ($keys as $k => $v) {
+            if ($v !== null) {
+                Db::run(
+                    'INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
+                     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)',
+                    [$k, $v]
+                );
+            }
+        }
+
+        return Http::json($res, ['ok' => true]);
+    }
+
+    /** Send SMTP Test Email */
+    public function testEmail(Request $req, Response $res): Response
+    {
+        $b = (array) $req->getParsedBody();
+        $target = trim((string) ($b['email'] ?? ''));
+        if (!filter_var($target, FILTER_VALIDATE_EMAIL)) {
+            return Http::error($res, 'Validation failed', 422, ['email' => 'Valid email address is required']);
+        }
+
+        $sent = Mailer::customNotification(
+            $target,
+            'Nuvis Flipex — SMTP Configuration Test',
+            'SMTP Configuration Verified!',
+            "Congratulations! Your Nuvis Flipex email dispatch system is properly configured and communicating with your mail server.\n\nAll transactional alerts, 2FA security tokens, and customer notifications are active.",
+            'Open Console',
+            $_ENV['APP_URL'] ?? 'http://localhost:5173'
+        );
+
+        return Http::json($res, [
+            'ok' => true,
+            'sent' => $sent,
+            'message' => $sent ? 'Test email dispatched via SMTP successfully!' : 'Test email dispatched in simulated mode (saved to storage logs). Check email logs table below.',
+        ]);
+    }
+
+    /** Get Email Audit Logs */
+    public function emailLogs(Request $req, Response $res): Response
+    {
+        $rows = Db::all('SELECT * FROM email_logs ORDER BY sent_at DESC LIMIT 50');
+        return Http::json($res, array_map(fn($r) => [
+            'id' => (int) $r['id'],
+            'recipient' => $r['recipient'],
+            'subject' => $r['subject'],
+            'template' => $r['template'],
+            'status' => $r['status'],
+            'errorMessage' => $r['error_message'],
+            'preview' => $r['body_preview'],
+            'sentAt' => $r['sent_at'],
+        ], $rows));
+    }
+
+    /** Broadcast Notification to Customers */
+    public function sendBroadcast(Request $req, Response $res): Response
+    {
+        $b = (array) $req->getParsedBody();
+        $subject = trim((string) ($b['subject'] ?? ''));
+        $title = trim((string) ($b['title'] ?? ''));
+        $message = trim((string) ($b['message'] ?? ''));
+        $target = trim((string) ($b['target'] ?? 'all')); // 'all' or specific email
+
+        if ($subject === '' || $title === '' || $message === '') {
+            return Http::error($res, 'Subject, Title, and Message are required', 422);
+        }
+
+        $recipients = [];
+        if ($target === 'all') {
+            $users = Db::all("SELECT email, name FROM users WHERE deleted_at IS NULL AND status = 'active'");
+            foreach ($users as $u) {
+                $recipients[] = $u['email'];
+            }
+        } elseif (filter_var($target, FILTER_VALIDATE_EMAIL)) {
+            $recipients[] = $target;
+        }
+
+        $count = 0;
+        foreach ($recipients as $email) {
+            Mailer::customNotification($email, $subject, $title, $message);
+            $count++;
+        }
+
+        return Http::json($res, ['ok' => true, 'sentCount' => $count]);
     }
 }

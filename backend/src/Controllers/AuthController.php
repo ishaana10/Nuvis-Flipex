@@ -15,8 +15,20 @@ final class AuthController
     private const REFRESH_DAYS = 30;
     private const COOKIE = 'refresh_token';
 
+    public function registrationStatus(Request $req, Response $res): Response
+    {
+        $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
+        $allowed = !$setting || $setting['setting_value'] !== '0';
+        return Http::json($res, ['allowed' => $allowed]);
+    }
+
     public function register(Request $req, Response $res): Response
     {
+        $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
+        if ($setting && $setting['setting_value'] === '0') {
+            return Http::error($res, 'Public self-registration is currently disabled by administrator. Please contact your organization administrator for an invite.', 403);
+        }
+
         $b = (array) $req->getParsedBody();
         $email = strtolower(trim((string) ($b['email'] ?? '')));
         $name = trim((string) ($b['name'] ?? ''));
@@ -39,6 +51,9 @@ final class AuthController
         $id = (int) Db::pdo()->lastInsertId();
         $this->sendVerification($id, $email, $name);
 
+        // Account created notification
+        Mailer::accountCreated($email, $name);
+
         return Http::json($res, ['message' => 'Account created. Check your email to verify.'], 201);
     }
 
@@ -57,10 +72,79 @@ final class AuthController
             Db::run('UPDATE users SET password_hash = ? WHERE id = ?',
                 [password_hash((string) $b['password'], PASSWORD_ARGON2ID), $user['id']]);
         }
+
+        // Two-Factor Authentication Check
+        if (!empty($user['two_factor_enabled'])) {
+            $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            Db::run(
+                'UPDATE users SET two_factor_code = ?, two_factor_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE id = ?',
+                [$code, $user['id']]
+            );
+            Mailer::send2faCode($user['email'], $user['name'], $code);
+            $token = Jwt::issue2fa((int) $user['id']);
+
+            return Http::json($res, [
+                'twoFactorRequired' => true,
+                'twoFactorToken' => $token,
+                'email' => $email,
+            ]);
+        }
+
         Db::run('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
 
         $res = $this->startSession($req, $res, $user);
         return Http::json($res, $this->sessionPayload($user));
+    }
+
+    public function verify2fa(Request $req, Response $res): Response
+    {
+        $b = (array) $req->getParsedBody();
+        $token = (string) ($b['twoFactorToken'] ?? '');
+        $code = trim((string) ($b['code'] ?? ''));
+
+        $claims = Jwt::verify($token);
+        if (!$claims || ($claims->type ?? null) !== '2fa') {
+            return Http::error($res, '2FA session expired. Please sign in again.', 401);
+        }
+
+        $user = Db::one(
+            'SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND status = "active"',
+            [$claims->sub]
+        );
+        if (!$user) {
+            return Http::error($res, 'User not found', 404);
+        }
+
+        if (empty($user['two_factor_code']) || $user['two_factor_code'] !== $code || strtotime((string) $user['two_factor_expires_at']) < time()) {
+            return Http::error($res, 'Invalid or expired 2FA code', 422, ['code' => 'Invalid or expired verification code']);
+        }
+
+        // Clear OTP code and update last login
+        Db::run('UPDATE users SET two_factor_code = NULL, two_factor_expires_at = NULL, last_login_at = NOW() WHERE id = ?', [$user['id']]);
+
+        $res = $this->startSession($req, $res, $user);
+        return Http::json($res, $this->sessionPayload($user));
+    }
+
+    public function resend2fa(Request $req, Response $res): Response
+    {
+        $b = (array) $req->getParsedBody();
+        $token = (string) ($b['twoFactorToken'] ?? '');
+        $claims = Jwt::verify($token);
+        if (!$claims || ($claims->type ?? null) !== '2fa') {
+            return Http::error($res, '2FA session expired. Please sign in again.', 401);
+        }
+
+        $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL', [$claims->sub]);
+        if ($user) {
+            $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            Db::run(
+                'UPDATE users SET two_factor_code = ?, two_factor_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE id = ?',
+                [$code, $user['id']]
+            );
+            Mailer::send2faCode($user['email'], $user['name'], $code);
+        }
+        return Http::json($res, ['ok' => true]);
     }
 
     public function refresh(Request $req, Response $res): Response
@@ -114,9 +198,8 @@ final class AuthController
         $user = Db::one('SELECT id, name FROM users WHERE email = ? AND deleted_at IS NULL', [$email]);
         if ($user) {
             $token = $this->createToken((int) $user['id'], 'reset', 1);
-            $link = $_ENV['APP_URL'] . '/reset-password?token=' . $token;
-            Mailer::send($email, 'Reset your password',
-                "<p>Hi " . htmlspecialchars($user['name']) . ",</p><p><a href=\"$link\">Reset your password</a> (valid 1 hour).</p>");
+            $link = ($_ENV['APP_URL'] ?? 'http://localhost:5173') . '/reset-password?token=' . $token;
+            Mailer::passwordReset($email, $user['name'], $link);
         }
         // Same response either way to avoid account enumeration.
         return Http::json($res, ['message' => 'If that email exists, a reset link has been sent.']);

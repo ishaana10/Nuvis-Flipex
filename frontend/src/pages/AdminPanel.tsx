@@ -59,14 +59,41 @@ interface Plan {
   usersCount: number;
 }
 
+interface SystemSettings {
+  allowSelfRegistration: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPass: string;
+  smtpEncryption: string;
+  smtpFromEmail: string;
+  smtpFromName: string;
+  notifyWelcomeEmail: boolean;
+  notifyCustomerOnPublish: boolean;
+}
+
+interface EmailLog {
+  id: number;
+  recipient: string;
+  subject: string;
+  template: string;
+  status: 'sent' | 'simulated' | 'failed';
+  errorMessage: string | null;
+  preview: string | null;
+  sentAt: string;
+}
+
 export default function AdminPanel() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'overview' | 'users' | 'companies' | 'subscriptions'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'companies' | 'subscriptions' | 'email'>('overview');
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [userQuery, setUserQuery] = useState('');
   const [companyQuery, setCompanyQuery] = useState('');
@@ -77,23 +104,35 @@ export default function AdminPanel() {
   const [companyModal, setCompanyModal] = useState<{ open: boolean; company: Company | null }>({ open: false, company: null });
   const [planModal, setPlanModal] = useState<{ open: boolean; plan: Plan | null }>({ open: false, plan: null });
 
+  // Test Email & Broadcast State
+  const [testEmailAddr, setTestEmailAddr] = useState('');
+  const [testEmailBusy, setTestEmailBusy] = useState(false);
+  const [broadcastTarget, setBroadcastTarget] = useState('all');
+  const [broadcastSubject, setBroadcastSubject] = useState('');
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastBusy, setBroadcastBusy] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
     setMsg({ text, type });
-    setTimeout(() => setMsg(null), 4000);
+    setTimeout(() => setMsg(null), 4500);
   };
 
   const loadStats = useCallback(() => api<Stats>('/admin/stats').then(setStats), []);
   const loadUsers = useCallback(() => api<AdminUser[]>(`/admin/users?q=${encodeURIComponent(userQuery)}`).then(setUsers), [userQuery]);
   const loadCompanies = useCallback(() => api<Company[]>(`/admin/companies?q=${encodeURIComponent(companyQuery)}`).then(setCompanies), [companyQuery]);
   const loadPlans = useCallback(() => api<Plan[]>('/admin/plans').then(setPlans), []);
+  const loadSettings = useCallback(() => api<SystemSettings>('/admin/settings').then(setSettings), []);
+  const loadEmailLogs = useCallback(() => api<EmailLog[]>('/admin/email-logs').then(setEmailLogs), []);
 
   const refreshAll = useCallback(() => {
     setLoading(true);
-    Promise.all([loadStats(), loadUsers(), loadCompanies(), loadPlans()])
+    Promise.all([loadStats(), loadUsers(), loadCompanies(), loadPlans(), loadSettings(), loadEmailLogs()])
       .finally(() => setLoading(false));
-  }, [loadStats, loadUsers, loadCompanies, loadPlans]);
+  }, [loadStats, loadUsers, loadCompanies, loadPlans, loadSettings, loadEmailLogs]);
 
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -116,6 +155,61 @@ export default function AdminPanel() {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const handleSaveSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!settings) return;
+    setSavingSettings(true);
+    try {
+      await api('/admin/settings', 'PATCH', settings);
+      showMsg('Platform & Email settings saved successfully.');
+    } catch (err: any) {
+      showMsg(`Error saving settings: ${err.message}`, 'error');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testEmailAddr) return;
+    setTestEmailBusy(true);
+    try {
+      const res = await api<{ message: string }>('/admin/settings/test-email', 'POST', { email: testEmailAddr });
+      showMsg(res.message);
+      loadEmailLogs();
+    } catch (err: any) {
+      showMsg(err.message, 'error');
+    } finally {
+      setTestEmailBusy(false);
+    }
+  };
+
+  const handleSendBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastSubject || !broadcastTitle || !broadcastMessage) {
+      showMsg('Subject, Title, and Message are required', 'error');
+      return;
+    }
+    setBroadcastBusy(true);
+    try {
+      const res = await api<{ sentCount: number }>('/admin/notifications/broadcast', 'POST', {
+        target: broadcastTarget,
+        subject: broadcastSubject,
+        title: broadcastTitle,
+        message: broadcastMessage,
+      });
+      showMsg(`Broadcast notification dispatched to ${res.sentCount} customer(s).`);
+      setBroadcastSubject('');
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+      loadEmailLogs();
+    } catch (err: any) {
+      showMsg(err.message, 'error');
+    } finally {
+      setBroadcastBusy(false);
+    }
+  };
+
   return (
     <div className="admin-page">
       {/* Top Banner & Header */}
@@ -127,7 +221,7 @@ export default function AdminPanel() {
           </div>
           <h1 className="admin-title">Admin Management Console</h1>
           <p className="admin-subtitle">
-            Manage users, corporate tenants, subscription plans, quotas, and customer isolation.
+            Manage users, corporate tenants, subscription plans, email setup, and security policies.
           </p>
         </div>
         <div className="admin-header-actions">
@@ -171,6 +265,12 @@ export default function AdminPanel() {
           onClick={() => setTab('subscriptions')}
         >
           💎 Subscriptions & Plans ({plans.length})
+        </button>
+        <button
+          className={`admin-tab-btn ${tab === 'email' ? 'active' : ''}`}
+          onClick={() => setTab('email')}
+        >
+          📧 Email Setup & Access
         </button>
       </div>
 
@@ -233,12 +333,12 @@ export default function AdminPanel() {
                 </button>
                 <button
                   className="quick-action-btn"
-                  onClick={() => setTab('subscriptions')}
+                  onClick={() => setTab('email')}
                 >
-                  <span className="action-icon">💳</span>
+                  <span className="action-icon">📧</span>
                   <div>
-                    <b>Review Subscription Plans</b>
-                    <p className="muted">Configure pricing, limits, and quotas</p>
+                    <b>Configure Email & Self-Registration</b>
+                    <p className="muted">SMTP settings, 2FA, and registration policy</p>
                   </div>
                 </button>
               </div>
@@ -246,28 +346,30 @@ export default function AdminPanel() {
 
             <div className="admin-card">
               <div className="card-header-row">
-                <h3>System Architecture & Isolation</h3>
+                <h3>System Architecture & Security</h3>
               </div>
               <div className="system-info-list">
                 <div className="sys-info-row">
+                  <span>Self-Registration:</span>
+                  <span className={`badge ${settings?.allowSelfRegistration ? 'badge-success' : 'badge-danger'}`}>
+                    {settings?.allowSelfRegistration ? 'Open to Public' : 'Disabled (Admin Only)'}
+                  </span>
+                </div>
+                <div className="sys-info-row">
                   <span>Customer Isolation:</span>
                   <span className="badge badge-success">Active (Multi-Tenant RLS)</span>
+                </div>
+                <div className="sys-info-row">
+                  <span>2FA via Email:</span>
+                  <span className="badge badge-golden">Enabled (6-Digit OTP)</span>
                 </div>
                 <div className="sys-info-row">
                   <span>Storage Sandboxing:</span>
                   <span className="badge badge-success">/storage/tenants/{'{id}'}/</span>
                 </div>
                 <div className="sys-info-row">
-                  <span>Password Security:</span>
+                  <span>Password Hashing:</span>
                   <span className="badge badge-info">Argon2id (PHP 8.3)</span>
-                </div>
-                <div className="sys-info-row">
-                  <span>Token Rotation:</span>
-                  <span className="badge badge-info">Dual JWT + HttpOnly Cookies</span>
-                </div>
-                <div className="sys-info-row">
-                  <span>Poppler Converter:</span>
-                  <span className="badge badge-success">Background Daemon Active</span>
                 </div>
               </div>
             </div>
@@ -539,6 +641,307 @@ export default function AdminPanel() {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Email Setup & Platform Access */}
+      {tab === 'email' && (
+        <div className="admin-tab-content">
+          <div className="admin-email-grid">
+            {/* Card 1: Platform Self-Registration & Notifications Policy */}
+            <div className="admin-card">
+              <div className="card-header-row">
+                <h3>🌐 Platform Access & Registration Policy</h3>
+              </div>
+              <p className="muted" style={{ fontSize: '13px', margin: '0 0 16px 0' }}>
+                Control how new customers join Nuvis Flipex and configure automated transactional email triggers.
+              </p>
+
+              {settings && (
+                <div className="settings-toggles-list">
+                  <label className="toggle-row">
+                    <div>
+                      <b>Allow Public Self-Registration</b>
+                      <p className="muted">
+                        When OFF, public registration is blocked. Accounts can only be invited or created by Administrators.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="admin-checkbox"
+                      checked={settings.allowSelfRegistration}
+                      onChange={(e) => setSettings({ ...settings, allowSelfRegistration: e.target.checked })}
+                    />
+                  </label>
+
+                  <label className="toggle-row">
+                    <div>
+                      <b>Send Customer Welcome Email</b>
+                      <p className="muted">Automatically dispatch welcome credentials when accounts are created.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="admin-checkbox"
+                      checked={settings.notifyWelcomeEmail}
+                      onChange={(e) => setSettings({ ...settings, notifyWelcomeEmail: e.target.checked })}
+                    />
+                  </label>
+
+                  <label className="toggle-row">
+                    <div>
+                      <b>Customer Notification on Flipbook Conversion</b>
+                      <p className="muted">Notify owner by email when PDF has converted and is ready for reading.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="admin-checkbox"
+                      checked={settings.notifyCustomerOnPublish}
+                      onChange={(e) => setSettings({ ...settings, notifyCustomerOnPublish: e.target.checked })}
+                    />
+                  </label>
+
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleSaveSettings()}
+                    disabled={savingSettings}
+                    style={{ marginTop: '10px' }}
+                  >
+                    {savingSettings ? 'Saving Policies…' : 'Save Policy Settings'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: SMTP Mail Server Configuration */}
+            <div className="admin-card">
+              <div className="card-header-row">
+                <h3>⚙️ SMTP Mail Server Configuration</h3>
+              </div>
+              <p className="muted" style={{ fontSize: '13px', margin: '0 0 16px 0' }}>
+                Configure connection credentials for your outgoing email provider (SendGrid, Mailgun, Amazon SES, Postmark, or local SMTP).
+              </p>
+
+              {settings && (
+                <form onSubmit={handleSaveSettings} className="stack">
+                  <div className="row-fields">
+                    <label className="field">
+                      <span>SMTP Host</span>
+                      <input
+                        value={settings.smtpHost}
+                        onChange={(e) => setSettings({ ...settings, smtpHost: e.target.value })}
+                        placeholder="e.g. smtp.mailgun.org or 127.0.0.1"
+                        required
+                      />
+                    </label>
+                    <label className="field">
+                      <span>SMTP Port</span>
+                      <input
+                        type="number"
+                        value={settings.smtpPort}
+                        onChange={(e) => setSettings({ ...settings, smtpPort: Number(e.target.value) })}
+                        placeholder="587, 465, or 1025"
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <div className="row-fields">
+                    <label className="field">
+                      <span>Encryption Protocol</span>
+                      <select
+                        value={settings.smtpEncryption}
+                        onChange={(e) => setSettings({ ...settings, smtpEncryption: e.target.value })}
+                      >
+                        <option value="none">None (Plain / Local)</option>
+                        <option value="tls">TLS (STARTTLS - Port 587)</option>
+                        <option value="ssl">SSL (SMTPS - Port 465)</option>
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>SMTP Username</span>
+                      <input
+                        value={settings.smtpUser}
+                        onChange={(e) => setSettings({ ...settings, smtpUser: e.target.value })}
+                        placeholder="Username / API Key"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="field">
+                    <span>SMTP Password</span>
+                    <input
+                      type="password"
+                      value={settings.smtpPass}
+                      onChange={(e) => setSettings({ ...settings, smtpPass: e.target.value })}
+                      placeholder="Password / API Secret"
+                    />
+                  </label>
+
+                  <div className="row-fields">
+                    <label className="field">
+                      <span>From Email Address</span>
+                      <input
+                        type="email"
+                        value={settings.smtpFromEmail}
+                        onChange={(e) => setSettings({ ...settings, smtpFromEmail: e.target.value })}
+                        required
+                      />
+                    </label>
+                    <label className="field">
+                      <span>From Name</span>
+                      <input
+                        value={settings.smtpFromName}
+                        onChange={(e) => setSettings({ ...settings, smtpFromName: e.target.value })}
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button type="submit" className="btn-primary" disabled={savingSettings}>
+                      {savingSettings ? 'Saving SMTP…' : 'Save SMTP Settings'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Quick SMTP Test */}
+              <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+                <b>📨 Send SMTP Test Email</b>
+                <p className="muted" style={{ fontSize: '12px', margin: '4px 0 10px 0' }}>
+                  Verify that your mail server can establish connection and deliver emails.
+                </p>
+                <form onSubmit={handleSendTestEmail} style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Recipient email address…"
+                    value={testEmailAddr}
+                    onChange={(e) => setTestEmailAddr(e.target.value)}
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                  <button type="submit" className="btn-secondary" disabled={testEmailBusy}>
+                    {testEmailBusy ? 'Sending…' : 'Send Test'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Broadcast Notification Card */}
+          <div className="admin-card" style={{ marginTop: '24px' }}>
+            <div className="card-header-row">
+              <h3>📢 Send Customer Notification / Announcement</h3>
+            </div>
+            <p className="muted" style={{ fontSize: '13px', margin: '0 0 16px 0' }}>
+              Broadcast platform announcements, feature updates, or customer notices directly to user inboxes with branded Nuvis Flipex formatting.
+            </p>
+            <form onSubmit={handleSendBroadcast} className="stack">
+              <div className="row-fields">
+                <label className="field">
+                  <span>Recipient Audience</span>
+                  <select value={broadcastTarget} onChange={(e) => setBroadcastTarget(e.target.value)}>
+                    <option value="all">All Active Customers ({users.length} users)</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.email}>{u.name} ({u.email})</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Email Subject Line</span>
+                  <input
+                    required
+                    placeholder="e.g. Important Service Update"
+                    value={broadcastSubject}
+                    onChange={(e) => setBroadcastSubject(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <label className="field">
+                <span>Announcement Title</span>
+                <input
+                  required
+                  placeholder="e.g. New 3D Viewer Features Available!"
+                  value={broadcastTitle}
+                  onChange={(e) => setBroadcastTitle(e.target.value)}
+                />
+              </label>
+
+              <label className="field">
+                <span>Message Body</span>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Type your message to customers here…"
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                />
+              </label>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="submit" className="btn-primary" disabled={broadcastBusy}>
+                  {broadcastBusy ? 'Dispatching…' : '🚀 Send Customer Notification'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Email Outbox & Audit Logs */}
+          <div className="admin-card" style={{ marginTop: '24px' }}>
+            <div className="card-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>📨 Outbox & Transactional Email Audit Logs</h3>
+              <button className="btn-secondary" onClick={loadEmailLogs}>
+                🔄 Refresh Logs
+              </button>
+            </div>
+            <p className="muted" style={{ fontSize: '13px', margin: '0 0 16px 0' }}>
+              Audit trail of all password resets, 2FA security codes, account creations, and customer notifications.
+            </p>
+
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Recipient</th>
+                    <th>Subject</th>
+                    <th>Template</th>
+                    <th>Status</th>
+                    <th>Sent At</th>
+                    <th>Preview / Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emailLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="center muted" style={{ padding: '24px' }}>
+                        No email activity recorded yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    emailLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td><b>{log.recipient}</b></td>
+                        <td>{log.subject}</td>
+                        <td><code style={{ fontSize: '12px' }}>{log.template}</code></td>
+                        <td>
+                          <span className={`badge ${log.status === 'sent' ? 'badge-success' : (log.status === 'simulated' ? 'badge-golden' : 'badge-danger')}`}>
+                            {log.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td><small className="muted">{new Date(log.sentAt).toLocaleString()}</small></td>
+                        <td>
+                          <small className="muted" title={log.errorMessage || log.preview || ''}>
+                            {log.errorMessage ? `⚠️ ${log.errorMessage.slice(0, 45)}…` : `${log.preview?.slice(0, 45)}…`}
+                          </small>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

@@ -988,3 +988,51 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
   margin-top: 16px;
 }
 
+/* Email Setup & Policy Controls */
+.admin-email-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.settings-toggles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toggle-row:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.toggle-row b {
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.toggle-row p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+}
+
+.admin-checkbox {
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  accent-color: #f59e0b;
+}
+
