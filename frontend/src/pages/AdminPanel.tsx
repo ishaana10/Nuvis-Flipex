@@ -44,6 +44,19 @@ interface Company {
   usersCount: number;
   flipbooksCount: number;
   createdAt: string;
+  billingName?: string;
+  billingEmail?: string;
+  billingAddress?: string;
+  taxId?: string;
+  paymentMethod?: string;
+  paymentStatus?: 'paid' | 'pending' | 'overdue' | 'trial' | 'exempt';
+  billingCycle?: 'monthly' | 'quarterly' | 'annually';
+  amount?: number;
+  currency?: string;
+  lastPaymentDate?: string | null;
+  nextBillingDate?: string | null;
+  paymentReference?: string | null;
+  billingNotes?: string | null;
 }
 
 interface Plan {
@@ -102,6 +115,7 @@ export default function AdminPanel() {
   const [userModal, setUserModal] = useState<{ open: boolean; user: AdminUser | null }>({ open: false, user: null });
   const [passwordModal, setPasswordModal] = useState<{ open: boolean; user: AdminUser | null }>({ open: false, user: null });
   const [companyModal, setCompanyModal] = useState<{ open: boolean; company: Company | null }>({ open: false, company: null });
+  const [billingModal, setBillingModal] = useState<{ open: boolean; company: Company | null }>({ open: false, company: null });
   const [planModal, setPlanModal] = useState<{ open: boolean; plan: Plan | null }>({ open: false, plan: null });
 
   // Test Email & Broadcast State
@@ -518,6 +532,7 @@ export default function AdminPanel() {
                   <th>Company</th>
                   <th>Workspace Slug</th>
                   <th>Subscription Plan</th>
+                  <th>Payment Status</th>
                   <th>Flipbook Quota</th>
                   <th>Storage Quota</th>
                   <th>Users</th>
@@ -528,7 +543,7 @@ export default function AdminPanel() {
               <tbody>
                 {companies.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="center muted" style={{ padding: '32px' }}>
+                    <td colSpan={9} className="center muted" style={{ padding: '32px' }}>
                       No companies found.
                     </td>
                   </tr>
@@ -546,6 +561,20 @@ export default function AdminPanel() {
                       <td>
                         <span className="badge badge-golden">{c.planName} (${c.planPrice}/mo)</span>
                       </td>
+                      <td>
+                        <span className={`badge ${
+                          c.paymentStatus === 'paid' ? 'badge-success' :
+                          c.paymentStatus === 'pending' ? 'badge-warning' :
+                          c.paymentStatus === 'overdue' ? 'badge-danger' : 'badge-neutral'
+                        }`}>
+                          {(c.paymentStatus || 'paid').toUpperCase()}
+                        </span>
+                        {c.amount !== undefined && (
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            {c.currency || 'FJD'} ${Number(c.amount).toFixed(2)}
+                          </div>
+                        )}
+                      </td>
                       <td>{c.flipbooksCount} / {c.maxFlipbooks}</td>
                       <td>{c.maxStorageMb} MB</td>
                       <td><b>{c.usersCount}</b> members</td>
@@ -556,6 +585,13 @@ export default function AdminPanel() {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="action-button-group">
+                          <button
+                            className="btn-tbl billing"
+                            title="Manage Payment & Invoicing Details"
+                            onClick={() => setBillingModal({ open: true, company: c })}
+                          >
+                            💳 Billing
+                          </button>
                           <button
                             className="btn-tbl edit"
                             onClick={() => setCompanyModal({ open: true, company: c })}
@@ -1001,6 +1037,19 @@ export default function AdminPanel() {
           }}
         />
       )}
+
+      {/* Company Billing & Payment Modal */}
+      {billingModal.open && billingModal.company && (
+        <CompanyBillingModal
+          company={billingModal.company}
+          onClose={() => setBillingModal({ open: false, company: null })}
+          onSaved={() => {
+            setBillingModal({ open: false, company: null });
+            loadCompanies();
+            showMsg(`Billing & payment details updated for ${billingModal.company?.name}`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1392,6 +1441,186 @@ function PlanModal({
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={busy}>
               {busy ? 'Saving…' : 'Save Plan Settings'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Company Billing Modal Component (Admin)
+function CompanyBillingModal({
+  company,
+  onClose,
+  onSaved,
+}: {
+  company: Company;
+  onClose(): void;
+  onSaved(): void;
+}) {
+  const [billingName, setBillingName] = useState(company.billingName || company.name);
+  const [billingEmail, setBillingEmail] = useState(company.billingEmail || '');
+  const [billingAddress, setBillingAddress] = useState(company.billingAddress || '');
+  const [taxId, setTaxId] = useState(company.taxId || '');
+  const [paymentMethod, setPaymentMethod] = useState(company.paymentMethod || 'bank_transfer');
+  const [paymentStatus, setPaymentStatus] = useState(company.paymentStatus || 'paid');
+  const [billingCycle, setBillingCycle] = useState(company.billingCycle || 'monthly');
+  const [amount, setAmount] = useState(company.amount !== undefined ? company.amount : company.planPrice);
+  const [currency, setCurrency] = useState(company.currency || 'FJD');
+  const [lastPaymentDate, setLastPaymentDate] = useState(company.lastPaymentDate || '');
+  const [nextBillingDate, setNextBillingDate] = useState(company.nextBillingDate || '');
+  const [paymentReference, setPaymentReference] = useState(company.paymentReference || '');
+  const [billingNotes, setBillingNotes] = useState(company.billingNotes || '');
+
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/admin/companies/${company.id}/billing`, 'PUT', {
+        billingName,
+        billingEmail,
+        billingAddress,
+        taxId,
+        paymentMethod,
+        paymentStatus,
+        billingCycle,
+        amount: Number(amount),
+        currency: currency.toUpperCase(),
+        lastPaymentDate: lastPaymentDate || null,
+        nextBillingDate: nextBillingDate || null,
+        paymentReference,
+        billingNotes,
+      });
+      onSaved();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="card admin-modal-card" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div>
+            <span className="badge badge-golden">TENANT BILLING</span>
+            <h2 style={{ margin: '4px 0 0 0' }}>Payment Details: {company.name}</h2>
+          </div>
+          <span className="font-mono text-amber-400">/{company.slug}</span>
+        </div>
+        <p className="muted" style={{ fontSize: '13px', margin: '0 0 16px 0' }}>
+          Manage corporate billing records, payment reconciliation, and subscription status for this tenant.
+        </p>
+        {error && <p className="err">{error}</p>}
+        <form onSubmit={submit} className="stack">
+          <div className="row-fields">
+            <label className="field">
+              <span>Billing Entity / Company Legal Name</span>
+              <input value={billingName} onChange={(e) => setBillingName(e.target.value)} required />
+            </label>
+            <label className="field">
+              <span>Billing Email (Accounts / Invoicing)</span>
+              <input type="email" value={billingEmail} onChange={(e) => setBillingEmail(e.target.value)} placeholder="accounts@company.com" />
+            </label>
+          </div>
+
+          <div className="row-fields">
+            <label className="field">
+              <span>Payment Status</span>
+              <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value as any)}>
+                <option value="paid">PAID (Active)</option>
+                <option value="pending">PENDING (Awaiting settlement)</option>
+                <option value="overdue">OVERDUE (Payment delinquent)</option>
+                <option value="trial">TRIAL (Free evaluation)</option>
+                <option value="exempt">EXEMPT (Internal / Partner)</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>Payment Method</span>
+              <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                <option value="bank_transfer">Direct Bank Transfer / Wire</option>
+                <option value="credit_card">Credit / Debit Card</option>
+                <option value="direct_debit">Direct Debit (BSP / ANZ / Westpac)</option>
+                <option value="cheque">Cheque</option>
+                <option value="cash">Cash / Remittance</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="row-fields">
+            <label className="field">
+              <span>Billing Cycle</span>
+              <select value={billingCycle} onChange={(e) => setBillingCycle(e.target.value as any)}>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="annually">Annually</option>
+              </select>
+            </label>
+            <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
+              <label className="field" style={{ flex: 2 }}>
+                <span>Amount ($)</span>
+                <input type="number" step="0.01" min={0} value={amount} onChange={(e) => setAmount(Number(e.target.value))} required />
+              </label>
+              <label className="field" style={{ flex: 1 }}>
+                <span>Currency</span>
+                <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                  <option value="FJD">FJD</option>
+                  <option value="USD">USD</option>
+                  <option value="AUD">AUD</option>
+                  <option value="NZD">NZD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="row-fields">
+            <label className="field">
+              <span>Tax / TIN / VAT Registration #</span>
+              <input value={taxId} onChange={(e) => setTaxId(e.target.value)} placeholder="e.g. FJ-TIN-8938210" />
+            </label>
+            <label className="field">
+              <span>Invoice / Payment Reference</span>
+              <input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="e.g. INV-2026-001-NUV" />
+            </label>
+          </div>
+
+          <div className="row-fields">
+            <label className="field">
+              <span>Last Payment Date</span>
+              <input type="date" value={lastPaymentDate} onChange={(e) => setLastPaymentDate(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Next Renewal / Due Date</span>
+              <input type="date" value={nextBillingDate} onChange={(e) => setNextBillingDate(e.target.value)} />
+            </label>
+          </div>
+
+          <label className="field">
+            <span>Billing Address</span>
+            <input value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} placeholder="e.g. Level 2, Civic House, Suva, Fiji Islands" />
+          </label>
+
+          <label className="field">
+            <span>Billing Notes & Audit Trail</span>
+            <textarea
+              rows={2}
+              value={billingNotes}
+              onChange={(e) => setBillingNotes(e.target.value)}
+              placeholder="Internal accounts notes, bank reference or special billing terms..."
+            />
+          </label>
+
+          <div className="modal-actions">
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Saving…' : 'Save Billing Details'}
             </button>
           </div>
         </form>

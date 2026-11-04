@@ -841,6 +841,11 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
   color: #92400e;
   border: 1px solid #fde68a;
 }
+.badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
 .badge-neutral {
   background: #f1f5f9;
   color: #475569;
@@ -872,6 +877,15 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
   cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.15s;
+}
+.btn-tbl.billing {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+.btn-tbl.billing:hover {
+  background: #dcfce7;
+  border-color: #86efac;
 }
 .btn-tbl.edit {
   background: #f8fafc;

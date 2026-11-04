@@ -36,6 +36,45 @@ final class MeController
         return Http::json($res, ['twoFactorEnabled' => (bool) $enabled]);
     }
 
+    public function tenantBilling(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        if (empty($u['tenant_id'])) {
+            return Http::json($res, ['hasTenant' => false]);
+        }
+
+        $t = Db::one(
+            'SELECT t.*, p.name AS plan_name, p.price AS plan_price
+             FROM tenants t LEFT JOIN plans p ON p.id = t.plan_id WHERE t.id = ?',
+            [$u['tenant_id']]
+        );
+        if (!$t) {
+            return Http::json($res, ['hasTenant' => false]);
+        }
+
+        return Http::json($res, [
+            'hasTenant' => true,
+            'tenantId' => (int) $t['id'],
+            'companyName' => $t['name'],
+            'slug' => $t['slug'],
+            'planName' => $t['plan_name'] ?? 'Free',
+            'planPrice' => (float) ($t['plan_price'] ?? 0),
+            'billingName' => $t['billing_name'] ?? $t['name'],
+            'billingEmail' => $t['billing_email'] ?? $u['email'],
+            'billingAddress' => $t['billing_address'] ?? '',
+            'taxId' => $t['tax_id'] ?? '',
+            'paymentMethod' => $t['payment_method'] ?? 'bank_transfer',
+            'paymentStatus' => $t['payment_status'] ?? 'paid',
+            'billingCycle' => $t['billing_cycle'] ?? 'monthly',
+            'amount' => (float) ($t['amount'] ?? 0),
+            'currency' => $t['currency'] ?? 'FJD',
+            'lastPaymentDate' => $t['last_payment_date'],
+            'nextBillingDate' => $t['next_billing_date'],
+            'paymentReference' => $t['payment_reference'],
+            'billingNotes' => $t['billing_notes'],
+        ]);
+    }
+
     public function update(Request $req, Response $res): Response
     {
         $u = $req->getAttribute('user');

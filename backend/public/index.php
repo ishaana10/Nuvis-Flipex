@@ -93,6 +93,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $m->patch('', [MeController::class, 'update']);
         $m->put('/password', [MeController::class, 'changePassword']);
         $m->post('/two-factor', [MeController::class, 'toggleTwoFactor']);
+        $m->get('/tenant-billing', [MeController::class, 'tenantBilling']);
         $m->get('/sessions', [MeController::class, 'sessions']);
         $m->delete('/sessions/{id}', [MeController::class, 'revokeSession']);
         $m->delete('', [MeController::class, 'delete']);
@@ -112,6 +113,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $adm->get('/companies', [AdminController::class, 'companies']);
         $adm->post('/companies', [AdminController::class, 'createCompany']);
         $adm->patch('/companies/{id:[0-9]+}', [AdminController::class, 'updateCompany']);
+        $adm->put('/companies/{id:[0-9]+}/billing', [AdminController::class, 'updateCompanyBilling']);
         $adm->delete('/companies/{id:[0-9]+}', [AdminController::class, 'deleteCompany']);
 
         // Company Subscriptions & Plans

@@ -211,6 +211,19 @@ final class AdminController
             'usersCount' => (int) $r['users_count'],
             'flipbooksCount' => (int) $r['flipbooks_count'],
             'createdAt' => $r['created_at'],
+            'billingName' => $r['billing_name'] ?? $r['name'],
+            'billingEmail' => $r['billing_email'] ?? '',
+            'billingAddress' => $r['billing_address'] ?? '',
+            'taxId' => $r['tax_id'] ?? '',
+            'paymentMethod' => $r['payment_method'] ?? 'bank_transfer',
+            'paymentStatus' => $r['payment_status'] ?? 'paid',
+            'billingCycle' => $r['billing_cycle'] ?? 'monthly',
+            'amount' => (float) ($r['amount'] ?? 0),
+            'currency' => $r['currency'] ?? 'FJD',
+            'lastPaymentDate' => $r['last_payment_date'],
+            'nextBillingDate' => $r['next_billing_date'],
+            'paymentReference' => $r['payment_reference'],
+            'billingNotes' => $r['billing_notes'],
         ], $rows));
     }
 
@@ -275,6 +288,46 @@ final class AdminController
         Db::run(
             'UPDATE tenants SET name = ?, slug = ?, plan_id = ?, max_flipbooks = ?, max_storage_mb = ?, is_active = ? WHERE id = ?',
             [$name, $slug, $planId, $maxFlipbooks, $maxStorageMb, $isActive, $id]
+        );
+
+        return Http::json($res, ['ok' => true]);
+    }
+
+    /** Update Company Payment & Billing Details (Admin) */
+    public function updateCompanyBilling(Request $req, Response $res, array $args): Response
+    {
+        $id = (int) $args['id'];
+        $t = Db::one('SELECT id FROM tenants WHERE id = ?', [$id]);
+        if (!$t) {
+            return Http::error($res, 'Company not found', 404);
+        }
+
+        $b = (array) $req->getParsedBody();
+        $billingName = trim((string) ($b['billingName'] ?? ''));
+        $billingEmail = trim((string) ($b['billingEmail'] ?? ''));
+        $billingAddress = trim((string) ($b['billingAddress'] ?? ''));
+        $taxId = trim((string) ($b['taxId'] ?? ''));
+        $paymentMethod = in_array($b['paymentMethod'] ?? '', ['credit_card', 'bank_transfer', 'cheque', 'direct_debit', 'cash'], true) ? $b['paymentMethod'] : 'bank_transfer';
+        $paymentStatus = in_array($b['paymentStatus'] ?? '', ['paid', 'pending', 'overdue', 'trial', 'exempt'], true) ? $b['paymentStatus'] : 'paid';
+        $billingCycle = in_array($b['billingCycle'] ?? '', ['monthly', 'quarterly', 'annually'], true) ? $b['billingCycle'] : 'monthly';
+        $amount = (float) ($b['amount'] ?? 0);
+        $currency = strtoupper(trim((string) ($b['currency'] ?? 'FJD')));
+        $lastPaymentDate = !empty($b['lastPaymentDate']) ? $b['lastPaymentDate'] : null;
+        $nextBillingDate = !empty($b['nextBillingDate']) ? $b['nextBillingDate'] : null;
+        $paymentReference = trim((string) ($b['paymentReference'] ?? ''));
+        $billingNotes = trim((string) ($b['billingNotes'] ?? ''));
+
+        Db::run(
+            'UPDATE tenants SET billing_name = ?, billing_email = ?, billing_address = ?, tax_id = ?,
+                              payment_method = ?, payment_status = ?, billing_cycle = ?, amount = ?,
+                              currency = ?, last_payment_date = ?, next_billing_date = ?,
+                              payment_reference = ?, billing_notes = ? WHERE id = ?',
+            [
+                $billingName, $billingEmail, $billingAddress, $taxId,
+                $paymentMethod, $paymentStatus, $billingCycle, $amount,
+                $currency, $lastPaymentDate, $nextBillingDate,
+                $paymentReference, $billingNotes, $id
+            ]
         );
 
         return Http::json($res, ['ok' => true]);
