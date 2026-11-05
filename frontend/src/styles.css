@@ -244,32 +244,65 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
   box-shadow: 0 20px 40px rgba(0,0,0,0.5);
 }
 
-/* 3D Book Outline Frame and Center Spine Crease */
+/* 3D Book Outline Frame and Center Spine Crease (Heyzine-style soft depth & spine) */
 .stf-book-frame {
   position: absolute;
   pointer-events: none;
   z-index: 9;
-  border-radius: 2px;
+  border-radius: 3px;
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.45),
-    0 2px 10px rgba(0, 0, 0, 0.25),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    0 22px 48px -8px rgba(0, 0, 0, 0.36),
+    0 8px 20px -4px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .stf-spine-crease {
   position: absolute;
-  width: 36px;
+  width: 48px;
   transform: translateX(-50%);
   pointer-events: none;
   z-index: 10;
   background: linear-gradient(
     to right,
     transparent 0%,
-    rgba(0, 0, 0, 0.05) 25%,
-    rgba(0, 0, 0, 0.2) 48%,
-    rgba(0, 0, 0, 0.35) 50%,
-    rgba(0, 0, 0, 0.2) 52%,
-    rgba(0, 0, 0, 0.05) 75%,
+    rgba(0, 0, 0, 0.03) 20%,
+    rgba(0, 0, 0, 0.14) 45%,
+    rgba(0, 0, 0, 0.32) 50%,
+    rgba(255, 255, 255, 0.18) 52%,
+    rgba(0, 0, 0, 0.12) 56%,
+    rgba(0, 0, 0, 0.03) 80%,
+    transparent 100%
+  );
+}
+
+/* Closed Front Cover Magazine Binding Hinge on the Left Edge */
+.stf-spine-crease.is-cover {
+  width: 24px;
+  transform: none;
+  border-left: 1px solid rgba(15, 23, 42, 0.35);
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.32) 0%,
+    rgba(0, 0, 0, 0.12) 18%,
+    rgba(255, 255, 255, 0.35) 30%,
+    rgba(0, 0, 0, 0.14) 46%,
+    rgba(0, 0, 0, 0.04) 70%,
+    transparent 100%
+  );
+}
+
+/* Closed Back Cover Magazine Binding Hinge on the Right Edge */
+.stf-spine-crease.is-back-cover {
+  width: 24px;
+  transform: translateX(-100%);
+  border-right: 1px solid rgba(15, 23, 42, 0.35);
+  background: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0.32) 0%,
+    rgba(0, 0, 0, 0.12) 18%,
+    rgba(255, 255, 255, 0.35) 30%,
+    rgba(0, 0, 0, 0.14) 46%,
+    rgba(0, 0, 0, 0.04) 70%,
     transparent 100%
   );
 }
@@ -284,8 +317,166 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
 .hz-icon-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.08); }
 
 .hz-stage { flex: 1; width: 100%; height: 100%; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; padding: 8px 48px 50px 48px; }
-.hz-canvas-wrap { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+.hz-canvas-wrap { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 6; }
 .hz-flip-host { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+
+/* Heyzine-Style Left-Side Company & Disclaimer Overlay */
+.hz-side-disclaimer {
+  position: absolute;
+  top: 22px;
+  left: 32px;
+  max-width: 280px;
+  z-index: 4;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 1;
+}
+
+.hz-side-disclaimer.is-light-bg {
+  color: #1e293b;
+}
+
+.hz-side-disclaimer.is-dark-bg {
+  color: #f1f5f9;
+}
+
+.hz-side-disclaimer.is-flipped-transparent {
+  opacity: 0.22;
+}
+
+.hz-disclaimer-company {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.hz-disclaimer-subtitle {
+  margin: 0 0 14px 0;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.hz-disclaimer-heading {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.78;
+}
+
+.hz-disclaimer-body {
+  font-size: 11.5px;
+  line-height: 1.62;
+  white-space: pre-line;
+  opacity: 0.78;
+  text-align: justify;
+}
+
+/* Heyzine-Style Bottom-Left "Powered by Nuvis Flipex" Badge */
+.hz-powered-by-badge {
+  position: absolute;
+  bottom: 22px;
+  left: 32px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 1;
+}
+
+.hz-powered-by-badge.is-flipped-transparent {
+  opacity: 0.35;
+}
+
+.hz-powered-logo-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1.5px solid rgba(15, 23, 42, 0.16);
+  padding: 4px;
+}
+
+.hz-powered-by-badge.is-dark-bg .hz-powered-logo-box {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.hz-powered-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.hz-powered-vertical {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.65;
+  line-height: 1;
+}
+
+.hz-powered-by-badge.is-light-bg {
+  color: #0f172a;
+}
+
+.hz-powered-by-badge.is-dark-bg {
+  color: #f8fafc;
+}
+
+.hz-powered-brand-col {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.08;
+}
+
+.hz-powered-brand-main {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  background: linear-gradient(135deg, #FFF1A8 0%, #F5C542 25%, #E5A528 55%, #B8760E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #E5A528;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
+}
+
+.hz-powered-brand-sub {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0284c7;
+}
+
+.hz-powered-by-badge.is-dark-bg .hz-powered-brand-sub {
+  color: #38bdf8;
+}
+
+@media (max-width: 900px) {
+  .hz-side-disclaimer {
+    display: none;
+  }
+  .hz-powered-by-badge {
+    left: 14px;
+    bottom: 62px;
+    transform: scale(0.85);
+    transform-origin: bottom left;
+  }
+}
 
 /* Side Navigation Arrows (Heyzine style) */
 .hz-side-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 68px; border-radius: 8px; background: rgba(0,0,0,0.35); color: #fff; font-size: 32px; font-weight: 300; z-index: 15; cursor: pointer; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(4px); transition: all 0.2s; }

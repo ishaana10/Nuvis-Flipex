@@ -52,12 +52,14 @@ final class PublicController
         $seoMeta = !empty($f['seo_meta']) ? json_decode((string) $f['seo_meta'], true) : [];
         $pdfMetadata = !empty($f['pdf_metadata']) ? json_decode((string) $f['pdf_metadata'], true) : [];
         $toc = !empty($f['toc']) ? json_decode((string) $f['toc'], true) : [];
+        $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT name, slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
 
         $meta = [
             'id' => (int) $f['id'],
             'title' => $f['title'],
             'description' => $f['description'],
             'slug' => $f['slug'],
+            'tenantName' => $tenantRow['name'] ?? null,
             'version' => (int) ($f['version'] ?? 1),
             'workflowStatus' => $f['workflow_status'] ?? 'published',
             'isPreview' => $isPreview,

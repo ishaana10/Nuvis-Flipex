@@ -20,6 +20,7 @@ interface SeoMeta {
 interface PublicFlipbookData {
   title: string;
   description: string;
+  tenantName?: string;
   slug: string;
   version?: number;
   workflowStatus?: string;
@@ -195,6 +196,8 @@ export default function PublicViewer() {
       <FlipbookViewer
         pages={data.pages!}
         title={data.title}
+        description={data.description}
+        tenantName={data.tenantName}
         slug={data.slug}
         settings={data.settings}
         hotspots={data.hotspots}

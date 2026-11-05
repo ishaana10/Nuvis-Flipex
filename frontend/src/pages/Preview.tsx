@@ -11,6 +11,8 @@ import FlipbookViewer, {
 interface FlipbookDetails {
   id: number;
   title: string;
+  description?: string;
+  tenantName?: string;
   slug: string;
   settings?: ViewerSettings;
   toc?: TocItem[];
@@ -62,6 +64,8 @@ export default function Preview() {
       <FlipbookViewer
         pages={data.pages}
         title={data.title}
+        description={data.description}
+        tenantName={data.tenantName}
         slug={data.slug}
         settings={data.settings}
         hotspots={hotspots}

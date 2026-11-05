@@ -8,7 +8,19 @@ export interface FlipbookSettings {
   soundEnabled?: boolean;
   allowDownload?: boolean;
   brandText?: string;
+  companyName?: string;
+  catalogueSubtitle?: string;
+  disclaimerTitle?: string;
+  disclaimerText?: string;
+  showDisclaimer?: boolean;
+  showPoweredBy?: boolean;
 }
+
+const DEFAULT_DISCLAIMER = `This e-book catalogue is for informational purposes only. While we strive to provide accurate and up-to-date information, we make no guarantees about the completeness, accuracy, or reliability of the content. All products, pricing, and availability are subject to change without prior notice.
+
+We are not responsible for any loss or damage that may result from the use of or reliance on the information in this e-book.
+
+By accessing and using this e-book, you acknowledge and accept these terms.`;
 
 export default function CustomizationDialog({
   flipbook,
@@ -20,21 +32,30 @@ export default function CustomizationDialog({
   onSaved(): void;
 }) {
   const current = (flipbook as unknown as { settings?: FlipbookSettings }).settings || {};
-  const [background, setBackground] = useState(current.background || '#18191c');
+  const [background, setBackground] = useState(current.background || '#ffffff');
   const [defaultReadingMode, setDefaultReadingMode] = useState<'flip' | 'scroll' | 'reader'>(
     current.defaultReadingMode || 'flip'
   );
   const [soundEnabled, setSoundEnabled] = useState(current.soundEnabled ?? true);
   const [allowDownload, setAllowDownload] = useState(current.allowDownload ?? false);
   const [brandText, setBrandText] = useState(current.brandText || '');
+  const [companyName, setCompanyName] = useState(current.companyName || '');
+  const [catalogueSubtitle, setCatalogueSubtitle] = useState(current.catalogueSubtitle || flipbook.title || 'CATALOGUE');
+  const [disclaimerTitle, setDisclaimerTitle] = useState(current.disclaimerTitle || 'Disclaimer');
+  const [disclaimerText, setDisclaimerText] = useState(
+    current.disclaimerText !== undefined ? current.disclaimerText : DEFAULT_DISCLAIMER
+  );
+  const [showDisclaimer, setShowDisclaimer] = useState(current.showDisclaimer ?? true);
+  const [showPoweredBy, setShowPoweredBy] = useState(current.showPoweredBy ?? true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
   const themes = [
+    { name: 'Clean White', color: '#ffffff' },
+    { name: 'Light Gray', color: '#f1f5f9' },
+    { name: 'Warm Cream', color: '#fbf9f4' },
     { name: 'Dark Slate', color: '#18191c' },
     { name: 'Deep Midnight', color: '#0f172a' },
-    { name: 'Warm Cream', color: '#fbf9f4' },
-    { name: 'Light Gray', color: '#f1f5f9' },
     { name: 'Forest Dark', color: '#14281d' },
   ];
 
@@ -44,18 +65,25 @@ export default function CustomizationDialog({
     try {
       await api(`/flipbooks/${flipbook.id}`, 'PATCH', {
         settings: {
+          ...current,
           background,
           defaultReadingMode,
           soundEnabled,
           allowDownload,
           brandText,
+          companyName,
+          catalogueSubtitle,
+          disclaimerTitle,
+          disclaimerText,
+          showDisclaimer,
+          showPoweredBy,
         },
       });
       setMsg('Customization saved!');
       setTimeout(() => {
         onSaved();
         onClose();
-      }, 700);
+      }, 600);
     } catch (e: any) {
       setMsg(e.message || 'Failed to save');
     } finally {
@@ -65,8 +93,15 @@ export default function CustomizationDialog({
 
   return (
     <div className="modal" onClick={onClose}>
-      <div className="card custom-modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Customize Viewer: “{flipbook.title}”</h2>
+      <div
+        className="card custom-modal"
+        style={{ maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: '18px' }}>Customize Viewer: “{flipbook.title}”</h2>
+          <button type="button" className="link" onClick={onClose}>✕ Close</button>
+        </div>
 
         <div className="custom-section">
           <label className="field-label">Viewer Background Theme</label>
@@ -76,7 +111,11 @@ export default function CustomizationDialog({
                 key={t.color}
                 type="button"
                 className={`theme-chip ${background === t.color ? 'active' : ''}`}
-                style={{ background: t.color, color: t.color === '#fbf9f4' || t.color === '#f1f5f9' ? '#333' : '#fff' }}
+                style={{
+                  background: t.color,
+                  color: ['#ffffff', '#fbf9f4', '#f1f5f9'].includes(t.color) ? '#0f172a' : '#fff',
+                  border: background === t.color ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                }}
                 onClick={() => setBackground(t.color)}
               >
                 {t.name}
@@ -95,9 +134,85 @@ export default function CustomizationDialog({
           </div>
         </div>
 
+        {/* Left-Side Cover Disclaimer & Company Info (Heyzine Style) */}
+        <div className="custom-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <label className="field-label" style={{ marginBottom: 0 }}>
+              Left-Side Company Title & Disclaimer Block
+            </label>
+            <label className="toggle-label" style={{ fontSize: '13px' }}>
+              <input
+                type="checkbox"
+                checked={showDisclaimer}
+                onChange={(e) => setShowDisclaimer(e.target.checked)}
+              />
+              <span>Show on Reader Stage</span>
+            </label>
+          </div>
+          <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#64748b' }}>
+            Displayed on the top-left of the viewer when on the Front Cover, and becomes semi-transparent when pages are flipped.
+          </p>
+
+          {showDisclaimer && (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <label className="field" style={{ marginBottom: 0 }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Company / Tenant Heading</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. MANNAT INVESTMENTS PTE LTD"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                  />
+                </label>
+                <label className="field" style={{ marginBottom: 0 }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Publication Subtitle</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. CATALOGUE"
+                    value={catalogueSubtitle}
+                    onChange={(e) => setCatalogueSubtitle(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <label className="field" style={{ marginBottom: 0 }}>
+                <span style={{ fontSize: '12px', fontWeight: 600 }}>Disclaimer Heading</span>
+                <input
+                  type="text"
+                  placeholder="Disclaimer"
+                  value={disclaimerTitle}
+                  onChange={(e) => setDisclaimerTitle(e.target.value)}
+                />
+              </label>
+
+              <label className="field" style={{ marginBottom: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Disclaimer Text</span>
+                  <button
+                    type="button"
+                    className="link"
+                    style={{ fontSize: '11px' }}
+                    onClick={() => setDisclaimerText(DEFAULT_DISCLAIMER)}
+                  >
+                    Insert Standard Catalogue Disclaimer
+                  </button>
+                </div>
+                <textarea
+                  rows={5}
+                  value={disclaimerText}
+                  onChange={(e) => setDisclaimerText(e.target.value)}
+                  placeholder="Enter legal disclaimer or reader notice..."
+                  style={{ fontSize: '12px', lineHeight: 1.45 }}
+                />
+              </label>
+            </div>
+          )}
+        </div>
+
         <div className="custom-section">
           <label className="field-label">Default Reading Experience Mode</label>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
             {[
               { id: 'flip', label: '📖 3D Page-Turn Flipbook' },
               { id: 'scroll', label: '📜 Vertical Continuous Scroll' },
@@ -109,8 +224,8 @@ export default function CustomizationDialog({
                 onClick={() => setDefaultReadingMode(m.id as 'flip' | 'scroll' | 'reader')}
                 className={`theme-chip ${defaultReadingMode === m.id ? 'active' : ''}`}
                 style={{
-                  background: defaultReadingMode === m.id ? '#f59e0b' : '#f1f5f9',
-                  color: defaultReadingMode === m.id ? '#0f172a' : '#334155',
+                  background: defaultReadingMode === m.id ? '#0284c7' : '#f1f5f9',
+                  color: defaultReadingMode === m.id ? '#ffffff' : '#334155',
                   fontWeight: 600,
                 }}
               >
@@ -120,7 +235,15 @@ export default function CustomizationDialog({
           </div>
         </div>
 
-        <div className="custom-section">
+        <div className="custom-section" style={{ display: 'grid', gap: '8px' }}>
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={showPoweredBy}
+              onChange={(e) => setShowPoweredBy(e.target.checked)}
+            />
+            <span><b>Show Bottom-Left “Powered by Nuvis Flipex” Logo Badge</b></span>
+          </label>
           <label className="toggle-label">
             <input
               type="checkbox"
@@ -129,9 +252,6 @@ export default function CustomizationDialog({
             />
             <span><b>Page Turn Sound Effect</b> (Realistic paper rustle audio)</span>
           </label>
-        </div>
-
-        <div className="custom-section">
           <label className="toggle-label">
             <input
               type="checkbox"
@@ -143,18 +263,18 @@ export default function CustomizationDialog({
         </div>
 
         <div className="custom-section">
-          <label className="field">
-            <span>Brand / Magazine Watermark Text (Optional)</span>
+          <label className="field" style={{ marginBottom: 0 }}>
+            <span>Header Brand / Watermark Text (Optional)</span>
             <input
               type="text"
-              placeholder="e.g. Published by My Company"
+              placeholder="e.g. Nuvis Flipex"
               value={brandText}
               onChange={(e) => setBrandText(e.target.value)}
             />
           </label>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '12px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '4px' }}>
           <button onClick={save} disabled={saving} className="btn-primary">
             {saving ? 'Saving…' : 'Save Changes'}
           </button>

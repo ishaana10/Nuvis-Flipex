@@ -38,11 +38,19 @@ export interface ViewerSettings {
   soundEnabled?: boolean;
   allowDownload?: boolean;
   brandText?: string;
+  companyName?: string;
+  catalogueSubtitle?: string;
+  disclaimerTitle?: string;
+  disclaimerText?: string;
+  showDisclaimer?: boolean;
+  showPoweredBy?: boolean;
 }
 
 interface ViewerProps {
   pages: PageInfo[];
   title?: string;
+  description?: string;
+  tenantName?: string;
   slug?: string;
   settings?: ViewerSettings;
   hotspots?: Record<number, ViewerHotspot[]>;
@@ -54,6 +62,7 @@ interface ViewerProps {
 }
 
 const VIEWER_THEMES: Record<string, { name: string; bg: string; barBg: string; text: string }> = {
+  white: { name: 'Clean White', bg: '#ffffff', barBg: 'rgba(15, 23, 42, 0.88)', text: '#0f172a' },
   obsidian: { name: 'Obsidian Gold', bg: '#18191c', barBg: 'rgba(15, 23, 42, 0.88)', text: '#f8fafc' },
   midnight: { name: 'Midnight Slate', bg: '#0f172a', barBg: 'rgba(2, 6, 23, 0.9)', text: '#f8fafc' },
   cream: { name: 'Warm Ivory', bg: '#f6f3ec', barBg: 'rgba(28, 25, 23, 0.86)', text: '#1c1917' },
@@ -64,6 +73,8 @@ const VIEWER_THEMES: Record<string, { name: string; bg: string; barBg: string; t
 export default function FlipbookViewer({
   pages,
   title,
+  description,
+  tenantName,
   slug,
   settings = {},
   hotspots = {},
@@ -431,10 +442,12 @@ export default function FlipbookViewer({
     let leftEdge = left;
     let rightEdge = left + width;
 
+    const isBackSingle = orientation === 'landscape' && totalPages > 1 && pageIdx >= totalPages - 1 && totalPages % 2 === 0;
+
     if (orientation === 'landscape' && pageIdx === 0) {
       leftEdge = left + pageWidth;
       rightEdge = left + width;
-    } else if (orientation === 'landscape' && pageIdx >= totalPages - 1) {
+    } else if (isBackSingle) {
       leftEdge = left;
       rightEdge = left + pageWidth;
     } else if (orientation === 'portrait') {
@@ -454,11 +467,17 @@ export default function FlipbookViewer({
       bookFrame.style.display = 'none';
     }
 
-    if (orientation === 'landscape' && pageIdx > 0 && pageIdx < totalPages - 1) {
+    if (orientation === 'landscape') {
       spineCrease.style.display = 'block';
       spineCrease.style.left = `${Math.round(left + pageWidth)}px`;
       spineCrease.style.top = `${Math.round(top)}px`;
       spineCrease.style.height = `${Math.round(height)}px`;
+      spineCrease.classList.remove('is-cover', 'is-back-cover');
+      if (pageIdx === 0) {
+        spineCrease.classList.add('is-cover');
+      } else if (isBackSingle) {
+        spineCrease.classList.add('is-back-cover');
+      }
     } else {
       spineCrease.style.display = 'none';
     }
@@ -540,6 +559,10 @@ export default function FlipbookViewer({
       startPage: current,
     });
 
+    pf.loadFromImages(pages.map((p) => p.image));
+
+    // Patch CanvasRenderer after loadFromImages creates `pf.render` so transparent background is preserved
+    // and the bound magazine spine crease is drawn on the cover's left binding edge as well as open spreads.
     const render = (pf as any).getRender?.();
     if (render) {
       render.clear = function () {
@@ -547,9 +570,54 @@ export default function FlipbookViewer({
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
       };
+      const origDrawBookShadow = render.drawBookShadow?.bind(render);
+      if (origDrawBookShadow) {
+        render.drawBookShadow = function () {
+          if ((this.leftPage && this.rightPage) || this.flippingPage) {
+            origDrawBookShadow();
+          } else if (this.rightPage && !this.leftPage && this.ctx) {
+            // Closed Front Cover: draw realistic magazine binding hinge & spine groove along the left edge of the cover
+            const t = this.getRect();
+            const spineW = Math.max(18, t.pageWidth / 22);
+            const startX = t.left + t.pageWidth;
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.rect(startX, t.top, spineW, t.height);
+            this.ctx.clip();
+            const grad = this.ctx.createLinearGradient(startX, 0, startX + spineW, 0);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0.34)');
+            grad.addColorStop(0.14, 'rgba(0, 0, 0, 0.14)');
+            grad.addColorStop(0.26, 'rgba(255, 255, 255, 0.32)');
+            grad.addColorStop(0.42, 'rgba(0, 0, 0, 0.11)');
+            grad.addColorStop(0.65, 'rgba(0, 0, 0, 0.03)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            this.ctx.fillStyle = grad;
+            this.ctx.fillRect(startX, t.top, spineW, t.height);
+            this.ctx.restore();
+          } else if (this.leftPage && !this.rightPage && this.ctx) {
+            // Closed Back Cover: draw realistic magazine binding hinge & spine groove along the right edge of the back cover
+            const t = this.getRect();
+            const spineW = Math.max(18, t.pageWidth / 22);
+            const endX = t.left + t.pageWidth;
+            const startX = endX - spineW;
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.rect(startX, t.top, spineW, t.height);
+            this.ctx.clip();
+            const grad = this.ctx.createLinearGradient(startX, 0, endX, 0);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.03)');
+            grad.addColorStop(0.58, 'rgba(0, 0, 0, 0.11)');
+            grad.addColorStop(0.74, 'rgba(255, 255, 255, 0.32)');
+            grad.addColorStop(0.86, 'rgba(0, 0, 0, 0.14)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0.34)');
+            this.ctx.fillStyle = grad;
+            this.ctx.fillRect(startX, t.top, spineW, t.height);
+            this.ctx.restore();
+          }
+        };
+      }
     }
-
-    pf.loadFromImages(pages.map((p) => p.image));
 
     pf.on('flip', (e) => {
       const pageIdx = e.data as number;
@@ -1197,6 +1265,65 @@ export default function FlipbookViewer({
             cursor: zoom > 1 ? (isDraggingState ? 'grabbing' : 'grab') : 'default',
           }}
         >
+          {/* Left-Side Company Heading, Subtitle & Disclaimer Overlay (Heyzine Style) */}
+          {(() => {
+            const isLightStage = ['#ffffff', '#fbf9f4', '#f6f3ec', '#f1f5f9', '#e2e8f0', '#f8fafc'].includes(
+              (activeBg || '').toLowerCase()
+            );
+            const showDisclaimerBlock = settings.showDisclaimer !== false;
+            const companyHeading = (settings.companyName || tenantName || title || 'NUVIS FLIPEX').toUpperCase();
+            const subtitleHeading = (settings.catalogueSubtitle || (settings.companyName || tenantName ? title : 'CATALOGUE') || 'CATALOGUE').toUpperCase();
+            const discTitle = settings.disclaimerTitle || 'Disclaimer';
+            const defaultDiscText = `This e-book catalogue is for informational purposes only. While ${
+              settings.companyName || tenantName || 'the publisher'
+            } strives to provide accurate and up-to-date information, we make no guarantees about the completeness, accuracy, or reliability of the content. All products, pricing, and availability are subject to change without prior notice.\n\n${
+              settings.companyName || tenantName || 'The publisher'
+            } is not responsible for any loss or damage that may result from the use of or reliance on the information in this e-book.\n\nBy accessing and using this e-book, you acknowledge and accept these terms.`;
+            const discBody =
+              settings.disclaimerText !== undefined && settings.disclaimerText.trim() !== ''
+                ? settings.disclaimerText
+                : description && description.trim() !== ''
+                  ? description
+                  : defaultDiscText;
+
+            const isFlippedOpen = current > 0;
+
+            return (
+              <>
+                {showDisclaimerBlock && (
+                  <aside
+                    className={`hz-side-disclaimer ${isLightStage ? 'is-light-bg' : 'is-dark-bg'} ${
+                      isFlippedOpen ? 'is-flipped-transparent' : ''
+                    }`}
+                    aria-label="Publication Disclaimer"
+                  >
+                    <h2 className="hz-disclaimer-company">{companyHeading}</h2>
+                    {subtitleHeading && <div className="hz-disclaimer-subtitle">{subtitleHeading}</div>}
+                    {discTitle && <div className="hz-disclaimer-heading">{discTitle}</div>}
+                    <div className="hz-disclaimer-body">{discBody}</div>
+                  </aside>
+                )}
+
+                {settings.showPoweredBy !== false && (
+                  <div
+                    className={`hz-powered-by-badge ${isLightStage ? 'is-light-bg' : 'is-dark-bg'} ${
+                      isFlippedOpen ? 'is-flipped-transparent' : ''
+                    }`}
+                  >
+                    <div className="hz-powered-logo-box">
+                      <img src="/logo.png" alt="Nuvis Flipex" className="hz-powered-logo-img" />
+                    </div>
+                    <span className="hz-powered-vertical">Powered by</span>
+                    <div className="hz-powered-brand-col">
+                      <span className="hz-powered-brand-main">Nuvis</span>
+                      <span className="hz-powered-brand-sub">Flipex</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
           <button
             className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''}`}
             onClick={prev}
@@ -1222,103 +1349,126 @@ export default function FlipbookViewer({
             </div>
           )}
 
-          <div
-            className="hz-canvas-wrap"
-            style={{
-              aspectRatio: mode === 'landscape' ? `${spreadAspect}` : `${singleWidth / singleHeight}`,
-              transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
-              transformOrigin: 'center center',
-              transition: isDraggingState ? 'none' : 'transform 0.15s ease-out',
-            }}
-          >
-            <div
-              ref={host}
-              className="hz-flip-host"
-              style={{
-                pointerEvents: zoom > 1 ? 'none' : 'auto',
-              }}
-            />
+          {(() => {
+            // Heyzine-style cover centering:
+            // In landscape mode with showCover: true:
+            // - Front cover (current === 0) is drawn by PageFlip on the right half (+pageWidth/2 from center),
+            //   so we shift left by -pageWidth/2 to place the single front cover dead-center!
+            // - Back cover (current === total - 1 when even page count) is drawn on the left half (-pageWidth/2 from center),
+            //   so we shift right by +pageWidth/2 to place the single back cover dead-center!
+            // - Only shift when `current` actually changes (not on hover/fold_corner), preventing any hover jitter!
+            const pageW = bookBounds?.pageWidth || 0;
+            let coverCenterOffsetX = 0;
+            if (mode === 'landscape' && pageW > 0) {
+              if (current === 0) {
+                coverCenterOffsetX = -Math.round(pageW / 2);
+              } else if (total > 1 && current >= total - 1 && total % 2 === 0) {
+                coverCenterOffsetX = Math.round(pageW / 2);
+              }
+            }
 
-            {/* On-Demand High-Resolution Zoom Layer (Active when zoom > 1.25) */}
-            {ready && zoom > 1.25 && bookBounds && (
+            return (
               <div
-                className="pointer-events-none absolute z-10 overflow-hidden"
+                className="hz-canvas-wrap"
                 style={{
-                  left: `${Math.round(
-                    mode === 'landscape' && current === 0
-                      ? bookBounds.left + bookBounds.pageWidth
-                      : bookBounds.left
-                  )}px`,
-                  top: `${Math.round(bookBounds.top)}px`,
-                  width: `${Math.round(
-                    mode === 'portrait' ||
-                      (mode === 'landscape' && (current === 0 || current >= total - 1))
-                      ? bookBounds.pageWidth
-                      : bookBounds.width
-                  )}px`,
-                  height: `${Math.round(bookBounds.height)}px`,
-                  display: 'flex',
+                  aspectRatio: mode === 'landscape' ? `${spreadAspect}` : `${singleWidth / singleHeight}`,
+                  transform: `translate3d(${pan.x + coverCenterOffsetX}px, ${pan.y}px, 0) scale(${zoom})`,
+                  transformOrigin: 'center center',
+                  transition: isDraggingState
+                    ? 'none'
+                    : 'transform 0.42s cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
               >
-                {mode === 'portrait' || current === 0 || current >= total - 1 ? (
-                  pages[current] && hdLoadedPages[pages[current].n] ? (
-                    <img
-                      src={hdLoadedPages[pages[current].n]}
-                      alt={`HD Page ${pages[current].n}`}
-                      className="h-full w-full object-fill select-none"
-                      draggable={false}
-                    />
-                  ) : null
-                ) : (
-                  <>
-                    <div className="h-full w-1/2 overflow-hidden">
-                      {pages[current] && hdLoadedPages[pages[current].n] && (
+                <div
+                  ref={host}
+                  className="hz-flip-host"
+                  style={{
+                    pointerEvents: zoom > 1 ? 'none' : 'auto',
+                  }}
+                />
+
+                {/* On-Demand High-Resolution Zoom Layer (Active when zoom > 1.25) */}
+                {ready && zoom > 1.25 && bookBounds && (
+                  <div
+                    className="pointer-events-none absolute z-10 overflow-hidden"
+                    style={{
+                      left: `${Math.round(
+                        mode === 'landscape' && current === 0
+                          ? bookBounds.left + bookBounds.pageWidth
+                          : bookBounds.left
+                      )}px`,
+                      top: `${Math.round(bookBounds.top)}px`,
+                      width: `${Math.round(
+                        mode === 'portrait' ||
+                          (mode === 'landscape' && (current === 0 || (current >= total - 1 && total % 2 === 0)))
+                          ? bookBounds.pageWidth
+                          : bookBounds.width
+                      )}px`,
+                      height: `${Math.round(bookBounds.height)}px`,
+                      display: 'flex',
+                    }}
+                  >
+                    {mode === 'portrait' || current === 0 || (current >= total - 1 && total % 2 === 0) ? (
+                      pages[current] && hdLoadedPages[pages[current].n] ? (
                         <img
                           src={hdLoadedPages[pages[current].n]}
                           alt={`HD Page ${pages[current].n}`}
                           className="h-full w-full object-fill select-none"
                           draggable={false}
                         />
-                      )}
-                    </div>
-                    <div className="h-full w-1/2 overflow-hidden">
-                      {pages[current + 1] && hdLoadedPages[pages[current + 1].n] && (
-                        <img
-                          src={hdLoadedPages[pages[current + 1].n]}
-                          alt={`HD Page ${pages[current + 1].n}`}
-                          className="h-full w-full object-fill select-none"
-                          draggable={false}
-                        />
-                      )}
-                    </div>
-                  </>
+                      ) : null
+                    ) : (
+                      <>
+                        <div className="h-full w-1/2 overflow-hidden">
+                          {pages[current] && hdLoadedPages[pages[current].n] && (
+                            <img
+                              src={hdLoadedPages[pages[current].n]}
+                              alt={`HD Page ${pages[current].n}`}
+                              className="h-full w-full object-fill select-none"
+                              draggable={false}
+                            />
+                          )}
+                        </div>
+                        <div className="h-full w-1/2 overflow-hidden">
+                          {pages[current + 1] && hdLoadedPages[pages[current + 1].n] && (
+                            <img
+                              src={hdLoadedPages[pages[current + 1].n]}
+                              alt={`HD Page ${pages[current + 1].n}`}
+                              className="h-full w-full object-fill select-none"
+                              draggable={false}
+                            />
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Interactive Hotspots Layer */}
+                {ready && activeHotspots.length > 0 && (
+                  <div className="hz-hotspots-layer">
+                    {activeHotspots.map((h) => (
+                      <div
+                        key={h.id}
+                        className={`reader-hotspot ${h.type}`}
+                        style={{
+                          left: `${h.x}%`,
+                          top: `${h.y}%`,
+                          width: `${h.w}%`,
+                          height: `${h.h}%`,
+                        }}
+                        onClick={() => handleHotspotClick(h, current + 1)}
+                        title={h.payload.title || (h.type === 'video' ? 'Watch Video' : 'Open Link')}
+                      >
+                        <span className="hotspot-icon">{h.type === 'video' ? '▶' : '🔗'}</span>
+                        {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            )}
-
-            {/* Interactive Hotspots Layer */}
-            {ready && activeHotspots.length > 0 && (
-              <div className="hz-hotspots-layer">
-                {activeHotspots.map((h) => (
-                  <div
-                    key={h.id}
-                    className={`reader-hotspot ${h.type}`}
-                    style={{
-                      left: `${h.x}%`,
-                      top: `${h.y}%`,
-                      width: `${h.w}%`,
-                      height: `${h.h}%`,
-                    }}
-                    onClick={() => handleHotspotClick(h, current + 1)}
-                    title={h.payload.title || (h.type === 'video' ? 'Watch Video' : 'Open Link')}
-                  >
-                    <span className="hotspot-icon">{h.type === 'video' ? '▶' : '🔗'}</span>
-                    {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            );
+          })()}
         </div>
       )}
 

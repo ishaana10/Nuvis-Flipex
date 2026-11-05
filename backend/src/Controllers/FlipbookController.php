@@ -1130,12 +1130,14 @@ final class FlipbookController
 
         $workflowStatus = $f['workflow_status'] ?? ($f['published_at'] !== null ? 'published' : ($f['status'] === 'ready' ? 'editing' : 'processing'));
         $previewToken = Storage::generatePreviewToken((string) $f['slug'], 14400);
+        $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT name, slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
 
         return [
             'id' => (int) $f['id'],
             'title' => $f['title'],
             'description' => $f['description'],
             'slug' => $f['slug'],
+            'tenantName' => $tenantRow['name'] ?? null,
             'status' => $f['status'],
             'workflowStatus' => $workflowStatus,
             'version' => (int) ($f['version'] ?? 1),
