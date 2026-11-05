@@ -20,6 +20,10 @@ final class Auth implements MiddlewareInterface
     {
         $token = null;
         $header = $req->getHeaderLine('Authorization');
+        if ($header === '') {
+            $serverParams = $req->getServerParams();
+            $header = (string) ($serverParams['HTTP_AUTHORIZATION'] ?? $serverParams['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+        }
         $apiKeyHeader = trim($req->getHeaderLine('X-API-Key'));
 
         if ($apiKeyHeader !== '') {

@@ -173,6 +173,49 @@ npm.cmd run dev
 
 ---
 
+## 3B. A2 Hosting / cPanel CloudLinux Deployment Guide (`flipex.ict-fj.com`)
+
+When deploying on **A2 Hosting** (or any cPanel / CloudLinux server where the repository is placed directly inside your subdomain folder, e.g. `/home/ictfjcom/flipex.ict-fj.com`):
+
+### Step 3B.1: Pull the Latest Repository
+
+The repository includes a pre-built production bundle (`frontend/dist`) and a root `.htaccess` router, so **you do NOT need to run `npm install` or `npm run build` on A2 Hosting** (which avoids A2 Hosting's legacy default `/usr/bin/node` v10.24.0 issue).
+
+```bash
+cd /home/ictfjcom/flipex.ict-fj.com
+git pull origin main
+```
+
+### Step 3B.2: Install Backend Dependencies & Run the Self-Healing Installer
+
+```bash
+cd /home/ictfjcom/flipex.ict-fj.com/backend
+composer install --no-dev --optimize-autoloader
+php bin/install.php
+```
+
+What `php bin/install.php` now does automatically:
+1. Detects Ghostscript (`/usr/bin/gs`) and PHP `imagick`.
+2. Creates all tables from `database/schema.sql` **and automatically adds any missing columns (`tenant_id`, etc.)** if an older table already existed in your MySQL database.
+3. Provisions your corporate tenant workspace and Super Administrator login (`nilesh@nuvistechnologies.com.fj`) and prints your generated password.
+
+*(Optional)* If you ever want to build the frontend directly on A2 Hosting SSH instead of using the pre-built `frontend/dist`, activate CloudLinux's Node 20 binary first:
+```bash
+export PATH=/opt/alt/alt-nodejs20/root/usr/bin:$PATH
+node -v   # Should show v20.x.x (instead of v10.24.0)
+cd /home/ictfjcom/flipex.ict-fj.com/frontend
+npm install && npm run build
+```
+
+### Step 3B.3: Add cPanel Cron Job for PDF Background Conversion
+
+In **cPanel → Cron Jobs**, add a per-minute cron job to process uploaded PDFs:
+```cron
+* * * * * /usr/local/bin/php /home/ictfjcom/flipex.ict-fj.com/backend/bin/worker.php --once >/dev/null 2>&1
+```
+
+---
+
 ## 4. Linux / Ubuntu Production Setup Guide
 
 Target: Ubuntu 22.04 LTS or 24.04 LTS.

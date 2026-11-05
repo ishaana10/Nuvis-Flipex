@@ -1,0 +1,44 @@
+# ==============================================================================
+# Nuvis Flipex — Root Apache / LiteSpeed Routing (cPanel / A2 Hosting)
+# ==============================================================================
+# Place the repository directly in your domain root (e.g. /home/ictfjcom/flipex.ict-fj.com)
+# This .htaccess automatically routes:
+#   1. /api/v1/*       -> backend/public/index.php (PHP Slim API Gateway)
+#   2. /storage/*      -> 403 Forbidden (Strict Tenant Storage Protection)
+#   3. Static Assets   -> frontend/dist/* (Pre-built React SPA bundle)
+#   4. SPA Deep Links  -> frontend/dist/index.html
+# ==============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Pass Authorization header through CGI/FastCGI/LSAPI on cPanel / A2 Hosting
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # 1. Block direct HTTP access to internal storage & sensitive directories
+    RewriteRule ^backend/storage/ - [F,L]
+    RewriteRule ^storage/ - [F,L]
+    RewriteRule ^backend/(\.env|composer\.(json|lock)|phpunit\.xml|src/|bin/|database/|tests/|vendor/) - [F,L]
+
+    # 2. Route all /api/* requests to the PHP Slim API Gateway
+    RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
+
+    # 3. Serve existing files directly if present in root
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # 4. Serve static assets from frontend/dist/ (CSS, JS, images, favicon, etc.)
+    RewriteCond %{DOCUMENT_ROOT}/frontend/dist/%{REQUEST_URI} -f
+    RewriteRule ^(.*)$ frontend/dist/$1 [L]
+
+    # 5. SPA Fallback: Route all client-side React routes (/login, /dashboard, /v/*, /devops, etc.) to frontend/dist/index.html
+    RewriteRule ^ frontend/dist/index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

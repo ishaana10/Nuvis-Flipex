@@ -95,14 +95,121 @@ try {
 
 $schemaFile = __DIR__ . '/../database/schema.sql';
 if (file_exists($schemaFile)) {
-    $sql = file_get_contents($schemaFile);
+    $sql = str_replace("\r\n", "\n", (string) file_get_contents($schemaFile));
     foreach (array_filter(array_map('trim', explode(";\n", $sql))) as $stmt) {
         if ($stmt !== '') {
-            $pdo->exec($stmt);
+            try {
+                $pdo->exec($stmt);
+            } catch (\Throwable $e) {
+                fwrite(STDERR, "  ! SQL notice: " . $e->getMessage() . "\n");
+            }
         }
     }
-    echo "Database schema & subscription tiers applied.\n";
 }
+
+// 3b. Auto-upgrade existing tables if an older schema was previously imported on this database
+function ensureColumnExists(\PDO $pdo, string $table, string $column, string $definition): void {
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $stmt->execute([$table, $column]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+            echo "  + Added missing column {$table}.{$column}\n";
+        }
+    } catch (\Throwable) {
+        // Ignore if table not created yet
+    }
+}
+
+// Ensure all multi-tenant and enterprise columns exist across existing tables
+ensureColumnExists($pdo, 'users', 'tenant_id', 'BIGINT UNSIGNED NULL AFTER id');
+ensureColumnExists($pdo, 'users', 'avatar_path', 'VARCHAR(255) NULL AFTER name');
+ensureColumnExists($pdo, 'users', 'tenant_role', "ENUM('owner','admin','editor','viewer') NOT NULL DEFAULT 'editor' AFTER role");
+ensureColumnExists($pdo, 'users', 'status', "ENUM('active','suspended') NOT NULL DEFAULT 'active' AFTER plan_id");
+ensureColumnExists($pdo, 'users', 'two_factor_enabled', 'TINYINT(1) NOT NULL DEFAULT 0');
+ensureColumnExists($pdo, 'users', 'two_factor_method', "ENUM('email','totp') NOT NULL DEFAULT 'email'");
+ensureColumnExists($pdo, 'users', 'totp_secret', 'VARCHAR(64) NULL');
+ensureColumnExists($pdo, 'users', 'two_factor_code', 'VARCHAR(10) NULL');
+ensureColumnExists($pdo, 'users', 'two_factor_expires_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'users', 'failed_login_attempts', 'INT NOT NULL DEFAULT 0');
+ensureColumnExists($pdo, 'users', 'lockout_until', 'DATETIME NULL');
+ensureColumnExists($pdo, 'users', 'last_login_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'users', 'deleted_at', 'DATETIME NULL');
+
+ensureColumnExists($pdo, 'tenants', 'auto_renew', 'TINYINT(1) NOT NULL DEFAULT 1');
+ensureColumnExists($pdo, 'tenants', 'grace_period_days', 'INT UNSIGNED NOT NULL DEFAULT 7');
+ensureColumnExists($pdo, 'tenants', 'tax_rate', 'DECIMAL(5,2) NOT NULL DEFAULT 15.00');
+ensureColumnExists($pdo, 'tenants', 'payment_gateway', "VARCHAR(50) NOT NULL DEFAULT 'bank_transfer_fiji'");
+ensureColumnExists($pdo, 'tenants', 'gateway_customer_id', 'VARCHAR(120) NULL');
+ensureColumnExists($pdo, 'tenants', 'storage_used_mb', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+ensureColumnExists($pdo, 'tenants', 'bandwidth_used_mb', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+ensureColumnExists($pdo, 'tenants', 'suspended_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'tenants', 'suspension_reason', 'VARCHAR(255) NULL');
+
+ensureColumnExists($pdo, 'folders', 'tenant_id', 'BIGINT UNSIGNED NULL AFTER id');
+ensureColumnExists($pdo, 'flipbooks', 'tenant_id', 'BIGINT UNSIGNED NULL AFTER id');
+ensureColumnExists($pdo, 'flipbooks', 'category_id', 'BIGINT UNSIGNED NULL');
+ensureColumnExists($pdo, 'flipbooks', 'collection_id', 'BIGINT UNSIGNED NULL');
+ensureColumnExists($pdo, 'flipbooks', 'workflow_status', "ENUM('draft','processing','editing','in_review','scheduled','published','archived') NOT NULL DEFAULT 'draft'");
+ensureColumnExists($pdo, 'flipbooks', 'version', 'INT UNSIGNED NOT NULL DEFAULT 1');
+ensureColumnExists($pdo, 'flipbooks', 'pdf_metadata', 'JSON NULL');
+ensureColumnExists($pdo, 'flipbooks', 'seo_meta', 'JSON NULL');
+ensureColumnExists($pdo, 'flipbooks', 'toc', 'JSON NULL');
+ensureColumnExists($pdo, 'flipbooks', 'conversion_progress', 'TINYINT UNSIGNED NOT NULL DEFAULT 0');
+ensureColumnExists($pdo, 'flipbooks', 'conversion_step', 'VARCHAR(150) NULL');
+ensureColumnExists($pdo, 'flipbooks', 'conversion_error', 'TEXT NULL');
+ensureColumnExists($pdo, 'flipbooks', 'review_notes', 'TEXT NULL');
+ensureColumnExists($pdo, 'flipbooks', 'reviewed_by', 'BIGINT UNSIGNED NULL');
+ensureColumnExists($pdo, 'flipbooks', 'reviewed_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'flipbooks', 'scheduled_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'flipbooks', 'expires_at', 'DATETIME NULL');
+
+ensureColumnExists($pdo, 'pages', 'high_res_path', 'VARCHAR(255) NULL AFTER image_path');
+ensureColumnExists($pdo, 'pages', 'webp_path', 'VARCHAR(255) NULL AFTER high_res_path');
+ensureColumnExists($pdo, 'pages', 'avif_path', 'VARCHAR(255) NULL AFTER webp_path');
+
+ensureColumnExists($pdo, 'views', 'session_id', 'VARCHAR(64) NULL AFTER visitor_hash');
+ensureColumnExists($pdo, 'views', 'duration_seconds', 'INT UNSIGNED NOT NULL DEFAULT 0');
+ensureColumnExists($pdo, 'views', 'pages_viewed', 'INT UNSIGNED NOT NULL DEFAULT 1');
+ensureColumnExists($pdo, 'views', 'max_page_reached', 'INT UNSIGNED NOT NULL DEFAULT 1');
+ensureColumnExists($pdo, 'views', 'completed', 'TINYINT(1) NOT NULL DEFAULT 0');
+ensureColumnExists($pdo, 'views', 'utm_source', 'VARCHAR(100) NULL');
+ensureColumnExists($pdo, 'views', 'utm_medium', 'VARCHAR(100) NULL');
+ensureColumnExists($pdo, 'views', 'utm_campaign', 'VARCHAR(100) NULL');
+ensureColumnExists($pdo, 'views', 'utm_term', 'VARCHAR(100) NULL');
+ensureColumnExists($pdo, 'views', 'utm_content', 'VARCHAR(100) NULL');
+
+ensureColumnExists($pdo, 'api_keys', 'tenant_id', 'BIGINT UNSIGNED NULL AFTER id');
+ensureColumnExists($pdo, 'api_keys', 'key_prefix', "VARCHAR(24) NOT NULL DEFAULT 'nvf_live_'");
+ensureColumnExists($pdo, 'api_keys', 'scopes', 'JSON NULL');
+ensureColumnExists($pdo, 'api_keys', 'last_used_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'api_keys', 'last_used_ip', 'VARCHAR(64) NULL');
+ensureColumnExists($pdo, 'api_keys', 'expires_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'api_keys', 'revoked_at', 'DATETIME NULL');
+
+ensureColumnExists($pdo, 'jobs', 'tenant_id', 'BIGINT UNSIGNED NULL AFTER id');
+ensureColumnExists($pdo, 'jobs', 'flipbook_id', 'BIGINT UNSIGNED NULL AFTER tenant_id');
+ensureColumnExists($pdo, 'jobs', 'status', "ENUM('queued','running','completed','failed','cancelled') NOT NULL DEFAULT 'queued'");
+ensureColumnExists($pdo, 'jobs', 'progress', 'TINYINT UNSIGNED NOT NULL DEFAULT 0');
+ensureColumnExists($pdo, 'jobs', 'current_step', 'VARCHAR(150) NULL');
+ensureColumnExists($pdo, 'jobs', 'max_attempts', 'INT NOT NULL DEFAULT 3');
+ensureColumnExists($pdo, 'jobs', 'timeout_seconds', 'INT NOT NULL DEFAULT 300');
+ensureColumnExists($pdo, 'jobs', 'started_at', 'DATETIME NULL');
+
+ensureColumnExists($pdo, 'audit_logs', 'tenant_id', 'BIGINT UNSIGNED NULL AFTER id');
+ensureColumnExists($pdo, 'audit_logs', 'ip', 'VARCHAR(45) NULL');
+ensureColumnExists($pdo, 'audit_logs', 'user_agent', 'VARCHAR(255) NULL');
+
+ensureColumnExists($pdo, 'webhooks', 'tenant_id', 'BIGINT UNSIGNED NULL AFTER id');
+ensureColumnExists($pdo, 'webhooks', 'user_id', 'BIGINT UNSIGNED NULL');
+ensureColumnExists($pdo, 'webhooks', 'name', "VARCHAR(120) NOT NULL DEFAULT 'Webhook Endpoint'");
+ensureColumnExists($pdo, 'webhooks', 'target_url', 'VARCHAR(500) NULL');
+ensureColumnExists($pdo, 'webhooks', 'secret_token', 'VARCHAR(120) NULL');
+ensureColumnExists($pdo, 'webhooks', 'events', 'JSON NULL');
+ensureColumnExists($pdo, 'webhooks', 'last_triggered_at', 'DATETIME NULL');
+ensureColumnExists($pdo, 'webhooks', 'last_status_code', 'INT NULL');
+
+echo "Database schema & subscription tiers applied.\n";
 
 // 4. Ensure Private Storage Setup
 $storageDir = __DIR__ . '/../storage';
@@ -171,7 +278,8 @@ if (!$tenant) {
 
 // 7. Provision Super Administrator Account
 $existingUser = Db::one('SELECT id FROM users WHERE email = ?', [$adminEmail]);
-$passwordHash = password_hash($adminPassword, PASSWORD_ARGON2ID);
+$algo = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
+$passwordHash = password_hash($adminPassword, $algo);
 
 if ($existingUser) {
     Db::run(

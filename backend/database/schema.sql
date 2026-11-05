@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS tenants (
   next_billing_date DATE NULL,
   payment_reference VARCHAR(100) NULL,
   billing_notes TEXT NULL,
+  auto_renew TINYINT(1) NOT NULL DEFAULT 1,
+  grace_period_days INT UNSIGNED NOT NULL DEFAULT 7,
+  tax_rate DECIMAL(5,2) NOT NULL DEFAULT 15.00,
+  payment_gateway VARCHAR(50) NOT NULL DEFAULT 'bank_transfer_fiji',
+  gateway_customer_id VARCHAR(120) NULL,
+  storage_used_mb DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  bandwidth_used_mb DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  suspended_at DATETIME NULL,
+  suspension_reason VARCHAR(255) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (plan_id) REFERENCES plans(id)
@@ -282,12 +291,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   tenant_id BIGINT UNSIGNED NULL,
   user_id BIGINT UNSIGNED NOT NULL,
-  name VARCHAR(100) NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  key_prefix VARCHAR(24) NOT NULL DEFAULT 'nvf_live_',
   key_hash CHAR(64) NOT NULL UNIQUE,
+  scopes JSON NULL,
+  last_used_at DATETIME NULL,
+  last_used_ip VARCHAR(64) NULL,
+  expires_at DATETIME NULL,
+  revoked_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (tenant_id),
+  INDEX (key_hash),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS jobs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -368,10 +384,164 @@ CREATE TABLE IF NOT EXISTS email_logs (
 CREATE TABLE IF NOT EXISTS webhooks (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   tenant_id BIGINT UNSIGNED NULL,
-  url VARCHAR(255) NOT NULL,
-  event VARCHAR(60) NOT NULL,
-  secret VARCHAR(100) NOT NULL,
+  user_id BIGINT UNSIGNED NULL,
+  name VARCHAR(120) NOT NULL DEFAULT 'Webhook Endpoint',
+  target_url VARCHAR(500) NULL,
+  url VARCHAR(255) NULL,
+  secret_token VARCHAR(120) NULL,
+  secret VARCHAR(100) NULL,
+  events JSON NULL,
+  event VARCHAR(60) NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
+  last_triggered_at DATETIME NULL,
+  last_status_code INT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (tenant_id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  webhook_id BIGINT UNSIGNED NOT NULL,
+  event_name VARCHAR(80) NOT NULL,
+  payload JSON NULL,
+  response_code INT NOT NULL DEFAULT 200,
+  response_body TEXT NULL,
+  duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id),
+  INDEX (webhook_id, created_at),
+  FOREIGN KEY (webhook_id) REFERENCES webhooks(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS tenant_integrations (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  connector_type ENUM('sso','ldap','wordpress','erp','crm','cloud_storage','smtp') NOT NULL,
+  provider_name VARCHAR(120) NOT NULL,
+  is_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  config_json JSON NULL,
+  last_sync_at DATETIME NULL,
+  sync_status VARCHAR(80) NOT NULL DEFAULT 'configured',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_tenant_connector (tenant_id, connector_type),
+  INDEX (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NOT NULL,
+  invoice_number VARCHAR(40) NOT NULL UNIQUE,
+  plan_id BIGINT UNSIGNED NULL,
+  billing_cycle VARCHAR(30) NOT NULL DEFAULT 'monthly',
+  currency VARCHAR(10) NOT NULL DEFAULT 'FJD',
+  subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  usage_overage_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  tax_rate DECIMAL(5,2) NOT NULL DEFAULT 15.00,
+  tax_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  status ENUM('draft','issued','reconciling','paid','overdue','void') NOT NULL DEFAULT 'issued',
+  payment_method VARCHAR(50) NOT NULL DEFAULT 'bank_transfer_fiji',
+  payment_reference VARCHAR(120) NULL,
+  bank_name VARCHAR(80) NULL,
+  line_items JSON NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  due_date DATE NOT NULL,
+  paid_at DATETIME NULL,
+  reconciled_by BIGINT UNSIGNED NULL,
+  notes TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id, status),
+  INDEX (due_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS subscription_history (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NULL,
+  from_plan_id BIGINT UNSIGNED NULL,
+  to_plan_id BIGINT UNSIGNED NULL,
+  action ENUM('initial','upgrade','downgrade','renewal','grace_period','suspension','reactivation','reconciliation') NOT NULL,
+  amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  currency VARCHAR(10) NOT NULL DEFAULT 'FJD',
+  payment_method VARCHAR(50) NULL,
+  reference VARCHAR(120) NULL,
+  notes VARCHAR(500) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS password_history (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (user_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version VARCHAR(64) PRIMARY KEY,
+  description VARCHAR(255) NOT NULL,
+  batch INT UNSIGNED NOT NULL DEFAULT 1,
+  checksum CHAR(64) NOT NULL,
+  is_reversible TINYINT(1) NOT NULL DEFAULT 1,
+  executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS dead_letter_jobs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  original_job_id BIGINT UNSIGNED NULL,
+  queue_name VARCHAR(64) NOT NULL DEFAULT 'document-processing',
+  job_type VARCHAR(80) NOT NULL DEFAULT 'pdf_conversion',
+  payload JSON NULL,
+  exception_class VARCHAR(160) NULL,
+  error_message TEXT NOT NULL,
+  attempts INT UNSIGNED NOT NULL DEFAULT 3,
+  status ENUM('dead','requeued','resolved') NOT NULL DEFAULT 'dead',
+  failed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  requeued_at DATETIME NULL,
+  INDEX (tenant_id, status),
+  INDEX (failed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS error_reports (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  user_id BIGINT UNSIGNED NULL,
+  trace_id VARCHAR(64) NOT NULL,
+  severity ENUM('warning','error','critical') NOT NULL DEFAULT 'error',
+  exception_class VARCHAR(160) NOT NULL,
+  message TEXT NOT NULL,
+  file VARCHAR(255) NOT NULL,
+  line INT UNSIGNED NOT NULL DEFAULT 0,
+  request_method VARCHAR(16) NULL,
+  request_uri VARCHAR(255) NULL,
+  context_json JSON NULL,
+  resolved TINYINT(1) NOT NULL DEFAULT 0,
+  occurrences INT UNSIGNED NOT NULL DEFAULT 1,
+  last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id, resolved),
+  INDEX (last_seen_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS system_backups (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  backup_code VARCHAR(64) NOT NULL UNIQUE,
+  backup_type ENUM('full_snapshot','mysql_schema_data','tenant_storage') NOT NULL DEFAULT 'full_snapshot',
+  file_path VARCHAR(255) NOT NULL,
+  size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  checksum_sha256 CHAR(64) NOT NULL,
+  tables_count INT UNSIGNED NOT NULL DEFAULT 0,
+  rows_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  files_count INT UNSIGNED NOT NULL DEFAULT 0,
+  status ENUM('completed','verified','restored','failed') NOT NULL DEFAULT 'completed',
+  recovery_tested_at DATETIME NULL,
+  recovery_notes VARCHAR(255) NULL,
+  created_by BIGINT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

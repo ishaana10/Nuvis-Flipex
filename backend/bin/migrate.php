@@ -7,9 +7,20 @@ use App\Support\Db;
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
-$sql = file_get_contents(__DIR__ . '/../database/schema.sql');
+$sql = str_replace("\r\n", "\n", (string) file_get_contents(__DIR__ . '/../database/schema.sql'));
 $pdo = Db::pdo();
 foreach (array_filter(array_map('trim', explode(";\n", $sql))) as $stmt) {
-    $pdo->exec($stmt);
+    if ($stmt !== '') {
+        $pdo->exec($stmt);
+    }
 }
-echo "Schema applied.\n";
+
+// Run incremental migrations (v2, v3, v4, v5) safely
+foreach (['migrate_v2.php', 'migrate_v3.php', 'migrate_v4.php', 'migrate_v5.php'] as $mig) {
+    $migFile = __DIR__ . '/' . $mig;
+    if (file_exists($migFile)) {
+        require_once $migFile;
+    }
+}
+
+echo "Full schema and all v1–v5 migrations applied successfully.\n";

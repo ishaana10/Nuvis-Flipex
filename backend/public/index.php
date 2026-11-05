@@ -24,6 +24,11 @@ use Slim\Routing\RouteCollectorProxy;
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
+// Normalize SCRIPT_NAME when rewritten from domain root (.htaccess RewriteRule ^api/(.*)$ backend/public/index.php)
+if (isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']) && str_starts_with($_SERVER['REQUEST_URI'], '/api/') && str_contains($_SERVER['SCRIPT_NAME'], '/backend/public/index.php')) {
+    $_SERVER['SCRIPT_NAME'] = '/index.php';
+}
+
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
