@@ -5,6 +5,8 @@ namespace App\Controllers;
 
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\Rbac;
+use App\Support\TenantContext;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -13,8 +15,12 @@ final class AnalyticsController
     public function show(Request $req, Response $res, array $args): Response
     {
         $u = $req->getAttribute('user');
-        $f = Db::one('SELECT * FROM flipbooks WHERE id = ? AND user_id = ?', [(int) $args['id'], $u['id']]);
-        if (!$f) return Http::error($res, 'Not found', 404);
+        Rbac::authorize($u, 'analytics.view');
+
+        $f = Db::one('SELECT * FROM flipbooks WHERE id = ?', [(int) $args['id']]);
+        if (!$f || !TenantContext::canAccessFlipbook($f)) {
+            return Http::error($res, 'Not found', 404);
+        }
 
         $fid = (int) $f['id'];
 

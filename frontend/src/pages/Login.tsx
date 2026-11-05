@@ -42,10 +42,13 @@ export default function Login() {
   };
 
   if (twoFactorData) {
+    const isTotp = twoFactorData.method === 'totp';
     return (
-      <AuthCard title="Two-Factor Security">
+      <AuthCard title={isTotp ? 'Authenticator 2FA' : 'Two-Factor Security'}>
         <p className="muted" style={{ margin: '0 0 16px 0', fontSize: '14px' }}>
-          We sent a 6-digit verification code to <b>{twoFactorData.email || email}</b>. Enter it below to complete sign in.
+          {isTotp
+            ? 'Open your Authenticator app (Google Authenticator, Microsoft Authenticator, 1Password) and enter the 6-digit verification code.'
+            : <>We sent a 6-digit verification code to <b>{twoFactorData.email || email}</b>. Enter it below to complete sign in.</>}
         </p>
 
         <form onSubmit={f2fa.submit}>
@@ -76,8 +79,8 @@ export default function Login() {
         </form>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '13px' }}>
-          <button className="link" onClick={handleResend}>Resend Code</button>
-          <button className="link" onClick={() => { setTwoFactorData(null); setOtpCode(''); }}>
+          {!isTotp && <button className="link" onClick={handleResend}>Resend Code</button>}
+          <button className="link" onClick={() => { setTwoFactorData(null); setOtpCode(''); }} style={{ marginLeft: isTotp ? 'auto' : undefined }}>
             ← Back to Sign In
           </button>
         </div>

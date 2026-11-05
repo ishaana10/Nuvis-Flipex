@@ -12,6 +12,13 @@ interface Stats {
   readyFlipbooks: number;
   totalPages: number;
   totalViews: number;
+  pdfEngine?: {
+    active_driver: string;
+    configured_driver: string;
+    ghostscript: { available: boolean; path: string };
+    imagick: { available: boolean; version: string };
+    pdftoppm: { available: boolean; path: string };
+  };
 }
 
 interface AdminUser {
@@ -19,6 +26,7 @@ interface AdminUser {
   email: string;
   name: string;
   role: 'admin' | 'user';
+  tenantRole?: 'owner' | 'admin' | 'editor' | 'viewer';
   status: 'active' | 'suspended';
   planId: number;
   planName: string;
@@ -27,6 +35,32 @@ interface AdminUser {
   emailVerified: boolean;
   flipbooksCount: number;
   lastLoginAt: string | null;
+  createdAt: string;
+}
+
+interface SecurityEvent {
+  id: number;
+  eventType: string;
+  severity: 'info' | 'warning' | 'critical';
+  ip: string | null;
+  userAgent: string | null;
+  details: Record<string, any> | null;
+  userEmail: string | null;
+  tenantName: string | null;
+  createdAt: string;
+}
+
+interface AuditLogEntry {
+  id: number;
+  action: string;
+  targetType: string | null;
+  targetId: number | null;
+  meta: Record<string, any> | null;
+  ip: string | null;
+  userAgent: string | null;
+  userEmail: string | null;
+  userName: string | null;
+  tenantName: string | null;
   createdAt: string;
 }
 
@@ -98,7 +132,7 @@ interface EmailLog {
 
 export default function AdminPanel() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'overview' | 'users' | 'companies' | 'subscriptions' | 'email'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'companies' | 'subscriptions' | 'email' | 'security'>('overview');
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -106,6 +140,9 @@ export default function AdminPanel() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [secSeverityFilter, setSecSeverityFilter] = useState<string>('');
 
   const [loading, setLoading] = useState(true);
   const [userQuery, setUserQuery] = useState('');
@@ -141,18 +178,35 @@ export default function AdminPanel() {
   const loadPlans = useCallback(() => api<Plan[]>('/admin/plans').then(setPlans), []);
   const loadSettings = useCallback(() => api<SystemSettings>('/admin/settings').then(setSettings), []);
   const loadEmailLogs = useCallback(() => api<EmailLog[]>('/admin/email-logs').then(setEmailLogs), []);
+  const loadSecurityEvents = useCallback(() => {
+    const url = secSeverityFilter ? `/admin/security-events?severity=${encodeURIComponent(secSeverityFilter)}` : '/admin/security-events';
+    return api<SecurityEvent[]>(url).then(setSecurityEvents).catch(() => {});
+  }, [secSeverityFilter]);
+  const loadAuditLogs = useCallback(() => api<AuditLogEntry[]>('/admin/audit-logs').then(setAuditLogs).catch(() => {}), []);
 
   const refreshAll = useCallback(() => {
     setLoading(true);
-    Promise.all([loadStats(), loadUsers(), loadCompanies(), loadPlans(), loadSettings(), loadEmailLogs()])
-      .finally(() => setLoading(false));
-  }, [loadStats, loadUsers, loadCompanies, loadPlans, loadSettings, loadEmailLogs]);
+    Promise.all([
+      loadStats(),
+      loadUsers(),
+      loadCompanies(),
+      loadPlans(),
+      loadSettings(),
+      loadEmailLogs(),
+      loadSecurityEvents(),
+      loadAuditLogs(),
+    ]).finally(() => setLoading(false));
+  }, [loadStats, loadUsers, loadCompanies, loadPlans, loadSettings, loadEmailLogs, loadSecurityEvents, loadAuditLogs]);
 
   useEffect(() => {
     if (user?.role === 'admin') {
       refreshAll();
     }
   }, [user, refreshAll]);
+
+  useEffect(() => {
+    loadSecurityEvents();
+  }, [secSeverityFilter, loadSecurityEvents]);
 
   // Debounced search
   useEffect(() => {
@@ -286,6 +340,12 @@ export default function AdminPanel() {
         >
           📧 Email Setup & Access
         </button>
+        <button
+          className={`admin-tab-btn ${tab === 'security' ? 'active' : ''}`}
+          onClick={() => setTab('security')}
+        >
+          🛡️ Security & Audit Trail ({securityEvents.length})
+        </button>
       </div>
 
       {/* Tab 1: Overview */}
@@ -382,6 +442,12 @@ export default function AdminPanel() {
                   <span className="badge badge-success">/storage/tenants/{'{id}'}/</span>
                 </div>
                 <div className="sys-info-row">
+                  <span>PDF Render Engine:</span>
+                  <span className="badge badge-golden" title={`Configured: ${stats?.pdfEngine?.configured_driver}`}>
+                    {stats?.pdfEngine?.active_driver ? stats.pdfEngine.active_driver.toUpperCase() : 'GHOSTSCRIPT / POPPLER'}
+                  </span>
+                </div>
+                <div className="sys-info-row">
                   <span>Password Hashing:</span>
                   <span className="badge badge-info">Argon2id (PHP 8.3)</span>
                 </div>
@@ -416,7 +482,8 @@ export default function AdminPanel() {
                 <tr>
                   <th>User</th>
                   <th>Company (Tenant)</th>
-                  <th>Role</th>
+                  <th>Tenant Role (RBAC)</th>
+                  <th>System Role</th>
                   <th>Status</th>
                   <th>Plan</th>
                   <th>Magazines</th>
@@ -427,7 +494,7 @@ export default function AdminPanel() {
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="center muted" style={{ padding: '32px' }}>
+                    <td colSpan={9} className="center muted" style={{ padding: '32px' }}>
                       No users found.
                     </td>
                   </tr>
@@ -446,6 +513,15 @@ export default function AdminPanel() {
                       </td>
                       <td>
                         <span className="company-tag">{u.companyName}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          u.tenantRole === 'owner' ? 'badge-golden' :
+                          u.tenantRole === 'admin' ? 'badge-info' :
+                          u.tenantRole === 'editor' ? 'badge-neutral' : 'badge-warning'
+                        }`}>
+                          {(u.tenantRole || 'editor').toUpperCase()}
+                        </span>
                       </td>
                       <td>
                         <span className={`badge ${u.role === 'admin' ? 'badge-golden' : 'badge-neutral'}`}>
@@ -982,6 +1058,186 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* Tab 6: Security & Audit Trail */}
+      {tab === 'security' && (
+        <div className="admin-tab-content stack" style={{ gap: '32px' }}>
+          {/* Section 1: Live Security Threat Events */}
+          <div className="admin-card">
+            <div className="admin-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>🛡️ Live Security Incident & Abuse Monitoring</h3>
+                <p className="muted" style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
+                  Real-time threat monitoring: brute force failed logins, account lockouts, IDOR attempts, token replay anomalies, and 2FA failures.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <select
+                  value={secSeverityFilter}
+                  onChange={(e) => setSecSeverityFilter(e.target.value)}
+                  style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '13px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'inherit' }}
+                >
+                  <option value="">All Severities</option>
+                  <option value="critical">Critical Only</option>
+                  <option value="warning">Warning Only</option>
+                  <option value="info">Info Only</option>
+                </select>
+                <button className="btn-secondary" onClick={loadSecurityEvents}>
+                  🔄 Refresh
+                </button>
+              </div>
+            </div>
+
+            <div className="admin-table-wrap" style={{ marginTop: '16px' }}>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Severity</th>
+                    <th>Incident Type</th>
+                    <th>User / Identity</th>
+                    <th>Tenant</th>
+                    <th>Client IP & UA</th>
+                    <th>Details</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {securityEvents.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="center muted" style={{ padding: '24px' }}>
+                        No security incidents logged. All tenant perimeters secure.
+                      </td>
+                    </tr>
+                  ) : (
+                    securityEvents.map((evt) => (
+                      <tr key={evt.id}>
+                        <td>
+                          <span className={`badge ${
+                            evt.severity === 'critical' ? 'badge-danger' :
+                            evt.severity === 'warning' ? 'badge-warning' : 'badge-info'
+                          }`}>
+                            {evt.severity.toUpperCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <code style={{ fontSize: '12px', fontWeight: 600 }}>{evt.eventType}</code>
+                        </td>
+                        <td>
+                          <b>{evt.userEmail || '—'}</b>
+                        </td>
+                        <td>
+                          <span className="company-tag">{evt.tenantName || 'Platform'}</span>
+                        </td>
+                        <td>
+                          <div style={{ fontSize: '12px' }}>
+                            <b>{evt.ip || 'Unknown IP'}</b>
+                            {evt.userAgent && (
+                              <div className="muted" style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={evt.userAgent}>
+                                {evt.userAgent}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          {evt.details ? (
+                            <pre style={{ margin: 0, fontSize: '11px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', background: 'rgba(0,0,0,0.2)', padding: '4px 6px', borderRadius: '4px' }}>
+                              {JSON.stringify(evt.details)}
+                            </pre>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          <small className="muted">{new Date(evt.createdAt).toLocaleString()}</small>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 2: Administrative Audit Trail */}
+          <div className="admin-card">
+            <div className="admin-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>📜 Administrative & Security Audit Trail</h3>
+                <p className="muted" style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
+                  Granular chronological audit trail of administrative modifications, role changes, billing edits, and security policy changes.
+                </p>
+              </div>
+              <button className="btn-secondary" onClick={loadAuditLogs}>
+                🔄 Refresh Audit Logs
+              </button>
+            </div>
+
+            <div className="admin-table-wrap" style={{ marginTop: '16px' }}>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Operator</th>
+                    <th>Tenant</th>
+                    <th>Target</th>
+                    <th>IP</th>
+                    <th>Metadata</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="center muted" style={{ padding: '24px' }}>
+                        No administrative audit records logged yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td>
+                          <code style={{ fontSize: '12px', fontWeight: 600, color: 'var(--amber-400, #F5C542)' }}>
+                            {log.action}
+                          </code>
+                        </td>
+                        <td>
+                          <div>
+                            <b>{log.userName || log.userEmail || 'System'}</b>
+                            {log.userName && log.userEmail && (
+                              <div><small className="muted">{log.userEmail}</small></div>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="company-tag">{log.tenantName || 'Global'}</span>
+                        </td>
+                        <td>
+                          {log.targetType ? (
+                            <span className="badge badge-neutral">
+                              {log.targetType} #{log.targetId ?? ''}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          <small className="muted">{log.ip || '—'}</small>
+                        </td>
+                        <td>
+                          {log.meta ? (
+                            <pre style={{ margin: 0, fontSize: '11px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', background: 'rgba(0,0,0,0.2)', padding: '4px 6px', borderRadius: '4px' }}>
+                              {JSON.stringify(log.meta)}
+                            </pre>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          <small className="muted">{new Date(log.createdAt).toLocaleString()}</small>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* User Create/Edit Modal */}
       {userModal.open && (
         <UserModal
@@ -1072,6 +1328,7 @@ function UserModal({
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'user'>(user?.role ?? 'user');
+  const [tenantRole, setTenantRole] = useState<'owner' | 'admin' | 'editor' | 'viewer'>(user?.tenantRole ?? 'editor');
   const [status, setStatus] = useState<'active' | 'suspended'>(user?.status ?? 'active');
   const [tenantId, setTenantId] = useState<number | string>(user?.tenantId ?? (companies[0]?.id || ''));
   const [planId, setPlanId] = useState<number>(user?.planId ?? 1);
@@ -1087,6 +1344,7 @@ function UserModal({
         await api(`/admin/users/${user.id}`, 'PATCH', {
           name,
           role,
+          tenantRole,
           status,
           tenantId: tenantId ? Number(tenantId) : null,
           planId,
@@ -1097,6 +1355,7 @@ function UserModal({
           email,
           password,
           role,
+          tenantRole,
           status,
           tenantId: tenantId ? Number(tenantId) : null,
           planId,
@@ -1134,12 +1393,23 @@ function UserModal({
           )}
           <div className="row-fields">
             <label className="field">
-              <span>Role</span>
+              <span>System Role</span>
               <select value={role} onChange={(e) => setRole(e.target.value as any)}>
                 <option value="user">User</option>
-                <option value="admin">Admin</option>
+                <option value="admin">System Admin</option>
               </select>
             </label>
+            <label className="field">
+              <span>Tenant RBAC Role</span>
+              <select value={tenantRole} onChange={(e) => setTenantRole(e.target.value as any)}>
+                <option value="owner">Owner (Full tenant & billing)</option>
+                <option value="admin">Admin (Manage members & books)</option>
+                <option value="editor">Editor (Create & edit publications)</option>
+                <option value="viewer">Viewer (Read-only)</option>
+              </select>
+            </label>
+          </div>
+          <div className="row-fields">
             <label className="field">
               <span>Status</span>
               <select value={status} onChange={(e) => setStatus(e.target.value as any)}>
@@ -1147,8 +1417,6 @@ function UserModal({
                 <option value="suspended">Suspended</option>
               </select>
             </label>
-          </div>
-          <div className="row-fields">
             <label className="field">
               <span>Assigned Company (Tenant)</span>
               <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
@@ -1158,6 +1426,8 @@ function UserModal({
                 ))}
               </select>
             </label>
+          </div>
+          <div className="row-fields">
             <label className="field">
               <span>Subscription Plan</span>
               <select value={planId} onChange={(e) => setPlanId(Number(e.target.value))}>

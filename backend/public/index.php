@@ -13,6 +13,7 @@ use App\Controllers\PublicController;
 use App\Middleware\Auth;
 use App\Middleware\Cors;
 use App\Middleware\RateLimit;
+use App\Middleware\TenantScope;
 use App\Support\Http;
 use Slim\Factory\AppFactory;
 use Slim\Routing\RouteCollectorProxy;
@@ -40,7 +41,8 @@ if (PHP_SAPI === 'cli-server' && str_starts_with($_SERVER['REQUEST_URI'], '/stor
 $app->addErrorMiddleware(($_ENV['APP_ENV'] ?? 'local') !== 'production', true, true)
     ->setDefaultErrorHandler(function ($req, Throwable $e) use ($app) {
         error_log((string) $e);
-        $status = $e instanceof \Slim\Exception\HttpException ? $e->getCode() : 500;
+        $code = (int) $e->getCode();
+        $status = ($code >= 400 && $code < 600) ? $code : ($e instanceof \Slim\Exception\HttpException ? $e->getCode() : 500);
         $msg = $status === 500 ? 'Server error' : $e->getMessage();
         return Http::error($app->getResponseFactory()->createResponse(), $msg, $status);
     });
@@ -72,6 +74,8 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $f->patch('/{id:[0-9]+}', [FlipbookController::class, 'update']);
         $f->delete('/{id:[0-9]+}', [FlipbookController::class, 'delete']);
         $f->get('/{id:[0-9]+}/status', [FlipbookController::class, 'status']);
+        $f->get('/{id:[0-9]+}/pages/{page:[0-9]+}', [FlipbookController::class, 'servePage']);
+        $f->get('/{id:[0-9]+}/thumbs/{page:[0-9]+}', [FlipbookController::class, 'serveThumb']);
 
         // Hotspots
         $f->get('/{id:[0-9]+}/hotspots', [HotspotController::class, 'index']);
@@ -81,23 +85,30 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 
         // Analytics
         $f->get('/{id:[0-9]+}/analytics', [AnalyticsController::class, 'show']);
-    })->add(new Auth());
+    })->add(new TenantScope())->add(new Auth());
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);
+    $g->get('/public/{slug}/pages/{page:[0-9]+}', [PublicController::class, 'page']);
+    $g->get('/public/{slug}/thumbs/{page:[0-9]+}', [PublicController::class, 'thumb']);
     $g->post('/public/{slug}/unlock', [PublicController::class, 'unlock'])->add(new RateLimit('unlock', 20, 300));
     $g->post('/public/{slug}/view', [PublicController::class, 'trackView']);
     $g->get('/public/{slug}/download', [PublicController::class, 'download']);
+    $g->get('/files/signed', [FlipbookController::class, 'serveSigned']);
 
     $g->group('/me', function (RouteCollectorProxy $m) {
         $m->get('', [MeController::class, 'show']);
         $m->patch('', [MeController::class, 'update']);
         $m->put('/password', [MeController::class, 'changePassword']);
         $m->post('/two-factor', [MeController::class, 'toggleTwoFactor']);
+        $m->post('/totp/setup', [MeController::class, 'setupTotp']);
+        $m->post('/totp/enable', [MeController::class, 'enableTotp']);
+        $m->post('/totp/disable', [MeController::class, 'disableTotp']);
         $m->get('/tenant-billing', [MeController::class, 'tenantBilling']);
         $m->get('/sessions', [MeController::class, 'sessions']);
         $m->delete('/sessions/{id}', [MeController::class, 'revokeSession']);
+        $m->delete('/sessions', [MeController::class, 'revokeAllSessions']);
         $m->delete('', [MeController::class, 'delete']);
-    })->add(new Auth());
+    })->add(new TenantScope())->add(new Auth());
 
     $g->group('/admin', function (RouteCollectorProxy $adm) {
         $adm->get('/stats', [AdminController::class, 'stats']);
@@ -126,6 +137,10 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $adm->post('/settings/test-email', [AdminController::class, 'testEmail']);
         $adm->get('/email-logs', [AdminController::class, 'emailLogs']);
         $adm->post('/notifications/broadcast', [AdminController::class, 'sendBroadcast']);
+
+        // Security Monitoring & Audit Trail
+        $adm->get('/security-events', [AdminController::class, 'securityEvents']);
+        $adm->get('/audit-logs', [AdminController::class, 'auditLogs']);
     })->add(new Auth('admin'));
 });
 

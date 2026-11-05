@@ -5,11 +5,17 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use App\Controllers\FlipbookController;
 use App\Support\Db;
+use App\Support\PdfRenderer;
+use App\Support\Storage;
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
 $once = in_array('--once', $argv, true);
-echo "Worker started.\n";
+$activeDriver = PdfRenderer::resolveDriver();
+echo "===============================================================\n";
+echo "   Nuvis Flipex — Asynchronous PDF Conversion Worker Daemon    \n";
+echo "   Active PDF Render Engine: {$activeDriver}\n";
+echo "===============================================================\n";
 
 do {
     $job = claim();
@@ -63,16 +69,15 @@ function convertPdf(int $flipbookId): void
     $f = Db::one('SELECT f.*, p.max_pages FROM flipbooks f JOIN users u ON u.id = f.user_id JOIN plans p ON p.id = u.plan_id WHERE f.id = ?', [$flipbookId]);
     if (!$f) return;
 
-    $root = FlipbookController::storageRoot();
+    $root = Storage::root();
     $pdf = $root . '/' . $f['source_pdf_path'];
-    $outRel = "public/flipbooks/$flipbookId";
+    $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
+    $outRel = "tenants/{$tenantId}/publications/{$flipbookId}";
     $out = "$root/$outRel";
-    @mkdir("$out/thumbs", 0775, true);
 
-    render($pdf, $out, (int) $f['max_pages']);
-    $files = glob("$out/page-*.jpg");
-    sort($files);
-    if (!$files) throw new RuntimeException('No pages produced');
+    echo "Converting publication {$flipbookId} ('{$f['title']}') via " . PdfRenderer::resolveDriver() . "...\n";
+    $files = PdfRenderer::render($pdf, $out, (int) $f['max_pages']);
+    if (!$files) throw new RuntimeException('No pages produced by PDF renderer');
 
     Db::run('DELETE FROM pages WHERE flipbook_id = ?', [$flipbookId]);
     foreach ($files as $i => $file) {
@@ -84,7 +89,7 @@ function convertPdf(int $flipbookId): void
         );
     }
     Db::run("UPDATE flipbooks SET status = 'ready', page_count = ? WHERE id = ?", [count($files), $flipbookId]);
-    echo "Converted flipbook $flipbookId: " . count($files) . " pages\n";
+    echo "Successfully converted flipbook {$flipbookId}: " . count($files) . " pages.\n";
 
     // Customer Notification
     try {
@@ -99,35 +104,4 @@ function convertPdf(int $flipbookId): void
     } catch (\Throwable $e) {
         echo "Notification warning: " . $e->getMessage() . "\n";
     }
-}
-
-function run(array $cmd): void
-{
-    $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-    if (!is_resource($proc)) throw new RuntimeException('Cannot start Ghostscript');
-    $stderr = stream_get_contents($pipes[2]);
-    stream_get_contents($pipes[1]);
-    if (proc_close($proc) !== 0) throw new RuntimeException('Ghostscript failed: ' . trim($stderr));
-}
-
-/** Render pages (110dpi) and thumbnails (20dpi) as page-NNN.jpg using pdftoppm (Poppler) or Ghostscript. */
-function render(string $pdf, string $out, int $maxPages): void
-{
-    $ppm = $_ENV['PDFTOPPM_BIN'] ?? '';
-    if ($ppm !== '') {
-        run([$ppm, '-jpeg', '-r', '110', '-l', (string) $maxPages, $pdf, "$out/pg"]);
-        run([$ppm, '-jpeg', '-r', '20', '-l', (string) $maxPages, $pdf, "$out/thumbs/pg"]);
-        foreach ([$out, "$out/thumbs"] as $dir) {
-            $list = glob("$dir/pg-*.jpg");
-            natsort($list);
-            foreach (array_values($list) as $i => $src) {
-                rename($src, sprintf('%s/page-%03d.jpg', $dir, $i + 1));
-            }
-        }
-        return;
-    }
-    $base = [gsBinary(), '-q', '-dNOPAUSE', '-dBATCH', '-dSAFER', '-sDEVICE=jpeg', '-dJPEGQ=82',
-        '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', '-dLastPage=' . $maxPages];
-    run(array_merge($base, ['-r110', "-sOutputFile=$out/page-%03d.jpg", $pdf]));
-    run(array_merge($base, ['-r20', "-sOutputFile=$out/thumbs/page-%03d.jpg", $pdf]));
 }

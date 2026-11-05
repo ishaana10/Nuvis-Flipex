@@ -6,16 +6,19 @@ export interface User {
   email: string;
   name: string;
   role: string;
+  tenantRole?: string;
   emailVerified: boolean;
   tenantId?: number | null;
   companyName?: string | null;
   twoFactorEnabled?: boolean;
+  twoFactorMethod?: 'email' | 'totp';
 }
 
 export interface LoginResult {
   twoFactorRequired?: boolean;
   twoFactorToken?: string;
   email?: string;
+  method?: 'email' | 'totp';
 }
 
 interface AuthCtx {
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           twoFactorRequired: true,
           twoFactorToken: d.twoFactorToken,
           email: d.email,
+          method: d.method,
         };
       }
       setAccessToken(d.accessToken);

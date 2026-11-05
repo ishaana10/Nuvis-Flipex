@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\Rbac;
+use App\Support\Totp;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -16,29 +19,103 @@ final class MeController
         $fullUser = Db::one('SELECT * FROM users WHERE id = ?', [$u['id']]);
         $plan = Db::one('SELECT * FROM plans WHERE id = ?', [$u['plan_id']]);
         $tenant = $u['tenant_id'] ? Db::one('SELECT id, name, slug FROM tenants WHERE id = ?', [$u['tenant_id']]) : null;
+
         return Http::json($res, [
-            'id' => (int) $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'role' => $u['role'],
-            'avatarPath' => $u['avatar_path'], 'emailVerified' => $u['email_verified_at'] !== null,
+            'id' => (int) $u['id'],
+            'email' => $u['email'],
+            'name' => $u['name'],
+            'role' => $u['role'],
+            'tenantRole' => $u['tenant_role'] ?? 'editor',
+            'avatarPath' => $u['avatar_path'],
+            'emailVerified' => $u['email_verified_at'] !== null,
             'twoFactorEnabled' => !empty($fullUser['two_factor_enabled']),
-            'createdAt' => $u['created_at'], 'plan' => $plan,
+            'twoFactorMethod' => $fullUser['two_factor_method'] ?? 'email',
+            'createdAt' => $u['created_at'],
+            'plan' => $plan,
             'tenantId' => $tenant ? (int) $tenant['id'] : null,
             'companyName' => $tenant ? $tenant['name'] : null,
         ]);
     }
 
+    /** Enable/Disable email-based 2FA */
     public function toggleTwoFactor(Request $req, Response $res): Response
     {
         $u = $req->getAttribute('user');
         $b = (array) $req->getParsedBody();
         $enabled = !empty($b['enabled']) ? 1 : 0;
 
-        Db::run('UPDATE users SET two_factor_enabled = ? WHERE id = ?', [$enabled, $u['id']]);
-        return Http::json($res, ['twoFactorEnabled' => (bool) $enabled]);
+        Db::run('UPDATE users SET two_factor_enabled = ?, two_factor_method = "email" WHERE id = ?', [$enabled, $u['id']]);
+        Audit::log($enabled ? '2fa.enable_email' : '2fa.disable_email', 'user', (int) $u['id']);
+
+        return Http::json($res, ['twoFactorEnabled' => (bool) $enabled, 'twoFactorMethod' => 'email']);
+    }
+
+    /** Step 1 of TOTP setup: Generate and return Base32 secret and otpauth URI */
+    public function setupTotp(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $secret = Totp::generateSecret();
+        $uri = Totp::getOtpAuthUri($u['email'], $secret);
+
+        return Http::json($res, [
+            'secret' => $secret,
+            'otpAuthUri' => $uri,
+        ]);
+    }
+
+    /** Step 2 of TOTP setup: Verify 6-digit code and activate TOTP */
+    public function enableTotp(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $b = (array) $req->getParsedBody();
+        $secret = trim((string) ($b['secret'] ?? ''));
+        $code = trim((string) ($b['code'] ?? ''));
+
+        if (empty($secret) || strlen($secret) < 16) {
+            return Http::error($res, 'Invalid TOTP secret', 422, ['secret' => 'Secret is missing or invalid']);
+        }
+
+        if (!Totp::verify($code, $secret)) {
+            return Http::error($res, 'Verification failed. The 6-digit code did not match. Please verify your phone time.', 422, ['code' => 'Invalid authenticator code']);
+        }
+
+        Db::run(
+            'UPDATE users SET totp_secret = ?, two_factor_enabled = 1, two_factor_method = "totp" WHERE id = ?',
+            [$secret, $u['id']]
+        );
+
+        Audit::log('2fa.enable_totp', 'user', (int) $u['id']);
+
+        return Http::json($res, [
+            'twoFactorEnabled' => true,
+            'twoFactorMethod' => 'totp',
+            'message' => 'Authenticator 2FA successfully activated',
+        ]);
+    }
+
+    /** Disable TOTP (requires user password) */
+    public function disableTotp(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $b = (array) $req->getParsedBody();
+        $password = (string) ($b['password'] ?? '');
+
+        $row = Db::one('SELECT password_hash FROM users WHERE id = ?', [$u['id']]);
+        if (!password_verify($password, $row['password_hash'])) {
+            return Http::error($res, 'Password incorrect', 422, ['password' => 'Current password is required to disable 2FA']);
+        }
+
+        Db::run('UPDATE users SET totp_secret = NULL, two_factor_enabled = 0, two_factor_method = "email" WHERE id = ?', [$u['id']]);
+        Audit::log('2fa.disable_totp', 'user', (int) $u['id']);
+
+        return Http::json($res, ['twoFactorEnabled' => false]);
     }
 
     public function tenantBilling(Request $req, Response $res): Response
     {
         $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'billing.view');
+
         if (empty($u['tenant_id'])) {
             return Http::json($res, ['hasTenant' => false]);
         }
@@ -83,6 +160,7 @@ final class MeController
             return Http::error($res, 'Validation failed', 422, ['name' => 'Name is required']);
         }
         Db::run('UPDATE users SET name = ? WHERE id = ?', [$name, $u['id']]);
+        Audit::log('user.update_profile', 'user', (int) $u['id'], ['name' => $name]);
         return Http::json($res, ['name' => $name]);
     }
 
@@ -103,6 +181,8 @@ final class MeController
         $current = hash('sha256', $req->getCookieParams()['refresh_token'] ?? '');
         Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND token_hash <> ? AND revoked_at IS NULL',
             [$u['id'], $current]);
+
+        Audit::log('user.change_password', 'user', (int) $u['id']);
         return Http::json($res, ['ok' => true]);
     }
 
@@ -125,6 +205,17 @@ final class MeController
     {
         $u = $req->getAttribute('user');
         Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = ? AND user_id = ?', [(int) $args['id'], $u['id']]);
+        Audit::log('session.revoke', 'session', (int) $args['id']);
+        return Http::json($res, ['ok' => true]);
+    }
+
+    public function revokeAllSessions(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $current = hash('sha256', $req->getCookieParams()['refresh_token'] ?? '');
+        Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND token_hash <> ? AND revoked_at IS NULL',
+            [$u['id'], $current]);
+        Audit::log('session.revoke_all', 'user', (int) $u['id']);
         return Http::json($res, ['ok' => true]);
     }
 
@@ -138,6 +229,7 @@ final class MeController
         // Soft delete; free the email so it can be reused, and sign out everywhere.
         Db::run('UPDATE users SET deleted_at = NOW(), email = CONCAT(id, "+deleted+", email) WHERE id = ?', [$u['id']]);
         Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ?', [$u['id']]);
+        Audit::log('user.delete_account', 'user', (int) $u['id']);
         return Http::json($res, ['ok' => true]);
     }
 }

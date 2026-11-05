@@ -61,13 +61,52 @@ final class PublicController
             'locked' => false,
             'pages' => array_map(fn($p) => [
                 'n' => (int) $p['page_number'],
-                'image' => '/storage/' . $p['image_path'],
-                'thumb' => '/storage/' . $p['thumb_path'],
+                'image' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}",
+                'thumb' => "/api/v1/public/{$f['slug']}/thumbs/{$p['page_number']}",
                 'w' => (int) $p['width'],
                 'h' => (int) $p['height'],
             ], $pages),
             'hotspots' => (object) $hotspotsByPage,
         ]);
+    }
+
+    public function page(Request $req, Response $res, array $args): Response
+    {
+        return $this->serveAsset($req, $res, (string) $args['slug'], (int) $args['page'], false);
+    }
+
+    public function thumb(Request $req, Response $res, array $args): Response
+    {
+        return $this->serveAsset($req, $res, (string) $args['slug'], (int) $args['page'], true);
+    }
+
+    private function serveAsset(Request $req, Response $res, string $slug, int $pageNumber, bool $isThumb): Response
+    {
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND published_at IS NOT NULL AND status = "ready"', [$slug]);
+        if (!$f) return Http::error($res, 'Not found', 404);
+
+        if ($f['visibility'] === 'password' && !$this->unlocked($req, $f)) {
+            return Http::error($res, 'Password required', 403);
+        }
+
+        $p = Db::one('SELECT * FROM pages WHERE flipbook_id = ? AND page_number = ?', [$f['id'], $pageNumber]);
+        if (!$p) return Http::error($res, 'Page not found', 404);
+
+        $rel = $isThumb ? $p['thumb_path'] : $p['image_path'];
+        $path = \App\Support\Storage::root() . '/' . $rel;
+        if (!file_exists($path)) {
+            return Http::error($res, 'Asset file not found', 404);
+        }
+
+        $fh = fopen($path, 'rb');
+        $stream = new Stream($fh);
+
+        return $res
+            ->withHeader('Content-Type', 'image/jpeg')
+            ->withHeader('Cache-Control', 'private, max-age=86400')
+            ->withHeader('X-Content-Type-Options', 'nosniff')
+            ->withHeader('Content-Length', (string) filesize($path))
+            ->withBody($stream);
     }
 
     public function unlock(Request $req, Response $res, array $args): Response
@@ -151,6 +190,9 @@ final class PublicController
 
     private function unlocked(Request $req, array $f): bool
     {
-        return hash_equals($this->token($f), $req->getHeaderLine('X-Unlock-Token'));
+        $header = $req->getHeaderLine('X-Unlock-Token');
+        $query = (string) ($req->getQueryParams()['token'] ?? '');
+        $token = $header ?: $query;
+        return $token !== '' && hash_equals($this->token($f), $token);
     }
 }

@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\Rbac;
+use App\Support\TenantContext;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -12,6 +15,9 @@ final class HotspotController
 {
     public function index(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.view');
+
         $f = $this->owned($req, (int) $args['id']);
         if (!$f) return Http::error($res, 'Not found', 404);
 
@@ -24,6 +30,9 @@ final class HotspotController
 
     public function create(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'hotspot.manage');
+
         $f = $this->owned($req, (int) $args['id']);
         if (!$f) return Http::error($res, 'Not found', 404);
 
@@ -47,11 +56,17 @@ final class HotspotController
         );
         $hid = (int) Db::pdo()->lastInsertId();
         $row = Db::one('SELECT * FROM hotspots WHERE id = ?', [$hid]);
+
+        Audit::log('hotspot.create', 'hotspot', $hid, ['flipbook_id' => $f['id'], 'type' => $type, 'page' => $page]);
+
         return Http::json($res, $this->present($row), 201);
     }
 
     public function update(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'hotspot.manage');
+
         $f = $this->owned($req, (int) $args['id']);
         if (!$f) return Http::error($res, 'Not found', 404);
 
@@ -72,22 +87,35 @@ final class HotspotController
             [$type, $x, $y, $w, $h, $payload, $hid]
         );
         $updated = Db::one('SELECT * FROM hotspots WHERE id = ?', [$hid]);
+
+        Audit::log('hotspot.update', 'hotspot', $hid, ['flipbook_id' => $f['id'], 'type' => $type]);
+
         return Http::json($res, $this->present($updated));
     }
 
     public function delete(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'hotspot.manage');
+
         $f = $this->owned($req, (int) $args['id']);
         if (!$f) return Http::error($res, 'Not found', 404);
 
         $hid = (int) $args['hid'];
         Db::run('DELETE FROM hotspots WHERE id = ? AND flipbook_id = ?', [$hid, $f['id']]);
+
+        Audit::log('hotspot.delete', 'hotspot', $hid, ['flipbook_id' => $f['id']]);
+
         return Http::json($res, ['ok' => true]);
     }
 
     private function owned(Request $req, int $id): ?array
     {
-        return Db::one('SELECT * FROM flipbooks WHERE id = ? AND user_id = ?', [$id, $req->getAttribute('user')['id']]);
+        $f = Db::one('SELECT * FROM flipbooks WHERE id = ?', [$id]);
+        if (!$f || !TenantContext::canAccessFlipbook($f)) {
+            return null;
+        }
+        return $f;
     }
 
     private function present(array $h): array

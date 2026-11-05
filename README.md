@@ -72,20 +72,33 @@ Nuvis Flipex adheres strictly to the **BoardUI Standard** ([boardui/boardui](htt
 ### 🛡️ Enterprise Security & Administration
 - **Administrative Management Console:**
   - 📊 Real-time platform KPI dashboard (users, companies, flipbooks, pages converted, views).
-  - 👥 User Management: Create accounts, suspend access, toggle roles, and trigger instant password resets.
-  - 🏢 Company (Tenant) Management: Provision workspaces, configure storage/publication quotas, and manage billing.
+  - 👥 User Management: Create accounts, assign Granular RBAC roles (`owner`, `admin`, `editor`, `viewer`), suspend access, and trigger instant password resets.
+  - 🏢 Company (Tenant) Management: Provision workspaces, configure storage/publication quotas, and manage corporate billing.
   - 📦 Subscription Tier Editor: Configure storage limits, page limits, upload caps, and white-label branding toggles.
   - ✉️ Email Setup & Access Controls: Configure platform SMTP, toggle public self-registration on/off, test mail delivery, and dispatch global announcements.
-- **Two-Factor Authentication (2FA via Email):**
-  - Users can enable 2FA directly from their profile.
-  - Secure 6-digit OTP generated and dispatched via email on every login attempt.
-  - Dedicated 10-minute expiring 2FA token architecture.
-- **Session Management:** Inspect active devices, IP addresses, user agents, and revoke remote sessions on demand.
-- **Self-Registration Control:** Platform administrators can close public sign-ups to restrict access to invited corporate members only.
+  - 🛡️ Live Security & Threat Monitoring: Real-time visibility into brute-force lockout events, token replay attempts, cross-tenant IDOR violations, and chronological administrative audit logs.
+- **Role-Based Access Control (RBAC):**
+  - Granular permissions enforced at middleware and repository levels (`owner`, `admin`, `editor`, `viewer`).
+  - Strict tenant boundary validation blocking IDOR enumeration across flipbooks, hotspots, analytics, and billing.
+- **Dual Two-Factor Authentication (2FA):**
+  - **Authenticator App (RFC 6238 TOTP):** Mobile app support (Google Authenticator, Microsoft Authenticator, 1Password, Authy) with dynamic truncation and time-drift tolerance.
+  - **Email OTP Verification:** Single-use 6-digit codes sent via transactional email, valid for 10 minutes.
+- **Token Rotation & Replay Attack Defense:**
+  - Refresh tokens rotate upon every refresh exchange.
+  - Replay of revoked tokens immediately terminates the entire user session family and logs a critical security alert.
+- **Protected Document Streaming:**
+  - Direct HTTP web access to `/storage/` is strictly prohibited.
+  - Publication assets and source PDFs stream exclusively through authorized, access-controlled endpoints with password unlock validation.
+- **Automated Security Verification:**
+  - Built-in test suite (`php backend/bin/test_security.php`) validating 24 core security and isolation invariants.
 
-### ⚡ Background Conversion Pipeline
+### ⚡ Modular Multi-Engine PDF Conversion Pipeline
+- **Adaptive Rendering Drivers:**
+  - 🚀 **Ghostscript CLI (`/usr/bin/gs`):** Primary driver for A2 Hosting, cPanel, and Linux shared hosting.
+  - 🎨 **PHP Imagick Extension:** In-process rasterization via cPanel PHP 8.3 extension.
+  - ⚡ **Poppler pdftoppm CLI:** High-performance vector rendering for dedicated or upgraded environments.
+  - 🔄 **Automatic Discovery & Failover:** Seamlessly resolves available drivers and automatically fails over if one engine is unavailable.
 - **Asynchronous Worker:** CLI background worker daemon converts multi-page PDFs asynchronously.
-- **High-Resolution Vector Rasterization:** Poppler `pdftoppm` renders clean, sharp PNG images at optimal DPI.
 - **Automated Metadata Extraction:** Dimension calculations, page counts, aspect ratios, and thumbnail extraction.
 - **Instant Customer Notifications:** Automatic email dispatched to the publisher once document processing completes.
 
@@ -109,8 +122,8 @@ Nuvis Flipex adheres strictly to the **BoardUI Standard** ([boardui/boardui](htt
             v                                                         v
 +-----------------------+                                 +-----------------------+
 |  MySQL 8.4 Database   |                                 |   Conversion Worker   |
-| Multi-tenant isolation|                                 |   Poppler (pdftoppm)  |
-|  Tenants · Users · DB |                                 | High-res page render  |
+| Multi-tenant isolation|                                 | Ghostscript / Imagick |
+|  Tenants · Users · DB |                                 |  / Poppler pdftoppm   |
 +-----------------------+                                 +-----------------------+
 ```
 
@@ -119,7 +132,7 @@ Nuvis Flipex adheres strictly to the **BoardUI Standard** ([boardui/boardui](htt
 | **Frontend** | React 18, TypeScript, Vite, React Router 6, Lucide/Remix Icons | BoardUI standard interface, StPageFlip viewer, interactive hotspot editor, administrative console. |
 | **Backend** | PHP 8.3+, Slim Framework 4, PSR-7 / PSR-15, Firebase JWT | RESTful API, multi-tenant middleware, authentication, rate limiting, and business logic. |
 | **Database** | MySQL 8.0 / 8.4 Enterprise | Relational storage with foreign key constraints, JSON columns for hotspot coordinates, tenant scoping indexes. |
-| **PDF Processing** | Poppler (`pdftoppm`), PHP CLI Worker | High-fidelity PDF page rasterization into web-optimized image assets. |
+| **PDF Processing** | Ghostscript (`/usr/bin/gs`), Imagick Extension, Poppler (`pdftoppm`) | Multi-engine high-fidelity PDF page rasterization into web-optimized image assets. |
 | **Email Engine** | PHPMailer 6.9, SMTP with TLS/SSL | Dynamic database-driven SMTP delivery, transactional HTML templates, local audit logs. |
 
 ---
@@ -133,18 +146,21 @@ emagzine/
 ├── INSTALLATION.md            # Detailed production and local setup guide
 ├── backend/
 │   ├── bin/
-│   │   ├── migrate.php        # Database schema migrations & initial seeds
+│   │   ├── install.php        # Secure installation wizard (dynamic passwords & keys)
+│   │   ├── migrate.php        # Database schema migrations & versioning
+│   │   ├── test_security.php  # Automated tenant isolation & security test suite
 │   │   └── worker.php         # Asynchronous PDF conversion worker daemon
 │   ├── public/
 │   │   ├── index.php          # API gateway & router definition
 │   │   └── .htaccess          # Apache rewrite rules
 │   ├── src/
 │   │   ├── Controllers/       # Admin, Auth, Flipbook, Hotspot, Me, Public
-│   │   ├── Middleware/        # Auth (JWT), TenantScope, RateLimit
-│   │   └── Support/           # Db, Mailer, Jwt, Env, Http, Storage
+│   │   ├── Middleware/        # Auth (JWT), TenantScope (IDOR protection), RateLimit
+│   │   └── Support/           # Audit, Db, Mailer, Jwt, Rbac, SecurityMonitor, Storage, Totp
 │   ├── storage/
+│   │   ├── .htaccess          # Protected directory (Require all denied)
 │   │   ├── mail_logs/         # Local audit fallback for dispatched emails
-│   │   └── publications/      # Uploaded PDFs and generated page assets
+│   │   └── tenants/           # Isolated customer publications & PDFs
 │   ├── composer.json          # PHP dependencies
 │   └── .env.example           # Backend configuration template
 └── frontend/
@@ -161,19 +177,19 @@ emagzine/
 
 ---
 
-## 🔒 Customer Isolation & Security Policy
+## 🔒 Customer Isolation & Enterprise Security Policy
 
-1. **Scoped Queries:** Every database query touching publications, pages, hotspots, or API keys is scoped to the tenant:
+1. **Scoped Queries & IDOR Prevention:** Every database query touching publications, pages, hotspots, or API keys is scoped to the tenant:
    ```sql
    SELECT * FROM flipbooks WHERE id = ? AND tenant_id = ?
    ```
-2. **Directory Isolation:** Files are stored in tenant-segregated directories:
-   ```
-   backend/storage/tenants/{tenant_id}/publications/{flipbook_id}/pages/page_{n}.png
-   ```
-3. **API Keys:** Issued API keys are hashed using `hash('sha256', $key)` and compared using timing-safe `hash_equals()`.
-4. **Argon2ID Hashing:** All user passwords are encrypted using `PASSWORD_ARGON2ID`.
-5. **CSRF & XSS Protection:** Secure SameSite HTTP-only cookies for refresh tokens; strict content-type verification.
+   Cross-tenant attempts return `404 Not Found` to prevent identity enumeration.
+2. **Directory Isolation & Protected Document Streaming:** Internal storage is kept outside the public web root (`backend/storage/tenants/{tenant_id}/...`) with direct HTTP access denied. Documents stream strictly through access-controlled API endpoints requiring active session or unlock tokens.
+3. **Granular RBAC:** Access permissions are checked using the `Rbac` matrix across `owner`, `admin`, `editor`, and `viewer` roles.
+4. **Session Hardening & Replay Defense:** Refresh tokens rotate on every exchange. Attempting to reuse an expired/revoked token immediately triggers family revocation of all active sessions and raises a critical security event.
+5. **Argon2ID Hashing & Dynamic Secrets:** All user passwords are encrypted using `PASSWORD_ARGON2ID`. No default passwords or static JWT keys exist in production deployments.
+6. **Live Threat Monitoring & Audit Trail:** Chronological security logging (`security_events`, `audit_logs`) with IP address, user agent, and contextual event metadata.
+7. **Automated Verification:** 24 unit and isolation tests run via `php backend/bin/test_security.php` before production deployment.
 
 ---
 

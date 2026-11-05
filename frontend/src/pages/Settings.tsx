@@ -49,15 +49,22 @@ export default function Settings() {
   });
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled ?? false);
+  const [twoFactorMethod, setTwoFactorMethod] = useState<'email' | 'totp'>(user?.twoFactorMethod ?? 'email');
   const [twoFactorMsg, setTwoFactorMsg] = useState('');
   const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+  const [totpSetup, setTotpSetup] = useState<{ secret: string; otpAuthUri: string } | null>(null);
+  const [totpCode, setOtpCode] = useState('');
+  const [totpErr, setTotpErr] = useState('');
 
   // Tenant / Company Billing Details
   const [tenantBilling, setTenantBilling] = useState<TenantBilling | null>(null);
 
   useEffect(() => {
     api<any>('/me').then((d) => {
-      if (d) setTwoFactorEnabled(!!d.twoFactorEnabled);
+      if (d) {
+        setTwoFactorEnabled(!!d.twoFactorEnabled);
+        if (d.twoFactorMethod) setTwoFactorMethod(d.twoFactorMethod);
+      }
     });
 
     api<TenantBilling>('/me/tenant-billing').then((d) => {
@@ -75,9 +82,57 @@ export default function Settings() {
     try {
       const res = await api<{ twoFactorEnabled: boolean }>('/me/two-factor', 'POST', { enabled: nextState });
       setTwoFactorEnabled(res.twoFactorEnabled);
-      setTwoFactorMsg(`Two-Factor Authentication is now ${res.twoFactorEnabled ? 'ENABLED' : 'DISABLED'}.`);
+      setTwoFactorMethod('email');
+      setTwoFactorMsg(`Two-Factor Authentication via email is now ${res.twoFactorEnabled ? 'ENABLED' : 'DISABLED'}.`);
     } catch (err: any) {
       setTwoFactorMsg(`Failed: ${err.message}`);
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const startTotpSetup = async () => {
+    setTwoFactorBusy(true);
+    setTotpErr('');
+    try {
+      const res = await api<{ secret: string; otpAuthUri: string }>('/me/totp/setup', 'POST');
+      setTotpSetup(res);
+    } catch (err: any) {
+      setTotpErr(err.message);
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const confirmTotp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!totpSetup || !totpCode) return;
+    setTwoFactorBusy(true);
+    setTotpErr('');
+    try {
+      await api('/me/totp/enable', 'POST', { secret: totpSetup.secret, code: totpCode });
+      setTwoFactorEnabled(true);
+      setTwoFactorMethod('totp');
+      setTotpSetup(null);
+      setOtpCode('');
+      setTwoFactorMsg('Authenticator app (TOTP) successfully activated!');
+    } catch (err: any) {
+      setTotpErr(err.message);
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  };
+
+  const disableTotp = async () => {
+    const pw = prompt('Enter your account password to disable Authenticator 2FA:');
+    if (!pw) return;
+    setTwoFactorBusy(true);
+    try {
+      await api('/me/totp/disable', 'POST', { password: pw });
+      setTwoFactorEnabled(false);
+      setTwoFactorMsg('Two-Factor Authentication disabled.');
+    } catch (err: any) {
+      alert(err.message);
     } finally {
       setTwoFactorBusy(false);
     }
@@ -113,27 +168,120 @@ export default function Settings() {
       </form>
 
       <div className="card">
-        <h2>🛡️ Two-Factor Authentication (Email)</h2>
+        <h2>🛡️ Two-Factor Authentication (2FA)</h2>
         <p className="muted" style={{ fontSize: '14px', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-          Enhance your account security. When 2FA is enabled, Nuvis Flipex will send a temporary 6-digit verification code to <b>{user?.email}</b> every time you sign in.
+          Protect your account with enterprise two-factor authentication. Choose between an Authenticator App (TOTP) or Email Verification Codes.
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
           <div>
             <span style={{ fontSize: '14px', fontWeight: 600, marginRight: '10px' }}>Current Status:</span>
             <span className={`badge ${twoFactorEnabled ? 'badge-success' : 'badge-neutral'}`}>
-              {twoFactorEnabled ? 'ENABLED' : 'DISABLED'}
+              {twoFactorEnabled ? `ENABLED (${(twoFactorMethod || 'email').toUpperCase()})` : 'DISABLED'}
             </span>
           </div>
-          <button
-            type="button"
-            className={twoFactorEnabled ? 'btn-secondary' : 'btn-primary'}
-            onClick={toggle2fa}
-            disabled={twoFactorBusy}
-          >
-            {twoFactorBusy ? 'Updating…' : (twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA via Email')}
-          </button>
+          {twoFactorEnabled && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={twoFactorMethod === 'totp' ? disableTotp : toggle2fa}
+              disabled={twoFactorBusy}
+            >
+              {twoFactorBusy ? 'Updating…' : 'Disable 2FA'}
+            </button>
+          )}
         </div>
-        {twoFactorMsg && <p style={{ marginTop: '12px', fontSize: '13px', color: '#166534' }}>{twoFactorMsg}</p>}
+
+        {/* 2FA Method Selection when disabled */}
+        {!twoFactorEnabled && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '16px' }}>
+            {/* Option A: Authenticator App */}
+            <div style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '16px', background: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📱</span>
+                <strong style={{ fontSize: '15px' }}>Authenticator App (Recommended)</strong>
+              </div>
+              <p className="muted" style={{ fontSize: '13px', lineHeight: 1.4, margin: '0 0 14px 0' }}>
+                Use Google Authenticator, Microsoft Authenticator, 1Password, or Authy to generate secure 6-digit codes on your mobile device.
+              </p>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={startTotpSetup}
+                disabled={twoFactorBusy || !!totpSetup}
+              >
+                Set Up Authenticator
+              </button>
+            </div>
+
+            {/* Option B: Email OTP */}
+            <div style={{ border: '1px solid #cbd5e1', borderRadius: '10px', padding: '16px', background: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '20px' }}>✉️</span>
+                <strong style={{ fontSize: '15px' }}>Email Verification Codes</strong>
+              </div>
+              <p className="muted" style={{ fontSize: '13px', lineHeight: 1.4, margin: '0 0 14px 0' }}>
+                Receive a temporary 6-digit OTP code sent to your registered email address <b>{user?.email}</b> upon every login.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={toggle2fa}
+                disabled={twoFactorBusy}
+              >
+                Enable Email 2FA
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TOTP Setup Modal / Inline Form */}
+        {totpSetup && (
+          <form onSubmit={confirmTotp} style={{ marginTop: '20px', padding: '18px', border: '1px solid #f59e0b', borderRadius: '10px', background: '#fffbeb' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#92400e' }}>Scan QR Code or Enter Key Manually</h3>
+            <p className="muted" style={{ fontSize: '13px', margin: '0 0 14px 0' }}>
+              1. Scan this QR code with Google Authenticator or your password manager.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(totpSetup.otpAuthUri)}`}
+                alt="Authenticator QR Code"
+                style={{ width: '130px', height: '130px', border: '2px solid #fff', borderRadius: '8px', background: '#fff', padding: '4px' }}
+              />
+              <div>
+                <span className="muted" style={{ fontSize: '12px', display: 'block' }}>Manual Secret Key:</span>
+                <code style={{ fontSize: '14px', background: '#fff', padding: '4px 8px', borderRadius: '4px', border: '1px solid #fde68a', display: 'inline-block', margin: '4px 0 8px 0' }}>
+                  {totpSetup.secret}
+                </code>
+                <small className="muted" style={{ display: 'block' }}>Account: {user?.email}</small>
+              </div>
+            </div>
+
+            <p className="muted" style={{ fontSize: '13px', margin: '0 0 8px 0' }}>
+              2. Enter the 6-digit code shown in your Authenticator app:
+            </p>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input
+                type="text"
+                maxLength={6}
+                value={totpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="123456"
+                style={{ width: '140px', fontSize: '20px', letterSpacing: '4px', textAlign: 'center', fontWeight: 700 }}
+                required
+              />
+              <button type="submit" className="btn-primary" disabled={twoFactorBusy || totpCode.length < 6}>
+                {twoFactorBusy ? 'Verifying…' : 'Verify & Activate'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setTotpSetup(null)}>
+                Cancel
+              </button>
+            </div>
+            {totpErr && <p className="err" style={{ marginTop: '8px' }}>{totpErr}</p>}
+          </form>
+        )}
+
+        {twoFactorMsg && <p style={{ marginTop: '12px', fontSize: '13px', color: '#166534', fontWeight: 600 }}>{twoFactorMsg}</p>}
       </div>
 
       {tenantBilling && tenantBilling.hasTenant && (
@@ -228,7 +376,24 @@ export default function Settings() {
       )}
 
       <div className="card">
-        <h2>Active sessions</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h2 style={{ margin: 0 }}>Active sessions</h2>
+          {sessions.length > 1 && (
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: '12px', padding: '4px 10px' }}
+              onClick={async () => {
+                if (confirm('Sign out of all other devices and active sessions?')) {
+                  await api('/me/sessions', 'DELETE');
+                  load();
+                }
+              }}
+            >
+              Sign out all other devices
+            </button>
+          )}
+        </div>
         {sessions.map((s) => (
           <div className="row" key={s.id}>
             <span>{s.userAgent || 'Unknown device'} · {s.ip} {s.current && <b>(this device)</b>}</span>
