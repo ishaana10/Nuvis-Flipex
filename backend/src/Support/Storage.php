@@ -84,4 +84,29 @@ final class Storage
 
         return hash_equals($expected, $signature);
     }
+
+    /** Generate a short-lived HMAC-SHA256 draft preview token for a publication slug */
+    public static function generatePreviewToken(string $slug, int $ttlSeconds = 14400): string
+    {
+        $expires = time() + $ttlSeconds;
+        $secret = $_ENV['JWT_SECRET'] ?? 'nuvis_fallback_secret_key';
+        $sig = hash_hmac('sha256', "preview|{$slug}|{$expires}", $secret);
+        return "{$expires}.{$sig}";
+    }
+
+    /** Verify a draft preview token for a publication slug */
+    public static function verifyPreviewToken(string $slug, ?string $token): bool
+    {
+        if (!$token || !str_contains($token, '.')) {
+            return false;
+        }
+        [$expStr, $sig] = explode('.', $token, 2);
+        $expires = (int) $expStr;
+        if ($expires < time()) {
+            return false;
+        }
+        $secret = $_ENV['JWT_SECRET'] ?? 'nuvis_fallback_secret_key';
+        $expected = hash_hmac('sha256', "preview|{$slug}|{$expires}", $secret);
+        return hash_equals($expected, $sig);
+    }
 }

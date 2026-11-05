@@ -75,6 +75,18 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $f->delete('/{id:[0-9]+}', [FlipbookController::class, 'delete']);
         $f->get('/{id:[0-9]+}/status', [FlipbookController::class, 'status']);
 
+        // Publishing Lifecycle, Duplication, PDF Replacement & Version History
+        $f->post('/{id:[0-9]+}/workflow', [FlipbookController::class, 'transitionWorkflow']);
+        $f->post('/{id:[0-9]+}/duplicate', [FlipbookController::class, 'duplicate']);
+        $f->post('/{id:[0-9]+}/replace-pdf', [FlipbookController::class, 'replacePdf'])->add(new RateLimit('upload', 20, 3600));
+        $f->get('/{id:[0-9]+}/versions', [FlipbookController::class, 'versions']);
+        $f->post('/{id:[0-9]+}/versions/{versionId:[0-9]+}/restore', [FlipbookController::class, 'restoreVersion']);
+        $f->post('/{id:[0-9]+}/retry', [FlipbookController::class, 'retryConversion']);
+
+        // Protected Document & Thumbnail Streaming (Strictly Authenticated & Tenant-Scoped)
+        $f->get('/{id:[0-9]+}/pages/{page:[0-9]+}', [FlipbookController::class, 'servePage']);
+        $f->get('/{id:[0-9]+}/thumbs/{page:[0-9]+}', [FlipbookController::class, 'serveThumb']);
+
         // Hotspots
         $f->get('/{id:[0-9]+}/hotspots', [HotspotController::class, 'index']);
         $f->post('/{id:[0-9]+}/hotspots', [HotspotController::class, 'create']);
@@ -85,9 +97,24 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $f->get('/{id:[0-9]+}/analytics', [AnalyticsController::class, 'show']);
     })->add(new TenantScope())->add(new Auth());
 
-    // Protected Document & Thumbnail Streaming (authorizes via Header, ?token=, or public unlock)
-    $g->get('/flipbooks/{id:[0-9]+}/pages/{page:[0-9]+}', [FlipbookController::class, 'servePage']);
-    $g->get('/flipbooks/{id:[0-9]+}/thumbs/{page:[0-9]+}', [FlipbookController::class, 'serveThumb']);
+    // Categories, Collections & Document Processing Job Queue (Authenticated & Tenant-Scoped)
+    $g->group('/categories', function (RouteCollectorProxy $c) {
+        $c->get('', [FlipbookController::class, 'listCategories']);
+        $c->post('', [FlipbookController::class, 'createCategory']);
+        $c->delete('/{id:[0-9]+}', [FlipbookController::class, 'deleteCategory']);
+    })->add(new TenantScope())->add(new Auth());
+
+    $g->group('/collections', function (RouteCollectorProxy $col) {
+        $col->get('', [FlipbookController::class, 'listCollections']);
+        $col->post('', [FlipbookController::class, 'createCollection']);
+        $col->delete('/{id:[0-9]+}', [FlipbookController::class, 'deleteCollection']);
+    })->add(new TenantScope())->add(new Auth());
+
+    $g->group('/jobs', function (RouteCollectorProxy $j) {
+        $j->get('', [FlipbookController::class, 'listJobs']);
+        $j->post('/{id:[0-9]+}/retry', [FlipbookController::class, 'retryJob']);
+        $j->delete('/{id:[0-9]+}', [FlipbookController::class, 'cancelJob']);
+    })->add(new TenantScope())->add(new Auth());
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);
     $g->get('/public/{slug}/pages/{page:[0-9]+}', [PublicController::class, 'page']);

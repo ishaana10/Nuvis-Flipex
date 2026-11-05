@@ -22,8 +22,6 @@ final class Auth implements MiddlewareInterface
         $header = $req->getHeaderLine('Authorization');
         if (str_starts_with($header, 'Bearer ')) {
             $token = substr($header, 7);
-        } elseif (!empty($req->getQueryParams()['token'])) {
-            $token = (string) $req->getQueryParams()['token'];
         }
 
         $claims = $token ? Jwt::verify($token) : null;

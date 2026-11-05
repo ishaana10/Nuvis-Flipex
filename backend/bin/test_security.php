@@ -224,7 +224,7 @@ echo "3. Protected Document Delivery & Password Security:\n";
 
 // Create password protected flipbook
 $pwHash = password_hash('AlphaSecret99!', PASSWORD_ARGON2ID);
-Db::run("INSERT INTO flipbooks (tenant_id, user_id, title, slug, status, visibility, password_hash, published_at) VALUES (?, ?, 'Locked Magazine', 'locked-magazine-sec-test', 'ready', 'password', ?, NOW())", [$tenantAId, $userAId, $pwHash]);
+Db::run("INSERT INTO flipbooks (tenant_id, user_id, title, slug, status, workflow_status, visibility, password_hash, published_at) VALUES (?, ?, 'Locked Magazine', 'locked-magazine-sec-test', 'ready', 'published', 'password', ?, NOW())", [$tenantAId, $userAId, $pwHash]);
 $lockedFid = (int) Db::pdo()->lastInsertId();
 
 // Mock page asset
@@ -381,12 +381,106 @@ assertTest(
 echo "\n";
 
 // ============================================================================
+// TEST SUITE 6: DOCUMENT PROCESSING, SIGNED DRAFT PREVIEW & PUBLISHING LIFECYCLE
+// ============================================================================
+echo "6. Document Processing, Signed Draft Preview & 7-Stage Publishing Lifecycle:\n";
+
+// 6.1 Create an unpublished 'editing' draft flipbook
+Db::run(
+    "INSERT INTO flipbooks (tenant_id, user_id, title, slug, status, workflow_status, visibility, published_at)
+     VALUES (?, ?, 'Unpublished Editorial Draft', 'unpublished-draft-sec-test', 'ready', 'editing', 'unlisted', NULL)",
+    [$tenantAId, $userAId]
+);
+$draftFid = (int) Db::pdo()->lastInsertId();
+$draftPagePath = Storage::root() . "/tenants/{$tenantAId}/publications/{$draftFid}/page-001.jpg";
+Storage::ensureDir(dirname($draftPagePath));
+file_put_contents($draftPagePath, "\xFF\xD8\xFF\xE0\x00\x10JFIF" . str_repeat('0', 50));
+Db::run(
+    "INSERT INTO pages (flipbook_id, page_number, image_path, thumb_path, width, height) VALUES (?, 1, ?, ?, 800, 1100)",
+    [$draftFid, "tenants/{$tenantAId}/publications/{$draftFid}/page-001.jpg", "tenants/{$tenantAId}/publications/{$draftFid}/page-001.jpg"]
+);
+
+// 6.2 Anonymous access to unpublished draft via /public/{slug}/pages/1 MUST be blocked
+$r = httpReq('GET', "{$apiUrl}/public/unpublished-draft-sec-test/pages/1");
+assertTest(
+    "Unpublished draft asset access blocked for anonymous users (HTTP 404)",
+    $r['status'] === 404,
+    "Received status: {$r['status']}"
+);
+
+// 6.3 Unauthenticated access to /flipbooks/{id}/pages/1 MUST be blocked (HTTP 401)
+$r = httpReq('GET', "{$apiUrl}/flipbooks/{$draftFid}/pages/1");
+assertTest(
+    "Unauthenticated direct /flipbooks/{id}/pages/1 blocked (HTTP 401)",
+    $r['status'] === 401,
+    "Received status: {$r['status']}"
+);
+
+// 6.4 Signed Draft Preview Token allows authorized preview of unpublished draft
+$previewToken = Storage::generatePreviewToken('unpublished-draft-sec-test', 3600);
+$r = httpReq('GET', "{$apiUrl}/public/unpublished-draft-sec-test?preview=" . rawurlencode($previewToken));
+assertTest(
+    "Valid HMAC-SHA256 Draft Preview token grants preview access to unpublished draft",
+    $r['status'] === 200 && ($r['body']['isPreview'] ?? false) === true,
+    "Status: {$r['status']}"
+);
+
+// 6.5 Workflow transition: editing -> in_review -> published (with RBAC & review notes)
+$r = httpReq('POST', "{$apiUrl}/flipbooks/{$draftFid}/workflow", [
+    'stage' => 'in_review',
+    'notes' => 'Ready for chief editor approval',
+], $tokenA);
+assertTest(
+    "Workflow transitions to 'in_review' with editorial notes",
+    $r['status'] === 200 && ($r['body']['workflowStatus'] ?? '') === 'in_review',
+    "Status: {$r['status']}, stage: " . ($r['body']['workflowStatus'] ?? '')
+);
+
+// 6.6 Viewer cannot approve & publish
+$r = httpReq('POST', "{$apiUrl}/flipbooks/{$draftFid}/workflow", ['stage' => 'published'], $tokenViewerA);
+assertTest(
+    "Role 'viewer' cannot approve & publish publication (HTTP 403 Forbidden)",
+    $r['status'] === 403,
+    "Received status: {$r['status']}"
+);
+
+// 6.7 Publication duplication clones flipbook and pages
+$r = httpReq('POST', "{$apiUrl}/flipbooks/{$draftFid}/duplicate", ['title' => 'Duplicated Draft'], $tokenA);
+$dupFid = (int) ($r['body']['id'] ?? 0);
+assertTest(
+    "Publication duplication clones flipbook and pages (HTTP 201)",
+    $r['status'] === 201 && $dupFid > 0 && ($r['body']['title'] ?? '') === 'Duplicated Draft',
+    "Status: {$r['status']}, dupId: {$dupFid}"
+);
+
+// 6.8 PDF Validator rejects corrupted / non-PDF files
+$badPdf = sys_get_temp_dir() . '/bad_test_' . bin2hex(random_bytes(4)) . '.pdf';
+file_put_contents($badPdf, 'NOT_A_VALID_PDF_FILE_CONTENT');
+$validatorRejected = false;
+try {
+    \App\Support\PdfRenderer::validatePdf($badPdf);
+} catch (\Throwable $e) {
+    $validatorRejected = true;
+}
+@unlink($badPdf);
+assertTest(
+    "PdfRenderer::validatePdf strictly rejects non-PDF / corrupted files",
+    $validatorRejected === true
+);
+
+echo "\n";
+
+// ============================================================================
 // CLEANUP TEST FIXTURES
 // ============================================================================
 echo "Cleaning up test fixtures...\n";
-Db::run("DELETE FROM hotspots WHERE flipbook_id IN (?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid]);
-Db::run("DELETE FROM pages WHERE flipbook_id = ?", [$lockedFid]);
-Db::run("DELETE FROM flipbooks WHERE id IN (?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid]);
+Db::run("DELETE FROM hotspots WHERE flipbook_id IN (?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid]);
+Db::run("DELETE FROM pages WHERE flipbook_id IN (?, ?, ?)", [$lockedFid, $draftFid, $dupFid]);
+Db::run("DELETE FROM flipbooks WHERE id IN (?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid]);
+Storage::rrmdir(dirname($draftPagePath));
+if ($dupFid > 0) {
+    Storage::rrmdir(Storage::publicationDir($tenantAId, $dupFid));
+}
 Db::run("DELETE FROM refresh_tokens WHERE user_id IN (?, ?, ?)", [$userAId, $userBId, $viewerAId]);
 Db::run("DELETE FROM users WHERE id IN (?, ?, ?)", [$userAId, $userBId, $viewerAId]);
 Db::run("DELETE FROM tenants WHERE id IN (?, ?)", [$tenantAId, $tenantBId]);

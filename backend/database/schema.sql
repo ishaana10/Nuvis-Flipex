@@ -109,28 +109,85 @@ CREATE TABLE IF NOT EXISTS folders (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS categories (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  name VARCHAR(120) NOT NULL,
+  slug VARCHAR(120) NOT NULL,
+  description TEXT NULL,
+  color VARCHAR(30) NOT NULL DEFAULT '#F5C542',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS collections (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  name VARCHAR(120) NOT NULL,
+  slug VARCHAR(120) NOT NULL,
+  description TEXT NULL,
+  is_public TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS flipbooks (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   tenant_id BIGINT UNSIGNED NULL,
   user_id BIGINT UNSIGNED NOT NULL,
   folder_id BIGINT UNSIGNED NULL,
+  category_id BIGINT UNSIGNED NULL,
+  collection_id BIGINT UNSIGNED NULL,
   title VARCHAR(200) NOT NULL,
   description TEXT NULL,
   slug VARCHAR(80) NOT NULL UNIQUE,
   source_pdf_path VARCHAR(255) NULL,
   page_count INT NOT NULL DEFAULT 0,
   status ENUM('uploading','processing','ready','failed') NOT NULL DEFAULT 'uploading',
+  workflow_status ENUM('draft','processing','editing','in_review','scheduled','published','archived') NOT NULL DEFAULT 'draft',
+  version INT UNSIGNED NOT NULL DEFAULT 1,
   visibility ENUM('public','unlisted','password') NOT NULL DEFAULT 'unlisted',
   password_hash VARCHAR(255) NULL,
   settings JSON NULL,
+  pdf_metadata JSON NULL,
+  seo_meta JSON NULL,
+  conversion_progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  conversion_step VARCHAR(150) NULL,
+  conversion_error TEXT NULL,
+  review_notes TEXT NULL,
+  reviewed_by BIGINT UNSIGNED NULL,
+  reviewed_at DATETIME NULL,
+  scheduled_at DATETIME NULL,
+  expires_at DATETIME NULL,
   published_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX (tenant_id),
   INDEX (user_id),
+  INDEX (workflow_status),
+  INDEX (category_id),
+  INDEX (collection_id),
   FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS flipbook_versions (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  flipbook_id BIGINT UNSIGNED NOT NULL,
+  version_number INT UNSIGNED NOT NULL,
+  source_pdf_path VARCHAR(255) NOT NULL,
+  page_count INT NOT NULL DEFAULT 0,
+  file_size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  pdf_metadata JSON NULL,
+  pages_snapshot JSON NULL,
+  notes TEXT NULL,
+  created_by BIGINT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id),
+  INDEX (flipbook_id, version_number),
+  FOREIGN KEY (flipbook_id) REFERENCES flipbooks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS pages (
@@ -138,6 +195,9 @@ CREATE TABLE IF NOT EXISTS pages (
   flipbook_id BIGINT UNSIGNED NOT NULL,
   page_number INT NOT NULL,
   image_path VARCHAR(255) NOT NULL,
+  high_res_path VARCHAR(255) NULL,
+  webp_path VARCHAR(255) NULL,
+  avif_path VARCHAR(255) NULL,
   thumb_path VARCHAR(255) NOT NULL,
   width INT NOT NULL,
   height INT NOT NULL,
@@ -181,15 +241,27 @@ CREATE TABLE IF NOT EXISTS api_keys (
 
 CREATE TABLE IF NOT EXISTS jobs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  flipbook_id BIGINT UNSIGNED NULL,
   type VARCHAR(50) NOT NULL,
   payload JSON NOT NULL,
+  status ENUM('queued','running','completed','failed','cancelled') NOT NULL DEFAULT 'queued',
+  progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  current_step VARCHAR(150) NULL,
   attempts INT NOT NULL DEFAULT 0,
+  max_attempts INT NOT NULL DEFAULT 3,
+  timeout_seconds INT NOT NULL DEFAULT 300,
   run_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  started_at DATETIME NULL,
   locked_at DATETIME NULL,
   done_at DATETIME NULL,
   error TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id),
+  INDEX (flipbook_id),
+  INDEX (status),
   INDEX (done_at, run_at)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

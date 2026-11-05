@@ -43,3 +43,21 @@ export async function api<T = any>(path: string, method = 'GET', body?: unknown)
   if (!res.ok) throw new ApiError(data.error ?? 'Request failed', res.status, data.fields ?? {});
   return data as T;
 }
+
+export async function uploadForm<T = any>(path: string, fd: FormData): Promise<T> {
+  const send = () =>
+    fetch(`/api/v1${path}`, {
+      method: 'POST',
+      body: fd,
+      credentials: 'include',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        Authorization: `Bearer ${getAccessToken()}`,
+      },
+    });
+  let r = await send();
+  if (r.status === 401 && (await refreshSession())) r = await send();
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new ApiError(data.error ?? 'Upload failed', r.status, data.fields ?? {});
+  return data as T;
+}

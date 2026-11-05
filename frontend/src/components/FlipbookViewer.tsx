@@ -5,6 +5,10 @@ import { playPageFlipSound } from '../utils/sound';
 export interface PageInfo {
   n: number;
   image: string;
+  imageJpg?: string;
+  imageHigh?: string;
+  webp?: string | null;
+  avif?: string | null;
   thumb: string;
   w: number;
   h: number;
@@ -52,10 +56,13 @@ export default function FlipbookViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
 
-  // Zoom & Pan state for Fullscreen mode
+  // Zoom & Pan state (available in both normal and fullscreen modes)
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDraggingState, setIsDraggingState] = useState(false);
+  const [hdLoadedPages, setHdLoadedPages] = useState<Record<number, string>>({});
+  const [bookBounds, setBookBounds] = useState<{ left: number; top: number; width: number; height: number; pageWidth: number } | null>(null);
+  const preloadedSet = useRef<Set<number>>(new Set());
   const dragStart = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
 
   const handleZoomChange = useCallback((newZoom: number) => {
@@ -65,6 +72,45 @@ export default function FlipbookViewer({
       setPan({ x: 0, y: 0 });
     }
   }, []);
+
+  // Progressive & Lazy Page Preloader: prioritize current spread ± 3 pages
+  useEffect(() => {
+    if (!pages.length) return;
+    const windowIndices: number[] = [];
+    for (let offset = 0; offset <= 4; offset++) {
+      if (current + offset < pages.length) windowIndices.push(current + offset);
+      if (offset > 0 && current - offset >= 0) windowIndices.push(current - offset);
+    }
+    windowIndices.forEach((idx) => {
+      if (preloadedSet.current.has(idx)) return;
+      preloadedSet.current.add(idx);
+      const pg = pages[idx];
+      if (!pg) return;
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = pg.image;
+    });
+  }, [current, pages]);
+
+  // On-Demand High-Resolution Zoom Loader (loads 180-200 DPI assets only when zoom > 1.25)
+  useEffect(() => {
+    if (zoom <= 1.25 || !pages.length) return;
+    const visibleIndices = [current];
+    if (mode === 'landscape' && current > 0 && current + 1 < pages.length) {
+      visibleIndices.push(current + 1);
+    }
+    visibleIndices.forEach((idx) => {
+      const pg = pages[idx];
+      const hdUrl = pg?.imageHigh || pg?.image;
+      if (!pg || !hdUrl || hdLoadedPages[ pg.n ]) return;
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => {
+        setHdLoadedPages((prev) => ({ ...prev, [pg.n]: hdUrl }));
+      };
+      img.src = hdUrl;
+    });
+  }, [zoom, current, mode, pages, hdLoadedPages]);
 
   // Global mousemove/mouseup listeners when panning while zoomed in
   useEffect(() => {
@@ -191,6 +237,7 @@ export default function FlipbookViewer({
     }
 
     const { left, top, width, height, pageWidth } = bounds;
+    setBookBounds({ left, top, width, height, pageWidth });
     const hasLeftPages = pageIdx > 0;
     const hasRightPages = pageIdx < totalPages - 1;
 
@@ -563,6 +610,63 @@ export default function FlipbookViewer({
             }}
           />
 
+          {/* On-Demand High-Resolution Zoom Layer (Active when zoom > 1.25) */}
+          {ready && zoom > 1.25 && bookBounds && (
+            <div
+              className="pointer-events-none absolute z-10 overflow-hidden"
+              style={{
+                left: `${Math.round(
+                  mode === 'landscape' && current === 0
+                    ? bookBounds.left + bookBounds.pageWidth
+                    : bookBounds.left
+                )}px`,
+                top: `${Math.round(bookBounds.top)}px`,
+                width: `${Math.round(
+                  mode === 'portrait' ||
+                    (mode === 'landscape' && (current === 0 || current >= total - 1))
+                    ? bookBounds.pageWidth
+                    : bookBounds.width
+                )}px`,
+                height: `${Math.round(bookBounds.height)}px`,
+                display: 'flex',
+              }}
+            >
+              {mode === 'portrait' || current === 0 || current >= total - 1 ? (
+                pages[current] && hdLoadedPages[pages[current].n] ? (
+                  <img
+                    src={hdLoadedPages[pages[current].n]}
+                    alt={`HD Page ${pages[current].n}`}
+                    className="h-full w-full object-fill select-none"
+                    draggable={false}
+                  />
+                ) : null
+              ) : (
+                <>
+                  <div className="h-full w-1/2 overflow-hidden">
+                    {pages[current] && hdLoadedPages[pages[current].n] && (
+                      <img
+                        src={hdLoadedPages[pages[current].n]}
+                        alt={`HD Page ${pages[current].n}`}
+                        className="h-full w-full object-fill select-none"
+                        draggable={false}
+                      />
+                    )}
+                  </div>
+                  <div className="h-full w-1/2 overflow-hidden">
+                    {pages[current + 1] && hdLoadedPages[pages[current + 1].n] && (
+                      <img
+                        src={hdLoadedPages[pages[current + 1].n]}
+                        alt={`HD Page ${pages[current + 1].n}`}
+                        className="h-full w-full object-fill select-none"
+                        draggable={false}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Interactive Hotspots Layer */}
           {ready && activeHotspots.length > 0 && (
             <div className="hz-hotspots-layer">
@@ -595,44 +699,42 @@ export default function FlipbookViewer({
           <span className="hz-pill-counter">{pageDisplay}</span>
           <button className="hz-pill-btn" onClick={next} disabled={current >= total - 1} title="Next">›</button>
 
-          {/* Zoom Slider in Fullscreen Mode */}
-          {isFullscreen && (
-            <div className="hz-zoom-controls">
-              <button
-                className="hz-pill-btn hz-zoom-btn"
-                onClick={() => handleZoomChange(zoom - 0.25)}
-                disabled={zoom <= 1}
-                title="Zoom Out"
-              >
-                −
-              </button>
-              <input
-                type="range"
-                className="hz-zoom-slider"
-                min="1"
-                max="2.5"
-                step="0.05"
-                value={zoom}
-                onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                title={`Zoom: ${Math.round(zoom * 100)}% (Drag to pan · Double-click to toggle)`}
-              />
-              <button
-                className="hz-pill-btn hz-zoom-btn"
-                onClick={() => handleZoomChange(zoom + 0.25)}
-                disabled={zoom >= 2.5}
-                title="Zoom In"
-              >
-                +
-              </button>
-              <button
-                className="hz-pill-btn hz-zoom-label"
-                onClick={() => handleZoomChange(1)}
-                title="Reset zoom to 100%"
-              >
-                {Math.round(zoom * 100)}%
-              </button>
-            </div>
-          )}
+          {/* Zoom Controls (Available in both Standard & Fullscreen Modes with On-Demand HD Zoom) */}
+          <div className="hz-zoom-controls">
+            <button
+              className="hz-pill-btn hz-zoom-btn"
+              onClick={() => handleZoomChange(zoom - 0.25)}
+              disabled={zoom <= 1}
+              title="Zoom Out"
+            >
+              −
+            </button>
+            <input
+              type="range"
+              className="hz-zoom-slider"
+              min="1"
+              max="2.5"
+              step="0.05"
+              value={zoom}
+              onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+              title={`Zoom: ${Math.round(zoom * 100)}% (Drag to pan · High-Res HD activates > 125%)`}
+            />
+            <button
+              className="hz-pill-btn hz-zoom-btn"
+              onClick={() => handleZoomChange(zoom + 0.25)}
+              disabled={zoom >= 2.5}
+              title="Zoom In"
+            >
+              +
+            </button>
+            <button
+              className="hz-pill-btn hz-zoom-label"
+              onClick={() => handleZoomChange(1)}
+              title="Reset zoom to 100%"
+            >
+              {Math.round(zoom * 100)}%{zoom > 1.25 ? ' HD' : ''}
+            </button>
+          </div>
 
           <button className="hz-pill-btn fs" onClick={toggleFullscreen} title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
             {isFullscreen ? '✕ Exit' : '⛶ Fullscreen'}
@@ -650,7 +752,7 @@ export default function FlipbookViewer({
                 className={`hz-thumb-item ${i === current ? 'active' : ''}`}
                 onClick={() => goto(i)}
               >
-                <img src={p.thumb} alt={`Page ${p.n}`} />
+                <img src={p.thumb} alt={`Page ${p.n}`} loading="lazy" decoding="async" />
                 <span className="hz-thumb-num">{p.n}</span>
               </div>
             ))}

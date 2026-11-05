@@ -1,52 +1,147 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, ApiError, getAccessToken, refreshSession } from '../api/client';
+import { api, ApiError, uploadForm } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import ShareDialog from '../components/ShareDialog';
 import CustomizationDialog, { type FlipbookSettings } from '../components/CustomizationDialog';
+import PublicationLifecycleModal, {
+  type CategoryItem,
+  type CollectionItem,
+} from '../components/PublicationLifecycleModal';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import {
+  RotateCcw,
+  Activity,
+  Plus,
+  X,
+  Clock,
+} from '../components/ui/icons';
 
 export interface Flipbook {
   id: number;
   title: string;
+  description?: string;
   slug: string;
   status: 'uploading' | 'processing' | 'ready' | 'failed';
+  workflowStatus?: 'draft' | 'processing' | 'editing' | 'in_review' | 'scheduled' | 'published' | 'archived';
+  version?: number;
   visibility: 'public' | 'unlisted' | 'password';
   pageCount: number;
   published: boolean;
+  publishedAt?: string | null;
+  scheduledAt?: string | null;
+  expiresAt?: string | null;
+  categoryId?: number | null;
+  categoryName?: string | null;
+  categoryColor?: string | null;
+  collectionId?: number | null;
+  collectionName?: string | null;
+  conversionProgress?: number;
+  conversionStep?: string;
+  conversionError?: string | null;
+  reviewNotes?: string | null;
+  reviewedAt?: string | null;
+  pdfMetadata?: Record<string, any> | null;
+  seoMeta?: Record<string, any>;
+  previewToken?: string;
+  previewUrl?: string;
   cover: string | null;
   settings?: FlipbookSettings;
+}
+
+interface JobQueueItem {
+  id: number;
+  flipbookId: number | null;
+  flipbookTitle: string;
+  type: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  currentStep: string;
+  attempts: number;
+  maxAttempts: number;
+  error: string | null;
+  createdAt: string;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [items, setItems] = useState<Flipbook[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
+  const [jobs, setJobs] = useState<JobQueueItem[]>([]);
+
   const [q, setQ] = useState('');
+  const [workflowFilter, setWorkflowFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [collectionFilter, setCollectionFilter] = useState<string>('');
+
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [share, setShare] = useState<Flipbook | null>(null);
   const [customize, setCustomize] = useState<Flipbook | null>(null);
+  const [lifecycleBook, setLifecycleBook] = useState<{ book: Flipbook; tab: 'workflow' | 'versions' | 'seo' } | null>(null);
+  const [showJobsModal, setShowJobsModal] = useState(false);
+  const [showTaxonomyModal, setShowTaxonomyModal] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newColName, setNewColName] = useState('');
+
   const input = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => api<Flipbook[]>(`/flipbooks?q=${encodeURIComponent(q)}`).then(setItems), [q]);
-  useEffect(() => { load(); }, [load]);
+  const load = useCallback(() => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (workflowFilter && workflowFilter !== 'all') params.set('workflow', workflowFilter);
+    if (categoryFilter) params.set('categoryId', categoryFilter);
+    if (collectionFilter) params.set('collectionId', collectionFilter);
+    return api<Flipbook[]>(`/flipbooks?${params.toString()}`).then(setItems);
+  }, [q, workflowFilter, categoryFilter, collectionFilter]);
 
-  // Poll while anything is converting.
+  const loadTaxonomy = useCallback(() => {
+    api<CategoryItem[]>('/categories').then(setCategories).catch(() => {});
+    api<CollectionItem[]>('/collections').then(setCollections).catch(() => {});
+  }, []);
+
+  const loadJobs = useCallback(() => {
+    api<JobQueueItem[]>('/jobs').then(setJobs).catch(() => {});
+  }, []);
+
   useEffect(() => {
-    if (!items.some((i) => i.status === 'processing')) return;
-    const t = setInterval(load, 3000);
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    loadTaxonomy();
+    loadJobs();
+  }, [loadTaxonomy, loadJobs]);
+
+  // Poll while anything is converting so progress bars update in real time
+  useEffect(() => {
+    if (!items.some((i) => i.status === 'processing' || i.status === 'uploading') && !showJobsModal) return;
+    const t = setInterval(() => {
+      load();
+      if (showJobsModal) loadJobs();
+    }, 2000);
     return () => clearInterval(t);
-  }, [items, load]);
+  }, [items, showJobsModal, load, loadJobs]);
 
   const upload = async (file: File) => {
-    setError(''); setUploading(true);
+    setError('');
+    setUploading(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
+      if (categoryFilter) fd.append('categoryId', categoryFilter);
+      if (collectionFilter) fd.append('collectionId', collectionFilter);
       await uploadForm('/flipbooks', fd);
       await load();
+      loadJobs();
     } catch (e) {
       setError(e instanceof ApiError ? (e.fields.file ?? e.message) : 'Upload failed');
-    } finally { setUploading(false); if (input.current) input.current.value = ''; }
+    } finally {
+      setUploading(false);
+      if (input.current) input.current.value = '';
+    }
   };
 
   const remove = async (f: Flipbook) => {
@@ -55,22 +150,100 @@ export default function Dashboard() {
     load();
   };
 
-  const rename = async (f: Flipbook) => {
-    const title = prompt('New title', f.title);
-    if (title?.trim()) { await api(`/flipbooks/${f.id}`, 'PATCH', { title }); load(); }
+  const duplicateBook = async (f: Flipbook) => {
+    try {
+      await api(`/flipbooks/${f.id}/duplicate`, 'POST', { title: `${f.title} (Copy)` });
+      load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to duplicate publication');
+    }
+  };
+
+  const retryBookConversion = async (f: Flipbook) => {
+    try {
+      await api(`/flipbooks/${f.id}/retry`, 'POST');
+      load();
+      loadJobs();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to retry conversion');
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return;
+    await api('/categories', 'POST', { name: newCatName.trim() });
+    setNewCatName('');
+    loadTaxonomy();
+  };
+
+  const handleCreateCollection = async () => {
+    if (!newColName.trim()) return;
+    await api('/collections', 'POST', { name: newColName.trim() });
+    setNewColName('');
+    loadTaxonomy();
+  };
+
+  const failedJobsCount = jobs.filter((j) => j.status === 'failed').length;
+
+  const getWorkflowBadgeVariant = (wf?: string): 'default' | 'golden' | 'success' | 'warning' | 'danger' => {
+    switch (wf) {
+      case 'published':
+        return 'success';
+      case 'in_review':
+      case 'scheduled':
+        return 'warning';
+      case 'editing':
+        return 'golden';
+      default:
+        return 'default';
+    }
   };
 
   return (
     <div>
-      <div className="row head">
+      <div className="row head" style={{ flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ margin: '0 0 4px 0' }}>Your Flipbooks</h1>
-          <p className="muted" style={{ margin: 0 }}>Create, customize, and share interactive magazines</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Full Publishing Lifecycle · Multi-Resolution WebP Engine · Version Control
+          </p>
         </div>
-        <div>
-          <input type="file" accept="application/pdf" hidden ref={input} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTaxonomyModal(true)}
+            title="Manage Categories & Collections"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Categories & Collections
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              loadJobs();
+              setShowJobsModal(true);
+            }}
+            title="View Document Processing Queue & Failed Jobs"
+          >
+            <Activity className="h-3.5 w-3.5 text-amber-500" />
+            Processing Queue
+            {failedJobsCount > 0 && (
+              <Badge variant="danger" className="ml-1">
+                {failedJobsCount} failed
+              </Badge>
+            )}
+          </Button>
+          <input
+            type="file"
+            accept="application/pdf"
+            hidden
+            ref={input}
+            onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+          />
           <button disabled={uploading} onClick={() => input.current?.click()} className="btn-primary">
-            {uploading ? 'Uploading PDF…' : '+ Upload PDF'}
+            {uploading ? 'Validating & Uploading PDF…' : '+ Upload PDF'}
           </button>
         </div>
       </div>
@@ -78,52 +251,415 @@ export default function Dashboard() {
       {user && !user.emailVerified && (
         <div className="banner">
           Please verify your email.{' '}
-          <button className="link" onClick={() => api('/auth/resend-verification', 'POST')}>Resend link</button>
+          <button className="link" onClick={() => api('/auth/resend-verification', 'POST')}>
+            Resend link
+          </button>
         </div>
       )}
       {error && <p className="err">{error}</p>}
 
-      <input className="search" placeholder="Search publications by title…" value={q} onChange={(e) => setQ(e.target.value)} />
+      {/* Search + Taxonomy & Workflow Filters */}
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            className="search"
+            style={{ margin: 0, flex: '1 1 260px' }}
+            placeholder="Search publications by title, description, or custom slug…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          >
+            <option value="">All Categories</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.count ?? 0})
+              </option>
+            ))}
+          </select>
+          <select
+            value={collectionFilter}
+            onChange={(e) => setCollectionFilter(e.target.value)}
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          >
+            <option value="">All Collections</option>
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.count ?? 0})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 7-Stage Workflow Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[
+            { id: 'all', label: 'All Publications' },
+            { id: 'editing', label: 'Editing / Drafts' },
+            { id: 'in_review', label: 'In Review' },
+            { id: 'scheduled', label: 'Scheduled' },
+            { id: 'published', label: 'Published' },
+            { id: 'archived', label: 'Archived' },
+          ].map((tabItem) => (
+            <button
+              key={tabItem.id}
+              type="button"
+              onClick={() => setWorkflowFilter(tabItem.id)}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                workflowFilter === tabItem.id
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              }`}
+            >
+              {tabItem.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {items.length === 0 ? (
-        <div className="card empty"><p>No flipbooks yet. Upload a PDF to get started.</p></div>
+        <div className="card empty">
+          <p>No publications match your current filter. Upload a PDF or clear filters to get started.</p>
+        </div>
       ) : (
         <div className="grid">
-          {items.map((f) => (
-            <div className="card fb" key={f.id}>
-              <div className="cover">
-                {f.cover ? <img src={f.cover} alt={f.title} /> : <span>{f.status === 'failed' ? '⚠️ Failed' : '⏳ Converting…'}</span>}
+          {items.map((f) => {
+            const wf = f.workflowStatus || (f.published ? 'published' : f.status === 'ready' ? 'editing' : 'processing');
+            const pct = f.conversionProgress ?? (f.status === 'ready' ? 100 : 10);
+
+            return (
+              <div className="card fb" key={f.id}>
+                <div className="cover relative">
+                  {f.cover ? (
+                    <img src={f.cover} alt={f.title} loading="lazy" decoding="async" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-4 text-center">
+                      {f.status === 'failed' ? (
+                        <>
+                          <span className="text-red-500 font-bold text-xs mb-1">⚠️ Conversion Failed</span>
+                          {f.conversionError && (
+                            <span className="text-[10px] text-slate-500 line-clamp-2 mb-2">{f.conversionError}</span>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => retryBookConversion(f)}>
+                            <RotateCcw className="h-3 w-3" /> Retry
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="w-full px-3 space-y-2">
+                          <span className="text-xs font-semibold text-amber-500 block">
+                            ⏳ {f.conversionStep || 'Converting PDF…'} ({pct}%)
+                          </span>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                            <div
+                              className="h-full bg-amber-400 transition-all duration-300"
+                              style={{ width: `${Math.max(5, pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Top-Right Version & Workflow Badges on Cover */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <Badge variant="golden" className="shadow-sm backdrop-blur-md">
+                      v{f.version || 1}
+                    </Badge>
+                    <Badge variant={getWorkflowBadgeVariant(wf)} className="uppercase shadow-sm backdrop-blur-md">
+                      {wf.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <b className="fb-title" title={f.title}>
+                    {f.title}
+                  </b>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>{f.pageCount} pages</span>
+                  <span>·</span>
+                  <span>/v/{f.slug}</span>
+                  {f.categoryName && (
+                    <>
+                      <span>·</span>
+                      <span className="font-semibold text-amber-500">{f.categoryName}</span>
+                    </>
+                  )}
+                </div>
+
+                {f.scheduledAt && wf === 'scheduled' && (
+                  <div className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                    <Clock className="h-3 w-3" />
+                    <span>Scheduled: {new Date(f.scheduledAt).toLocaleString()}</span>
+                  </div>
+                )}
+
+                <div className="actions">
+                  {f.status === 'ready' && (
+                    <Link to={`/dashboard/preview/${f.id}`} className="action-pill preview">
+                      Preview 👁️
+                    </Link>
+                  )}
+                  <button
+                    className="action-pill custom"
+                    onClick={() => setLifecycleBook({ book: f, tab: 'workflow' })}
+                    title="Workflow, Approval, Schedule, Versions & SEO"
+                  >
+                    Lifecycle & v{f.version || 1} 🔄
+                  </button>
+                  {f.status === 'ready' && (
+                    <Link to={`/dashboard/editor/${f.id}`} className="action-pill editor">
+                      Hotspots 🔗
+                    </Link>
+                  )}
+                  {f.status === 'ready' && (
+                    <Link to={`/dashboard/analytics/${f.id}`} className="action-pill analytics">
+                      Analytics 📊
+                    </Link>
+                  )}
+                  {f.status === 'ready' && (
+                    <button className="action-pill custom" onClick={() => setCustomize(f)}>
+                      Customize 🎨
+                    </button>
+                  )}
+                  {f.status === 'ready' && (
+                    <button className="action-pill share" onClick={() => setShare(f)}>
+                      Share 🚀
+                    </button>
+                  )}
+                  {f.status === 'ready' && (
+                    <button
+                      className="action-pill rename"
+                      onClick={() => duplicateBook(f)}
+                      title="Duplicate publication, pages & hotspots"
+                    >
+                      Duplicate 📋
+                    </button>
+                  )}
+                  {f.status === 'failed' && (
+                    <button className="action-pill preview" onClick={() => retryBookConversion(f)}>
+                      Retry Conversion 🔁
+                    </button>
+                  )}
+                  <button className="action-pill delete" onClick={() => remove(f)}>
+                    Delete
+                  </button>
+                </div>
               </div>
-              <b className="fb-title" title={f.title}>{f.title}</b>
-              <small className="muted">{f.pageCount} pages · {f.published ? 'Published' : 'Draft'} · {f.visibility}</small>
-              <div className="actions">
-                {f.status === 'ready' && <Link to={`/dashboard/preview/${f.id}`} className="action-pill preview">Preview 👁️</Link>}
-                {f.status === 'ready' && <Link to={`/dashboard/editor/${f.id}`} className="action-pill editor">Hotspots 🔗</Link>}
-                {f.status === 'ready' && <Link to={`/dashboard/analytics/${f.id}`} className="action-pill analytics">Analytics 📊</Link>}
-                {f.status === 'ready' && <button className="action-pill custom" onClick={() => setCustomize(f)}>Customize 🎨</button>}
-                {f.status === 'ready' && <button className="action-pill share" onClick={() => setShare(f)}>Share 🚀</button>}
-                <button className="action-pill rename" onClick={() => rename(f)}>Rename</button>
-                <button className="action-pill delete" onClick={() => remove(f)}>Delete</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {share && <ShareDialog flipbook={share} onClose={() => setShare(null)} onSaved={load} />}
       {customize && <CustomizationDialog flipbook={customize} onClose={() => setCustomize(null)} onSaved={load} />}
+      {lifecycleBook && (
+        <PublicationLifecycleModal
+          book={lifecycleBook.book}
+          initialTab={lifecycleBook.tab}
+          categories={categories}
+          collections={collections}
+          onClose={() => setLifecycleBook(null)}
+          onUpdated={() => {
+            load();
+            loadTaxonomy();
+          }}
+        />
+      )}
+
+      {/* Categories & Collections Manager Modal */}
+      {showTaxonomyModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+          onClick={() => setShowTaxonomyModal(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Categories & Collections
+              </h2>
+              <button onClick={() => setShowTaxonomyModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* Categories */}
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Categories</h3>
+                <div className="mb-3 flex gap-1.5">
+                  <input
+                    className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="New category..."
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                  />
+                  <Button size="sm" variant="primary" onClick={handleCreateCategory}>
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {categories.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-1.5 text-xs dark:border-slate-800"
+                    >
+                      <span>{c.name}</span>
+                      <button
+                        className="text-red-500 hover:underline text-[11px]"
+                        onClick={async () => {
+                          await api(`/categories/${c.id}`, 'DELETE');
+                          loadTaxonomy();
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Collections */}
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Collections</h3>
+                <div className="mb-3 flex gap-1.5">
+                  <input
+                    className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                    placeholder="New collection..."
+                    value={newColName}
+                    onChange={(e) => setNewColName(e.target.value)}
+                  />
+                  <Button size="sm" variant="primary" onClick={handleCreateCollection}>
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {collections.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-1.5 text-xs dark:border-slate-800"
+                    >
+                      <span>{c.name}</span>
+                      <button
+                        className="text-red-500 hover:underline text-[11px]"
+                        onClick={async () => {
+                          await api(`/collections/${c.id}`, 'DELETE');
+                          loadTaxonomy();
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Processing Job Queue & Failed-Job Management Modal */}
+      {showJobsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+          onClick={() => setShowJobsModal(false)}
+        >
+          <div
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Document Processing Service & Failed-Job Queue
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Isolated worker conversion telemetry, retry recovery & progress monitoring
+                </p>
+              </div>
+              <button onClick={() => setShowJobsModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {jobs.length === 0 ? (
+                <p className="text-center text-xs text-slate-400 py-6">No conversion jobs recorded yet.</p>
+              ) : (
+                <div className="divide-y divide-slate-200 rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+                  {jobs.map((j) => (
+                    <div key={j.id} className="flex items-center justify-between gap-4 px-4 py-3 text-xs">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            #{j.id} · {j.flipbookTitle}
+                          </span>
+                          <Badge
+                            variant={
+                              j.status === 'completed'
+                                ? 'success'
+                                : j.status === 'failed'
+                                  ? 'danger'
+                                  : j.status === 'running'
+                                    ? 'golden'
+                                    : 'default'
+                            }
+                          >
+                            {j.status} ({j.progress}%)
+                          </Badge>
+                          <span className="text-[11px] text-slate-400">
+                            Attempts: {j.attempts}/{j.maxAttempts}
+                          </span>
+                        </div>
+                        {j.currentStep && (
+                          <p className="text-[11px] text-slate-500">{j.currentStep}</p>
+                        )}
+                        {j.error && (
+                          <p className="text-[11px] text-red-500 font-medium">Error: {j.error}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {(j.status === 'failed' || j.status === 'cancelled') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              await api(`/jobs/${j.id}/retry`, 'POST');
+                              loadJobs();
+                              load();
+                            }}
+                          >
+                            <RotateCcw className="h-3 w-3" /> Retry Job
+                          </Button>
+                        )}
+                        {(j.status === 'queued' || j.status === 'running') && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              await api(`/jobs/${j.id}`, 'DELETE');
+                              loadJobs();
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-async function uploadForm(path: string, fd: FormData) {
-  const send = () => fetch(`/api/v1${path}`, {
-    method: 'POST', body: fd, credentials: 'include',
-    headers: { 'X-Requested-With': 'XMLHttpRequest', Authorization: `Bearer ${getAccessToken()}` },
-  });
-  let r = await send();
-  if (r.status === 401 && (await refreshSession())) r = await send();
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new ApiError(data.error ?? 'Upload failed', r.status, data.fields ?? {});
-  return data;
 }
