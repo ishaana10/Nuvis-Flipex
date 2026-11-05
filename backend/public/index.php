@@ -134,6 +134,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 
     $g->group('/jobs', function (RouteCollectorProxy $j) {
         $j->get('', [FlipbookController::class, 'listJobs']);
+        $j->post('/process-next', [FlipbookController::class, 'processNextJob']);
         $j->post('/{id:[0-9]+}/retry', [FlipbookController::class, 'retryJob']);
         $j->delete('/{id:[0-9]+}', [FlipbookController::class, 'cancelJob']);
     })->add(new TenantScope())->add(new Auth());

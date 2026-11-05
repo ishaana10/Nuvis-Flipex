@@ -87,6 +87,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
   const [newColName, setNewColName] = useState('');
 
   const input = useRef<HTMLInputElement>(null);
+  const workerBusyRef = useRef<boolean>(false);
 
   const load = useCallback(() => {
     const params = new URLSearchParams();
@@ -106,6 +107,20 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     api<JobQueueItem[]>('/jobs').then(setJobs).catch(() => {});
   }, []);
 
+  const triggerQueueDrain = useCallback(async () => {
+    if (workerBusyRef.current) return;
+    workerBusyRef.current = true;
+    try {
+      await api('/jobs/process-next', 'POST');
+      await load();
+      loadJobs();
+    } catch {
+      // ignore transient errors; polling continues
+    } finally {
+      workerBusyRef.current = false;
+    }
+  }, [load, loadJobs]);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -115,15 +130,25 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     loadJobs();
   }, [loadTaxonomy, loadJobs]);
 
-  // Poll while anything is converting so progress bars update in real time
+  // Poll while anything is converting so progress bars update in real time,
+  // and automatically drain queued jobs via HTTP for shared hosting (A2 Hosting).
   useEffect(() => {
-    if (!items.some((i) => i.status === 'processing' || i.status === 'uploading') && !showJobsModal) return;
+    const hasProcessing = items.some((i) => i.status === 'processing' || i.status === 'uploading');
+    if (!hasProcessing && !showJobsModal) return;
+
+    if (hasProcessing) {
+      triggerQueueDrain();
+    }
+
     const t = setInterval(() => {
       load();
       if (showJobsModal) loadJobs();
+      if (hasProcessing) {
+        triggerQueueDrain();
+      }
     }, 2000);
     return () => clearInterval(t);
-  }, [items, showJobsModal, load, loadJobs]);
+  }, [items, showJobsModal, load, loadJobs, triggerQueueDrain]);
 
   const upload = async (file: File) => {
     setError('');
@@ -481,6 +506,16 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                               style={{ width: `${Math.max(5, pct)}%` }}
                             />
                           </div>
+                          {pct <= 5 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => triggerQueueDrain()}
+                              className="mt-1"
+                            >
+                              ⚡ Convert Now
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>

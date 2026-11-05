@@ -33,17 +33,32 @@ export interface ViewerHotspot {
 
 export interface ViewerSettings {
   background?: string;
+  backgroundType?: 'image' | 'color' | 'style';
+  backgroundImage?: string;
+  backgroundStyle?: string;
   themePreset?: string;
   defaultReadingMode?: 'flip' | 'scroll' | 'reader';
+  pageEffect?: 'magazine' | 'book' | 'album' | 'notebook' | 'slider' | 'cards' | 'coverflow' | 'one_page';
   soundEnabled?: boolean;
+  horizontalTurn?: boolean;
+  rightToLeft?: boolean;
   allowDownload?: boolean;
   brandText?: string;
+  customLogoUrl?: string;
   companyName?: string;
   catalogueSubtitle?: string;
   disclaimerTitle?: string;
   disclaimerText?: string;
   showDisclaimer?: boolean;
   showPoweredBy?: boolean;
+  showToolbar?: boolean;
+  showThumbnailsButton?: boolean;
+  showSearchButton?: boolean;
+  showShareButton?: boolean;
+  showFullscreenButton?: boolean;
+  bgAudioUrl?: string;
+  bgAudioAutoplay?: boolean;
+  bgAudioLoop?: boolean;
 }
 
 interface ViewerProps {
@@ -540,6 +555,10 @@ export default function FlipbookViewer({
     host.current.appendChild(container);
 
     const isMobile = window.innerWidth < 768;
+    const isSinglePageEffect = ['one_page', 'slider', 'cards', 'coverflow'].includes(
+      settings.pageEffect || 'magazine'
+    );
+    const isHardCoverEffect = ['book', 'album', 'notebook'].includes(settings.pageEffect || 'magazine');
 
     const pf = new PageFlip(container, {
       width: singleWidth,
@@ -549,11 +568,11 @@ export default function FlipbookViewer({
       maxWidth: 2400,
       minHeight: 360,
       maxHeight: 1800,
-      showCover: true,
-      maxShadowOpacity: 0.6,
+      showCover: !isSinglePageEffect,
+      maxShadowOpacity: isHardCoverEffect ? 0.8 : 0.6,
       mobileScrollSupport: false,
-      usePortrait: isMobile,
-      flippingTime: 700,
+      usePortrait: isMobile || isSinglePageEffect,
+      flippingTime: isHardCoverEffect ? 850 : 700,
       useMouseEvents: true,
       swipeDistance: 30,
       startPage: current,
@@ -909,12 +928,24 @@ export default function FlipbookViewer({
 
   return (
     <div
-      className={`heyzine-viewer ${isFullscreen ? 'is-fullscreen' : ''}`}
+      className={`heyzine-viewer effect-${settings.pageEffect || 'magazine'} ${isFullscreen ? 'is-fullscreen' : ''}`}
+      dir={settings.rightToLeft ? 'rtl' : 'ltr'}
       style={{
-        background: activeBg,
+        background: settings.backgroundImage ? settings.backgroundImage : activeBg,
+        backgroundSize:
+          settings.backgroundImage?.includes('1.5px') ? '18px 18px' : 'cover',
+        backgroundPosition: 'center center',
         ['--spread-aspect' as any]: `${spreadAspect}`,
       }}
     >
+      {settings.bgAudioUrl && (
+        <audio
+          src={settings.bgAudioUrl}
+          autoPlay={!!settings.bgAudioAutoplay}
+          loop={settings.bgAudioLoop !== false}
+          style={{ display: 'none' }}
+        />
+      )}
       {/* Top Floating Header Bar */}
       <div className="hz-header">
         <div className="hz-title-wrap">
@@ -965,18 +996,20 @@ export default function FlipbookViewer({
 
         <div className="hz-top-actions">
           {/* Search Inside Publication */}
-          <button
-            className={`hz-icon-btn ${showSearch ? 'ring-2 ring-amber-400' : ''}`}
-            onClick={() => {
-              setShowSearch(!showSearch);
-              setShowToc(false);
-              setShowBookmarks(false);
-            }}
-            title="Search Inside Publication (Shortcut: /)"
-            aria-label="Search Inside Publication"
-          >
-            🔍
-          </button>
+          {settings.showSearchButton !== false && (
+            <button
+              className={`hz-icon-btn ${showSearch ? 'ring-2 ring-amber-400' : ''}`}
+              onClick={() => {
+                setShowSearch(!showSearch);
+                setShowToc(false);
+                setShowBookmarks(false);
+              }}
+              title="Search Inside Publication (Shortcut: /)"
+              aria-label="Search Inside Publication"
+            >
+              🔍
+            </button>
+          )}
 
           {/* Automatic Table of Contents */}
           <button
@@ -1011,17 +1044,19 @@ export default function FlipbookViewer({
           </button>
 
           {/* Share Current Page / Publication */}
-          <button
-            className="hz-icon-btn"
-            onClick={() => {
-              setCopiedShareLink(false);
-              setShowShareModal(true);
-            }}
-            title={`Share Page ${current + 1} or Publication`}
-            aria-label="Share Page"
-          >
-            🔗
-          </button>
+          {settings.showShareButton !== false && (
+            <button
+              className="hz-icon-btn"
+              onClick={() => {
+                setCopiedShareLink(false);
+                setShowShareModal(true);
+              }}
+              title={`Share Page ${current + 1} or Publication`}
+              aria-label="Share Page"
+            >
+              🔗
+            </button>
+          )}
 
           {/* Offline Caching Toggle */}
           <button
@@ -1061,13 +1096,15 @@ export default function FlipbookViewer({
             </a>
           )}
 
-          <button
-            className={`hz-icon-btn ${showThumbs ? 'ring-2 ring-amber-400' : ''}`}
-            onClick={() => setShowThumbs(!showThumbs)}
-            title="Toggle Page Thumbnails"
-          >
-            📑
-          </button>
+          {settings.showThumbnailsButton !== false && (
+            <button
+              className={`hz-icon-btn ${showThumbs ? 'ring-2 ring-amber-400' : ''}`}
+              onClick={() => setShowThumbs(!showThumbs)}
+              title="Toggle Page Thumbnails"
+            >
+              📑
+            </button>
+          )}
 
           <button
             className="hz-icon-btn"
@@ -1077,13 +1114,15 @@ export default function FlipbookViewer({
             ⌨️
           </button>
 
-          <button
-            className="hz-icon-btn"
-            onClick={toggleFullscreen}
-            title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
-          >
-            {isFullscreen ? '✕' : '⛶'}
-          </button>
+          {settings.showFullscreenButton !== false && (
+            <button
+              className="hz-icon-btn"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+            >
+              {isFullscreen ? '✕' : '⛶'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1265,42 +1304,36 @@ export default function FlipbookViewer({
             cursor: zoom > 1 ? (isDraggingState ? 'grabbing' : 'grab') : 'default',
           }}
         >
-          {/* Left-Side Company Heading, Subtitle & Disclaimer Overlay (Heyzine Style) */}
+          {/* Left-Side Company Heading, Subtitle & Optional Disclaimer Overlay (Heyzine Style) */}
           {(() => {
-            const isLightStage = ['#ffffff', '#fbf9f4', '#f6f3ec', '#f1f5f9', '#e2e8f0', '#f8fafc'].includes(
-              (activeBg || '').toLowerCase()
-            );
-            const showDisclaimerBlock = settings.showDisclaimer !== false;
-            const companyHeading = (settings.companyName || tenantName || title || 'NUVIS FLIPEX').toUpperCase();
-            const subtitleHeading = (settings.catalogueSubtitle || (settings.companyName || tenantName ? title : 'CATALOGUE') || 'CATALOGUE').toUpperCase();
-            const discTitle = settings.disclaimerTitle || 'Disclaimer';
-            const defaultDiscText = `This e-book catalogue is for informational purposes only. While ${
-              settings.companyName || tenantName || 'the publisher'
-            } strives to provide accurate and up-to-date information, we make no guarantees about the completeness, accuracy, or reliability of the content. All products, pricing, and availability are subject to change without prior notice.\n\n${
-              settings.companyName || tenantName || 'The publisher'
-            } is not responsible for any loss or damage that may result from the use of or reliance on the information in this e-book.\n\nBy accessing and using this e-book, you acknowledge and accept these terms.`;
-            const discBody =
-              settings.disclaimerText !== undefined && settings.disclaimerText.trim() !== ''
-                ? settings.disclaimerText
-                : description && description.trim() !== ''
-                  ? description
-                  : defaultDiscText;
+            const bgVal = (settings.backgroundImage || activeBg || '').toLowerCase();
+            const isLightStage =
+              ['#ffffff', '#fbf9f4', '#f6f3ec', '#f1f5f9', '#e2e8f0', '#f8fafc'].includes(bgVal) ||
+              bgVal.includes('#f8fafc') ||
+              bgVal.includes('#eaff3b') ||
+              bgVal.includes('#fdfcfb');
+            // Optional: Only display the left-side title/disclaimer block when the tenant turns on "Show titles on the flipbook's background"
+            const showDisclaimerBlock = settings.showDisclaimer === true;
+            const companyHeading = (settings.companyName || tenantName || title || '').toUpperCase();
+            const subtitleHeading = (settings.catalogueSubtitle || '').toUpperCase();
+            const discTitle = settings.disclaimerTitle ?? '';
+            const discBody = settings.disclaimerText ?? '';
 
             const isFlippedOpen = current > 0;
 
             return (
               <>
-                {showDisclaimerBlock && (
+                {showDisclaimerBlock && (companyHeading || subtitleHeading || discBody) && (
                   <aside
                     className={`hz-side-disclaimer ${isLightStage ? 'is-light-bg' : 'is-dark-bg'} ${
                       isFlippedOpen ? 'is-flipped-transparent' : ''
                     }`}
-                    aria-label="Publication Disclaimer"
+                    aria-label="Publication Info and Disclaimer"
                   >
-                    <h2 className="hz-disclaimer-company">{companyHeading}</h2>
+                    {companyHeading && <h2 className="hz-disclaimer-company">{companyHeading}</h2>}
                     {subtitleHeading && <div className="hz-disclaimer-subtitle">{subtitleHeading}</div>}
-                    {discTitle && <div className="hz-disclaimer-heading">{discTitle}</div>}
-                    <div className="hz-disclaimer-body">{discBody}</div>
+                    {discBody && discTitle && <div className="hz-disclaimer-heading">{discTitle}</div>}
+                    {discBody && <div className="hz-disclaimer-body">{discBody}</div>}
                   </aside>
                 )}
 
@@ -1311,7 +1344,11 @@ export default function FlipbookViewer({
                     }`}
                   >
                     <div className="hz-powered-logo-box">
-                      <img src="/logo.png" alt="Nuvis Flipex" className="hz-powered-logo-img" />
+                      <img
+                        src={settings.customLogoUrl || '/logo.png'}
+                        alt="Nuvis Flipex"
+                        className="hz-powered-logo-img"
+                      />
                     </div>
                     <span className="hz-powered-vertical">Powered by</span>
                     <div className="hz-powered-brand-col">
@@ -1628,75 +1665,79 @@ export default function FlipbookViewer({
       )}
 
       {/* Bottom Floating Navigation Pill */}
-      <div className="hz-bottom-bar">
-        <div className="hz-nav-pill">
-          <button className="hz-pill-btn" onClick={prev} disabled={current === 0} title="Previous Page (←)">
-            ‹
-          </button>
-          <span className="hz-pill-counter">{pageDisplay}</span>
-          <button className="hz-pill-btn" onClick={next} disabled={current >= total - 1} title="Next Page (→)">
-            ›
-          </button>
+      {settings.showToolbar !== false && (
+        <div className="hz-bottom-bar">
+          <div className="hz-nav-pill">
+            <button className="hz-pill-btn" onClick={prev} disabled={current === 0} title="Previous Page (←)">
+              ‹
+            </button>
+            <span className="hz-pill-counter">{pageDisplay}</span>
+            <button className="hz-pill-btn" onClick={next} disabled={current >= total - 1} title="Next Page (→)">
+              ›
+            </button>
 
-          {/* Mobile/Compact Mode Switcher button */}
-          <button
-            className="hz-pill-btn"
-            onClick={() =>
-              setReadingMode((m) => (m === 'flip' ? 'scroll' : m === 'scroll' ? 'reader' : 'flip'))
-            }
-            title="Switch Reading Mode: 3D Flip / Vertical Scroll / Accessible Reader (Shortcut: M)"
-          >
-            {readingMode === 'flip' ? '📜 Scroll' : readingMode === 'scroll' ? '♿ Reader' : '📖 3D Flip'}
-          </button>
+            {/* Mobile/Compact Mode Switcher button */}
+            <button
+              className="hz-pill-btn"
+              onClick={() =>
+                setReadingMode((m) => (m === 'flip' ? 'scroll' : m === 'scroll' ? 'reader' : 'flip'))
+              }
+              title="Switch Reading Mode: 3D Flip / Vertical Scroll / Accessible Reader (Shortcut: M)"
+            >
+              {readingMode === 'flip' ? '📜 Scroll' : readingMode === 'scroll' ? '♿ Reader' : '📖 3D Flip'}
+            </button>
 
-          {/* Zoom Controls (Available in 3D Flip & Scroll Modes with On-Demand HD Zoom) */}
-          {readingMode !== 'reader' && (
-            <div className="hz-zoom-controls">
-              <button
-                className="hz-pill-btn hz-zoom-btn"
-                onClick={() => handleZoomChange(zoom - 0.25)}
-                disabled={zoom <= 1}
-                title="Zoom Out (-)"
-              >
-                −
-              </button>
-              <input
-                type="range"
-                className="hz-zoom-slider"
-                min="1"
-                max="2.5"
-                step="0.05"
-                value={zoom}
-                onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                title={`Zoom: ${Math.round(zoom * 100)}% (Drag to pan · High-Res HD activates > 125%)`}
-              />
-              <button
-                className="hz-pill-btn hz-zoom-btn"
-                onClick={() => handleZoomChange(zoom + 0.25)}
-                disabled={zoom >= 2.5}
-                title="Zoom In (+)"
-              >
-                +
-              </button>
-              <button
-                className="hz-pill-btn hz-zoom-label"
-                onClick={() => handleZoomChange(1)}
-                title="Reset zoom to 100% (0)"
-              >
-                {Math.round(zoom * 100)}%{zoom > 1.25 ? ' HD' : ''}
-              </button>
-            </div>
-          )}
+            {/* Zoom Controls (Available in 3D Flip & Scroll Modes with On-Demand HD Zoom) */}
+            {readingMode !== 'reader' && (
+              <div className="hz-zoom-controls">
+                <button
+                  className="hz-pill-btn hz-zoom-btn"
+                  onClick={() => handleZoomChange(zoom - 0.25)}
+                  disabled={zoom <= 1}
+                  title="Zoom Out (-)"
+                >
+                  −
+                </button>
+                <input
+                  type="range"
+                  className="hz-zoom-slider"
+                  min="1"
+                  max="2.5"
+                  step="0.05"
+                  value={zoom}
+                  onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                  title={`Zoom: ${Math.round(zoom * 100)}% (Drag to pan · High-Res HD activates > 125%)`}
+                />
+                <button
+                  className="hz-pill-btn hz-zoom-btn"
+                  onClick={() => handleZoomChange(zoom + 0.25)}
+                  disabled={zoom >= 2.5}
+                  title="Zoom In (+)"
+                >
+                  +
+                </button>
+                <button
+                  className="hz-pill-btn hz-zoom-label"
+                  onClick={() => handleZoomChange(1)}
+                  title="Reset zoom to 100% (0)"
+                >
+                  {Math.round(zoom * 100)}%{zoom > 1.25 ? ' HD' : ''}
+                </button>
+              </div>
+            )}
 
-          <button
-            className="hz-pill-btn fs"
-            onClick={toggleFullscreen}
-            title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
-          >
-            {isFullscreen ? '✕ Exit' : '⛶ Fullscreen'}
-          </button>
+            {settings.showFullscreenButton !== false && (
+              <button
+                className="hz-pill-btn fs"
+                onClick={toggleFullscreen}
+                title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+              >
+                {isFullscreen ? '✕ Exit' : '⛶ Fullscreen'}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Slide-Up Thumbnails Strip */}
       {showThumbs && (

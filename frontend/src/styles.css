@@ -2800,3 +2800,471 @@ html[data-theme="dark"] .text-slate-500 {
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* ============================================================================
+   HEYZINE-STYLE FLIPBOOK CUSTOMIZATION STUDIO MODAL (PICS 1–4)
+   ============================================================================ */
+
+.hz-studio-modal {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  width: min(880px, 95vw);
+  max-height: 90vh;
+  background: #ffffff;
+  color: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 720px) {
+  .hz-studio-modal {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hz-studio-sidebar {
+  background: #f4f5f4;
+  border-right: 3px solid #8fd1b6;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.hz-studio-section-header {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #334155;
+  padding: 4px 6px 8px;
+  text-transform: uppercase;
+}
+
+.hz-studio-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hz-studio-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s ease;
+}
+
+.hz-studio-nav-btn:hover {
+  border-color: #10b981;
+  background: #f0fdf4;
+  color: #065f46;
+}
+
+.hz-studio-nav-btn.active {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.hz-studio-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: #10b981;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.hz-studio-content {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.hz-studio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #f5f7f5;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hz-studio-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.hz-studio-close-x {
+  background: transparent;
+  border: none;
+  color: #e11d48;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.hz-studio-close-x:hover {
+  opacity: 1;
+  background: transparent;
+}
+
+.hz-studio-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.hz-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hz-form-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.hz-form-row-top {
+  align-items: flex-start;
+}
+
+.hz-form-row-top .hz-form-label {
+  padding-top: 8px;
+}
+
+@media (max-width: 580px) {
+  .hz-form-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .hz-form-label {
+    text-align: left !important;
+  }
+}
+
+.hz-form-label {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.hz-form-input,
+.hz-form-textarea,
+.hz-form-select {
+  width: 100%;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hz-form-input:focus,
+.hz-form-textarea:focus,
+.hz-form-select:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+/* Heyzine Green Pill Switch */
+.hz-switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.hz-switch-row input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.hz-switch-slider {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.hz-switch-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.hz-switch-row input:checked + .hz-switch-slider {
+  background: #16a34a;
+  border-color: #15803d;
+}
+
+.hz-switch-row input:checked + .hz-switch-slider::after {
+  transform: translateX(24px);
+}
+
+.hz-switch-text {
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.hz-more-options-link {
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  color: #0d9488;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.hz-more-options-link:hover {
+  text-decoration: underline;
+  background: transparent;
+}
+
+.hz-more-options-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+/* Sub-tabs inside Background (Image | Color | Style) */
+.hz-subtabs {
+  display: flex;
+  gap: 8px;
+  background: #f4f6f4;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.hz-subtab-btn {
+  flex: 1;
+  max-width: 120px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hz-subtab-btn:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.hz-subtab-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Background Action Toolbar (Gallery | Search | Upload | Clear) */
+.hz-bg-toolbar {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  gap: 8px;
+  background: #f4f6f4;
+  border: 1px solid #dce1dc;
+  border-radius: 8px;
+  padding: 5px 10px;
+  margin: 4px auto;
+}
+
+.hz-bg-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #1e293b;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hz-bg-tool-btn:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.hz-bg-tool-btn.active {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* 3-Column Visual Background Gallery (Pic 4) */
+.hz-bg-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px 6px 4px 2px;
+}
+
+@media (max-width: 600px) {
+  .hz-bg-gallery {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.hz-bg-thumb {
+  position: relative;
+  height: 98px;
+  border-radius: 4px;
+  border: 2px solid #cbd5e1;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  padding: 0;
+}
+
+.hz-bg-thumb:hover {
+  transform: translateY(-2px);
+  border-color: #10b981;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+.hz-bg-thumb.selected {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.28);
+}
+
+.hz-bg-thumb-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3px 6px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.hz-bg-thumb:hover .hz-bg-thumb-label,
+.hz-bg-thumb.selected .hz-bg-thumb-label {
+  opacity: 1;
+}
+
+/* Modal Footer (Save & Close Buttons) */
+.hz-studio-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #f5f7f5;
+  border-top: 1px solid #e2e8f0;
+}
+
+.hz-btn-save {
+  min-width: 118px;
+  padding: 9px 24px;
+  border-radius: 6px;
+  border: 1px solid #0d9488;
+  background: #109e78;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.hz-btn-save:hover {
+  background: #0b8162;
+}
+
+.hz-btn-close {
+  min-width: 118px;
+  padding: 9px 24px;
+  border-radius: 6px;
+  border: 1px solid #109e78;
+  background: #ffffff;
+  color: #109e78;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hz-btn-close:hover {
+  background: #ecfdf5;
+}
+
+/* Notebook / Book / Album Spine Visual Variants */
+.heyzine-viewer.effect-notebook .stf-spine-crease::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 50%;
+  width: 14px;
+  transform: translateX(-50%);
+  background-image: radial-gradient(circle, #334155 3px, transparent 3.5px);
+  background-size: 14px 22px;
+  opacity: 0.65;
+}
+

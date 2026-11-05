@@ -6,6 +6,7 @@ namespace App\Controllers;
 use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\JobRunner;
 use App\Support\PdfRenderer;
 use App\Support\Rbac;
 use App\Support\Storage;
@@ -183,6 +184,8 @@ final class FlipbookController
              VALUES (?, ?, 'convert_pdf', ?, 'queued', 2, 'Queued for conversion')",
             [$tenantId, $id, json_encode(['flipbook_id' => $id])]
         );
+
+        JobRunner::triggerAsyncCliWorker();
 
         Audit::log('flipbook.create', 'flipbook', $id, [
             'title' => $title,
@@ -742,6 +745,8 @@ final class FlipbookController
             [$f['tenant_id'], $f['id'], json_encode(['flipbook_id' => (int) $f['id']])]
         );
 
+        JobRunner::triggerAsyncCliWorker();
+
         Audit::log('flipbook.retry_conversion', 'flipbook', (int) $f['id']);
 
         return Http::json($res, $this->present(Db::one('SELECT * FROM flipbooks WHERE id = ?', [$f['id']])));
@@ -804,7 +809,23 @@ final class FlipbookController
             );
         }
 
+        JobRunner::triggerAsyncCliWorker();
+
         return Http::json($res, ['ok' => true]);
+    }
+
+    /**
+     * Web-triggered queue worker endpoint (`/api/v1/jobs/process-next`).
+     * Automatically drains queued PDF conversions on shared/cPanel hosting (like A2 Hosting)
+     * without requiring a persistent CLI daemon or SSH cron setup.
+     */
+    public function processNextJob(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.view');
+
+        $result = JobRunner::processNextJob();
+        return Http::json($res, $result);
     }
 
     public function cancelJob(Request $req, Response $res, array $args): Response

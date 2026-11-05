@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
+import CustomizationDialog from '../components/CustomizationDialog';
 import FlipbookViewer, {
   type PageInfo,
   type TocItem,
@@ -14,6 +15,7 @@ interface FlipbookDetails {
   description?: string;
   tenantName?: string;
   slug: string;
+  visibility?: 'public' | 'unlisted' | 'password';
   settings?: ViewerSettings;
   toc?: TocItem[];
   pages: PageInfo[];
@@ -23,13 +25,13 @@ export default function Preview() {
   const { id } = useParams();
   const [data, setData] = useState<FlipbookDetails | null>(null);
   const [hotspots, setHotspots] = useState<Record<number, ViewerHotspot[]>>({});
+  const [showCustomize, setShowCustomize] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const loadPreview = useCallback(() => {
     api<FlipbookDetails>(`/flipbooks/${id}`)
       .then((d) => {
         setData(d);
-        // Also fetch hotspots
         api<ViewerHotspot[]>(`/flipbooks/${id}/hotspots`).then((list) => {
           const grouped: Record<number, ViewerHotspot[]> = {};
           for (const h of list) {
@@ -43,6 +45,10 @@ export default function Preview() {
       .catch((err) => setError(err.message || 'Failed to load preview'));
   }, [id]);
 
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
+
   if (error) return <p className="center err">{error}</p>;
   if (!data) return <p className="center">Loading preview…</p>;
 
@@ -52,6 +58,14 @@ export default function Preview() {
         <Link to="/dashboard" className="btn-back">← Back to Flipbooks</Link>
         <span className="preview-title">{data.title}</span>
         <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn-pub"
+            onClick={() => setShowCustomize(true)}
+            title="Open Flipbook Style & Customization Settings"
+          >
+            Customize Style 🎨
+          </button>
           <Link to={`/dashboard/editor/${data.id}`} className="btn-pub">
             Edit Hotspots ✏️
           </Link>
@@ -71,6 +85,20 @@ export default function Preview() {
         hotspots={hotspots}
         toc={data.toc}
       />
+
+      {showCustomize && (
+        <CustomizationDialog
+          flipbook={{
+            id: data.id,
+            title: data.title,
+            description: data.description,
+            visibility: data.visibility || 'public',
+            settings: data.settings as any,
+          }}
+          onClose={() => setShowCustomize(false)}
+          onSaved={loadPreview}
+        />
+      )}
     </div>
   );
 }

@@ -830,9 +830,27 @@ final class PdfRenderer
 
     /**
      * Execute a shell process safely with strict timeout enforcement and stderr capture.
+     * Supports proc_open with automatic fallback to exec() on shared/cPanel hosts where proc_open is restricted.
      */
     private static function runProcess(array $cmd, string $toolName = 'Command', int $timeoutSeconds = 300): void
     {
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        $canProcOpen = function_exists('proc_open') && !in_array('proc_open', $disabled, true);
+
+        if (!$canProcOpen) {
+            if (!function_exists('exec') || in_array('exec', $disabled, true)) {
+                throw new RuntimeException("Both proc_open and exec are disabled on this server; cannot run {$toolName}.");
+            }
+            $cmdStr = implode(' ', array_map('escapeshellarg', $cmd)) . ' 2>&1';
+            $output = [];
+            $code = 0;
+            @exec($cmdStr, $output, $code);
+            if ($code !== 0) {
+                throw new RuntimeException("{$toolName} failed with exit code {$code}: " . implode("\n", $output));
+            }
+            return;
+        }
+
         $pipes = [];
         $proc = @proc_open($cmd, [
             1 => ['pipe', 'w'],
@@ -841,6 +859,15 @@ final class PdfRenderer
 
         if (!is_resource($proc)) {
             $cmdStr = implode(' ', array_map('escapeshellarg', $cmd));
+            if (function_exists('exec') && !in_array('exec', $disabled, true)) {
+                $output = [];
+                $code = 0;
+                @exec($cmdStr . ' 2>&1', $output, $code);
+                if ($code !== 0) {
+                    throw new RuntimeException("{$toolName} failed with exit code {$code}: " . implode("\n", $output));
+                }
+                return;
+            }
             throw new RuntimeException("Unable to start process for {$toolName}: {$cmdStr}");
         }
 
@@ -890,6 +917,18 @@ final class PdfRenderer
      */
     private static function runProcessCapture(array $cmd, int $timeoutSeconds = 20): string
     {
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        $canProcOpen = function_exists('proc_open') && !in_array('proc_open', $disabled, true);
+
+        if (!$canProcOpen) {
+            if (function_exists('exec') && !in_array('exec', $disabled, true)) {
+                $output = [];
+                @exec(implode(' ', array_map('escapeshellarg', $cmd)), $output);
+                return implode("\n", $output);
+            }
+            throw new RuntimeException('Unable to launch process');
+        }
+
         $pipes = [];
         $proc = @proc_open($cmd, [
             1 => ['pipe', 'w'],
@@ -897,6 +936,11 @@ final class PdfRenderer
         ], $pipes);
 
         if (!is_resource($proc)) {
+            if (function_exists('exec') && !in_array('exec', $disabled, true)) {
+                $output = [];
+                @exec(implode(' ', array_map('escapeshellarg', $cmd)), $output);
+                return implode("\n", $output);
+            }
             throw new RuntimeException('Unable to launch process');
         }
 
@@ -917,6 +961,17 @@ final class PdfRenderer
                 return false;
             }
             return true;
+        }
+
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        if (!function_exists('proc_open') || in_array('proc_open', $disabled, true)) {
+            if (function_exists('exec') && !in_array('exec', $disabled, true)) {
+                $out = [];
+                $code = 127;
+                @exec(escapeshellarg($path) . ' -v > /dev/null 2>&1', $out, $code);
+                return $code >= 0 && $code <= 1;
+            }
+            return false;
         }
 
         $testCmd = [$path, '-v'];
