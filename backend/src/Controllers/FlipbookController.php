@@ -6,6 +6,7 @@ namespace App\Controllers;
 use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\Jwt;
 use App\Support\Rbac;
 use App\Support\Storage;
 use App\Support\TenantContext;
@@ -236,17 +237,83 @@ final class FlipbookController
 
     private function streamPageAsset(Request $req, Response $res, int $flipbookId, int $pageNumber, bool $isThumb): Response
     {
-        $f = $this->owned($req, $flipbookId);
+        // 1. Resolve user if authenticated via Header or query param ?token=
+        $user = $req->getAttribute('user');
+        if (!$user) {
+            $token = null;
+            $header = $req->getHeaderLine('Authorization');
+            if (str_starts_with($header, 'Bearer ')) {
+                $token = substr($header, 7);
+            } elseif (!empty($req->getQueryParams()['token'])) {
+                $token = (string) $req->getQueryParams()['token'];
+            }
+            if ($token) {
+                $claims = Jwt::verify($token);
+                if ($claims && !empty($claims->sub)) {
+                    $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL', [$claims->sub]);
+                }
+            }
+        }
+
+        // 2. Fetch flipbook record
+        $f = Db::one('SELECT * FROM flipbooks WHERE id = ?', [$flipbookId]);
         if (!$f) return Http::error($res, 'Not found', 404);
 
-        $p = Db::one('SELECT * FROM pages WHERE flipbook_id = ? AND page_number = ?', [$f['id'], $pageNumber]);
+        // 3. Permission verification:
+        // - Admin user: full access
+        // - Owner or tenant member: full access
+        // - Anonymous viewer: allowed if flipbook is ready and not password locked
+        $hasTenantAccess = false;
+        if ($user) {
+            if ($user['role'] === 'admin') {
+                $hasTenantAccess = true;
+            } elseif ((int) $f['user_id'] === (int) $user['id']) {
+                $hasTenantAccess = true;
+            } elseif (!empty($user['tenant_id']) && !empty($f['tenant_id']) && (int) $f['tenant_id'] === (int) $user['tenant_id']) {
+                $hasTenantAccess = true;
+            }
+        }
+
+        if (!$hasTenantAccess) {
+            if ($f['status'] !== 'ready') {
+                return Http::error($res, 'Not found', 404);
+            }
+            if ($f['visibility'] === 'password') {
+                $unlockToken = $req->getHeaderLine('X-Flipbook-Unlock') ?: ($req->getQueryParams()['unlockToken'] ?? null);
+                $expected = hash('sha256', $f['slug'] . ($f['password_hash'] ?? ''));
+                if (!$unlockToken || !hash_equals($expected, (string) $unlockToken)) {
+                    return Http::error($res, 'Password required', 403);
+                }
+            }
+        }
+
+        // 4. Retrieve page record
+        $p = Db::one('SELECT * FROM pages WHERE flipbook_id = ? AND page_number = ?', [$flipbookId, $pageNumber]);
         if (!$p) return Http::error($res, 'Page not found', 404);
 
+        // 5. Locate file on disk (supporting original, tenant-isolated, and public paths)
         $rel = $isThumb ? $p['thumb_path'] : $p['image_path'];
         $path = Storage::root() . '/' . $rel;
 
         if (!file_exists($path)) {
-            return Http::error($res, 'File not found', 404);
+            $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
+            $altRel = $isThumb
+                ? "tenants/{$tenantId}/publications/{$flipbookId}/thumbs/" . basename($rel)
+                : "tenants/{$tenantId}/publications/{$flipbookId}/" . basename($rel);
+            $altPath = Storage::root() . '/' . $altRel;
+            if (file_exists($altPath)) {
+                $path = $altPath;
+            } else {
+                $altPublic = $isThumb
+                    ? "public/flipbooks/{$flipbookId}/thumbs/" . basename($rel)
+                    : "public/flipbooks/{$flipbookId}/" . basename($rel);
+                $altPublicPath = Storage::root() . '/' . $altPublic;
+                if (file_exists($altPublicPath)) {
+                    $path = $altPublicPath;
+                } else {
+                    return Http::error($res, 'File not found', 404);
+                }
+            }
         }
 
         $fh = fopen($path, 'rb');
@@ -288,7 +355,7 @@ final class FlipbookController
             'pageCount' => (int) $f['page_count'],
             'published' => $f['published_at'] !== null,
             'createdAt' => $f['created_at'],
-            'cover' => $f['id'] ? "/api/v1/flipbooks/{$f['id']}/thumbs/1" : null,
+            'cover' => $f['slug'] ? "/api/v1/public/{$f['slug']}/thumbs/1" : ($f['id'] ? "/api/v1/flipbooks/{$f['id']}/thumbs/1" : null),
             'settings' => $f['settings'] ? json_decode($f['settings'], true) : new \stdClass(),
         ];
     }

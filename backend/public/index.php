@@ -74,8 +74,6 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $f->patch('/{id:[0-9]+}', [FlipbookController::class, 'update']);
         $f->delete('/{id:[0-9]+}', [FlipbookController::class, 'delete']);
         $f->get('/{id:[0-9]+}/status', [FlipbookController::class, 'status']);
-        $f->get('/{id:[0-9]+}/pages/{page:[0-9]+}', [FlipbookController::class, 'servePage']);
-        $f->get('/{id:[0-9]+}/thumbs/{page:[0-9]+}', [FlipbookController::class, 'serveThumb']);
 
         // Hotspots
         $f->get('/{id:[0-9]+}/hotspots', [HotspotController::class, 'index']);
@@ -86,6 +84,10 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         // Analytics
         $f->get('/{id:[0-9]+}/analytics', [AnalyticsController::class, 'show']);
     })->add(new TenantScope())->add(new Auth());
+
+    // Protected Document & Thumbnail Streaming (authorizes via Header, ?token=, or public unlock)
+    $g->get('/flipbooks/{id:[0-9]+}/pages/{page:[0-9]+}', [FlipbookController::class, 'servePage']);
+    $g->get('/flipbooks/{id:[0-9]+}/thumbs/{page:[0-9]+}', [FlipbookController::class, 'serveThumb']);
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);
     $g->get('/public/{slug}/pages/{page:[0-9]+}', [PublicController::class, 'page']);

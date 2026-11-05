@@ -18,8 +18,15 @@ final class Auth implements MiddlewareInterface
 
     public function process(Request $req, Handler $next): Response
     {
+        $token = null;
         $header = $req->getHeaderLine('Authorization');
-        $claims = str_starts_with($header, 'Bearer ') ? Jwt::verify(substr($header, 7)) : null;
+        if (str_starts_with($header, 'Bearer ')) {
+            $token = substr($header, 7);
+        } elseif (!empty($req->getQueryParams()['token'])) {
+            $token = (string) $req->getQueryParams()['token'];
+        }
+
+        $claims = $token ? Jwt::verify($token) : null;
         if (!$claims) {
             return Http::error(new SlimResponse(), 'Unauthorized', 401);
         }

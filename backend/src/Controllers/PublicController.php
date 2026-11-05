@@ -82,7 +82,7 @@ final class PublicController
 
     private function serveAsset(Request $req, Response $res, string $slug, int $pageNumber, bool $isThumb): Response
     {
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND published_at IS NOT NULL AND status = "ready"', [$slug]);
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND status = "ready"', [$slug]);
         if (!$f) return Http::error($res, 'Not found', 404);
 
         if ($f['visibility'] === 'password' && !$this->unlocked($req, $f)) {
@@ -95,7 +95,24 @@ final class PublicController
         $rel = $isThumb ? $p['thumb_path'] : $p['image_path'];
         $path = \App\Support\Storage::root() . '/' . $rel;
         if (!file_exists($path)) {
-            return Http::error($res, 'Asset file not found', 404);
+            $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
+            $altRel = $isThumb
+                ? "tenants/{$tenantId}/publications/{$f['id']}/thumbs/" . basename($rel)
+                : "tenants/{$tenantId}/publications/{$f['id']}/" . basename($rel);
+            $altPath = \App\Support\Storage::root() . '/' . $altRel;
+            if (file_exists($altPath)) {
+                $path = $altPath;
+            } else {
+                $altPublic = $isThumb
+                    ? "public/flipbooks/{$f['id']}/thumbs/" . basename($rel)
+                    : "public/flipbooks/{$f['id']}/" . basename($rel);
+                $altPublicPath = \App\Support\Storage::root() . '/' . $altPublic;
+                if (file_exists($altPublicPath)) {
+                    $path = $altPublicPath;
+                } else {
+                    return Http::error($res, 'Asset file not found', 404);
+                }
+            }
         }
 
         $fh = fopen($path, 'rb');
