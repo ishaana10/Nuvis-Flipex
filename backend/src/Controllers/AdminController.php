@@ -428,6 +428,13 @@ final class AdminController
             'smtpFromName' => $map['smtp_from_name'] ?? 'Nuvis Flipex',
             'notifyWelcomeEmail' => ($map['notify_welcome_email'] ?? '1') === '1',
             'notifyCustomerOnPublish' => ($map['notify_customer_on_publish'] ?? '1') === '1',
+            'pwMinLength' => isset($map['pw_min_length']) ? max(8, min(64, (int) $map['pw_min_length'])) : 8,
+            'pwRequireUppercase' => ($map['pw_require_uppercase'] ?? '1') === '1',
+            'pwRequireLowercase' => ($map['pw_require_lowercase'] ?? '1') === '1',
+            'pwRequireNumber' => ($map['pw_require_number'] ?? '1') === '1',
+            'pwRequireSpecial' => ($map['pw_require_special'] ?? '1') === '1',
+            'pwDisallowUserInfo' => ($map['pw_disallow_user_info'] ?? '1') === '1',
+            'pwDisallowCommon' => ($map['pw_disallow_common'] ?? '1') === '1',
         ]);
     }
 
@@ -447,6 +454,13 @@ final class AdminController
             'smtp_from_name' => isset($b['smtpFromName']) ? trim((string) $b['smtpFromName']) : null,
             'notify_welcome_email' => isset($b['notifyWelcomeEmail']) ? ($b['notifyWelcomeEmail'] ? '1' : '0') : null,
             'notify_customer_on_publish' => isset($b['notifyCustomerOnPublish']) ? ($b['notifyCustomerOnPublish'] ? '1' : '0') : null,
+            'pw_min_length' => isset($b['pwMinLength']) ? (string) max(8, min(64, (int) $b['pwMinLength'])) : null,
+            'pw_require_uppercase' => isset($b['pwRequireUppercase']) ? ($b['pwRequireUppercase'] ? '1' : '0') : null,
+            'pw_require_lowercase' => isset($b['pwRequireLowercase']) ? ($b['pwRequireLowercase'] ? '1' : '0') : null,
+            'pw_require_number' => isset($b['pwRequireNumber']) ? ($b['pwRequireNumber'] ? '1' : '0') : null,
+            'pw_require_special' => isset($b['pwRequireSpecial']) ? ($b['pwRequireSpecial'] ? '1' : '0') : null,
+            'pw_disallow_user_info' => isset($b['pwDisallowUserInfo']) ? ($b['pwDisallowUserInfo'] ? '1' : '0') : null,
+            'pw_disallow_common' => isset($b['pwDisallowCommon']) ? ($b['pwDisallowCommon'] ? '1' : '0') : null,
         ];
 
         foreach ($keys as $k => $v) {

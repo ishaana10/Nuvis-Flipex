@@ -284,6 +284,12 @@ final class AuthController
 
     private function sessionPayload(array $user): array
     {
+        $tenantName = null;
+        if (!empty($user['tenant_id'])) {
+            $t = Db::one('SELECT name FROM tenants WHERE id = ?', [$user['tenant_id']]);
+            $tenantName = $t['name'] ?? null;
+        }
+
         return [
             'accessToken' => Jwt::issue((int) $user['id'], $user['role']),
             'user' => [
@@ -293,6 +299,7 @@ final class AuthController
                 'role' => $user['role'],
                 'tenantRole' => $user['tenant_role'] ?? 'editor',
                 'tenantId' => !empty($user['tenant_id']) ? (int) $user['tenant_id'] : null,
+                'companyName' => $tenantName,
                 'emailVerified' => $user['email_verified_at'] !== null,
                 'twoFactorEnabled' => !empty($user['two_factor_enabled']),
                 'twoFactorMethod' => $user['two_factor_method'] ?? 'email',

@@ -117,6 +117,13 @@ interface SystemSettings {
   smtpFromName: string;
   notifyWelcomeEmail: boolean;
   notifyCustomerOnPublish: boolean;
+  pwMinLength?: number;
+  pwRequireUppercase?: boolean;
+  pwRequireLowercase?: boolean;
+  pwRequireNumber?: boolean;
+  pwRequireSpecial?: boolean;
+  pwDisallowUserInfo?: boolean;
+  pwDisallowCommon?: boolean;
 }
 
 interface EmailLog {
@@ -812,6 +819,68 @@ export default function AdminPanel() {
                       onChange={(e) => setSettings({ ...settings, notifyCustomerOnPublish: e.target.checked })}
                     />
                   </label>
+
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
+                      🔐 Developer Password Security Requirements (Argon2id)
+                    </h4>
+                    <div className="toggle-row" style={{ marginBottom: '8px' }}>
+                      <div>
+                        <b>Minimum Password Length</b>
+                        <p className="muted">Required minimum character length (8–64).</p>
+                      </div>
+                      <input
+                        type="number"
+                        min={8}
+                        max={64}
+                        value={settings.pwMinLength ?? 8}
+                        onChange={(e) =>
+                          setSettings({ ...settings, pwMinLength: Math.max(8, Number(e.target.value) || 8) })
+                        }
+                        style={{ width: '72px', textAlign: 'center', fontWeight: 700 }}
+                      />
+                    </div>
+
+                    <label className="toggle-row" style={{ marginBottom: '8px' }}>
+                      <div>
+                        <b>Require Uppercase, Lowercase, Number & Special Symbol</b>
+                        <p className="muted">Enforce strict character-class complexity across all password changes.</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="admin-checkbox"
+                        checked={settings.pwRequireSpecial ?? true}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            pwRequireUppercase: e.target.checked,
+                            pwRequireLowercase: e.target.checked,
+                            pwRequireNumber: e.target.checked,
+                            pwRequireSpecial: e.target.checked,
+                          })
+                        }
+                      />
+                    </label>
+
+                    <label className="toggle-row">
+                      <div>
+                        <b>Block Personal Info & Compromised Patterns</b>
+                        <p className="muted">Prevent users from including their name, email, or weak dictionary words.</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="admin-checkbox"
+                        checked={settings.pwDisallowUserInfo ?? true}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            pwDisallowUserInfo: e.target.checked,
+                            pwDisallowCommon: e.target.checked,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
 
                   <button
                     className="btn-primary"

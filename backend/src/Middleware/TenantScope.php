@@ -20,6 +20,15 @@ use Slim\Routing\RouteContext;
  */
 final class TenantScope implements MiddlewareInterface
 {
+    public static function id(Request $req): ?int
+    {
+        $attr = $req->getAttribute('tenant_id');
+        if ($attr !== null) {
+            return (int) $attr;
+        }
+        return TenantContext::id();
+    }
+
     public function process(Request $req, Handler $next): Response
     {
         $user = $req->getAttribute('user');
@@ -44,7 +53,7 @@ final class TenantScope implements MiddlewareInterface
         if ($route) {
             $args = $route->getArguments();
             // If route targets a flipbook by {id}
-            if (!empty($args['id']) && ctype_digit((string) $args['id'])) {
+            if (str_contains($route->getPattern(), '/flipbooks') && !empty($args['id']) && ctype_digit((string) $args['id'])) {
                 $flipbookId = (int) $args['id'];
                 $f = Db::one('SELECT id, user_id, tenant_id FROM flipbooks WHERE id = ?', [$flipbookId]);
                 if ($f && !TenantContext::canAccessFlipbook($f)) {

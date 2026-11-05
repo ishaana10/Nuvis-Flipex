@@ -6,6 +6,7 @@ namespace App\Controllers;
 use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\PasswordPolicy;
 use App\Support\Rbac;
 use App\Support\Totp;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -164,26 +165,55 @@ final class MeController
         return Http::json($res, ['name' => $name]);
     }
 
+    public function passwordPolicy(Request $req, Response $res): Response
+    {
+        return Http::json($res, PasswordPolicy::getPolicy());
+    }
+
     public function changePassword(Request $req, Response $res): Response
     {
         $u = $req->getAttribute('user');
         $b = (array) $req->getParsedBody();
-        $row = Db::one('SELECT password_hash FROM users WHERE id = ?', [$u['id']]);
-        if (!password_verify((string) ($b['currentPassword'] ?? ''), $row['password_hash'])) {
-            return Http::error($res, 'Validation failed', 422, ['currentPassword' => 'Current password is incorrect']);
-        }
+        $currentPassword = (string) ($b['currentPassword'] ?? '');
         $new = (string) ($b['newPassword'] ?? '');
-        if (strlen($new) < 8) {
-            return Http::error($res, 'Validation failed', 422, ['newPassword' => 'Password must be at least 8 characters']);
-        }
-        Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_ARGON2ID), $u['id']]);
-        // Sign out all other devices.
-        $current = hash('sha256', $req->getCookieParams()['refresh_token'] ?? '');
-        Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND token_hash <> ? AND revoked_at IS NULL',
-            [$u['id'], $current]);
+        $confirm = isset($b['confirmPassword']) ? (string) $b['confirmPassword'] : $new;
+        $revokeOthers = !array_key_exists('revokeOtherSessions', $b) || !empty($b['revokeOtherSessions']);
 
-        Audit::log('user.change_password', 'user', (int) $u['id']);
-        return Http::json($res, ['ok' => true]);
+        if ($currentPassword === '') {
+            return Http::error($res, 'Current password is required', 422, ['currentPassword' => 'Please enter your current password']);
+        }
+
+        $row = Db::one('SELECT password_hash FROM users WHERE id = ?', [$u['id']]);
+        if (!$row || !password_verify($currentPassword, $row['password_hash'])) {
+            return Http::error($res, 'Current password is incorrect', 422, ['currentPassword' => 'Current password is incorrect']);
+        }
+
+        if ($new !== $confirm) {
+            return Http::error($res, 'New passwords do not match', 422, ['confirmPassword' => 'Confirmation password does not match new password']);
+        }
+
+        $policyError = PasswordPolicy::validate(
+            $new,
+            (string) ($u['email'] ?? ''),
+            (string) ($u['name'] ?? ''),
+            $currentPassword
+        );
+        if ($policyError !== null) {
+            return Http::error($res, $policyError, 422, ['newPassword' => $policyError]);
+        }
+
+        Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_ARGON2ID), $u['id']]);
+
+        if ($revokeOthers) {
+            $current = hash('sha256', $req->getCookieParams()['refresh_token'] ?? '');
+            Db::run(
+                'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND token_hash <> ? AND revoked_at IS NULL',
+                [$u['id'], $current]
+            );
+        }
+
+        Audit::log('user.change_password', 'user', (int) $u['id'], ['revoked_other_sessions' => $revokeOthers]);
+        return Http::json($res, ['ok' => true, 'message' => 'Password updated with Argon2id encryption.']);
     }
 
     public function sessions(Request $req, Response $res): Response

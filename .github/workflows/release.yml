@@ -1,0 +1,33 @@
+name: Nuvis Flipex — Formal Semantic Release Process
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  formal-release:
+    name: Verify, Bundle & Publish Formal Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Tagged Commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Production Frontend Bundle
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Generate Release Checksums & Changelog Manifest
+        run: |
+          echo "Release Tag: ${GITHUB_REF_NAME}" > RELEASE_MANIFEST.txt
+          echo "Built At (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> RELEASE_MANIFEST.txt
+          echo "Architecture: 15-Module Domain Monolith + 8 Infrastructure Services" >> RELEASE_MANIFEST.txt

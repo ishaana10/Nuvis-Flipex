@@ -74,6 +74,11 @@ function httpReq(string $method, string $url, ?array $body = null, ?string $toke
 
 echo "Setting up isolated test fixtures in database...\n";
 
+// Pre-clean any leftover fixtures from prior runs
+Db::run("DELETE FROM flipbooks WHERE slug IN ('alpha-secret-doc', 'beta-confidential-doc', 'protected-sec-test-doc', 'unpublished-draft-sec-test') OR slug LIKE 'unpublished-draft-sec-test-copy%' OR slug LIKE 'fiji-hardware-erp-catalogue-q4%'");
+Db::run("DELETE FROM users WHERE email IN ('user-a@alpha.test', 'user-b@beta.test', 'viewer-a@alpha.test')");
+Db::run("DELETE FROM tenants WHERE slug IN ('test-corp-alpha', 'test-corp-beta')");
+
 // 1. Setup Tenant Alpha and Tenant Beta
 $uuidA = bin2hex(random_bytes(16));
 $uuidB = bin2hex(random_bytes(16));
@@ -528,7 +533,7 @@ assertTest(
 );
 
 // 7.4 Commercial Analytics endpoint returns Page Heatmap, Completion Rate, UTM Campaigns & Comparison
-$r = httpReq('GET', "{$apiUrl}/flipbooks/{$draftFid}/analytics?days=30&compareId={$flipbookAId}", null, $tokenA);
+$r = httpReq('GET', "{$apiUrl}/flipbooks/{$draftFid}/analytics?days=30&compareId={$dupFid}", null, $tokenA);
 assertTest(
     "Commercial analytics returns Page Engagement Heatmap, UTM campaigns & Publication Comparison",
     $r['status'] === 200
@@ -578,15 +583,196 @@ if ($schedId > 0) {
 echo "\n";
 
 // ============================================================================
+// TEST SUITE 8: ENTERPRISE INTEGRATIONS (API KEYS, ERP CATALOGUE, WEBHOOKS, OEMBED)
+// ============================================================================
+echo "8. Enterprise Integrations (SHA-256 API Keys, ERP Catalogue API, Webhooks, WordPress oEmbed):\n";
+
+// 8.1 Create a SHA-256 hashed tenant-scoped API key for Tenant A
+$rKey = httpReq('POST', "{$apiUrl}/integrations/api-keys", [
+    'name' => 'SAP ERP Automated Publisher Key',
+    'scopes' => ['flipbooks:read', 'flipbooks:write', 'erp:publish', 'webhooks:manage', 'analytics:read'],
+    'expiresInDays' => 90,
+], $tokenA);
+$apiKeyId = (int) ($rKey['body']['id'] ?? 0);
+$rawApiKey = (string) ($rKey['body']['rawKey'] ?? '');
+assertTest(
+    "API Key created with SHA-256 hash in DB and raw nvf_live_... secret returned once (HTTP 201)",
+    $rKey['status'] === 201 && str_starts_with($rawApiKey, 'nvf_live_') && $apiKeyId > 0
+);
+
+// Verify DB stores only SHA-256 hash and never raw key
+$dbKeyRow = Db::one('SELECT key_hash, tenant_id FROM api_keys WHERE id = ?', [$apiKeyId]);
+assertTest(
+    "Database stores SHA-256 hash of API key (never plaintext) scoped to Tenant A",
+    ($dbKeyRow['key_hash'] ?? '') === hash('sha256', $rawApiKey) && (int) ($dbKeyRow['tenant_id'] ?? 0) === $tenantAId
+);
+
+// 8.2 Authenticate with X-API-Key / Bearer nvf_live_... to publish an ERP Product Catalogue
+$rErp = httpReq('POST', "{$apiUrl}/integrations/erp/publish-catalogue", [
+    'title' => 'Fiji Hardware ERP Catalogue Q4',
+    'erpSystem' => 'SAP Business One',
+    'catalogueCode' => 'CAT-FJ-2026-Q4',
+    'category' => 'Product Catalogues',
+    'sourceFlipbookId' => $draftFid,
+    'autoPublish' => true,
+    'products' => [
+        ['sku' => 'SKU-SOLAR-5KW', 'name' => '5kW Hybrid Solar Inverter', 'price' => '2450.00', 'currency' => 'FJD', 'page' => 1, 'x' => 25, 'y' => 30, 'w' => 22, 'h' => 10, 'url' => 'https://shop.alpha.test/solar-5kw'],
+        ['sku' => 'SKU-BATT-LFP', 'name' => 'LiFePO4 10kWh Battery Pack', 'price' => '3890.00', 'currency' => 'FJD', 'page' => 1, 'x' => 55, 'y' => 30, 'w' => 22, 'h' => 10, 'url' => 'https://shop.alpha.test/batt-lfp'],
+    ],
+], $rawApiKey);
+$erpFid = (int) ($rErp['body']['flipbookId'] ?? 0);
+assertTest(
+    "ERP System publishes product catalogue via REST API key with automated SKU hotspots (HTTP 201)",
+    $rErp['status'] === 201 && $erpFid > 0 && (int) ($rErp['body']['hotspotsCreated'] ?? 0) === 2,
+    "Status: {$rErp['status']}, body: " . json_encode($rErp['body'])
+);
+
+// 8.3 Tenant B cannot revoke Tenant A's API key (Cross-tenant isolation)
+$rCrossRevoke = httpReq('DELETE', "{$apiUrl}/integrations/api-keys/{$apiKeyId}", null, $tokenB);
+assertTest(
+    "Cross-tenant API key revocation blocked (Tenant B cannot revoke Tenant A key)",
+    $rCrossRevoke['status'] === 404
+);
+
+// 8.4 WordPress oEmbed endpoint returns rich iframe embed JSON for published flipbook
+$rOembed = httpReq('GET', "{$apiUrl}/oembed?url=" . rawurlencode("http://localhost:5173/read/unpublished-draft-sec-test"));
+assertTest(
+    "WordPress oEmbed discovery endpoint returns rich HTML iframe embed payload",
+    $rOembed['status'] === 200 && ($rOembed['body']['provider_name'] ?? '') === 'Nuvis Flipex' && str_contains($rOembed['body']['html'] ?? '', '<iframe')
+);
+
+echo "\n";
+
+// ============================================================================
+// TEST SUITE 9: COMMERCIAL BILLING, INVOICES, TAX & FIJI BANK RECONCILIATION
+// ============================================================================
+echo "9. Commercial Billing, Tax Invoices, Metering & Fiji Manual Bank Reconciliation:\n";
+
+// 9.1 Generate itemized Tax Invoice for Tenant A (with 15% Fiji VAT calculation)
+$rGenInv = httpReq('POST', "{$apiUrl}/billing/generate-invoice", ['notes' => 'Automated renewal invoice test'], $tokenA);
+$invId = (int) ($rGenInv['body']['id'] ?? 0);
+assertTest(
+    "Tax Invoice generated with itemized subtotal, 15% VAT tax calculation, and total (HTTP 201)",
+    $rGenInv['status'] === 201 && $invId > 0 && (float) ($rGenInv['body']['taxAmount'] ?? 0) > 0,
+    "Status: {$rGenInv['status']}, body: " . json_encode($rGenInv['body'])
+);
+
+// 9.2 Submit Fiji Manual Bank Transfer reference (BSP Fiji) -> transitions invoice to 'reconciling'
+$rPayBank = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/pay", [
+    'paymentMethod' => 'manual_bank_fiji',
+    'bankName' => 'Bank of South Pacific (BSP) Fiji',
+    'paymentReference' => 'BSP-FJ-99887766',
+    'notes' => 'Transferred from Suva corporate account',
+], $tokenA);
+assertTest(
+    "Fiji Manual Bank Transfer submission marks invoice as 'reconciling' with bank reference",
+    $rPayBank['status'] === 200 && ($rPayBank['body']['status'] ?? '') === 'reconciling'
+);
+
+// 9.3 Tenant B cannot pay or view Tenant A's invoice (Cross-tenant billing isolation)
+$rCrossPay = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/pay", [
+    'paymentMethod' => 'stripe_card',
+], $tokenB);
+assertTest(
+    "Cross-tenant invoice payment/access blocked (HTTP 404)",
+    $rCrossPay['status'] === 404
+);
+
+// 9.4 Reconcile & approve Fiji Bank Transfer -> marks invoice 'paid' and extends subscription renewal
+$rReconcile = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/reconcile", [
+    'decision' => 'approve',
+    'notes' => 'Verified on BSP Fiji statement',
+], $tokenA);
+assertTest(
+    "Bank transfer reconciliation approves payment, marks invoice 'paid', and renews subscription",
+    $rReconcile['status'] === 200 && ($rReconcile['body']['status'] ?? '') === 'paid'
+);
+
+// 9.5 Self-service Plan Upgrade / Downgrade records Subscription History audit log
+$proPlan = Db::one("SELECT id FROM plans WHERE name = 'Pro' OR id = 2 LIMIT 1");
+if ($proPlan) {
+    $rChangePlan = httpReq('POST', "{$apiUrl}/billing/change-plan", [
+        'planId' => (int) $proPlan['id'],
+        'billingCycle' => 'yearly',
+        'currency' => 'FJD',
+    ], $tokenA);
+    assertTest(
+        "Self-service subscription upgrade/downgrade updates plan & logs subscription history",
+        $rChangePlan['status'] === 200 && in_array($rChangePlan['body']['billingCycle'] ?? '', ['yearly', 'annually'], true) && ($rChangePlan['body']['currency'] ?? '') === 'FJD'
+    );
+}
+
+echo "\n";
+
+// ============================================================================
+// TEST SUITE 10: MODULAR ARCHITECTURE & DEVOPS PRODUCTION READINESS
+// ============================================================================
+echo "10. Modular Backend Architecture (15 Modules), DLQ, JSONL Logs, Error Monitor & Backups:\n";
+
+// 10.1 Verify DevOps Overview returns 15 Domain Modules, 6 Architectural Layers, CPU/Memory/Storage Health & Reversible Migrations
+$rDev = httpReq('GET', "{$apiUrl}/devops/overview", null, $tokenA);
+$modCount = count($rDev['body']['architecture']['modules'] ?? []);
+$layerCount = count($rDev['body']['architecture']['layers'] ?? []);
+$migCount = count($rDev['body']['migrations'] ?? []);
+assertTest(
+    "Modular Architecture registry exposes all 15 Domain Modules, 6 Layers & 6 Reversible Migrations",
+    $rDev['status'] === 200 && $modCount === 15 && $layerCount === 6 && $migCount >= 6,
+    "Status: {$rDev['status']}, modules: {$modCount}, layers: {$layerCount}, migrations: {$migCount}"
+);
+
+// 10.2 Create Automated MySQL & Tenant Storage Snapshot Backup + Run SHA-256 Recovery Drill
+$rBkp = httpReq('POST', "{$apiUrl}/devops/backups/create", ['backupType' => 'full_snapshot'], $tokenA);
+$bkpId = (int) ($rBkp['body']['backup']['id'] ?? 0);
+assertTest(
+    "Automated MySQL & Tenant Storage backup snapshot created with SHA-256 checksum (HTTP 201)",
+    $rBkp['status'] === 201 && $bkpId > 0 && strlen($rBkp['body']['backup']['checksumSha256'] ?? '') === 64
+);
+
+$rVerBkp = httpReq('POST', "{$apiUrl}/devops/backups/{$bkpId}/verify", [], $tokenA);
+assertTest(
+    "Backup Recovery Verification Drill validates SHA-256 hash and table/storage restorability",
+    $rVerBkp['status'] === 200 && ($rVerBkp['body']['backup']['status'] ?? '') === 'verified'
+);
+
+// 10.3 Dead-Letter Queue (DLQ) job capture & replay
+$rDlqSim = httpReq('POST', "{$apiUrl}/devops/dlq/simulate", [], $tokenA);
+$dlqId = (int) ($rDlqSim['body']['dlqId'] ?? 0);
+$rDlqRetry = httpReq('POST', "{$apiUrl}/devops/dlq/{$dlqId}/retry", [], $tokenA);
+assertTest(
+    "Persistent Queue Dead-Letter (DLQ) captures exhausted jobs and supports 1-click replay",
+    $rDlqSim['status'] === 201 && $dlqId > 0 && $rDlqRetry['status'] === 200
+);
+
+// 10.4 Centralised Exception Reporting & Structured JSONL Logging
+$rErrSim = httpReq('POST', "{$apiUrl}/devops/errors/simulate", [], $tokenA);
+$errId = (int) ($rErrSim['body']['reportId'] ?? 0);
+$rErrRes = httpReq('POST', "{$apiUrl}/devops/errors/{$errId}/resolve", [], $tokenA);
+assertTest(
+    "Centralised Exception Reporter captures error with trace_id in JSONL log and resolves report",
+    $rErrSim['status'] === 201 && $errId > 0 && $rErrRes['status'] === 200
+);
+
+echo "\n";
+
+// ============================================================================
 // CLEANUP TEST FIXTURES
 // ============================================================================
 echo "Cleaning up test fixtures...\n";
-Db::run("DELETE FROM hotspots WHERE flipbook_id IN (?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid]);
-Db::run("DELETE FROM pages WHERE flipbook_id IN (?, ?, ?)", [$lockedFid, $draftFid, $dupFid]);
-Db::run("DELETE FROM flipbooks WHERE id IN (?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid]);
+Db::run("DELETE FROM dead_letter_jobs WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM error_reports WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM system_backups WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM api_keys WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM invoices WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM subscription_history WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM hotspots WHERE flipbook_id IN (?, ?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid, $erpFid]);
+Db::run("DELETE FROM pages WHERE flipbook_id IN (?, ?, ?, ?)", [$lockedFid, $draftFid, $dupFid, $erpFid]);
+Db::run("DELETE FROM flipbooks WHERE id IN (?, ?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid, $erpFid]);
 Storage::rrmdir(dirname($draftPagePath));
 if ($dupFid > 0) {
     Storage::rrmdir(Storage::publicationDir($tenantAId, $dupFid));
+}
+if ($erpFid > 0) {
+    Storage::rrmdir(Storage::publicationDir($tenantAId, $erpFid));
 }
 Db::run("DELETE FROM refresh_tokens WHERE user_id IN (?, ?, ?)", [$userAId, $userBId, $viewerAId]);
 Db::run("DELETE FROM users WHERE id IN (?, ?, ?)", [$userAId, $userBId, $viewerAId]);

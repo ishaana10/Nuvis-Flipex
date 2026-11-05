@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Field, useForm } from '../components/Form';
+import { ChangePasswordForm } from '../components/ChangePasswordModal';
 
 interface Session { id: number; userAgent: string; ip: string; createdAt: string; current: boolean }
 
@@ -38,14 +39,6 @@ export default function Settings() {
     const d = await api('/me', 'PATCH', { name });
     setUser({ ...user!, name: d.name });
     setProfileMsg('Saved');
-  });
-
-  const [currentPassword, setCurrent] = useState('');
-  const [newPassword, setNew] = useState('');
-  const [pwMsg, setPwMsg] = useState('');
-  const pw = useForm(async () => {
-    await api('/me/password', 'PUT', { currentPassword, newPassword });
-    setCurrent(''); setNew(''); setPwMsg('Password changed');
   });
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled ?? false);
@@ -160,12 +153,10 @@ export default function Settings() {
         <button disabled={profile.busy}>Save</button> {profileMsg && <small>{profileMsg}</small>}
       </form>
 
-      <form className="card" onSubmit={pw.submit}>
-        <h2>Password</h2>
-        <Field label="Current password" name="cur" type="password" value={currentPassword} onChange={setCurrent} error={pw.fields.currentPassword} />
-        <Field label="New password" name="new" type="password" value={newPassword} onChange={setNew} error={pw.fields.newPassword} />
-        <button disabled={pw.busy}>Change password</button> {pwMsg && <small>{pwMsg}</small>}
-      </form>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>🔑 Change Password & Security Policy</h2>
+        <ChangePasswordForm />
+      </div>
 
       <div className="card">
         <h2>🛡️ Two-Factor Authentication (2FA)</h2>

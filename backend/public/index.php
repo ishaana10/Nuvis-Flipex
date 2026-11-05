@@ -6,10 +6,14 @@ require __DIR__ . '/../vendor/autoload.php';
 use App\Controllers\AdminController;
 use App\Controllers\AnalyticsController;
 use App\Controllers\AuthController;
+use App\Controllers\BillingController;
+use App\Controllers\DevOpsController;
 use App\Controllers\FlipbookController;
 use App\Controllers\HotspotController;
+use App\Controllers\IntegrationController;
 use App\Controllers\MeController;
 use App\Controllers\PublicController;
+use App\Infrastructure\Logging\CentralExceptionReporter;
 use App\Middleware\Auth;
 use App\Middleware\Cors;
 use App\Middleware\RateLimit;
@@ -43,6 +47,9 @@ $app->addErrorMiddleware(($_ENV['APP_ENV'] ?? 'local') !== 'production', true, t
         error_log((string) $e);
         $code = (int) $e->getCode();
         $status = ($code >= 400 && $code < 600) ? $code : ($e instanceof \Slim\Exception\HttpException ? $e->getCode() : 500);
+        if ($status >= 500) {
+            CentralExceptionReporter::report($e, 'error');
+        }
         $msg = $status === 500 ? 'Server error' : $e->getMessage();
         return Http::error($app->getResponseFactory()->createResponse(), $msg, $status);
     });
@@ -135,10 +142,54 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->post('/public/{slug}/telemetry', [PublicController::class, 'trackTelemetry']);
     $g->get('/public/{slug}/download', [PublicController::class, 'download']);
     $g->get('/files/signed', [FlipbookController::class, 'serveSigned']);
+    $g->get('/oembed', [IntegrationController::class, 'oembed']);
+
+    // Enterprise Integrations Hub (REST API Keys, Webhooks, SSO, LDAP/AD, WordPress, ERP Catalogue API, CRM, Cloud Storage)
+    $g->group('/integrations', function (RouteCollectorProxy $int) {
+        $int->get('/api-keys', [IntegrationController::class, 'listApiKeys']);
+        $int->post('/api-keys', [IntegrationController::class, 'createApiKey']);
+        $int->delete('/api-keys/{id:[0-9]+}', [IntegrationController::class, 'revokeApiKey']);
+
+        $int->get('/webhooks', [IntegrationController::class, 'listWebhooks']);
+        $int->post('/webhooks', [IntegrationController::class, 'createWebhook']);
+        $int->post('/webhooks/{id:[0-9]+}/test', [IntegrationController::class, 'testWebhook']);
+        $int->delete('/webhooks/{id:[0-9]+}', [IntegrationController::class, 'deleteWebhook']);
+
+        $int->get('/connectors', [IntegrationController::class, 'listConnectors']);
+        $int->put('/connectors/{type}', [IntegrationController::class, 'saveConnector']);
+        $int->post('/connectors/{type}/test', [IntegrationController::class, 'testConnector']);
+
+        $int->post('/erp/publish-catalogue', [IntegrationController::class, 'publishErpCatalogue']);
+        $int->get('/wordpress-plugin', [IntegrationController::class, 'downloadWordpressPlugin']);
+    })->add(new TenantScope())->add(new Auth());
+
+    // Commercial Billing, Invoices, Tax, Metering, Renewals & Fiji Bank Reconciliation
+    $g->group('/billing', function (RouteCollectorProxy $bil) {
+        $bil->get('/overview', [BillingController::class, 'overview']);
+        $bil->patch('/settings', [BillingController::class, 'updateSettings']);
+        $bil->post('/change-plan', [BillingController::class, 'changePlan']);
+        $bil->post('/invoices/generate', [BillingController::class, 'generateInvoice']);
+        $bil->post('/generate-invoice', [BillingController::class, 'generateInvoice']);
+        $bil->post('/invoices/{id:[0-9]+}/pay', [BillingController::class, 'payInvoice']);
+        $bil->post('/invoices/{id:[0-9]+}/reconcile', [BillingController::class, 'reconcileInvoice']);
+    })->add(new TenantScope())->add(new Auth());
+
+    // Modular Architecture, System Telemetry, DLQ, Structured Logs, Error Monitor & Backups
+    $g->group('/devops', function (RouteCollectorProxy $dev) {
+        $dev->get('/overview', [DevOpsController::class, 'overview']);
+        $dev->post('/backups/create', [DevOpsController::class, 'createBackup']);
+        $dev->post('/backups/{id:[0-9]+}/verify', [DevOpsController::class, 'verifyBackup']);
+        $dev->post('/dlq/{id:[0-9]+}/retry', [DevOpsController::class, 'retryDeadLetter']);
+        $dev->post('/dlq/simulate', [DevOpsController::class, 'simulateDeadLetter']);
+        $dev->post('/errors/simulate', [DevOpsController::class, 'simulateErrorReport']);
+        $dev->post('/errors/{id:[0-9]+}/resolve', [DevOpsController::class, 'resolveErrorReport']);
+        $dev->post('/migrations/run', [DevOpsController::class, 'runMigrations']);
+    })->add(new TenantScope())->add(new Auth());
 
     $g->group('/me', function (RouteCollectorProxy $m) {
         $m->get('', [MeController::class, 'show']);
         $m->patch('', [MeController::class, 'update']);
+        $m->get('/password-policy', [MeController::class, 'passwordPolicy']);
         $m->put('/password', [MeController::class, 'changePassword']);
         $m->post('/two-factor', [MeController::class, 'toggleTwoFactor']);
         $m->post('/totp/setup', [MeController::class, 'setupTotp']);

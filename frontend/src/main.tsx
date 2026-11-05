@@ -15,6 +15,9 @@ import Preview from './pages/Preview';
 import HotspotEditor from './pages/HotspotEditor';
 import Analytics from './pages/Analytics';
 import AdminPanel from './pages/AdminPanel';
+import IntegrationsHub from './pages/IntegrationsHub';
+import BillingPortal from './pages/BillingPortal';
+import DevOpsCenter from './pages/DevOpsCenter';
 import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -29,7 +32,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/v/:slug" element={<PublicViewer />} />
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard view="overview" />} />
+            <Route path="/flipbooks" element={<Dashboard view="flipbooks" />} />
+            <Route path="/integrations" element={<IntegrationsHub />} />
+            <Route path="/billing" element={<BillingPortal />} />
+            <Route path="/devops" element={<DevOpsCenter />} />
             <Route path="/dashboard/preview/:id" element={<Preview />} />
             <Route path="/dashboard/editor/:id" element={<HotspotEditor />} />
             <Route path="/dashboard/analytics/:id" element={<Analytics />} />

@@ -328,9 +328,10 @@ final class AnalyticsController
 
     private function resolveDateRange(array $params): array
     {
+        $dbToday = Db::one('SELECT CURDATE() AS today')['today'] ?? date('Y-m-d');
         $to = !empty($params['to']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $params['to'])
             ? (string) $params['to']
-            : date('Y-m-d');
+            : (string) $dbToday;
 
         if (!empty($params['from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $params['from'])) {
             $from = (string) $params['from'];

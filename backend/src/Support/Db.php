@@ -43,4 +43,11 @@ final class Db
         $st->execute($params);
         return $st->rowCount();
     }
+
+    public static function insert(string $sql, array $params = []): int
+    {
+        $st = self::pdo()->prepare($sql);
+        $st->execute($params);
+        return (int) self::pdo()->lastInsertId();
+    }
 }

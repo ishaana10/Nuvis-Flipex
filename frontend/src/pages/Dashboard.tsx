@@ -64,7 +64,7 @@ interface JobQueueItem {
   createdAt: string;
 }
 
-export default function Dashboard() {
+export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 'flipbooks' }) {
   const { user } = useAuth();
   const [items, setItems] = useState<Flipbook[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -184,6 +184,13 @@ export default function Dashboard() {
   };
 
   const failedJobsCount = jobs.filter((j) => j.status === 'failed').length;
+  const featuredBook = items[0] || null;
+  const readyBooksCount = items.filter((b) => b.status === 'ready').length;
+  const publishedBooksCount = items.filter((b) => b.published || b.workflowStatus === 'published').length;
+  const totalPagesConverted = items.reduce((acc, b) => acc + (b.pageCount || 0), 0);
+  const progressRatio = items.length > 0 ? Math.round((readyBooksCount / items.length) * 100) : 100;
+  const ringCircumference = 2 * Math.PI * 52;
+  const ringOffset = ringCircumference - (progressRatio / 100) * ringCircumference;
 
   const getWorkflowBadgeVariant = (wf?: string): 'default' | 'golden' | 'success' | 'warning' | 'danger' => {
     switch (wf) {
@@ -203,12 +210,21 @@ export default function Dashboard() {
     <div>
       <div className="row head" style={{ flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h1 style={{ margin: '0 0 4px 0' }}>Your Flipbooks</h1>
+          <h1 style={{ margin: '0 0 4px 0' }}>
+            {view === 'overview' ? 'Workspace Overview' : 'Your Flipbooks'}
+          </h1>
           <p className="muted" style={{ margin: 0 }}>
-            Full Publishing Lifecycle · Multi-Resolution WebP Engine · Version Control
+            {view === 'overview'
+              ? 'Executive Summary · Latest Publication Telemetry · Conversion Progress'
+              : 'Full Publishing Lifecycle · Multi-Resolution WebP Engine · Version Control'}
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
+          {view === 'overview' && (
+            <Link to="/flipbooks" className="btn-secondary boardui-btn-sm" style={{ textDecoration: 'none' }}>
+              📚 Manage All Flipbooks ({items.length})
+            </Link>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -257,6 +273,113 @@ export default function Dashboard() {
         </div>
       )}
       {error && <p className="err">{error}</p>}
+
+      {view === 'overview' && (
+        /* EXECUTIVE DASHBOARD OVERVIEW (Pic 2 Layout: Info + Progress Ring + Performance) */
+        <div className="overview-grid-wrap">
+          <div className="overview-top-row">
+            {/* Left Info Card (Pic 2 Style) */}
+            <div className="card overview-info-card">
+              <div className="overview-card-body">
+                <h3 className="overview-card-title">Info</h3>
+                {featuredBook ? (
+                  <div className="overview-featured-flex">
+                    <div className="overview-cover-box">
+                      {featuredBook.cover ? (
+                        <img src={featuredBook.cover} alt={featuredBook.title} />
+                      ) : (
+                        <div className="overview-cover-placeholder">PDF</div>
+                      )}
+                    </div>
+                    <div className="overview-featured-meta">
+                      <div className="overview-kpi-pair">
+                        <div>
+                          <b className="overview-big-num">{featuredBook.pageCount}</b>
+                          <span className="overview-sub-lbl">Pages</span>
+                        </div>
+                        <div>
+                          <b className="overview-big-num">{items.length}</b>
+                          <span className="overview-sub-lbl">Publications</span>
+                        </div>
+                        <div>
+                          <b className="overview-big-num">{totalPagesConverted}</b>
+                          <span className="overview-sub-lbl">Total Pages</span>
+                        </div>
+                      </div>
+                      <p className="overview-processed-line">
+                        📖 Latest issue: <b>{featuredBook.title}</b> (`/v/{featuredBook.slug}`) · Updated by {user?.email}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <Link to={`/dashboard/preview/${featuredBook.id}`} className="action-pill preview">
+                          View flipbook 👁️
+                        </Link>
+                        <Link to={`/dashboard/editor/${featuredBook.id}`} className="action-pill editor">
+                          Edit enrichments 🔗
+                        </Link>
+                        <Link to={`/dashboard/analytics/${featuredBook.id}`} className="action-pill analytics">
+                          Statistics 📊
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="muted">Upload your first PDF publication to view workspace telemetry.</p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="overview-card-footer-btn"
+                onClick={() => {
+                  loadJobs();
+                  setShowJobsModal(true);
+                }}
+              >
+                Show processing history
+              </button>
+            </div>
+
+            {/* Right Flipbook Progress Circular Ring Card (Pic 2 Style) */}
+            <div className="card overview-progress-card">
+              <div className="overview-card-body flex flex-col items-center justify-between">
+                <h3 className="overview-card-title w-full">Flipbook progress</h3>
+                <div className="overview-ring-wrap">
+                  <svg width="132" height="132" viewBox="0 0 132 132">
+                    <circle
+                      cx="66"
+                      cy="66"
+                      r="52"
+                      fill="none"
+                      stroke="var(--border-color)"
+                      strokeWidth="10"
+                    />
+                    <circle
+                      cx="66"
+                      cy="66"
+                      r="52"
+                      fill="none"
+                      stroke="var(--brand)"
+                      strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray={ringCircumference}
+                      strokeDashoffset={ringOffset}
+                      transform="rotate(-90 66 66)"
+                    />
+                  </svg>
+                  <div className="overview-ring-center">
+                    <b>
+                      {readyBooksCount} / {Math.max(items.length, 1)}
+                    </b>
+                    <span>Ready</span>
+                  </div>
+                </div>
+              </div>
+              <Link to="/flipbooks" className="overview-card-footer-btn">
+                Show flipbook library ({publishedBooksCount} published)
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search + Taxonomy & Workflow Filters */}
       <div className="mb-4 flex flex-col gap-3">
