@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import FlipbookViewer, {
   type PageInfo,
+  type TocItem,
   type ViewerHotspot,
   type ViewerSettings,
 } from '../components/FlipbookViewer';
@@ -12,6 +13,7 @@ interface FlipbookDetails {
   title: string;
   slug: string;
   settings?: ViewerSettings;
+  toc?: TocItem[];
   pages: PageInfo[];
 }
 
@@ -63,6 +65,7 @@ export default function Preview() {
         slug={data.slug}
         settings={data.settings}
         hotspots={hotspots}
+        toc={data.toc}
       />
     </div>
   );

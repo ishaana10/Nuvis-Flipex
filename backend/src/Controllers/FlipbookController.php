@@ -225,6 +225,7 @@ final class FlipbookController
                 'thumb' => Storage::temporarySignedUrl($thumbRel, 14400),
                 'w' => (int) $p['width'],
                 'h' => (int) $p['height'],
+                'text' => $p['text_content'] ?? '',
             ];
         }, $pages);
 
@@ -328,12 +329,13 @@ final class FlipbookController
 
         $settings = array_key_exists('settings', $b) ? json_encode($b['settings']) : $f['settings'];
         $seoMeta = array_key_exists('seoMeta', $b) ? json_encode($b['seoMeta']) : $f['seo_meta'];
+        $toc = array_key_exists('toc', $b) ? json_encode($b['toc']) : ($f['toc'] ?? null);
 
         Db::run(
             'UPDATE flipbooks
              SET title = ?, description = ?, slug = ?, category_id = ?, collection_id = ?, folder_id = ?,
                  visibility = ?, password_hash = ?, workflow_status = ?, published_at = ?,
-                 scheduled_at = ?, expires_at = ?, settings = ?, seo_meta = ?
+                 scheduled_at = ?, expires_at = ?, settings = ?, seo_meta = ?, toc = ?
              WHERE id = ?',
             [
                 $title,
@@ -350,6 +352,7 @@ final class FlipbookController
                 $expiresAt,
                 $settings,
                 $seoMeta,
+                $toc,
                 $f['id'],
             ]
         );
@@ -1156,6 +1159,7 @@ final class FlipbookController
             'reviewedAt' => $f['reviewed_at'] ?? null,
             'pdfMetadata' => !empty($f['pdf_metadata']) ? json_decode((string) $f['pdf_metadata'], true) : null,
             'seoMeta' => !empty($f['seo_meta']) ? json_decode((string) $f['seo_meta'], true) : new \stdClass(),
+            'toc' => !empty($f['toc']) ? json_decode((string) $f['toc'], true) : [],
             'previewToken' => $previewToken,
             'previewUrl' => "/v/{$f['slug']}?preview={$previewToken}",
             'createdAt' => $f['created_at'],

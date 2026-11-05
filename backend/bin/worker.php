@@ -180,6 +180,10 @@ function convertPdf(int $flipbookId, int $jobId, int $timeoutSeconds = 300): voi
     }
 
     $metadata['page_count'] = count($renderedPages);
+    $onProgress(92, 'Extracting searchable page text & Table of Contents');
+    $textAndToc = PdfRenderer::extractPageTextAndToc($pdf, count($renderedPages));
+    $pagesText = $textAndToc['pages_text'] ?? [];
+    $autoToc = $textAndToc['toc'] ?? [];
 
     Db::run('DELETE FROM pages WHERE flipbook_id = ?', [$flipbookId]);
     foreach ($renderedPages as $pg) {
@@ -191,8 +195,8 @@ function convertPdf(int $flipbookId, int $jobId, int $timeoutSeconds = 300): voi
         $thumbName = basename($pg['thumb']);
 
         Db::run(
-            'INSERT INTO pages (flipbook_id, page_number, image_path, high_res_path, webp_path, avif_path, thumb_path, width, height)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO pages (flipbook_id, page_number, image_path, high_res_path, webp_path, avif_path, thumb_path, width, height, text_content)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $flipbookId,
                 $pageNum,
@@ -203,6 +207,7 @@ function convertPdf(int $flipbookId, int $jobId, int $timeoutSeconds = 300): voi
                 "{$outRel}/thumbs/{$thumbName}",
                 (int) $pg['width'],
                 (int) $pg['height'],
+                $pagesText[$pageNum] ?? null,
             ]
         );
     }
@@ -226,6 +231,7 @@ function convertPdf(int $flipbookId, int $jobId, int $timeoutSeconds = 300): voi
              page_count = ?,
              description = ?,
              pdf_metadata = ?,
+             toc = COALESCE(toc, ?),
              conversion_progress = 100,
              conversion_step = 'Completed',
              conversion_error = NULL
@@ -235,6 +241,7 @@ function convertPdf(int $flipbookId, int $jobId, int $timeoutSeconds = 300): voi
             count($renderedPages),
             $desc,
             json_encode($metadata),
+            json_encode($autoToc),
             $flipbookId,
         ]
     );

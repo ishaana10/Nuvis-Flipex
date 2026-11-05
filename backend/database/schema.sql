@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS flipbooks (
   settings JSON NULL,
   pdf_metadata JSON NULL,
   seo_meta JSON NULL,
+  toc JSON NULL,
   conversion_progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
   conversion_step VARCHAR(150) NULL,
   conversion_error TEXT NULL,
@@ -220,13 +221,62 @@ CREATE TABLE IF NOT EXISTS views (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   flipbook_id BIGINT UNSIGNED NOT NULL,
   visitor_hash CHAR(64) NOT NULL,
+  session_id VARCHAR(64) NULL,
   country CHAR(2) NULL,
   device VARCHAR(20) NULL,
   referrer VARCHAR(255) NULL,
+  duration_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+  pages_viewed INT UNSIGNED NOT NULL DEFAULT 1,
+  max_page_reached INT UNSIGNED NOT NULL DEFAULT 1,
+  completed TINYINT(1) NOT NULL DEFAULT 0,
+  utm_source VARCHAR(100) NULL,
+  utm_medium VARCHAR(100) NULL,
+  utm_campaign VARCHAR(100) NULL,
+  utm_term VARCHAR(100) NULL,
+  utm_content VARCHAR(100) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (flipbook_id, created_at),
+  INDEX (session_id),
   FOREIGN KEY (flipbook_id) REFERENCES flipbooks(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  flipbook_id BIGINT UNSIGNED NOT NULL,
+  visitor_hash CHAR(64) NOT NULL,
+  session_id VARCHAR(64) NULL,
+  event_type ENUM('page_view','link_click','video_play','download','share','search') NOT NULL,
+  page_number INT UNSIGNED NULL,
+  duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
+  target_url VARCHAR(500) NULL,
+  meta JSON NULL,
+  country CHAR(2) NULL,
+  device VARCHAR(20) NULL,
+  utm_source VARCHAR(100) NULL,
+  utm_medium VARCHAR(100) NULL,
+  utm_campaign VARCHAR(100) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id),
+  INDEX (flipbook_id, event_type, created_at),
+  INDEX (flipbook_id, page_number),
+  FOREIGN KEY (flipbook_id) REFERENCES flipbooks(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS scheduled_reports (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  flipbook_id BIGINT UNSIGNED NULL,
+  recipient_email VARCHAR(190) NOT NULL,
+  frequency ENUM('daily','weekly','monthly') NOT NULL DEFAULT 'weekly',
+  format ENUM('csv','pdf_summary') NOT NULL DEFAULT 'pdf_summary',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  last_sent_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (tenant_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS api_keys (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

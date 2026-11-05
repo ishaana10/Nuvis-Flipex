@@ -12,6 +12,13 @@ export interface PageInfo {
   thumb: string;
   w: number;
   h: number;
+  text?: string;
+}
+
+export interface TocItem {
+  title: string;
+  page: number;
+  level?: number;
 }
 
 export interface ViewerHotspot {
@@ -26,6 +33,8 @@ export interface ViewerHotspot {
 
 export interface ViewerSettings {
   background?: string;
+  themePreset?: string;
+  defaultReadingMode?: 'flip' | 'scroll' | 'reader';
   soundEnabled?: boolean;
   allowDownload?: boolean;
   brandText?: string;
@@ -37,7 +46,20 @@ interface ViewerProps {
   slug?: string;
   settings?: ViewerSettings;
   hotspots?: Record<number, ViewerHotspot[]>;
+  toc?: TocItem[];
+  initialPage?: number;
+  enableTelemetry?: boolean;
+  sessionId?: string;
+  utmParams?: Record<string, string>;
 }
+
+const VIEWER_THEMES: Record<string, { name: string; bg: string; barBg: string; text: string }> = {
+  obsidian: { name: 'Obsidian Gold', bg: '#18191c', barBg: 'rgba(15, 23, 42, 0.88)', text: '#f8fafc' },
+  midnight: { name: 'Midnight Slate', bg: '#0f172a', barBg: 'rgba(2, 6, 23, 0.9)', text: '#f8fafc' },
+  cream: { name: 'Warm Ivory', bg: '#f6f3ec', barBg: 'rgba(28, 25, 23, 0.86)', text: '#1c1917' },
+  light: { name: 'Studio Light', bg: '#e2e8f0', barBg: 'rgba(15, 23, 42, 0.85)', text: '#0f172a' },
+  forest: { name: 'Forest Executive', bg: '#112218', barBg: 'rgba(10, 22, 15, 0.9)', text: '#ecfdf5' },
+};
 
 export default function FlipbookViewer({
   pages,
@@ -45,18 +67,107 @@ export default function FlipbookViewer({
   slug,
   settings = {},
   hotspots = {},
+  toc = [],
+  initialPage,
+  enableTelemetry = false,
+  sessionId = '',
+  utmParams = {},
 }: ViewerProps) {
+  const storageKey = slug || title || 'default_book';
+  const lastPageStorageKey = `flipex_last_page_${storageKey}`;
+  const bookmarksStorageKey = `flipex_bookmarks_${storageKey}`;
+  const offlineStorageKey = `flipex_offline_${storageKey}`;
+
   const host = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const flip = useRef<PageFlip | null>(null);
-  const [current, setCurrent] = useState(0);
+
+  // Reading mode: 'flip' (3D Page-Turn), 'scroll' (Continuous Vertical Scroll), 'reader' (Accessible Screen-Reader Text)
+  const [readingMode, setReadingMode] = useState<'flip' | 'scroll' | 'reader'>(
+    settings.defaultReadingMode || 'flip'
+  );
+  const [current, setCurrent] = useState<number>(() => {
+    if (initialPage && initialPage >= 1 && initialPage <= pages.length) {
+      return initialPage - 1;
+    }
+    try {
+      const saved = Number(localStorage.getItem(lastPageStorageKey));
+      if (!isNaN(saved) && saved >= 0 && saved < pages.length) {
+        return saved;
+      }
+    } catch {
+      // ignore
+    }
+    return 0;
+  });
+
+  const [resumedBanner, setResumedBanner] = useState<number | null>(() => {
+    if (initialPage && initialPage > 1) return null;
+    try {
+      const saved = Number(localStorage.getItem(lastPageStorageKey));
+      if (!isNaN(saved) && saved > 0 && saved < pages.length) {
+        return saved + 1;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<'portrait' | 'landscape'>('landscape');
   const [soundMuted, setSoundMuted] = useState(false);
+
+  // Drawers & Modals
   const [showThumbs, setShowThumbs] = useState(false);
+  const [showToc, setShowToc] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{ page: number; snippet: string }>>([]);
+
+  // Bookmarks state
+  const [bookmarks, setBookmarks] = useState<number[]>(() => {
+    try {
+      const raw = localStorage.getItem(bookmarksStorageKey);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Offline caching state
+  const [offlineSaved, setOfflineSaved] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(offlineStorageKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [cachingOffline, setCachingOffline] = useState(false);
+
+  // Share state
+  const [shareSpecificPage, setShareSpecificPage] = useState(true);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+
+  // Accessible reader font size
+  const [readerFontSize, setReaderFontSize] = useState(17);
+
+  // Theme override state
+  const [activeBg, setActiveBg] = useState<string>(settings.background || '#1e2026');
+
+  useEffect(() => {
+    if (settings.background) setActiveBg(settings.background);
+  }, [settings.background]);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
 
-  // Zoom & Pan state (available in both normal and fullscreen modes)
+  // Zoom & Pan state
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDraggingState, setIsDraggingState] = useState(false);
@@ -64,6 +175,49 @@ export default function FlipbookViewer({
   const [bookBounds, setBookBounds] = useState<{ left: number; top: number; width: number; height: number; pageWidth: number } | null>(null);
   const preloadedSet = useRef<Set<number>>(new Set());
   const dragStart = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
+  const pinchStartDist = useRef<number | null>(null);
+  const pinchStartZoom = useRef<number>(1);
+  const pageEnterTimestamp = useRef<number>(Date.now());
+
+  // Send telemetry helper
+  const sendTelemetry = useCallback(
+    (eventType: string, payload: Record<string, any> = {}) => {
+      if (!enableTelemetry || !slug) return;
+      fetch(`/api/v1/public/${slug}/telemetry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          eventType,
+          utmSource: utmParams.utm_source || undefined,
+          utmMedium: utmParams.utm_medium || undefined,
+          utmCampaign: utmParams.utm_campaign || undefined,
+          ...payload,
+        }),
+      }).catch(() => {});
+    },
+    [enableTelemetry, slug, sessionId, utmParams]
+  );
+
+  // Persist last-read page and send dwell-time telemetry on page change
+  useEffect(() => {
+    try {
+      localStorage.setItem(lastPageStorageKey, String(current));
+    } catch {
+      // ignore
+    }
+
+    const now = Date.now();
+    const dwellMs = now - pageEnterTimestamp.current;
+    pageEnterTimestamp.current = now;
+
+    if (dwellMs >= 800) {
+      sendTelemetry('page_view', {
+        pageNumber: current + 1,
+        durationMs: Math.min(dwellMs, 300000),
+      });
+    }
+  }, [current, lastPageStorageKey, sendTelemetry]);
 
   const handleZoomChange = useCallback((newZoom: number) => {
     const clamped = Math.round(Math.min(2.5, Math.max(1, newZoom)) * 100) / 100;
@@ -73,7 +227,7 @@ export default function FlipbookViewer({
     }
   }, []);
 
-  // Progressive & Lazy Page Preloader: prioritize current spread ± 3 pages
+  // Progressive & Lazy Page Preloader
   useEffect(() => {
     if (!pages.length) return;
     const windowIndices: number[] = [];
@@ -92,7 +246,7 @@ export default function FlipbookViewer({
     });
   }, [current, pages]);
 
-  // On-Demand High-Resolution Zoom Loader (loads 180-200 DPI assets only when zoom > 1.25)
+  // On-Demand High-Resolution Zoom Loader (loads 180 DPI assets only when zoom > 1.25)
   useEffect(() => {
     if (zoom <= 1.25 || !pages.length) return;
     const visibleIndices = [current];
@@ -102,7 +256,7 @@ export default function FlipbookViewer({
     visibleIndices.forEach((idx) => {
       const pg = pages[idx];
       const hdUrl = pg?.imageHigh || pg?.image;
-      if (!pg || !hdUrl || hdLoadedPages[ pg.n ]) return;
+      if (!pg || !hdUrl || hdLoadedPages[pg.n]) return;
       const img = new Image();
       img.decoding = 'async';
       img.onload = () => {
@@ -139,7 +293,7 @@ export default function FlipbookViewer({
   }, [isDraggingState, zoom]);
 
   const handleStageMouseDown = (e: React.MouseEvent) => {
-    if (zoom <= 1) return;
+    if (zoom <= 1 || readingMode !== 'flip') return;
     if ((e.target as HTMLElement).closest('.reader-hotspot')) return;
 
     setIsDraggingState(true);
@@ -152,17 +306,39 @@ export default function FlipbookViewer({
     e.preventDefault();
   };
 
+  // Mobile Two-Finger Pinch-to-Zoom Gestures
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDist.current = Math.hypot(dx, dy);
+      pinchStartZoom.current = zoom;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scaleRatio = dist / Math.max(1, pinchStartDist.current);
+      handleZoomChange(pinchStartZoom.current * scaleRatio);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    pinchStartDist.current = null;
+  };
+
   const handleStageDoubleClick = (e: React.MouseEvent) => {
-    if (!isFullscreen) return;
     if ((e.target as HTMLElement).closest('.reader-hotspot') || (e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
     if (zoom > 1) {
       handleZoomChange(1);
     } else {
-      handleZoomChange(1.8);
+      handleZoomChange(1.75);
     }
   };
 
-  const bg = settings.background || '#1e2026';
   const soundConfigEnabled = settings.soundEnabled ?? true;
   const isSoundActive = soundConfigEnabled && !soundMuted;
 
@@ -171,7 +347,22 @@ export default function FlipbookViewer({
   const singleHeight = first?.h || 800;
   const spreadAspect = (2 * singleWidth) / singleHeight;
 
-  // Helper to accurately attach 3D book edge stacks, spine crease, and frame directly flush to the page bounds
+  // Compute Automatic Table of Contents fallback if none provided
+  const effectiveToc: TocItem[] =
+    toc && toc.length > 0
+      ? toc
+      : pages.map((p) => {
+          const firstLine = (p.text || '')
+            .split('\n')
+            .map((l) => l.trim())
+            .find((l) => l.length >= 4 && l.length <= 65);
+          return {
+            title: firstLine ? `Page ${p.n}: ${firstLine}` : `Page ${p.n}`,
+            page: p.n,
+            level: 1,
+          };
+        });
+
   const updateBookPageStacks = useCallback((pageIdx: number, totalPages: number, orientation: string) => {
     if (!host.current || !flip.current) return;
     const parent = host.current.querySelector('.stf__parent') as HTMLElement | null;
@@ -179,7 +370,6 @@ export default function FlipbookViewer({
 
     parent.style.overflow = 'visible';
 
-    // 1. Left stacked pages
     let leftStack = parent.querySelector('.stf-page-stack-left') as HTMLElement | null;
     if (!leftStack) {
       leftStack = document.createElement('div');
@@ -192,7 +382,6 @@ export default function FlipbookViewer({
       parent.appendChild(leftStack);
     }
 
-    // 2. Right stacked pages
     let rightStack = parent.querySelector('.stf-page-stack-right') as HTMLElement | null;
     if (!rightStack) {
       rightStack = document.createElement('div');
@@ -205,7 +394,6 @@ export default function FlipbookViewer({
       parent.appendChild(rightStack);
     }
 
-    // 3. Center spine crease shadow
     let spineCrease = parent.querySelector('.stf-spine-crease') as HTMLElement | null;
     if (!spineCrease) {
       spineCrease = document.createElement('div');
@@ -213,7 +401,6 @@ export default function FlipbookViewer({
       parent.appendChild(spineCrease);
     }
 
-    // 4. Outer book frame with realistic 3D shadow and crisp border
     let bookFrame = parent.querySelector('.stf-book-frame') as HTMLElement | null;
     if (!bookFrame) {
       bookFrame = document.createElement('div');
@@ -257,7 +444,6 @@ export default function FlipbookViewer({
 
     const spreadWidth = rightEdge - leftEdge;
 
-    // Apply book frame
     if (spreadWidth > 0 && height > 0) {
       bookFrame.style.display = 'block';
       bookFrame.style.left = `${Math.round(leftEdge)}px`;
@@ -268,7 +454,6 @@ export default function FlipbookViewer({
       bookFrame.style.display = 'none';
     }
 
-    // Center spine crease in landscape 2-page spread
     if (orientation === 'landscape' && pageIdx > 0 && pageIdx < totalPages - 1) {
       spineCrease.style.display = 'block';
       spineCrease.style.left = `${Math.round(left + pageWidth)}px`;
@@ -289,12 +474,10 @@ export default function FlipbookViewer({
         rightStack.style.top = `${Math.round(top)}px`;
         rightStack.style.height = `${Math.round(height)}px`;
         rightStack.style.width = `${rightWidth}px`;
-        rightStack.title = `Next page (${remaining} pages remaining)`;
       } else {
         rightStack.style.display = 'none';
       }
     } else {
-      // Two-page spread: flush to the actual page boundaries
       if (hasLeftPages) {
         const leftRatio = Math.min(1, pageIdx / totalPages);
         const leftWidth = Math.min(14, Math.max(5, Math.round(leftRatio * 14)));
@@ -304,7 +487,6 @@ export default function FlipbookViewer({
         leftStack.style.top = `${Math.round(top)}px`;
         leftStack.style.height = `${Math.round(height)}px`;
         leftStack.style.width = `${leftWidth}px`;
-        leftStack.title = `Previous page (${pageIdx} pages on left)`;
       } else {
         leftStack.style.display = 'none';
       }
@@ -319,16 +501,15 @@ export default function FlipbookViewer({
         rightStack.style.top = `${Math.round(top)}px`;
         rightStack.style.height = `${Math.round(height)}px`;
         rightStack.style.width = `${rightWidth}px`;
-        rightStack.title = `Next page (${remaining} pages on right)`;
       } else {
         rightStack.style.display = 'none';
       }
     }
   }, []);
 
-  // Initialize PageFlip
+  // Initialize 3D PageFlip when in 'flip' mode
   const initFlip = useCallback(() => {
-    if (!host.current || pages.length === 0) return;
+    if (readingMode !== 'flip' || !host.current || pages.length === 0) return;
 
     host.current.innerHTML = '';
     const container = document.createElement('div');
@@ -356,9 +537,9 @@ export default function FlipbookViewer({
       flippingTime: 700,
       useMouseEvents: true,
       swipeDistance: 30,
+      startPage: current,
     });
 
-    // Override StPageFlip's internal clear() so it never paints the background canvas white!
     const render = (pf as any).getRender?.();
     if (render) {
       render.clear = function () {
@@ -373,6 +554,7 @@ export default function FlipbookViewer({
     pf.on('flip', (e) => {
       const pageIdx = e.data as number;
       setCurrent(pageIdx);
+      setResumedBanner(null);
       if (isSoundActive) {
         playPageFlipSound();
       }
@@ -406,9 +588,14 @@ export default function FlipbookViewer({
     });
 
     flip.current = pf;
-  }, [pages, isSoundActive, updateBookPageStacks, singleWidth, singleHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages, readingMode, isSoundActive, updateBookPageStacks, singleWidth, singleHeight]);
 
   useEffect(() => {
+    if (readingMode !== 'flip') {
+      setReady(true);
+      return;
+    }
     initFlip();
 
     const handleResize = () => {
@@ -442,30 +629,181 @@ export default function FlipbookViewer({
       if (flip.current) {
         try {
           flip.current.destroy();
+          flip.current = null;
         } catch {
           // cleanup
         }
       }
     };
-  }, [initFlip, updateBookPageStacks, pages.length]);
+  }, [initFlip, readingMode, updateBookPageStacks, pages.length]);
 
-  const goto = (i: number) => flip.current?.flip(i);
-  const next = () => flip.current?.flipNext();
-  const prev = () => flip.current?.flipPrev();
+  const goto = useCallback(
+    (i: number) => {
+      const target = Math.max(0, Math.min(pages.length - 1, i));
+      setCurrent(target);
+      setResumedBanner(null);
+      if (readingMode === 'flip' && flip.current) {
+        try {
+          flip.current.flip(target);
+        } catch {
+          // fallback
+        }
+      } else if (readingMode === 'scroll' || readingMode === 'reader') {
+        const el = document.getElementById(`flipex-scroll-page-${target + 1}`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    [pages.length, readingMode]
+  );
 
-  const toggleFullscreen = () => {
-    const el = host.current?.closest('.heyzine-viewer') as HTMLElement | null;
+  const next = useCallback(() => {
+    if (readingMode === 'flip' && flip.current) {
+      flip.current.flipNext();
+    } else {
+      goto(current + 1);
+    }
+  }, [readingMode, goto, current]);
+
+  const prev = useCallback(() => {
+    if (readingMode === 'flip' && flip.current) {
+      flip.current.flipPrev();
+    } else {
+      goto(current - 1);
+    }
+  }, [readingMode, goto, current]);
+
+  const toggleBookmark = useCallback(
+    (pageNum = current + 1) => {
+      setBookmarks((prevBms) => {
+        const nextBms = prevBms.includes(pageNum)
+          ? prevBms.filter((p) => p !== pageNum)
+          : [...prevBms, pageNum].sort((a, b) => a - b);
+        try {
+          localStorage.setItem(bookmarksStorageKey, JSON.stringify(nextBms));
+        } catch {
+          // ignore
+        }
+        return nextBms;
+      });
+    },
+    [current, bookmarksStorageKey]
+  );
+
+  const toggleFullscreen = useCallback(() => {
+    const el = document.querySelector('.heyzine-viewer') as HTMLElement | null;
     if (document.fullscreenElement) {
       document.exitFullscreen?.();
     } else {
-      (el ?? host.current)?.requestFullscreen?.();
+      el?.requestFullscreen?.();
+    }
+  }, []);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        e.preventDefault();
+        next();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prev();
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        handleZoomChange(zoom + 0.25);
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        handleZoomChange(zoom - 0.25);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        handleZoomChange(1);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        setShowSearch((s) => !s);
+      } else if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        setShowToc((s) => !s);
+      } else if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        toggleBookmark(current + 1);
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        setReadingMode((m) => (m === 'flip' ? 'scroll' : m === 'scroll' ? 'reader' : 'flip'));
+      } else if (e.key === '?') {
+        e.preventDefault();
+        setShowShortcutsModal((s) => !s);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [next, prev, zoom, handleZoomChange, toggleFullscreen, toggleBookmark, current]);
+
+  // Execute full-text search across pages
+  useEffect(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const localMatches: Array<{ page: number; snippet: string }> = [];
+    pages.forEach((p) => {
+      const txt = p.text || '';
+      const idx = txt.toLowerCase().indexOf(q);
+      if (idx !== -1) {
+        const start = Math.max(0, idx - 45);
+        let snippet = txt.slice(start, start + 130);
+        if (start > 0) snippet = '…' + snippet;
+        if (start + 130 < txt.length) snippet += '…';
+        localMatches.push({ page: p.n, snippet });
+      }
+    });
+
+    if (localMatches.length > 0) {
+      setSearchResults(localMatches);
+      sendTelemetry('search', { meta: { query: q, count: localMatches.length } });
+    } else if (slug) {
+      fetch(`/api/v1/public/${slug}/search?q=${encodeURIComponent(q)}`)
+        .then((r) => (r.ok ? r.json() : { results: [] }))
+        .then((d) => {
+          setSearchResults(d.results || []);
+          sendTelemetry('search', { meta: { query: q, count: (d.results || []).length } });
+        })
+        .catch(() => {});
+    }
+  }, [searchQuery, pages, slug, sendTelemetry]);
+
+  // Save publication for Offline Reading using CacheStorage API
+  const handleSaveOffline = async () => {
+    if (cachingOffline) return;
+    setCachingOffline(true);
+    try {
+      if ('caches' in window) {
+        const cache = await caches.open('nuvis-flipex-offline-v1');
+        const urlsToCache = pages.flatMap((p) => [p.image, p.thumb].filter(Boolean));
+        await Promise.allSettled(urlsToCache.map((u) => cache.add(u)));
+      }
+      localStorage.setItem(offlineStorageKey, '1');
+      setOfflineSaved(true);
+    } catch {
+      // fallback
+    } finally {
+      setCachingOffline(false);
     }
   };
 
-  const handleHotspotClick = (h: ViewerHotspot) => {
+  const handleHotspotClick = (h: ViewerHotspot, pageNum?: number) => {
     if (h.type === 'video' && h.payload.url) {
+      sendTelemetry('video_play', { pageNumber: pageNum || current + 1, targetUrl: h.payload.url });
       setActiveVideo({ url: h.payload.url, title: h.payload.title || 'Video' });
     } else if (h.payload.url) {
+      sendTelemetry('link_click', { pageNumber: pageNum || current + 1, targetUrl: h.payload.url });
       window.open(h.payload.url, '_blank', 'noopener,noreferrer');
     }
   };
@@ -478,10 +816,9 @@ export default function FlipbookViewer({
     return url;
   };
 
-  // Compute displayed page numbers (Heyzine style: e.g. "8 - 9 / 17" or "1 / 17")
   const total = pages.length;
   let pageDisplay = `${current + 1} / ${total}`;
-  if (mode === 'landscape') {
+  if (readingMode === 'flip' && mode === 'landscape') {
     if (current === 0) {
       pageDisplay = `1 / ${total}`;
     } else if (current >= total - 1) {
@@ -491,19 +828,22 @@ export default function FlipbookViewer({
     }
   }
 
-  // Active hotspots on visible page(s)
   const leftPageNum = current + 1;
-  const rightPageNum = mode === 'landscape' && current > 0 ? current + 2 : null;
+  const rightPageNum = readingMode === 'flip' && mode === 'landscape' && current > 0 ? current + 2 : null;
   const activeHotspots = [
     ...(hotspots[leftPageNum] || []),
     ...(rightPageNum ? (hotspots[rightPageNum] || []) : []),
   ];
 
+  const isCurrentBookmarked = bookmarks.includes(current + 1);
+  const baseShareUrl = slug ? `${window.location.origin}/v/${slug}` : window.location.href.split('?')[0];
+  const computedShareUrl = shareSpecificPage ? `${baseShareUrl}?page=${current + 1}` : baseShareUrl;
+
   return (
     <div
       className={`heyzine-viewer ${isFullscreen ? 'is-fullscreen' : ''}`}
       style={{
-        background: bg,
+        background: activeBg,
         ['--spread-aspect' as any]: `${spreadAspect}`,
       }}
     >
@@ -515,10 +855,123 @@ export default function FlipbookViewer({
           <span className="nuvis-brand-text hz-brand-badge-golden">
             {settings.brandText || 'Nuvis Flipex'}
           </span>
+
+          {/* Reading Mode Switcher Pill (3D Flip vs Vertical Scroll vs Accessible Screen-Reader) */}
+          <div
+            className="hidden sm:inline-flex items-center rounded-full border border-white/15 bg-black/40 p-0.5 ml-2 backdrop-blur-md"
+            role="group"
+            aria-label="Reading Mode Switcher"
+          >
+            <button
+              type="button"
+              onClick={() => setReadingMode('flip')}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                readingMode === 'flip' ? 'bg-amber-400 text-slate-950 shadow' : 'text-white/80 hover:text-white'
+              }`}
+              title="3D Interactive Page-Turn Mode (Shortcut: M)"
+            >
+              📖 3D Flip
+            </button>
+            <button
+              type="button"
+              onClick={() => setReadingMode('scroll')}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                readingMode === 'scroll' ? 'bg-amber-400 text-slate-950 shadow' : 'text-white/80 hover:text-white'
+              }`}
+              title="Continuous Vertical Scroll Mode (Shortcut: M)"
+            >
+              📜 Scroll
+            </button>
+            <button
+              type="button"
+              onClick={() => setReadingMode('reader')}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                readingMode === 'reader' ? 'bg-amber-400 text-slate-950 shadow' : 'text-white/80 hover:text-white'
+              }`}
+              title="Accessible Screen-Reader Text Mode (Shortcut: M)"
+            >
+              ♿ Reader
+            </button>
+          </div>
         </div>
 
         <div className="hz-top-actions">
-          {soundConfigEnabled && (
+          {/* Search Inside Publication */}
+          <button
+            className={`hz-icon-btn ${showSearch ? 'ring-2 ring-amber-400' : ''}`}
+            onClick={() => {
+              setShowSearch(!showSearch);
+              setShowToc(false);
+              setShowBookmarks(false);
+            }}
+            title="Search Inside Publication (Shortcut: /)"
+            aria-label="Search Inside Publication"
+          >
+            🔍
+          </button>
+
+          {/* Automatic Table of Contents */}
+          <button
+            className={`hz-icon-btn ${showToc ? 'ring-2 ring-amber-400' : ''}`}
+            onClick={() => {
+              setShowToc(!showToc);
+              setShowSearch(false);
+              setShowBookmarks(false);
+            }}
+            title="Table of Contents (Shortcut: T)"
+            aria-label="Table of Contents"
+          >
+            ☰
+          </button>
+
+          {/* Bookmark Current Page */}
+          <button
+            className={`hz-icon-btn ${isCurrentBookmarked ? 'ring-2 ring-amber-400' : ''}`}
+            onClick={() => toggleBookmark(current + 1)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setShowBookmarks(!showBookmarks);
+            }}
+            title={
+              isCurrentBookmarked
+                ? `Page ${current + 1} Bookmarked (Click to remove · Right-click for list)`
+                : `Bookmark Page ${current + 1} (Shortcut: B)`
+            }
+            aria-label="Bookmark current page"
+          >
+            {isCurrentBookmarked ? '🔖' : '🏷️'}
+          </button>
+
+          {/* Share Current Page / Publication */}
+          <button
+            className="hz-icon-btn"
+            onClick={() => {
+              setCopiedShareLink(false);
+              setShowShareModal(true);
+            }}
+            title={`Share Page ${current + 1} or Publication`}
+            aria-label="Share Page"
+          >
+            🔗
+          </button>
+
+          {/* Offline Caching Toggle */}
+          <button
+            className="hz-icon-btn"
+            onClick={handleSaveOffline}
+            title={
+              offlineSaved
+                ? 'Saved for Offline Reading'
+                : cachingOffline
+                  ? 'Caching pages for offline reading…'
+                  : 'Save Publication for Offline Reading'
+            }
+            aria-label="Save for Offline Reading"
+          >
+            {offlineSaved ? '✅' : cachingOffline ? '⏳' : '💾'}
+          </button>
+
+          {soundConfigEnabled && readingMode === 'flip' && (
             <button
               className="hz-icon-btn"
               onClick={() => setSoundMuted(!soundMuted)}
@@ -541,202 +994,555 @@ export default function FlipbookViewer({
           )}
 
           <button
-            className="hz-icon-btn"
+            className={`hz-icon-btn ${showThumbs ? 'ring-2 ring-amber-400' : ''}`}
             onClick={() => setShowThumbs(!showThumbs)}
-            title="Toggle Thumbnails"
+            title="Toggle Page Thumbnails"
           >
             📑
           </button>
 
           <button
             className="hz-icon-btn"
+            onClick={() => setShowShortcutsModal(true)}
+            title="Keyboard Shortcuts & Theme Settings (Shortcut: ?)"
+          >
+            ⌨️
+          </button>
+
+          <button
+            className="hz-icon-btn"
             onClick={toggleFullscreen}
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
           >
             {isFullscreen ? '✕' : '⛶'}
           </button>
         </div>
       </div>
 
-      {/* Main Reading Stage */}
-      <div
-        className="hz-stage"
-        onMouseDown={handleStageMouseDown}
-        onDoubleClick={handleStageDoubleClick}
-        style={{
-          cursor: zoom > 1 ? (isDraggingState ? 'grabbing' : 'grab') : 'default',
-        }}
-      >
-        {/* Floating Side Flip Arrows */}
-        <button
-          className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''}`}
-          onClick={prev}
-          title="Previous Page"
-          disabled={current === 0}
-        >
-          ‹
-        </button>
+      {/* Last-Read Page Resume Toast */}
+      {resumedBanner !== null && (
+        <div className="fixed top-16 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-400/50 bg-slate-950/90 px-4 py-1.5 text-xs text-white shadow-xl backdrop-blur-md">
+          <span>📖 Resumed at your last-read page (Page {resumedBanner})</span>
+          <button
+            type="button"
+            onClick={() => goto(0)}
+            className="font-bold text-amber-400 underline hover:text-amber-300"
+          >
+            Start from Cover
+          </button>
+          <button
+            type="button"
+            onClick={() => setResumedBanner(null)}
+            className="text-slate-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
-        <button
-          className={`hz-side-arrow right ${current >= total - 1 ? 'disabled' : ''}`}
-          onClick={next}
-          title="Next Page"
-          disabled={current >= total - 1}
-        >
-          ›
-        </button>
-
-        {!ready && (
-          <div className="hz-loading-pill">
-            <div className="hz-spinner" />
-            <span>Loading publication…</span>
-          </div>
-        )}
-
+      {/* Slide-Out Search Inside Publication Panel */}
+      {showSearch && (
         <div
-          className="hz-canvas-wrap"
+          className="fixed top-16 right-4 z-40 flex max-h-[75vh] w-80 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 text-white shadow-2xl backdrop-blur-lg"
+          role="dialog"
+          aria-label="Search Inside Publication"
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+              🔍 Search Inside Publication
+            </span>
+            <button onClick={() => setShowSearch(false)} className="text-slate-400 hover:text-white">
+              ✕
+            </button>
+          </div>
+          <div className="p-3 border-b border-white/10">
+            <input
+              type="search"
+              autoFocus
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search keywords, topics, names…"
+              className="w-full rounded-xl border border-white/20 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-amber-400"
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-white/10 p-2">
+            {searchQuery.trim().length < 2 ? (
+              <p className="p-4 text-center text-xs text-slate-400">
+                Type at least 2 characters to search across all {pages.length} pages.
+              </p>
+            ) : searchResults.length === 0 ? (
+              <p className="p-4 text-center text-xs text-slate-400">
+                No matches found for “{searchQuery}”.
+              </p>
+            ) : (
+              searchResults.map((res, i) => (
+                <button
+                  key={`${res.page}-${i}`}
+                  type="button"
+                  onClick={() => {
+                    goto(res.page - 1);
+                    setShowSearch(false);
+                  }}
+                  className="w-full rounded-xl p-2.5 text-left transition-colors hover:bg-white/10"
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-amber-400">
+                    <span>Page {res.page}</span>
+                    <span>Jump →</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-300 line-clamp-3">{res.snippet}</p>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Slide-Out Table of Contents & Bookmarks Panel */}
+      {(showToc || showBookmarks) && (
+        <div
+          className="fixed top-16 left-4 z-40 flex max-h-[75vh] w-80 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 text-white shadow-2xl backdrop-blur-lg"
+          role="navigation"
+          aria-label="Table of Contents and Bookmarks"
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <div className="flex gap-3 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => { setShowToc(true); setShowBookmarks(false); }}
+                className={showToc ? 'text-amber-400 underline' : 'text-slate-400 hover:text-white'}
+              >
+                ☰ Contents ({effectiveToc.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowBookmarks(true); setShowToc(false); }}
+                className={showBookmarks ? 'text-amber-400 underline' : 'text-slate-400 hover:text-white'}
+              >
+                🔖 Bookmarks ({bookmarks.length})
+              </button>
+            </div>
+            <button
+              onClick={() => { setShowToc(false); setShowBookmarks(false); }}
+              className="text-slate-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {showToc ? (
+              effectiveToc.map((item, idx) => (
+                <button
+                  key={`${item.page}-${idx}`}
+                  type="button"
+                  onClick={() => {
+                    goto(item.page - 1);
+                    setShowToc(false);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-colors ${
+                    current + 1 === item.page
+                      ? 'bg-amber-400/20 font-bold text-amber-300'
+                      : 'text-slate-200 hover:bg-white/10'
+                  }`}
+                >
+                  <span className="truncate pr-2">{item.title}</span>
+                  <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
+                    p. {item.page}
+                  </span>
+                </button>
+              ))
+            ) : bookmarks.length === 0 ? (
+              <p className="p-4 text-center text-xs text-slate-400">
+                No bookmarked pages yet. Click 🏷️ or press <b>B</b> to bookmark any page.
+              </p>
+            ) : (
+              bookmarks.map((bmPage) => (
+                <div
+                  key={bmPage}
+                  className="flex items-center justify-between rounded-xl px-3 py-2 text-xs hover:bg-white/10"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      goto(bmPage - 1);
+                      setShowBookmarks(false);
+                    }}
+                    className="flex-1 text-left font-semibold text-amber-300"
+                  >
+                    🔖 Page {bmPage}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleBookmark(bmPage)}
+                    className="text-slate-400 hover:text-red-400"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Reading Stage: Supports 3 Modes ('flip' | 'scroll' | 'reader') */}
+      {readingMode === 'flip' && (
+        <div
+          className="hz-stage"
+          onMouseDown={handleStageMouseDown}
+          onDoubleClick={handleStageDoubleClick}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           style={{
-            aspectRatio: mode === 'landscape' ? `${spreadAspect}` : `${singleWidth / singleHeight}`,
-            transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
-            transformOrigin: 'center center',
-            transition: isDraggingState ? 'none' : 'transform 0.15s ease-out',
+            cursor: zoom > 1 ? (isDraggingState ? 'grabbing' : 'grab') : 'default',
+          }}
+        >
+          <button
+            className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''}`}
+            onClick={prev}
+            title="Previous Page (←)"
+            disabled={current === 0}
+          >
+            ‹
+          </button>
+
+          <button
+            className={`hz-side-arrow right ${current >= total - 1 ? 'disabled' : ''}`}
+            onClick={next}
+            title="Next Page (→)"
+            disabled={current >= total - 1}
+          >
+            ›
+          </button>
+
+          {!ready && (
+            <div className="hz-loading-pill">
+              <div className="hz-spinner" />
+              <span>Loading publication…</span>
+            </div>
+          )}
+
+          <div
+            className="hz-canvas-wrap"
+            style={{
+              aspectRatio: mode === 'landscape' ? `${spreadAspect}` : `${singleWidth / singleHeight}`,
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: isDraggingState ? 'none' : 'transform 0.15s ease-out',
+            }}
+          >
+            <div
+              ref={host}
+              className="hz-flip-host"
+              style={{
+                pointerEvents: zoom > 1 ? 'none' : 'auto',
+              }}
+            />
+
+            {/* On-Demand High-Resolution Zoom Layer (Active when zoom > 1.25) */}
+            {ready && zoom > 1.25 && bookBounds && (
+              <div
+                className="pointer-events-none absolute z-10 overflow-hidden"
+                style={{
+                  left: `${Math.round(
+                    mode === 'landscape' && current === 0
+                      ? bookBounds.left + bookBounds.pageWidth
+                      : bookBounds.left
+                  )}px`,
+                  top: `${Math.round(bookBounds.top)}px`,
+                  width: `${Math.round(
+                    mode === 'portrait' ||
+                      (mode === 'landscape' && (current === 0 || current >= total - 1))
+                      ? bookBounds.pageWidth
+                      : bookBounds.width
+                  )}px`,
+                  height: `${Math.round(bookBounds.height)}px`,
+                  display: 'flex',
+                }}
+              >
+                {mode === 'portrait' || current === 0 || current >= total - 1 ? (
+                  pages[current] && hdLoadedPages[pages[current].n] ? (
+                    <img
+                      src={hdLoadedPages[pages[current].n]}
+                      alt={`HD Page ${pages[current].n}`}
+                      className="h-full w-full object-fill select-none"
+                      draggable={false}
+                    />
+                  ) : null
+                ) : (
+                  <>
+                    <div className="h-full w-1/2 overflow-hidden">
+                      {pages[current] && hdLoadedPages[pages[current].n] && (
+                        <img
+                          src={hdLoadedPages[pages[current].n]}
+                          alt={`HD Page ${pages[current].n}`}
+                          className="h-full w-full object-fill select-none"
+                          draggable={false}
+                        />
+                      )}
+                    </div>
+                    <div className="h-full w-1/2 overflow-hidden">
+                      {pages[current + 1] && hdLoadedPages[pages[current + 1].n] && (
+                        <img
+                          src={hdLoadedPages[pages[current + 1].n]}
+                          alt={`HD Page ${pages[current + 1].n}`}
+                          className="h-full w-full object-fill select-none"
+                          draggable={false}
+                        />
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Interactive Hotspots Layer */}
+            {ready && activeHotspots.length > 0 && (
+              <div className="hz-hotspots-layer">
+                {activeHotspots.map((h) => (
+                  <div
+                    key={h.id}
+                    className={`reader-hotspot ${h.type}`}
+                    style={{
+                      left: `${h.x}%`,
+                      top: `${h.y}%`,
+                      width: `${h.w}%`,
+                      height: `${h.h}%`,
+                    }}
+                    onClick={() => handleHotspotClick(h, current + 1)}
+                    title={h.payload.title || (h.type === 'video' ? 'Watch Video' : 'Open Link')}
+                  >
+                    <span className="hotspot-icon">{h.type === 'video' ? '▶' : '🔗'}</span>
+                    {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mode 2: Continuous Vertical Scroll Mode (No 3D dependency) */}
+      {readingMode === 'scroll' && (
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto px-4 pt-16 pb-24"
+          onScroll={(e) => {
+            const target = e.currentTarget;
+            const pageEls = target.querySelectorAll('[data-scroll-page]');
+            const viewCenter = target.scrollTop + target.clientHeight / 2;
+            pageEls.forEach((el) => {
+              const htmlEl = el as HTMLElement;
+              if (
+                htmlEl.offsetTop <= viewCenter &&
+                htmlEl.offsetTop + htmlEl.offsetHeight >= viewCenter
+              ) {
+                const pNum = Number(htmlEl.dataset.scrollPage);
+                if (!isNaN(pNum) && pNum - 1 !== current) {
+                  setCurrent(pNum - 1);
+                }
+              }
+            });
           }}
         >
           <div
-            ref={host}
-            className="hz-flip-host"
+            className="mx-auto flex flex-col items-center gap-6"
             style={{
-              pointerEvents: zoom > 1 ? 'none' : 'auto',
+              maxWidth: `${Math.round(780 * zoom)}px`,
+              transition: 'max-width 0.15s ease',
             }}
-          />
-
-          {/* On-Demand High-Resolution Zoom Layer (Active when zoom > 1.25) */}
-          {ready && zoom > 1.25 && bookBounds && (
-            <div
-              className="pointer-events-none absolute z-10 overflow-hidden"
-              style={{
-                left: `${Math.round(
-                  mode === 'landscape' && current === 0
-                    ? bookBounds.left + bookBounds.pageWidth
-                    : bookBounds.left
-                )}px`,
-                top: `${Math.round(bookBounds.top)}px`,
-                width: `${Math.round(
-                  mode === 'portrait' ||
-                    (mode === 'landscape' && (current === 0 || current >= total - 1))
-                    ? bookBounds.pageWidth
-                    : bookBounds.width
-                )}px`,
-                height: `${Math.round(bookBounds.height)}px`,
-                display: 'flex',
-              }}
-            >
-              {mode === 'portrait' || current === 0 || current >= total - 1 ? (
-                pages[current] && hdLoadedPages[pages[current].n] ? (
-                  <img
-                    src={hdLoadedPages[pages[current].n]}
-                    alt={`HD Page ${pages[current].n}`}
-                    className="h-full w-full object-fill select-none"
-                    draggable={false}
-                  />
-                ) : null
-              ) : (
-                <>
-                  <div className="h-full w-1/2 overflow-hidden">
-                    {pages[current] && hdLoadedPages[pages[current].n] && (
-                      <img
-                        src={hdLoadedPages[pages[current].n]}
-                        alt={`HD Page ${pages[current].n}`}
-                        className="h-full w-full object-fill select-none"
-                        draggable={false}
-                      />
-                    )}
-                  </div>
-                  <div className="h-full w-1/2 overflow-hidden">
-                    {pages[current + 1] && hdLoadedPages[pages[current + 1].n] && (
-                      <img
-                        src={hdLoadedPages[pages[current + 1].n]}
-                        alt={`HD Page ${pages[current + 1].n}`}
-                        className="h-full w-full object-fill select-none"
-                        draggable={false}
-                      />
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Interactive Hotspots Layer */}
-          {ready && activeHotspots.length > 0 && (
-            <div className="hz-hotspots-layer">
-              {activeHotspots.map((h) => (
+          >
+            {pages.map((p) => {
+              const pageHotspots = hotspots[p.n] || [];
+              return (
                 <div
-                  key={h.id}
-                  className={`reader-hotspot ${h.type}`}
-                  style={{
-                    left: `${h.x}%`,
-                    top: `${h.y}%`,
-                    width: `${h.w}%`,
-                    height: `${h.h}%`,
-                  }}
-                  onClick={() => handleHotspotClick(h)}
-                  title={h.payload.title || (h.type === 'video' ? 'Watch Video' : 'Open Link')}
+                  key={p.n}
+                  id={`flipex-scroll-page-${p.n}`}
+                  data-scroll-page={p.n}
+                  className="relative w-full overflow-hidden rounded-xl bg-white shadow-2xl"
                 >
-                  <span className="hotspot-icon">{h.type === 'video' ? '▶' : '🔗'}</span>
-                  {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
+                  <img
+                    src={zoom > 1.25 && p.imageHigh ? p.imageHigh : p.image}
+                    alt={`Page ${p.n}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="block w-full h-auto select-none"
+                  />
+                  <div className="absolute bottom-3 right-3 rounded-full bg-slate-950/75 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+                    Page {p.n} of {total}
+                  </div>
+                  {pageHotspots.map((h) => (
+                    <div
+                      key={h.id}
+                      className={`reader-hotspot ${h.type}`}
+                      style={{
+                        left: `${h.x}%`,
+                        top: `${h.y}%`,
+                        width: `${h.w}%`,
+                        height: `${h.h}%`,
+                      }}
+                      onClick={() => handleHotspotClick(h, p.n)}
+                      title={h.payload.title || (h.type === 'video' ? 'Watch Video' : 'Open Link')}
+                    >
+                      <span className="hotspot-icon">{h.type === 'video' ? '▶' : '🔗'}</span>
+                      {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Mode 3: Screen-Reader-Friendly Accessible Text Mode */}
+      {readingMode === 'reader' && (
+        <div
+          className="flex-1 overflow-y-auto px-4 pt-16 pb-24"
+          role="document"
+          aria-label={`Accessible text version of ${title || 'Publication'}`}
+        >
+          <div className="mx-auto max-w-3xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/30 bg-slate-900/90 p-4 text-white shadow-lg">
+              <div>
+                <h2 className="text-sm font-bold text-amber-400">
+                  ♿ Screen-Reader & High-Legibility Article Mode
+                </h2>
+                <p className="text-xs text-slate-300">
+                  Semantic text extracted from all {pages.length} pages for assistive technology and comfortable reading.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReaderFontSize((s) => Math.max(13, s - 2))}
+                  className="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-bold text-white hover:bg-white/10"
+                  aria-label="Decrease font size"
+                >
+                  A−
+                </button>
+                <span className="text-xs text-slate-300">{readerFontSize}px</span>
+                <button
+                  type="button"
+                  onClick={() => setReaderFontSize((s) => Math.min(26, s + 2))}
+                  className="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-bold text-white hover:bg-white/10"
+                  aria-label="Increase font size"
+                >
+                  A+
+                </button>
+              </div>
+            </div>
+
+            {pages.map((p) => (
+              <article
+                key={p.n}
+                id={`flipex-scroll-page-${p.n}`}
+                aria-label={`Page ${p.n}`}
+                className="rounded-2xl border border-white/10 bg-slate-900/95 p-6 text-slate-100 shadow-xl"
+              >
+                <header className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+                  <h3 className="text-sm font-bold text-amber-400">
+                    Page {p.n} of {total}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReadingMode('flip');
+                      setTimeout(() => goto(p.n - 1), 100);
+                    }}
+                    className="text-xs text-slate-400 hover:text-amber-300"
+                  >
+                    View Visual Page →
+                  </button>
+                </header>
+                <div className="flex flex-col gap-5 sm:flex-row">
+                  <img
+                    src={p.thumb}
+                    alt={`Thumbnail of Page ${p.n}`}
+                    loading="lazy"
+                    className="h-36 w-28 shrink-0 rounded-lg border border-white/15 object-cover"
+                  />
+                  <div
+                    className="flex-1 whitespace-pre-line leading-relaxed text-slate-100"
+                    style={{ fontSize: `${readerFontSize}px` }}
+                  >
+                    {p.text && p.text.trim() !== ''
+                      ? p.text
+                      : `[Visual graphic page ${p.n} — switch to Scroll or 3D Flip mode to inspect full layout.]`}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bottom Floating Navigation Pill */}
       <div className="hz-bottom-bar">
         <div className="hz-nav-pill">
-          <button className="hz-pill-btn" onClick={prev} disabled={current === 0} title="Previous">‹</button>
+          <button className="hz-pill-btn" onClick={prev} disabled={current === 0} title="Previous Page (←)">
+            ‹
+          </button>
           <span className="hz-pill-counter">{pageDisplay}</span>
-          <button className="hz-pill-btn" onClick={next} disabled={current >= total - 1} title="Next">›</button>
+          <button className="hz-pill-btn" onClick={next} disabled={current >= total - 1} title="Next Page (→)">
+            ›
+          </button>
 
-          {/* Zoom Controls (Available in both Standard & Fullscreen Modes with On-Demand HD Zoom) */}
-          <div className="hz-zoom-controls">
-            <button
-              className="hz-pill-btn hz-zoom-btn"
-              onClick={() => handleZoomChange(zoom - 0.25)}
-              disabled={zoom <= 1}
-              title="Zoom Out"
-            >
-              −
-            </button>
-            <input
-              type="range"
-              className="hz-zoom-slider"
-              min="1"
-              max="2.5"
-              step="0.05"
-              value={zoom}
-              onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-              title={`Zoom: ${Math.round(zoom * 100)}% (Drag to pan · High-Res HD activates > 125%)`}
-            />
-            <button
-              className="hz-pill-btn hz-zoom-btn"
-              onClick={() => handleZoomChange(zoom + 0.25)}
-              disabled={zoom >= 2.5}
-              title="Zoom In"
-            >
-              +
-            </button>
-            <button
-              className="hz-pill-btn hz-zoom-label"
-              onClick={() => handleZoomChange(1)}
-              title="Reset zoom to 100%"
-            >
-              {Math.round(zoom * 100)}%{zoom > 1.25 ? ' HD' : ''}
-            </button>
-          </div>
+          {/* Mobile/Compact Mode Switcher button */}
+          <button
+            className="hz-pill-btn"
+            onClick={() =>
+              setReadingMode((m) => (m === 'flip' ? 'scroll' : m === 'scroll' ? 'reader' : 'flip'))
+            }
+            title="Switch Reading Mode: 3D Flip / Vertical Scroll / Accessible Reader (Shortcut: M)"
+          >
+            {readingMode === 'flip' ? '📜 Scroll' : readingMode === 'scroll' ? '♿ Reader' : '📖 3D Flip'}
+          </button>
 
-          <button className="hz-pill-btn fs" onClick={toggleFullscreen} title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
+          {/* Zoom Controls (Available in 3D Flip & Scroll Modes with On-Demand HD Zoom) */}
+          {readingMode !== 'reader' && (
+            <div className="hz-zoom-controls">
+              <button
+                className="hz-pill-btn hz-zoom-btn"
+                onClick={() => handleZoomChange(zoom - 0.25)}
+                disabled={zoom <= 1}
+                title="Zoom Out (-)"
+              >
+                −
+              </button>
+              <input
+                type="range"
+                className="hz-zoom-slider"
+                min="1"
+                max="2.5"
+                step="0.05"
+                value={zoom}
+                onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                title={`Zoom: ${Math.round(zoom * 100)}% (Drag to pan · High-Res HD activates > 125%)`}
+              />
+              <button
+                className="hz-pill-btn hz-zoom-btn"
+                onClick={() => handleZoomChange(zoom + 0.25)}
+                disabled={zoom >= 2.5}
+                title="Zoom In (+)"
+              >
+                +
+              </button>
+              <button
+                className="hz-pill-btn hz-zoom-label"
+                onClick={() => handleZoomChange(1)}
+                title="Reset zoom to 100% (0)"
+              >
+                {Math.round(zoom * 100)}%{zoom > 1.25 ? ' HD' : ''}
+              </button>
+            </div>
+          )}
+
+          <button
+            className="hz-pill-btn fs"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+          >
             {isFullscreen ? '✕ Exit' : '⛶ Fullscreen'}
           </button>
         </div>
@@ -760,13 +1566,192 @@ export default function FlipbookViewer({
         </div>
       )}
 
+      {/* Share Individual Page / Publication Modal */}
+      {showShareModal && (
+        <div className="modal" onClick={() => setShowShareModal(false)}>
+          <div
+            className="card max-w-md w-full space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Share Publication</h3>
+              <button className="link" onClick={() => setShowShareModal(false)}>
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShareSpecificPage(true)}
+                className={`flex-1 rounded-xl border px-3 py-2 text-xs font-bold ${
+                  shareSpecificPage
+                    ? 'border-amber-400 bg-amber-400/15 text-amber-600'
+                    : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                📄 Share Page {current + 1}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShareSpecificPage(false)}
+                className={`flex-1 rounded-xl border px-3 py-2 text-xs font-bold ${
+                  !shareSpecificPage
+                    ? 'border-amber-400 bg-amber-400/15 text-amber-600'
+                    : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                📚 Entire Flipbook
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={computedShareUrl}
+                className="boardui-input flex-1 text-xs"
+              />
+              <button
+                type="button"
+                className="btn-primary boardui-btn-sm"
+                onClick={() => {
+                  navigator.clipboard?.writeText(computedShareUrl);
+                  setCopiedShareLink(true);
+                  sendTelemetry('share', { pageNumber: current + 1, targetUrl: computedShareUrl });
+                }}
+              >
+                {copiedShareLink ? '✓ Copied!' : 'Copy Link'}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent((title || 'Publication') + ' - ' + computedShareUrl)}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => sendTelemetry('share', { pageNumber: current + 1, targetUrl: 'whatsapp' })}
+                className="btn-secondary boardui-btn-sm"
+              >
+                WhatsApp
+              </a>
+              <a
+                href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(computedShareUrl)}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => sendTelemetry('share', { pageNumber: current + 1, targetUrl: 'linkedin' })}
+                className="btn-secondary boardui-btn-sm"
+              >
+                LinkedIn
+              </a>
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title || 'Publication')}&url=${encodeURIComponent(computedShareUrl)}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => sendTelemetry('share', { pageNumber: current + 1, targetUrl: 'twitter' })}
+                className="btn-secondary boardui-btn-sm"
+              >
+                X / Twitter
+              </a>
+              <a
+                href={`mailto:?subject=${encodeURIComponent(title || 'Publication')}&body=${encodeURIComponent(computedShareUrl)}`}
+                onClick={() => sendTelemetry('share', { pageNumber: current + 1, targetUrl: 'email' })}
+                className="btn-secondary boardui-btn-sm"
+              >
+                Email
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts & Viewer Theme Picker Modal */}
+      {showShortcutsModal && (
+        <div className="modal" onClick={() => setShowShortcutsModal(false)}>
+          <div
+            className="card max-w-lg w-full space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">
+                ⌨️ Keyboard Shortcuts & Reader Themes
+              </h3>
+              <button className="link" onClick={() => setShowShortcutsModal(false)}>
+                ✕ Close
+              </button>
+            </div>
+
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">
+                Custom Viewer Themes
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(VIEWER_THEMES).map(([key, th]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveBg(th.bg)}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+                      activeBg === th.bg ? 'ring-2 ring-amber-400 border-amber-400' : 'border-slate-300'
+                    }`}
+                    style={{
+                      background: th.bg,
+                      color: th.bg === '#f6f3ec' || th.bg === '#e2e8f0' ? '#0f172a' : '#ffffff',
+                    }}
+                  >
+                    {th.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Next / Prev Page</span>
+                <kbd className="font-bold text-slate-800">← / →</kbd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Switch Reading Mode</span>
+                <kbd className="font-bold text-slate-800">M</kbd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Search Publication</span>
+                <kbd className="font-bold text-slate-800">/</kbd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Table of Contents</span>
+                <kbd className="font-bold text-slate-800">T</kbd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Bookmark Page</span>
+                <kbd className="font-bold text-slate-800">B</kbd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Zoom In / Out / Reset</span>
+                <kbd className="font-bold text-slate-800">+ / - / 0</kbd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Toggle Fullscreen</span>
+                <kbd className="font-bold text-slate-800">F</kbd>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
+                <span>Shortcuts Guide</span>
+                <kbd className="font-bold text-slate-800">?</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Video Modal Popup */}
       {activeVideo && (
         <div className="modal" onClick={() => setActiveVideo(null)}>
           <div className="card video-modal" onClick={(e) => e.stopPropagation()}>
             <div className="video-modal-header">
               <h3>{activeVideo.title}</h3>
-              <button className="link" onClick={() => setActiveVideo(null)}>✕ Close</button>
+              <button className="link" onClick={() => setActiveVideo(null)}>
+                ✕ Close
+              </button>
             </div>
             <div className="video-frame-wrap">
               <iframe

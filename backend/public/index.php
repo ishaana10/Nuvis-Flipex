@@ -95,6 +95,16 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 
         // Analytics
         $f->get('/{id:[0-9]+}/analytics', [AnalyticsController::class, 'show']);
+        $f->get('/{id:[0-9]+}/analytics/export-csv', [AnalyticsController::class, 'exportCsv']);
+    })->add(new TenantScope())->add(new Auth());
+
+    // Tenant-Wide Executive Analytics & Scheduled Reports (Authenticated & Tenant-Scoped)
+    $g->group('/analytics', function (RouteCollectorProxy $an) {
+        $an->get('/overview', [AnalyticsController::class, 'tenantDashboard']);
+        $an->get('/scheduled-reports', [AnalyticsController::class, 'listScheduledReports']);
+        $an->post('/scheduled-reports', [AnalyticsController::class, 'createScheduledReport']);
+        $an->delete('/scheduled-reports/{id:[0-9]+}', [AnalyticsController::class, 'deleteScheduledReport']);
+        $an->post('/scheduled-reports/{id:[0-9]+}/send-now', [AnalyticsController::class, 'sendScheduledReportNow']);
     })->add(new TenantScope())->add(new Auth());
 
     // Categories, Collections & Document Processing Job Queue (Authenticated & Tenant-Scoped)
@@ -119,8 +129,10 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->get('/public/{slug}', [PublicController::class, 'show']);
     $g->get('/public/{slug}/pages/{page:[0-9]+}', [PublicController::class, 'page']);
     $g->get('/public/{slug}/thumbs/{page:[0-9]+}', [PublicController::class, 'thumb']);
+    $g->get('/public/{slug}/search', [PublicController::class, 'search']);
     $g->post('/public/{slug}/unlock', [PublicController::class, 'unlock'])->add(new RateLimit('unlock', 20, 300));
     $g->post('/public/{slug}/view', [PublicController::class, 'trackView']);
+    $g->post('/public/{slug}/telemetry', [PublicController::class, 'trackTelemetry']);
     $g->get('/public/{slug}/download', [PublicController::class, 'download']);
     $g->get('/files/signed', [FlipbookController::class, 'serveSigned']);
 

@@ -471,6 +471,113 @@ assertTest(
 echo "\n";
 
 // ============================================================================
+// TEST SUITE 7: READER FULL-TEXT SEARCH, TELEMETRY & COMMERCIAL ANALYTICS
+// ============================================================================
+echo "7. Reader Full-Text Search, Telemetry & Commercial Analytics:\n";
+
+// Publish $draftFid so we can test public search & telemetry & commercial analytics
+Db::run(
+    "UPDATE flipbooks SET workflow_status = 'published', published_at = NOW(), toc = ? WHERE id = ?",
+    [json_encode([['title' => 'Chapter 1: Fiji Digital Transformation', 'page' => 1, 'level' => 1]]), $draftFid]
+);
+Db::run(
+    "UPDATE pages SET text_content = 'Welcome to the Nuvis Flipex Digital Publishing Platform in Suva Fiji.' WHERE flipbook_id = ? AND page_number = 1",
+    [$draftFid]
+);
+
+// 7.1 Full-text search inside publication
+$r = httpReq('GET', "{$apiUrl}/public/unpublished-draft-sec-test/search?q=Suva");
+assertTest(
+    "In-publication full-text search returns matching page and snippet",
+    $r['status'] === 200 && count($r['body']['results'] ?? []) === 1 && ($r['body']['results'][0]['page'] ?? 0) === 1,
+    json_encode($r['body'])
+);
+
+// 7.2 Track view with UTM campaign attribution
+$r = httpReq('POST', "{$apiUrl}/public/unpublished-draft-sec-test/view", [
+    'sessionId' => 'test_sess_utm_01',
+    'country' => 'FJ',
+    'utmSource' => 'linkedin',
+    'utmMedium' => 'social',
+    'utmCampaign' => 'fiji_enterprise_2026',
+]);
+assertTest(
+    "Public view tracking records UTM campaign attribution & session ID",
+    $r['status'] === 200 && ($r['body']['recorded'] ?? false) === true
+);
+
+// 7.3 Track granular page engagement & link click telemetry
+$r = httpReq('POST', "{$apiUrl}/public/unpublished-draft-sec-test/telemetry", [
+    'sessionId' => 'test_sess_utm_01',
+    'eventType' => 'page_view',
+    'pageNumber' => 1,
+    'durationMs' => 24000,
+    'country' => 'FJ',
+    'utmSource' => 'linkedin',
+    'utmCampaign' => 'fiji_enterprise_2026',
+]);
+$rClick = httpReq('POST', "{$apiUrl}/public/unpublished-draft-sec-test/telemetry", [
+    'sessionId' => 'test_sess_utm_01',
+    'eventType' => 'link_click',
+    'pageNumber' => 1,
+    'targetUrl' => 'https://nuvistechnologies.com.fj',
+]);
+assertTest(
+    "Granular page dwell time & link click telemetry recorded",
+    $r['status'] === 200 && $rClick['status'] === 200
+);
+
+// 7.4 Commercial Analytics endpoint returns Page Heatmap, Completion Rate, UTM Campaigns & Comparison
+$r = httpReq('GET', "{$apiUrl}/flipbooks/{$draftFid}/analytics?days=30&compareId={$flipbookAId}", null, $tokenA);
+assertTest(
+    "Commercial analytics returns Page Engagement Heatmap, UTM campaigns & Publication Comparison",
+    $r['status'] === 200
+        && !empty($r['body']['pageHeatmap'])
+        && isset($r['body']['completionRate'])
+        && ($r['body']['linkClicksTotal'] ?? 0) >= 1
+        && !empty($r['body']['comparison']),
+    "Status: {$r['status']}"
+);
+
+// 7.5 Tenant-wide Executive Analytics Overview
+$r = httpReq('GET', "{$apiUrl}/analytics/overview?days=30", null, $tokenA);
+assertTest(
+    "Tenant-wide executive analytics overview aggregates workspace publications",
+    $r['status'] === 200 && isset($r['body']['publications']) && is_array($r['body']['publications']),
+    "Status: {$r['status']}"
+);
+
+// 7.6 CSV Analytics Export
+$ch = curl_init("{$apiUrl}/flipbooks/{$draftFid}/analytics/export-csv?days=30");
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: Bearer {$tokenA}"]);
+$csvBody = (string) curl_exec($ch);
+$csvStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+assertTest(
+    "Analytics CSV export generates multi-section report with Page Engagement Heatmap",
+    $csvStatus === 200 && str_contains($csvBody, 'PAGE-BY-PAGE ENGAGEMENT HEATMAP') && str_contains($csvBody, 'CAMPAIGN & UTM ATTRIBUTION'),
+    "CSV status: {$csvStatus}"
+);
+
+// 7.7 Scheduled Analytics Reports CRUD
+$r = httpReq('POST', "{$apiUrl}/analytics/scheduled-reports", [
+    'flipbookId' => $draftFid,
+    'recipientEmail' => 'analytics-test@alpha.test',
+    'frequency' => 'weekly',
+], $tokenA);
+$schedId = (int) ($r['body']['id'] ?? 0);
+assertTest(
+    "Scheduled analytics report created for tenant workspace (HTTP 201)",
+    $r['status'] === 201 && $schedId > 0
+);
+if ($schedId > 0) {
+    Db::run('DELETE FROM scheduled_reports WHERE id = ?', [$schedId]);
+}
+
+echo "\n";
+
+// ============================================================================
 // CLEANUP TEST FIXTURES
 // ============================================================================
 echo "Cleaning up test fixtures...\n";

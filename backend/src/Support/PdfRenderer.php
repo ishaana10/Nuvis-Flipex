@@ -355,6 +355,145 @@ final class PdfRenderer
     }
 
     /**
+     * Extract per-page text content (for full-text search & screen-reader mode)
+     * and automatically generate a Table of Contents (TOC) from PDF bookmarks/headings.
+     *
+     * @return array{pages_text: array<int, string>, toc: array<int, array{title: string, page: int, level: int}>}
+     */
+    public static function extractPageTextAndToc(string $pdfPath, int $pageCount): array
+    {
+        $pagesText = [];
+        $toc = [];
+
+        if (!file_exists($pdfPath) || $pageCount <= 0) {
+            return ['pages_text' => $pagesText, 'toc' => $toc];
+        }
+
+        // 1. Use Poppler pdftotext if available (extracts all pages separated by form-feed \x0C)
+        $pdftotext = self::getPdftotextBinary();
+        if ($pdftotext !== null) {
+            try {
+                $tmpTxt = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'flipex_txt_' . bin2hex(random_bytes(6)) . '.txt';
+                self::runProcess([$pdftotext, '-enc', 'UTF-8', '-l', (string) $pageCount, $pdfPath, $tmpTxt], 'pdftotext', 60);
+                if (file_exists($tmpTxt)) {
+                    $rawText = file_get_contents($tmpTxt) ?: '';
+                    @unlink($tmpTxt);
+                    $splits = explode("\f", $rawText);
+                    for ($i = 0; $i < min($pageCount, count($splits)); $i++) {
+                        $clean = trim(preg_replace("/[ \t]+/", ' ', $splits[$i]) ?? '');
+                        if ($clean !== '') {
+                            $pagesText[$i + 1] = mb_substr($clean, 0, 15000);
+                        }
+                    }
+                }
+            } catch (Throwable) {
+                // Fallback below
+            }
+        }
+
+        // 2. Fallback: Ghostscript txtwrite device if pdftotext wasn't used
+        if (empty($pagesText)) {
+            $gs = self::getGhostscriptBinary();
+            if ($gs !== null) {
+                try {
+                    for ($p = 1; $p <= min($pageCount, 100); $p++) {
+                        $out = self::runProcessCapture([
+                            $gs, '-q', '-dNOPAUSE', '-dBATCH', '-dSAFER',
+                            '-sDEVICE=txtwrite', "-dFirstPage={$p}", "-dLastPage={$p}",
+                            '-sOutputFile=-', $pdfPath
+                        ], 15);
+                        $clean = trim(preg_replace("/[ \t]+/", ' ', $out) ?? '');
+                        if ($clean !== '') {
+                            $pagesText[$p] = mb_substr($clean, 0, 15000);
+                        }
+                    }
+                } catch (Throwable) {
+                }
+            }
+        }
+
+        // 3. Build Automatic Table of Contents (TOC) from extracted page headings
+        $seenTitles = [];
+        for ($p = 1; $p <= $pageCount; $p++) {
+            $txt = $pagesText[$p] ?? '';
+            if ($p === 1) {
+                $firstLine = self::detectHeadingLine($txt) ?: 'Cover Page';
+                $toc[] = ['title' => $firstLine, 'page' => 1, 'level' => 1];
+                $seenTitles[strtolower($firstLine)] = true;
+                continue;
+            }
+            $heading = self::detectHeadingLine($txt);
+            if ($heading !== null) {
+                $key = strtolower($heading);
+                if (!isset($seenTitles[$key])) {
+                    $seenTitles[$key] = true;
+                    $toc[] = ['title' => $heading, 'page' => $p, 'level' => 1];
+                }
+            }
+        }
+
+        // Ensure TOC has reasonable entries if pages had minimal headings
+        if (count($toc) <= 1 && $pageCount > 1) {
+            $step = $pageCount <= 12 ? 2 : ($pageCount <= 30 ? 4 : 8);
+            for ($p = 2; $p <= $pageCount; $p += $step) {
+                $snippet = isset($pagesText[$p]) ? mb_substr( strtok($pagesText[$p], "\n") ?: '', 0, 48) : '';
+                $title = $snippet !== '' ? "Page {$p}: {$snippet}" : "Page {$p}";
+                $toc[] = ['title' => $title, 'page' => $p, 'level' => 1];
+            }
+        }
+
+        return [
+            'pages_text' => $pagesText,
+            'toc' => array_slice($toc, 0, 40),
+        ];
+    }
+
+    private static function detectHeadingLine(string $pageText): ?string
+    {
+        if ($pageText === '') return null;
+        $lines = array_values(array_filter(array_map('trim', explode("\n", $pageText)), static fn($l) => $l !== ''));
+        foreach (array_slice($lines, 0, 5) as $line) {
+            // Skip pure page numbers or dates or tiny fragments
+            if (preg_match('/^\d+$/', $line) || mb_strlen($line) < 4 || mb_strlen($line) > 75) {
+                continue;
+            }
+            // Good candidate heading line
+            if (preg_match('/^(chapter|section|part|contents|introduction|overview|editorial|message|report|summary|newsletter|term|feature|notice|[A-Z][A-Za-z0-9\s\-\:&,]{3,65})$/i', $line)) {
+                return $line;
+            }
+        }
+        return isset($lines[0]) && mb_strlen($lines[0]) >= 4 && mb_strlen($lines[0]) <= 65 ? $lines[0] : null;
+    }
+
+    /**
+     * Locate Poppler pdftotext executable for fast full-text & TOC extraction.
+     */
+    public static function getPdftotextBinary(): ?string
+    {
+        $ppm = self::getPdftoppmBinary();
+        if ($ppm !== null && (str_contains($ppm, '/') || str_contains($ppm, '\\'))) {
+            $dir = dirname($ppm);
+            $ext = PHP_OS_FAMILY === 'Windows' ? '.exe' : '';
+            $candidate = $dir . DIRECTORY_SEPARATOR . 'pdftotext' . $ext;
+            if (file_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        $candidates = PHP_OS_FAMILY === 'Windows'
+            ? ['pdftotext.exe', 'pdftotext']
+            : ['/usr/bin/pdftotext', '/usr/local/bin/pdftotext', 'pdftotext'];
+
+        foreach ($candidates as $cand) {
+            if (self::testExecutable($cand)) {
+                return $cand;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Backward-compatible render method returning array of standard page file paths.
      *
      * @return string[]

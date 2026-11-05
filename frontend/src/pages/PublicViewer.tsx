@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import FlipbookViewer, {
   type PageInfo,
+  type TocItem,
   type ViewerHotspot,
   type ViewerSettings,
 } from '../components/FlipbookViewer';
@@ -26,6 +27,7 @@ interface PublicFlipbookData {
   locked: boolean;
   settings?: ViewerSettings;
   seoMeta?: SeoMeta;
+  toc?: TocItem[];
   pages?: PageInfo[];
   hotspots?: Record<number, ViewerHotspot[]>;
 }
@@ -45,6 +47,16 @@ export default function PublicViewer() {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
   const previewToken = searchParams.get('preview') || '';
+  const initialPage = Number(searchParams.get('page') || '0') || undefined;
+  const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).slice(2, 12));
+
+  const utmParams: Record<string, string> = {
+    utm_source: searchParams.get('utm_source') || '',
+    utm_medium: searchParams.get('utm_medium') || '',
+    utm_campaign: searchParams.get('utm_campaign') || '',
+    utm_term: searchParams.get('utm_term') || '',
+    utm_content: searchParams.get('utm_content') || '',
+  };
 
   const [data, setData] = useState<PublicFlipbookData | null>(null);
   const [missing, setMissing] = useState(false);
@@ -92,9 +104,21 @@ export default function PublicViewer() {
       if (seo.ogImage) setOrUpdateMeta('property', 'og:image', seo.ogImage);
       setOrUpdateMeta('name', 'robots', seo.noindex || d.isPreview ? 'noindex, nofollow' : 'index, follow');
 
-      // Track reader view analytics (only for live published views, not publisher previews)
+      // Track reader view analytics with UTM attribution (only for live published views)
       if (!d.locked && !d.isPreview) {
-        fetch(`/api/v1/public/${slug}/view`, { method: 'POST' }).catch(() => {});
+        fetch(`/api/v1/public/${slug}/view`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            referrer: document.referrer || undefined,
+            utmSource: utmParams.utm_source || undefined,
+            utmMedium: utmParams.utm_medium || undefined,
+            utmCampaign: utmParams.utm_campaign || undefined,
+            utmTerm: utmParams.utm_term || undefined,
+            utmContent: utmParams.utm_content || undefined,
+          }),
+        }).catch(() => {});
       }
     });
   };
@@ -174,6 +198,11 @@ export default function PublicViewer() {
         slug={data.slug}
         settings={data.settings}
         hotspots={data.hotspots}
+        toc={data.toc}
+        initialPage={initialPage}
+        enableTelemetry={!data.isPreview}
+        sessionId={sessionId}
+        utmParams={utmParams}
       />
     </div>
   );

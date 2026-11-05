@@ -4,6 +4,7 @@ import type { Flipbook } from '../pages/Dashboard';
 
 export interface FlipbookSettings {
   background?: string;
+  defaultReadingMode?: 'flip' | 'scroll' | 'reader';
   soundEnabled?: boolean;
   allowDownload?: boolean;
   brandText?: string;
@@ -20,6 +21,9 @@ export default function CustomizationDialog({
 }) {
   const current = (flipbook as unknown as { settings?: FlipbookSettings }).settings || {};
   const [background, setBackground] = useState(current.background || '#18191c');
+  const [defaultReadingMode, setDefaultReadingMode] = useState<'flip' | 'scroll' | 'reader'>(
+    current.defaultReadingMode || 'flip'
+  );
   const [soundEnabled, setSoundEnabled] = useState(current.soundEnabled ?? true);
   const [allowDownload, setAllowDownload] = useState(current.allowDownload ?? false);
   const [brandText, setBrandText] = useState(current.brandText || '');
@@ -41,6 +45,7 @@ export default function CustomizationDialog({
       await api(`/flipbooks/${flipbook.id}`, 'PATCH', {
         settings: {
           background,
+          defaultReadingMode,
           soundEnabled,
           allowDownload,
           brandText,
@@ -87,6 +92,31 @@ export default function CustomizationDialog({
               style={{ width: '40px', height: '30px', cursor: 'pointer', border: 'none', background: 'none' }}
             />
             <code style={{ fontSize: '13px' }}>{background}</code>
+          </div>
+        </div>
+
+        <div className="custom-section">
+          <label className="field-label">Default Reading Experience Mode</label>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            {[
+              { id: 'flip', label: '📖 3D Page-Turn Flipbook' },
+              { id: 'scroll', label: '📜 Vertical Continuous Scroll' },
+              { id: 'reader', label: '♿ Accessible Screen-Reader' },
+            ].map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setDefaultReadingMode(m.id as 'flip' | 'scroll' | 'reader')}
+                className={`theme-chip ${defaultReadingMode === m.id ? 'active' : ''}`}
+                style={{
+                  background: defaultReadingMode === m.id ? '#f59e0b' : '#f1f5f9',
+                  color: defaultReadingMode === m.id ? '#0f172a' : '#334155',
+                  fontWeight: 600,
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
         </div>
 
