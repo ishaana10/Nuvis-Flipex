@@ -272,15 +272,17 @@ export default function FlipbookViewer({
     }
   }, []);
 
-  // Progressive & Lazy Multi-Resolution Page Preloader with Memory Virtualization
+  // Progressive & Lazy Multi-Resolution Page Preloader with Sliding Window Virtualization
   useEffect(() => {
     if (!pages.length) return;
 
-    // Active spread + next/prev window indices (eager preload with async decoding)
+    // Active reading window: current spread + 2 pages ahead + 2 pages behind
     const windowIndices: number[] = [];
-    for (let offset = 0; offset <= 3; offset++) {
-      if (current + offset < pages.length) windowIndices.push(current + offset);
-      if (offset > 0 && current - offset >= 0) windowIndices.push(current - offset);
+    for (let offset = -2; offset <= 3; offset++) {
+      const idx = current + offset;
+      if (idx >= 0 && idx < pages.length) {
+        windowIndices.push(idx);
+      }
     }
 
     // 1. Browser background decoding for near pages
@@ -297,7 +299,7 @@ export default function FlipbookViewer({
       img.src = pg.image;
     });
 
-    // 2. Flipbook PageFlip canvas promotion & memory release
+    // 2. Sliding window promotion & distant page virtualization
     try {
       const pf = flip.current;
       if (pf) {
@@ -320,17 +322,16 @@ export default function FlipbookViewer({
             }
           });
 
-          // Memory Release: For long publications (> 12 pages), release distant decoded canvases to avoid mobile GPU exhaustion
-          if (pages.length > 12) {
+          // Memory Release: For publications with > 10 pages, downgrade distant pages (> 5 pages away) to free mobile GPU memory
+          if (pages.length > 10) {
             for (let i = 0; i < pages.length; i++) {
-              if (Math.abs(i - current) > 8) {
+              if (Math.abs(i - current) > 5) {
                 const distantObj = pageObjs[i];
-                const pg = pages[i];
-                if (distantObj && pg && pg.thumb && distantObj.image && distantObj.image.src !== pg.thumb) {
-                  const tImg = new Image();
-                  tImg.decoding = 'async';
-                  tImg.src = pg.thumb;
-                  distantObj.image = tImg;
+                if (distantObj && distantObj.image && !distantObj.image.src.startsWith('data:image/svg+xml')) {
+                  const blankImg = new Image();
+                  blankImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" fill="%23f8fafc"/>';
+                  distantObj.image = blankImg;
+                  preloadedSet.current.delete(i);
                 }
               }
             }
@@ -540,10 +541,12 @@ export default function FlipbookViewer({
     toc && toc.length > 0
       ? toc
       : pages.map((p) => {
-          const firstLine = (p.text || '')
-            .split('\n')
-            .map((l) => l.trim())
-            .find((l) => l.length >= 4 && l.length <= 65);
+          const firstLine = p.text
+            ? p.text
+                .split('\n')
+                .map((l) => l.trim())
+                .find((l) => l.length >= 4 && l.length <= 65)
+            : null;
           return {
             title: firstLine ? `Page ${p.n}: ${firstLine}` : `Page ${p.n}`,
             page: p.n,
@@ -740,13 +743,14 @@ export default function FlipbookViewer({
       startPage: current,
     });
 
-    // Multi-resolution progressive initial loader:
-    // Active spreads load standard reading URLs immediately; distant pages on long publications load lightweight thumbnail placeholders (~15KB)
+    const BLANK_PAGE_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" fill="%23f8fafc"/>';
+
+    // Truly Windowed Virtualized Page Loader:
+    // Only loads images for the current spread, 2 pages ahead, and 2 pages behind.
+    // Distant pages receive an instant zero-network data URI placeholder, eliminating mobile network starvation.
     const initialUrls = pages.map((p, idx) => {
-      if (pages.length <= 8 || Math.abs(idx - current) <= 2) {
-        return p.image;
-      }
-      return p.thumb || p.image;
+      const inWindow = pages.length <= 6 || Math.abs(idx - current) <= 2;
+      return inWindow ? p.image : BLANK_PAGE_SVG;
     });
 
     pf.loadFromImages(initialUrls);
@@ -1041,39 +1045,44 @@ export default function FlipbookViewer({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [next, prev, zoom, handleZoomChange, toggleFullscreen, toggleBookmark, current]);
 
-  // Execute full-text search across pages
+  // Execute full-text search across publication pages via server endpoint or local cache
   useEffect(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     if (q.length < 2) {
       setSearchResults([]);
       return;
     }
 
-    const localMatches: Array<{ page: number; snippet: string }> = [];
-    pages.forEach((p) => {
-      const txt = p.text || '';
-      const idx = txt.toLowerCase().indexOf(q);
-      if (idx !== -1) {
-        const start = Math.max(0, idx - 45);
-        let snippet = txt.slice(start, start + 130);
-        if (start > 0) snippet = '…' + snippet;
-        if (start + 130 < txt.length) snippet += '…';
-        localMatches.push({ page: p.n, snippet });
-      }
-    });
+    const t = setTimeout(() => {
+      const localMatches: Array<{ page: number; snippet: string }> = [];
+      pages.forEach((p) => {
+        if (!p.text) return;
+        const txt = p.text;
+        const idx = txt.toLowerCase().indexOf(q.toLowerCase());
+        if (idx !== -1) {
+          const start = Math.max(0, idx - 45);
+          let snippet = txt.slice(start, start + 130);
+          if (start > 0) snippet = '…' + snippet;
+          if (start + 130 < txt.length) snippet += '…';
+          localMatches.push({ page: p.n, snippet });
+        }
+      });
 
-    if (localMatches.length > 0) {
-      setSearchResults(localMatches);
-      sendTelemetry('search', { meta: { query: q, count: localMatches.length } });
-    } else if (slug) {
-      fetch(`/api/v1/public/${slug}/search?q=${encodeURIComponent(q)}`)
-        .then((r) => (r.ok ? r.json() : { results: [] }))
-        .then((d) => {
-          setSearchResults(d.results || []);
-          sendTelemetry('search', { meta: { query: q, count: (d.results || []).length } });
-        })
-        .catch(() => {});
-    }
+      if (localMatches.length > 0) {
+        setSearchResults(localMatches);
+        sendTelemetry('search', { meta: { query: q, count: localMatches.length } });
+      } else if (slug) {
+        fetch(`/api/v1/public/${slug}/search?q=${encodeURIComponent(q)}`)
+          .then((r) => (r.ok ? r.json() : { results: [] }))
+          .then((d) => {
+            setSearchResults(d.results || []);
+            sendTelemetry('search', { meta: { query: q, count: (d.results || []).length } });
+          })
+          .catch(() => {});
+      }
+    }, 220);
+
+    return () => clearTimeout(t);
   }, [searchQuery, pages, slug, sendTelemetry]);
 
   // Save publication for Offline Reading using CacheStorage API

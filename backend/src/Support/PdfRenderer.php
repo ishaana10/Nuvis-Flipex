@@ -307,14 +307,30 @@ final class PdfRenderer
             $webpFile = "{$outDir}/{$baseName}.webp";
             $avifFile = "{$outDir}/{$baseName}.avif";
 
+            $isPngMaster = str_ends_with(strtolower($stdFile), '.png');
+            $stdJpgFile = "{$outDir}/{$baseName}.jpg";
+
             $dims = @getimagesize($stdFile);
             $w = $dims ? (int) $dims[0] : 1400;
             $h = $dims ? (int) $dims[1] : 1900;
 
-            // Generate WebP and AVIF derivatives + fallback thumbnail via GD if needed
-            if (extension_loaded('gd') && function_exists('imagecreatefromjpeg')) {
-                $im = @imagecreatefromjpeg($stdFile);
+            // Generate crisp WebP, JPEG and Thumbnail derivatives directly from lossless PNG master (or JPEG)
+            if (extension_loaded('gd')) {
+                $im = $isPngMaster
+                    ? (function_exists('imagecreatefrompng') ? @imagecreatefrompng($stdFile) : false)
+                    : (function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($stdFile) : false);
+
                 if ($im !== false) {
+                    // Level 2: Generate crisp WebP directly from master (~92 quality for sharp text)
+                    if (function_exists('imagewebp')) {
+                        @imagewebp($im, $webpFile, 92);
+                    }
+
+                    // Level 2: Generate standard JPEG fallback if master was PNG
+                    if ($isPngMaster || !file_exists($stdJpgFile)) {
+                        @imagejpeg($im, $stdJpgFile, 90);
+                    }
+
                     // Level 1: Generate missing thumbnail (350–500px wide, target ~420px for rapid grid & preview)
                     if (!file_exists($thumbFile)) {
                         $thumbW = 420;
@@ -335,12 +351,7 @@ final class PdfRenderer
                         }
                     }
 
-                    // Level 2: Generate crisp WebP derivative for standard reading (~90 quality for crisp text)
-                    if (function_exists('imagewebp')) {
-                        @imagewebp($im, $webpFile, 90);
-                    }
-
-                    // Generate AVIF derivative if PHP GD was compiled with libavif support
+                    // Level 2: Generate AVIF derivative if PHP GD was compiled with libavif support
                     if (function_exists('imageavif')) {
                         @imageavif($im, $avifFile, 70);
                     }
@@ -348,23 +359,21 @@ final class PdfRenderer
                     imagedestroy($im);
                 }
 
-                // Level 3: Generate high-resolution WebP derivative for zoom layer if highFile exists
-                if (file_exists($highFile) && function_exists('imagewebp') && !file_exists($highWebpFile)) {
-                    $highIm = @imagecreatefromjpeg($highFile);
-                    if ($highIm !== false) {
-                        @imagewebp($highIm, $highWebpFile, 88);
-                        imagedestroy($highIm);
-                    }
+                // Delete temporary PNG master to conserve storage
+                if ($isPngMaster && file_exists($stdJpgFile) && filesize($stdJpgFile) > 0) {
+                    @unlink($stdFile);
                 }
             }
 
+            $finalStd = file_exists($stdJpgFile) ? $stdJpgFile : $stdFile;
+
             $results[] = [
                 'page_number' => $pageNum,
-                'standard' => $stdFile,
-                'high_res' => file_exists($highFile) ? $highFile : $stdFile,
+                'standard' => $finalStd,
+                'high_res' => file_exists($highFile) ? $highFile : $finalStd,
                 'webp' => (file_exists($webpFile) && filesize($webpFile) > 0) ? $webpFile : null,
                 'avif' => (file_exists($avifFile) && filesize($avifFile) > 0) ? $avifFile : null,
-                'thumb' => file_exists($thumbFile) ? $thumbFile : $stdFile,
+                'thumb' => file_exists($thumbFile) ? $thumbFile : $finalStd,
                 'width' => $w,
                 'height' => $h,
             ];
@@ -548,29 +557,22 @@ final class PdfRenderer
             '-dNOPAUSE',
             '-dBATCH',
             '-dSAFER',
-            '-sDEVICE=jpeg',
-            '-dJPEGQ=90',
             '-dTextAlphaBits=4',
             '-dGraphicsAlphaBits=4',
             "-dLastPage={$maxPages}",
         ];
 
-        // Level 2: Standard reading (~1,200–1,800px wide, 175 DPI mobile/desktop optimized)
-        if ($report) $report(20, 'Rendering standard resolution pages (175 DPI)');
-        $mainCmd = array_merge($base, ['-r175', "-sOutputFile={$outDir}/page-%03d.jpg", $pdfPath]);
+        // Level 2: Standard reading (~1,200–1,600px wide, 165 DPI) rendered directly to lossless PNG master
+        if ($report) $report(20, 'Rendering standard resolution pages (165 DPI lossless PNG master)');
+        $mainCmd = array_merge($base, ['-sDEVICE=png16m', '-r165', "-sOutputFile={$outDir}/master-%03d.png", $pdfPath]);
         self::runProcess($mainCmd, 'Ghostscript (Standard Pages)', $timeoutSeconds);
 
-        // Level 3: High resolution zoom (~2,400–3,000px wide, 280 DPI crisp zoom)
-        if ($report) $report(40, 'Rendering high-resolution zoom pages (280 DPI)');
-        $highCmd = array_merge($base, ['-r280', "-sOutputFile={$outDir}/high/page-%03d.jpg", $pdfPath]);
-        self::runProcess($highCmd, 'Ghostscript (High-Res Pages)', $timeoutSeconds);
-
         // Level 1: Navigation thumbnail (~350–500px wide, 50 DPI fast preview)
-        if ($report) $report(55, 'Rendering navigation thumbnails (50 DPI)');
-        $thumbCmd = array_merge($base, ['-r50', '-dJPEGQ=82', "-sOutputFile={$outDir}/thumbs/page-%03d.jpg", $pdfPath]);
+        if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
+        $thumbCmd = array_merge($base, ['-sDEVICE=jpeg', '-dJPEGQ=82', '-r50', "-sOutputFile={$outDir}/thumbs/page-%03d.jpg", $pdfPath]);
         self::runProcess($thumbCmd, 'Ghostscript (Thumbnails)', $timeoutSeconds);
 
-        $files = glob("{$outDir}/page-*.jpg") ?: [];
+        $files = glob("{$outDir}/master-*.png") ?: glob("{$outDir}/page-*.jpg") ?: [];
         natsort($files);
         return array_values($files);
     }
@@ -592,7 +594,7 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/high");
 
         $im = new \Imagick();
-        $im->setResolution(280, 280);
+        $im->setResolution(165, 165);
         $im->readImage($pdfPath);
 
         $total = $im->getNumberImages();
@@ -607,40 +609,27 @@ final class PdfRenderer
             }
 
             $im->setIteratorIndex($i);
-            $highPage = $im->getImage();
-            $highPage->setImageFormat('jpeg');
-            $highPage->setImageCompressionQuality(90);
+            $page = $im->getImage();
+            $page->setImageFormat('png24');
 
-            $highFile = sprintf('%s/high/page-%03d.jpg', $outDir, $pageNum);
-            $pageFile = sprintf('%s/page-%03d.jpg', $outDir, $pageNum);
-            $thumbFile = sprintf('%s/thumbs/page-%03d.jpg', $outDir, $pageNum);
+            $masterFile = sprintf('%s/master-%03d.png', $outDir, $pageNum);
+            $page->writeImage($masterFile);
 
-            // 1. High-resolution Level 3 (280 DPI, ~2,400–2,800px wide)
-            $highPage->writeImage($highFile);
-
-            // 2. Standard resolution Level 2 (~175 DPI equivalent, 1,200–1,800px wide)
-            $stdPage = clone $highPage;
-            $origW = $stdPage->getImageWidth();
-            $stdW = max(800, (int) round($origW * (175 / 280)));
-            $stdPage->thumbnailImage($stdW, 0);
-            $stdPage->setImageCompressionQuality(88);
-            $stdPage->writeImage($pageFile);
-
-            // 3. Thumbnail Level 1 (350–500px wide, ~420px target)
-            $thumb = clone $stdPage;
-            $thumbW = max(350, min(500, (int) round($origW * (50 / 280))));
+            // Thumbnail Level 1
+            $thumb = clone $page;
+            $origW = $thumb->getImageWidth();
+            $thumbW = max(350, min(500, (int) round($origW * (50 / 165))));
             $thumb->thumbnailImage($thumbW, 0);
-            $thumb->setImageCompressionQuality(80);
-            $thumb->writeImage($thumbFile);
+            $thumb->setImageFormat('jpeg');
+            $thumb->setImageCompressionQuality(82);
+            $thumb->writeImage(sprintf('%s/thumbs/page-%03d.jpg', $outDir, $pageNum));
 
             $thumb->clear();
             $thumb->destroy();
-            $stdPage->clear();
-            $stdPage->destroy();
-            $highPage->clear();
-            $highPage->destroy();
+            $page->clear();
+            $page->destroy();
 
-            $files[] = $pageFile;
+            $files[] = $masterFile;
         }
 
         $im->clear();
@@ -667,34 +656,136 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/thumbs");
         Storage::ensureDir("{$outDir}/high");
 
-        // Level 2: Standard reading (~1,200–1,800px wide, 175 DPI)
-        if ($report) $report(20, 'Rendering standard resolution pages (175 DPI)');
-        self::runProcess([$ppm, '-jpeg', '-r', '175', '-l', (string) $maxPages, $pdfPath, "{$outDir}/pg"], 'Poppler (Standard Pages)', $timeoutSeconds);
-
-        // Level 3: High resolution zoom (~2,400–3,000px wide, 280 DPI)
-        if ($report) $report(40, 'Rendering high-resolution zoom pages (280 DPI)');
-        self::runProcess([$ppm, '-jpeg', '-r', '280', '-l', (string) $maxPages, $pdfPath, "{$outDir}/high/pg"], 'Poppler (High-Res Pages)', $timeoutSeconds);
+        // Level 2: Standard reading (~1,200–1,600px wide, 165 DPI lossless PNG master)
+        if ($report) $report(20, 'Rendering standard resolution pages (165 DPI lossless PNG master)');
+        self::runProcess([$ppm, '-png', '-r', '165', '-l', (string) $maxPages, $pdfPath, "{$outDir}/master"], 'Poppler (Standard Pages)', $timeoutSeconds);
 
         // Level 1: Navigation thumbnails (~350–500px wide, 50 DPI)
-        if ($report) $report(55, 'Rendering navigation thumbnails (50 DPI)');
+        if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
         self::runProcess([$ppm, '-jpeg', '-r', '50', '-l', (string) $maxPages, $pdfPath, "{$outDir}/thumbs/pg"], 'Poppler (Thumbnails)', $timeoutSeconds);
 
-        foreach ([$outDir, "{$outDir}/high", "{$outDir}/thumbs"] as $dir) {
-            $list = glob("{$dir}/pg-*.jpg") ?: [];
-            if ($list) {
-                natsort($list);
-                foreach (array_values($list) as $i => $src) {
-                    $target = sprintf('%s/page-%03d.jpg', $dir, $i + 1);
-                    if ($src !== $target) {
-                        @rename($src, $target);
-                    }
+        // Normalize thumbnail filenames
+        $thumbList = glob("{$outDir}/thumbs/pg-*.jpg") ?: [];
+        if ($thumbList) {
+            natsort($thumbList);
+            foreach (array_values($thumbList) as $i => $src) {
+                $target = sprintf('%s/thumbs/page-%03d.jpg', $outDir, $i + 1);
+                if ($src !== $target) {
+                    @rename($src, $target);
                 }
             }
         }
 
-        $files = glob("{$outDir}/page-*.jpg") ?: [];
+        // Normalize master filenames (master-1.png -> master-001.png)
+        $masterList = glob("{$outDir}/master-*.png") ?: [];
+        if ($masterList) {
+            natsort($masterList);
+            foreach (array_values($masterList) as $i => $src) {
+                $target = sprintf('%s/master-%03d.png', $outDir, $i + 1);
+                if ($src !== $target) {
+                    @rename($src, $target);
+                }
+            }
+        }
+
+        $files = glob("{$outDir}/master-*.png") ?: glob("{$outDir}/page-*.jpg") ?: [];
         natsort($files);
         return array_values($files);
+    }
+
+    /**
+     * Level 3: On-Demand High-Resolution Page Renderer (280 DPI, ~2,400–2,800px wide).
+     * Renders only the specific page requested when the user zooms in, caching to high/page-XXX.webp and .jpg.
+     */
+    public static function renderSinglePageHighRes(string $pdfPath, string $outDir, int $pageNumber): ?string
+    {
+        if (!file_exists($pdfPath) || $pageNumber < 1) {
+            return null;
+        }
+
+        Storage::ensureDir("{$outDir}/high");
+        $baseName = sprintf('page-%03d', $pageNumber);
+        $highJpg = "{$outDir}/high/{$baseName}.jpg";
+        $highWebp = "{$outDir}/high/{$baseName}.webp";
+
+        if (file_exists($highWebp) && filesize($highWebp) > 0) {
+            return $highWebp;
+        }
+        if (file_exists($highJpg) && filesize($highJpg) > 0) {
+            return $highJpg;
+        }
+
+        $tmpPrefix = "{$outDir}/high/tmp_hi_{$pageNumber}_" . bin2hex(random_bytes(4));
+        $driver = self::resolveDriver();
+
+        try {
+            if ($driver === self::DRIVER_PDFTOPPM || self::getPdftoppmBinary() !== null) {
+                $ppm = self::getPdftoppmBinary();
+                if ($ppm !== null) {
+                    self::runProcess(
+                        [$ppm, '-png', '-f', (string) $pageNumber, '-l', (string) $pageNumber, '-r', '280', $pdfPath, $tmpPrefix],
+                        'Poppler (On-Demand High-Res)',
+                        60
+                    );
+                    $tmpMatches = glob("{$tmpPrefix}*.png") ?: [];
+                    if (!empty($tmpMatches)) {
+                        $rawPng = $tmpMatches[0];
+                        if (extension_loaded('gd') && function_exists('imagecreatefrompng')) {
+                            $im = @imagecreatefrompng($rawPng);
+                            if ($im !== false) {
+                                if (function_exists('imagewebp')) {
+                                    @imagewebp($im, $highWebp, 90);
+                                }
+                                @imagejpeg($im, $highJpg, 88);
+                                imagedestroy($im);
+                            }
+                        }
+                        @unlink($rawPng);
+                    }
+                }
+            } elseif ($driver === self::DRIVER_GHOSTSCRIPT || self::getGhostscriptBinary() !== null) {
+                $gs = self::getGhostscriptBinary();
+                if ($gs !== null) {
+                    $rawPng = "{$tmpPrefix}.png";
+                    self::runProcess(
+                        [
+                            $gs,
+                            '-q',
+                            '-dNOPAUSE',
+                            '-dBATCH',
+                            '-dSAFER',
+                            '-sDEVICE=png16m',
+                            '-dTextAlphaBits=4',
+                            '-dGraphicsAlphaBits=4',
+                            "-dFirstPage={$pageNumber}",
+                            "-dLastPage={$pageNumber}",
+                            '-r280',
+                            "-sOutputFile={$rawPng}",
+                            $pdfPath,
+                        ],
+                        'Ghostscript (On-Demand High-Res)',
+                        60
+                    );
+                    if (file_exists($rawPng)) {
+                        if (extension_loaded('gd') && function_exists('imagecreatefrompng')) {
+                            $im = @imagecreatefrompng($rawPng);
+                            if ($im !== false) {
+                                if (function_exists('imagewebp')) {
+                                    @imagewebp($im, $highWebp, 90);
+                                }
+                                @imagejpeg($im, $highJpg, 88);
+                                imagedestroy($im);
+                            }
+                        }
+                        @unlink($rawPng);
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            error_log("[PdfRenderer] On-demand high-res render failed for page {$pageNumber}: " . $e->getMessage());
+        }
+
+        return file_exists($highWebp) ? $highWebp : (file_exists($highJpg) ? $highJpg : null);
     }
 
     /**

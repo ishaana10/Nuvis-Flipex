@@ -54,6 +54,33 @@ final class PublicController
         $toc = !empty($f['toc']) ? json_decode((string) $f['toc'], true) : [];
         $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT name, slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
 
+        if (empty($toc)) {
+            // Generate compact TOC fallback on server using first line of text from first 20 pages or compact headings
+            $tocHeads = Db::all(
+                'SELECT page_number, SUBSTRING(text_content, 1, 140) as head_text FROM pages WHERE flipbook_id = ? ORDER BY page_number ASC LIMIT 25',
+                [$f['id']]
+            );
+            $toc = [];
+            foreach ($tocHeads as $th) {
+                $firstLine = '';
+                if (!empty($th['head_text'])) {
+                    $lines = explode("\n", (string) $th['head_text']);
+                    foreach ($lines as $l) {
+                        $trimmed = trim($l);
+                        if (strlen($trimmed) >= 4 && strlen($trimmed) <= 65) {
+                            $firstLine = $trimmed;
+                            break;
+                        }
+                    }
+                }
+                $toc[] = [
+                    'page' => (int) $th['page_number'],
+                    'title' => $firstLine !== '' ? "Page {$th['page_number']}: {$firstLine}" : "Page {$th['page_number']}",
+                    'level' => 1,
+                ];
+            }
+        }
+
         $meta = [
             'id' => (int) $f['id'],
             'title' => $f['title'],
@@ -74,8 +101,9 @@ final class PublicController
             return Http::json($res, $meta + ['locked' => true]);
         }
 
+        // Lightweight page manifest: excludes heavy text_content (full-text search uses dedicated search endpoint)
         $pages = Db::all(
-            'SELECT page_number, image_path, high_res_path, webp_path, avif_path, thumb_path, width, height, text_content
+            'SELECT page_number, image_path, high_res_path, webp_path, avif_path, thumb_path, width, height
              FROM pages WHERE flipbook_id = ? ORDER BY page_number',
             [$f['id']]
         );
@@ -109,12 +137,12 @@ final class PublicController
                 'n' => (int) $p['page_number'],
                 'image' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}" . ($p['webp_path'] ? "?format=webp{$previewAmp}" : $previewQuery),
                 'imageJpg' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}{$previewQuery}",
-                'imageHigh' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?res=high{$previewAmp}",
+                'imageHigh' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?res=high" . ($p['webp_path'] ? "&format=webp{$previewAmp}" : $previewAmp),
                 'webp' => $p['webp_path'] ? "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?format=webp{$previewAmp}" : null,
-                'thumb' => "/api/v1/public/{$f['slug']}/thumbs/{$p['page_number']}{$previewQuery}",
+                'avif' => !empty($p['avif_path']) ? "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?format=avif{$previewAmp}" : null,
+                'thumb' => "/api/v1/public/{$f['slug']}/thumbs/{$p['page_number']}" . ($p['webp_path'] ? "?format=webp{$previewAmp}" : $previewQuery),
                 'w' => (int) $p['width'],
                 'h' => (int) $p['height'],
-                'text' => $p['text_content'] ?? '',
             ], $pages),
             'hotspots' => (object) $hotspotsByPage,
         ]);
@@ -319,8 +347,8 @@ HTML;
                     $rel = $thumbWebp;
                 }
             }
-        } elseif ($resMode === 'high' && !empty($p['high_res_path'])) {
-            $rel = (string) $p['high_res_path'];
+        } elseif ($resMode === 'high') {
+            $rel = !empty($p['high_res_path']) ? (string) $p['high_res_path'] : "public/flipbooks/{$f['id']}/high/page-" . sprintf('%03d', $pageNumber) . ".jpg";
             if ($format === 'webp') {
                 $highWebp = preg_replace('/\.jpe?g$/i', '.webp', $rel);
                 if (file_exists(Storage::root() . '/' . $highWebp)) {
@@ -337,14 +365,31 @@ HTML;
 
         $path = Storage::root() . '/' . $rel;
         if (!file_exists($path)) {
-            $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
+            $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : null;
             $altRel = $isThumb
-                ? "tenants/{$tenantId}/publications/{$f['id']}/thumbs/" . basename($rel)
-                : "tenants/{$tenantId}/publications/{$f['id']}/" . basename($rel);
+                ? ($tenantId ? "tenants/{$tenantId}/publications/{$f['id']}/thumbs/" . basename($rel) : "public/flipbooks/{$f['id']}/thumbs/" . basename($rel))
+                : ($tenantId ? "tenants/{$tenantId}/publications/{$f['id']}/" . basename($rel) : "public/flipbooks/{$f['id']}/" . basename($rel));
             $altPath = Storage::root() . '/' . $altRel;
+
             if (file_exists($altPath)) {
                 $path = $altPath;
-            } else {
+            } elseif ($resMode === 'high' && !empty($f['source_pdf_path'])) {
+                // On-Demand Level 3 High-Resolution Generation for zoomed pages
+                $sourcePdf = Storage::root() . '/' . $f['source_pdf_path'];
+                if (file_exists($sourcePdf)) {
+                    $targetDir = $tenantId
+                        ? Storage::root() . "/tenants/{$tenantId}/publications/{$f['id']}"
+                        : Storage::root() . "/public/flipbooks/{$f['id']}";
+                    $rendered = \App\Support\PdfRenderer::renderSinglePageHighRes($sourcePdf, $targetDir, $pageNumber);
+                    if ($rendered && file_exists($rendered)) {
+                        $targetExt = ($format === 'webp') ? 'webp' : 'jpg';
+                        $candidate = "{$targetDir}/high/page-" . sprintf('%03d', $pageNumber) . ".{$targetExt}";
+                        $path = file_exists($candidate) ? $candidate : $rendered;
+                    }
+                }
+            }
+
+            if (!file_exists($path)) {
                 // Fallback to standard image_path if high_res or webp is missing
                 $fallbackRel = $isThumb ? (string) $p['thumb_path'] : (string) $p['image_path'];
                 $fallbackPath = Storage::root() . '/' . $fallbackRel;
@@ -375,9 +420,14 @@ HTML;
             default => 'image/jpeg',
         };
 
+        $isProtected = $isPreview || ($f['visibility'] ?? 'public') === 'password';
+        $cacheControl = $isProtected
+            ? 'private, no-cache'
+            : 'public, max-age=31536000, immutable';
+
         return $res
             ->withHeader('Content-Type', $mime)
-            ->withHeader('Cache-Control', $isPreview ? 'private, no-cache' : 'public, max-age=86400')
+            ->withHeader('Cache-Control', $cacheControl)
             ->withHeader('X-Content-Type-Options', 'nosniff')
             ->withHeader('Content-Length', (string) filesize($path))
             ->withBody($stream);
