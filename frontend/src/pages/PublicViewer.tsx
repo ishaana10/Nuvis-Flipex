@@ -98,11 +98,20 @@ export default function PublicViewer() {
       const pageDesc = seo.description || d.description || `Read ${d.title} on Nuvis Flipex`;
       document.title = d.isPreview ? `[Draft Preview] ${pageTitle}` : pageTitle;
 
+      const coverUrl = seo.ogImage || `${window.location.origin}/api/v1/public/${slug}/cover`;
       setOrUpdateMeta('name', 'description', pageDesc);
       if (seo.keywords) setOrUpdateMeta('name', 'keywords', seo.keywords);
+      setOrUpdateMeta('property', 'og:type', 'article');
+      setOrUpdateMeta('property', 'og:site_name', 'Nuvis Flipex');
       setOrUpdateMeta('property', 'og:title', pageTitle);
       setOrUpdateMeta('property', 'og:description', pageDesc);
-      if (seo.ogImage) setOrUpdateMeta('property', 'og:image', seo.ogImage);
+      setOrUpdateMeta('property', 'og:image', coverUrl);
+      setOrUpdateMeta('property', 'og:image:secure_url', coverUrl);
+      setOrUpdateMeta('property', 'og:image:type', 'image/jpeg');
+      setOrUpdateMeta('name', 'twitter:card', 'summary_large_image');
+      setOrUpdateMeta('name', 'twitter:title', pageTitle);
+      setOrUpdateMeta('name', 'twitter:description', pageDesc);
+      setOrUpdateMeta('name', 'twitter:image', coverUrl);
       setOrUpdateMeta('name', 'robots', seo.noindex || d.isPreview ? 'noindex, nofollow' : 'index, follow');
 
       // Track reader view analytics with UTM attribution (only for live published views)

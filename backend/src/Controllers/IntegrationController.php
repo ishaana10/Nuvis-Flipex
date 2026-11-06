@@ -574,8 +574,14 @@ final class IntegrationController
             return Http::error($res, 'Publication not found for oEmbed', 404);
         }
 
-        $appUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost:5173', '/');
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ? 'https' : 'http';
+        $appUrl = !empty($_SERVER['HTTP_HOST'])
+            ? "{$scheme}://{$_SERVER['HTTP_HOST']}"
+            : rtrim($_ENV['APP_URL'] ?? 'http://localhost:5173', '/');
+
         $embedUrl = "{$appUrl}/v/{$book['slug']}";
+        $coverUrl = "{$appUrl}/api/v1/public/{$book['slug']}/cover";
 
         return Http::json($res, [
             'version' => '1.0',
@@ -583,6 +589,9 @@ final class IntegrationController
             'provider_name' => 'Nuvis Flipex',
             'provider_url' => $appUrl,
             'title' => $book['title'],
+            'thumbnail_url' => $coverUrl,
+            'thumbnail_width' => 1200,
+            'thumbnail_height' => 1600,
             'width' => $maxWidth,
             'height' => $maxHeight,
             'html' => sprintf(

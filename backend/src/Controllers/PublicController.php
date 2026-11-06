@@ -130,6 +130,158 @@ final class PublicController
         return $this->serveAsset($req, $res, (string) $args['slug'], (int) $args['page'], true);
     }
 
+    /**
+     * Dedicated Cover Page endpoint (Page 1) for social media link preview cards (WhatsApp, Facebook, Twitter, iMessage)
+     */
+    public function cover(Request $req, Response $res, array $args): Response
+    {
+        return $this->serveAsset($req, $res, (string) $args['slug'], 1, false);
+    }
+
+    /**
+     * Server-side rendered HTML reader shell with dynamic OpenGraph, Twitter Card & oEmbed metadata.
+     * Generates rich cover page image, publication title, and disclaimer preview when sharing links.
+     */
+    public function renderViewerHtml(Request $req, Response $res, array $args): Response
+    {
+        $slug = (string) ($args['slug'] ?? '');
+        $previewToken = $this->extractPreviewToken($req);
+        $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
+
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? LIMIT 1', [$slug]);
+
+        // Fallback to static SPA bundle if publication not found
+        $htmlPath = realpath(__DIR__ . '/../../../frontend/dist/index.html');
+        if (!$htmlPath || !file_exists($htmlPath)) {
+            $htmlPath = realpath(__DIR__ . '/../../../frontend/index.html');
+        }
+
+        $html = ($htmlPath && file_exists($htmlPath))
+            ? file_get_contents($htmlPath)
+            : '<!doctype html><html><head><meta charset="utf-8"><title>Nuvis Flipex</title></head><body><div id="root"></div></body></html>';
+
+        if (!$f) {
+            $res->getBody()->write($html);
+            return $res->withHeader('Content-Type', 'text/html; charset=utf-8');
+        }
+
+        // Determine Base URL (works with reverse proxy, cPanel, HTTPS)
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ? 'https' : 'http';
+        $baseUrl = !empty($_SERVER['HTTP_HOST'])
+            ? "{$scheme}://{$_SERVER['HTTP_HOST']}"
+            : rtrim($_ENV['APP_URL'] ?? 'http://localhost:5173', '/');
+
+        $queryParams = $req->getQueryParams();
+        $requestedPage = isset($queryParams['page']) ? max(1, (int) $queryParams['page']) : 1;
+
+        $settings = !empty($f['settings']) ? json_decode((string) $f['settings'], true) : [];
+        $seoMeta = !empty($f['seo_meta']) ? json_decode((string) $f['seo_meta'], true) : [];
+
+        // Title Extraction
+        $title = !empty($seoMeta['title'])
+            ? trim((string) $seoMeta['title'])
+            : (!empty($f['title']) ? trim((string) $f['title']) : 'Digital Publication');
+
+        // Description / Disclaimer Extraction (Matches Heyzine catalog style)
+        $desc = '';
+        if (!empty($seoMeta['description'])) {
+            $desc = trim((string) $seoMeta['description']);
+        } elseif (!empty($settings['disclaimerText'])) {
+            $discTitle = !empty($settings['disclaimerTitle']) ? trim((string) $settings['disclaimerTitle']) : 'Disclaimer';
+            $desc = $discTitle . "\n\n" . trim((string) $settings['disclaimerText']);
+        } elseif (!empty($f['description'])) {
+            $desc = trim((string) $f['description']);
+        } elseif (!empty($settings['catalogueSubtitle'])) {
+            $desc = trim((string) $settings['catalogueSubtitle']);
+        } else {
+            // First page text excerpt if available
+            $p1 = Db::one('SELECT text_content FROM pages WHERE flipbook_id = ? ORDER BY page_number ASC LIMIT 1', [$f['id']]);
+            if (!empty($p1['text_content'])) {
+                $desc = mb_substr(preg_replace('/\s+/', ' ', trim((string) $p1['text_content'])), 0, 260);
+            }
+        }
+        if ($desc === '') {
+            $company = !empty($settings['companyName']) ? $settings['companyName'] : 'Nuvis Flipex';
+            $desc = "View {$title} interactive 3D digital publication online powered by {$company}.";
+        }
+
+        // Target page image & dimensions
+        $pRow = Db::one(
+            'SELECT width, height FROM pages WHERE flipbook_id = ? AND page_number = ? LIMIT 1',
+            [$f['id'], $requestedPage]
+        );
+        if (!$pRow) {
+            $pRow = Db::one('SELECT width, height FROM pages WHERE flipbook_id = ? ORDER BY page_number ASC LIMIT 1', [$f['id']]);
+        }
+        $imgWidth = !empty($pRow['width']) ? (int) $pRow['width'] : 1200;
+        $imgHeight = !empty($pRow['height']) ? (int) $pRow['height'] : 1600;
+
+        $pageUrl = $requestedPage > 1 ? "{$baseUrl}/v/{$slug}?page={$requestedPage}" : "{$baseUrl}/v/{$slug}";
+
+        // Image URL for OpenGraph and Twitter cards
+        if (!empty($seoMeta['ogImage'])) {
+            $coverImageUrl = (string) $seoMeta['ogImage'];
+        } elseif ($requestedPage > 1) {
+            $coverImageUrl = "{$baseUrl}/api/v1/public/{$slug}/pages/{$requestedPage}?res=standard";
+        } else {
+            $coverImageUrl = "{$baseUrl}/api/v1/public/{$slug}/cover";
+        }
+
+        if ($previewToken) {
+            $coverImageUrl .= (str_contains($coverImageUrl, '?') ? '&' : '?') . 'preview=' . urlencode($previewToken);
+            $title = "[Draft Preview] " . $title;
+        }
+
+        $oembedUrl = "{$baseUrl}/api/v1/oembed?url=" . urlencode($pageUrl);
+
+        $escTitle = htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $escDesc = htmlspecialchars($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $escCover = htmlspecialchars($coverImageUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $escPageUrl = htmlspecialchars($pageUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $escOembed = htmlspecialchars($oembedUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        $metaTags = <<<HTML
+    <title>{$escTitle} | Nuvis Flipex</title>
+    <meta name="description" content="{$escDesc}" />
+
+    <!-- Open Graph / WhatsApp / Facebook / LinkedIn / iMessage -->
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Nuvis Flipex" />
+    <meta property="og:url" content="{$escPageUrl}" />
+    <meta property="og:title" content="{$escTitle}" />
+    <meta property="og:description" content="{$escDesc}" />
+    <meta property="og:image" content="{$escCover}" />
+    <meta property="og:image:secure_url" content="{$escCover}" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="{$imgWidth}" />
+    <meta property="og:image:height" content="{$imgHeight}" />
+    <meta property="og:image:alt" content="{$escTitle} Cover Page" />
+
+    <!-- Twitter / X Large Summary Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="{$escPageUrl}" />
+    <meta name="twitter:title" content="{$escTitle}" />
+    <meta name="twitter:description" content="{$escDesc}" />
+    <meta name="twitter:image" content="{$escCover}" />
+
+    <!-- oEmbed Discovery for WhatsApp / Slack / Discord / WordPress -->
+    <link rel="alternate" type="application/json+oembed" href="{$escOembed}" title="{$escTitle}" />
+HTML;
+
+        // Inject dynamic meta tags into the HTML head
+        if (preg_match('#<title>.*?</title>#i', $html)) {
+            $html = preg_replace('#<title>.*?</title>#i', $metaTags, $html, 1);
+        } else {
+            $html = str_replace('</head>', $metaTags . "\n  </head>", $html);
+        }
+
+        $res->getBody()->write($html);
+        return $res
+            ->withHeader('Content-Type', 'text/html; charset=utf-8')
+            ->withHeader('Cache-Control', $isPreview ? 'no-cache, private' : 'public, max-age=300');
+    }
+
     private function serveAsset(Request $req, Response $res, string $slug, int $pageNumber, bool $isThumb): Response
     {
         $previewToken = $this->extractPreviewToken($req);
@@ -146,7 +298,8 @@ final class PublicController
             if (!empty($f['expires_at']) && strtotime((string) $f['expires_at']) <= time()) {
                 return Http::error($res, 'Publication expired', 410);
             }
-            if ($f['visibility'] === 'password' && !$this->unlocked($req, $f)) {
+            // Allow Page 1 (Cover Page) to be viewable for link preview cards (WhatsApp / social) even if visibility is password
+            if ($pageNumber > 1 && $f['visibility'] === 'password' && !$this->unlocked($req, $f)) {
                 return Http::error($res, 'Password required', 403);
             }
         }
@@ -224,7 +377,7 @@ final class PublicController
 
         return $res
             ->withHeader('Content-Type', $mime)
-            ->withHeader('Cache-Control', $isPreview ? 'private, no-cache' : 'private, max-age=86400')
+            ->withHeader('Cache-Control', $isPreview ? 'private, no-cache' : 'public, max-age=86400')
             ->withHeader('X-Content-Type-Options', 'nosniff')
             ->withHeader('Content-Length', (string) filesize($path))
             ->withBody($stream);

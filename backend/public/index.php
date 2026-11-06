@@ -24,8 +24,8 @@ use Slim\Routing\RouteCollectorProxy;
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
-// Normalize SCRIPT_NAME when rewritten from domain root (.htaccess RewriteRule ^api/(.*)$ backend/public/index.php)
-if (isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']) && str_starts_with($_SERVER['REQUEST_URI'], '/api/') && str_contains($_SERVER['SCRIPT_NAME'], '/backend/public/index.php')) {
+// Normalize SCRIPT_NAME when rewritten from domain root (.htaccess RewriteRule ^(api|v)/(.*)$ backend/public/index.php)
+if (isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']) && (str_starts_with($_SERVER['REQUEST_URI'], '/api/') || str_starts_with($_SERVER['REQUEST_URI'], '/v/')) && str_contains($_SERVER['SCRIPT_NAME'], '/backend/public/index.php')) {
     $_SERVER['SCRIPT_NAME'] = '/index.php';
 }
 
@@ -140,6 +140,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     })->add(new TenantScope())->add(new Auth());
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);
+    $g->get('/public/{slug}/cover', [PublicController::class, 'cover']);
     $g->get('/public/{slug}/pages/{page:[0-9]+}', [PublicController::class, 'page']);
     $g->get('/public/{slug}/thumbs/{page:[0-9]+}', [PublicController::class, 'thumb']);
     $g->get('/public/{slug}/search', [PublicController::class, 'search']);
@@ -241,6 +242,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $adm->get('/audit-logs', [AdminController::class, 'auditLogs']);
     })->add(new Auth('admin'));
 });
+
+// Server-Side Rendered Reader Shell with OpenGraph Cover Page & Social Preview
+$app->get('/v/{slug}[/]', [PublicController::class, 'renderViewerHtml']);
 
 $app->run();
 

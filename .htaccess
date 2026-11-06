@@ -25,6 +25,9 @@
     # 2. Route all /api/* requests to the PHP Slim API Gateway
     RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
 
+    # 2b. Route /v/* flipbook viewer requests to PHP Slim Gateway for SSR OpenGraph Cover Page & Social Previews
+    RewriteRule ^v/(.*)$ backend/public/index.php [QSA,L]
+
     # 3. Serve existing files directly if present in root
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
