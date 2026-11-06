@@ -306,19 +306,58 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
     transparent 100%
   );
 }
-.heyzine-viewer:fullscreen, :-webkit-full-screen.heyzine-viewer { width: 100vw !important; height: 100vh !important; border-radius: 0 !important; }
+.heyzine-viewer:fullscreen, :-webkit-full-screen.heyzine-viewer { width: 100vw !important; height: 100dvh !important; border-radius: 0 !important; }
 
-.hz-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; z-index: 20; background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%); }
-.hz-title-wrap { display: flex; align-items: center; gap: 12px; }
-.hz-book-title { color: #fff; font-size: 16px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.hz-header {
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0;
+  z-index: 20;
+  background: transparent;
+  pointer-events: none;
+}
+.hz-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.hz-book-title { color: #fff; font-size: 13px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .hz-brand-badge { background: rgba(255,255,255,0.15); color: #e2e8f0; font-size: 11px; padding: 3px 8px; border-radius: 4px; backdrop-filter: blur(4px); }
-.hz-top-actions { display: flex; gap: 8px; align-items: center; }
-.hz-icon-btn { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; transition: all 0.15s; text-decoration: none; backdrop-filter: blur(4px); }
-.hz-icon-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.08); }
+.hz-top-actions { display: flex; gap: 6px; align-items: center; pointer-events: auto; margin-left: auto; }
+.hz-icon-btn { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: all 0.15s; text-decoration: none; backdrop-filter: blur(6px); padding: 0; }
+.hz-icon-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.06); }
 
-.hz-stage { flex: 1; width: 100%; height: 100%; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; padding: 8px 48px 50px 48px; }
-.hz-canvas-wrap { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 6; }
-.hz-flip-host { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+/* Mobile One-Tap Landscape Fullscreen Button (visible only on mobile portrait) */
+.hz-mobile-landscape-btn {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(245, 197, 66, 0.65);
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.hz-stage { flex: 1; width: 100%; height: 100%; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; padding: 14px 40px 48px 40px; }
+.hz-canvas-wrap { position: relative; width: 100%; height: 100%; max-width: 100%; max-height: 100%; display: flex; justify-content: center; align-items: center; z-index: 6; }
+.hz-flip-host { width: 100%; height: 100%; max-width: 100%; max-height: 100%; display: flex; justify-content: center; align-items: center; }
 
 /* Heyzine-Style Left-Side Company & Disclaimer Overlay */
 .hz-side-disclaimer {
@@ -466,15 +505,67 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
   color: #38bdf8;
 }
 
-@media (max-width: 900px) {
-  .hz-side-disclaimer {
-    display: none;
+@media (max-width: 920px), (max-height: 540px) {
+  .hz-side-disclaimer,
+  .hz-title-wrap,
+  .hz-desktop-only {
+    display: none !important;
+  }
+  .hz-header {
+    top: 6px;
+    left: 8px;
+    right: 8px;
+  }
+  .hz-icon-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+  }
+  .hz-stage {
+    padding: 6px 6px 34px 6px !important;
+  }
+  .hz-side-arrow {
+    width: 30px !important;
+    height: 46px !important;
+    font-size: 22px !important;
+    background: rgba(0, 0, 0, 0.25) !important;
+  }
+  .hz-side-arrow.left {
+    left: 4px !important;
+  }
+  .hz-side-arrow.right {
+    right: 4px !important;
+  }
+  .hz-bottom-bar {
+    bottom: 6px !important;
+  }
+  .hz-nav-pill {
+    padding: 2px 10px !important;
+    gap: 8px !important;
+  }
+  .hz-pill-btn {
+    font-size: 15px !important;
+    padding: 2px 6px !important;
+  }
+  .hz-pill-counter {
+    font-size: 11px !important;
+  }
+  .hz-pill-btn.fs {
+    font-size: 11px !important;
+    padding-left: 8px !important;
   }
   .hz-powered-by-badge {
-    left: 14px;
-    bottom: 62px;
-    transform: scale(0.85);
+    left: 10px;
+    bottom: 8px;
+    transform: scale(0.72);
     transform-origin: bottom left;
+    opacity: 0.7;
+  }
+}
+
+@media (max-width: 767px) and (orientation: portrait) {
+  .hz-mobile-landscape-btn {
+    display: inline-flex;
   }
 }
 
@@ -602,8 +693,8 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
 .hz-hotspots-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
 
 /* Public Reader 100% Viewport */
-.public-reader-wrap { width: 100vw; height: 100vh; overflow: hidden; margin: 0; padding: 0; }
-.public-reader-wrap .heyzine-viewer { height: 100vh !important; border-radius: 0 !important; width: 100vw !important; }
+.public-reader-wrap { width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; margin: 0; padding: 0; }
+.public-reader-wrap .heyzine-viewer { height: 100vh !important; height: 100dvh !important; min-height: 0 !important; border-radius: 0 !important; width: 100vw !important; }
 
 /* 3D Stacked Pages Edge (Heyzine-style book page thickness) */
 .stf-page-stack {

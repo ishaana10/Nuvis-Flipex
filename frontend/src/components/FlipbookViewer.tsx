@@ -554,27 +554,29 @@ export default function FlipbookViewer({
     container.style.alignItems = 'center';
     host.current.appendChild(container);
 
-    const isMobile = window.innerWidth < 768;
+    const isMobilePortrait = window.innerWidth < 768 && window.innerWidth < window.innerHeight;
     const isSinglePageEffect = ['one_page', 'slider', 'cards', 'coverflow'].includes(
       settings.pageEffect || 'magazine'
     );
     const isHardCoverEffect = ['book', 'album', 'notebook'].includes(settings.pageEffect || 'magazine');
+    const forceSinglePage = isMobilePortrait || isSinglePageEffect;
 
     const pf = new PageFlip(container, {
       width: singleWidth,
       height: singleHeight,
       size: 'stretch',
-      minWidth: 260,
+      // When forceSinglePage is true, setting minWidth > containerWidth/2 guarantees PageFlip renders 1 full page without cutting off
+      minWidth: forceSinglePage ? Math.max(300, Math.floor(window.innerWidth * 0.75)) : 120,
       maxWidth: 2400,
-      minHeight: 360,
+      minHeight: 120,
       maxHeight: 1800,
       showCover: !isSinglePageEffect,
       maxShadowOpacity: isHardCoverEffect ? 0.8 : 0.6,
       mobileScrollSupport: false,
-      usePortrait: isMobile || isSinglePageEffect,
+      usePortrait: true,
       flippingTime: isHardCoverEffect ? 850 : 700,
       useMouseEvents: true,
-      swipeDistance: 30,
+      swipeDistance: 24,
       startPage: current,
     });
 
@@ -685,7 +687,23 @@ export default function FlipbookViewer({
     }
     initFlip();
 
+    let lastPortraitState = window.innerWidth < 768 && window.innerWidth < window.innerHeight;
+
     const handleResize = () => {
+      const nowPortrait = window.innerWidth < 768 && window.innerWidth < window.innerHeight;
+      if (nowPortrait !== lastPortraitState) {
+        lastPortraitState = nowPortrait;
+        if (flip.current) {
+          try {
+            flip.current.destroy();
+            flip.current = null;
+          } catch {
+            // ignore
+          }
+        }
+        initFlip();
+        return;
+      }
       if (flip.current) {
         try {
           flip.current.update();
@@ -776,12 +794,31 @@ export default function FlipbookViewer({
     [current, bookmarksStorageKey]
   );
 
-  const toggleFullscreen = useCallback(() => {
-    const el = document.querySelector('.heyzine-viewer') as HTMLElement | null;
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.();
-    } else {
-      el?.requestFullscreen?.();
+  const toggleFullscreen = useCallback(async () => {
+    const el = (document.querySelector('.heyzine-viewer') || document.documentElement) as HTMLElement | null;
+    try {
+      if (document.fullscreenElement) {
+        if ((screen.orientation as any)?.unlock) {
+          try {
+            (screen.orientation as any).unlock();
+          } catch {
+            // ignore
+          }
+        }
+        await document.exitFullscreen?.();
+      } else {
+        await el?.requestFullscreen?.();
+        // On mobile devices, automatically lock to landscape full mode when entering fullscreen
+        if (window.innerWidth <= 920 && (screen.orientation as any)?.lock) {
+          try {
+            await (screen.orientation as any).lock('landscape');
+          } catch {
+            // ignore on browsers that do not support orientation lock
+          }
+        }
+      }
+    } catch {
+      // ignore fullscreen errors
     }
   }, []);
 
@@ -946,55 +983,25 @@ export default function FlipbookViewer({
           style={{ display: 'none' }}
         />
       )}
-      {/* Top Floating Header Bar */}
+      {/* Top Floating Header Bar (Minimalist Heyzine-Style Overlay) */}
       <div className="hz-header">
         <div className="hz-title-wrap">
-          <img src="/logo.png" alt="Nuvis Flipex" className="hz-header-logo" />
           {title && <span className="hz-book-title">{title}</span>}
-          <span className="nuvis-brand-text hz-brand-badge-golden">
-            {settings.brandText || 'Nuvis Flipex'}
-          </span>
-
-          {/* Reading Mode Switcher Pill (3D Flip vs Vertical Scroll vs Accessible Screen-Reader) */}
-          <div
-            className="hidden sm:inline-flex items-center rounded-full border border-white/15 bg-black/40 p-0.5 ml-2 backdrop-blur-md"
-            role="group"
-            aria-label="Reading Mode Switcher"
-          >
-            <button
-              type="button"
-              onClick={() => setReadingMode('flip')}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                readingMode === 'flip' ? 'bg-amber-400 text-slate-950 shadow' : 'text-white/80 hover:text-white'
-              }`}
-              title="3D Interactive Page-Turn Mode (Shortcut: M)"
-            >
-              📖 3D Flip
-            </button>
-            <button
-              type="button"
-              onClick={() => setReadingMode('scroll')}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                readingMode === 'scroll' ? 'bg-amber-400 text-slate-950 shadow' : 'text-white/80 hover:text-white'
-              }`}
-              title="Continuous Vertical Scroll Mode (Shortcut: M)"
-            >
-              📜 Scroll
-            </button>
-            <button
-              type="button"
-              onClick={() => setReadingMode('reader')}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all ${
-                readingMode === 'reader' ? 'bg-amber-400 text-slate-950 shadow' : 'text-white/80 hover:text-white'
-              }`}
-              title="Accessible Screen-Reader Text Mode (Shortcut: M)"
-            >
-              ♿ Reader
-            </button>
-          </div>
         </div>
 
         <div className="hz-top-actions">
+          {/* One-Tap Mobile Landscape Fullscreen Button */}
+          {!isFullscreen && (
+            <button
+              type="button"
+              className="hz-mobile-landscape-btn"
+              onClick={toggleFullscreen}
+              title="Open in Landscape Full Mode"
+            >
+              🔄 Landscape Full
+            </button>
+          )}
+
           {/* Search Inside Publication */}
           {settings.showSearchButton !== false && (
             <button
@@ -1025,9 +1032,9 @@ export default function FlipbookViewer({
             ☰
           </button>
 
-          {/* Bookmark Current Page */}
+          {/* Bookmark Current Page (Desktop) */}
           <button
-            className={`hz-icon-btn ${isCurrentBookmarked ? 'ring-2 ring-amber-400' : ''}`}
+            className={`hz-icon-btn hz-desktop-only ${isCurrentBookmarked ? 'ring-2 ring-amber-400' : ''}`}
             onClick={() => toggleBookmark(current + 1)}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -1058,9 +1065,9 @@ export default function FlipbookViewer({
             </button>
           )}
 
-          {/* Offline Caching Toggle */}
+          {/* Offline Caching Toggle (Desktop) */}
           <button
-            className="hz-icon-btn"
+            className="hz-icon-btn hz-desktop-only"
             onClick={handleSaveOffline}
             title={
               offlineSaved
@@ -1107,7 +1114,7 @@ export default function FlipbookViewer({
           )}
 
           <button
-            className="hz-icon-btn"
+            className="hz-icon-btn hz-desktop-only"
             onClick={() => setShowShortcutsModal(true)}
             title="Keyboard Shortcuts & Theme Settings (Shortcut: ?)"
           >
@@ -1408,7 +1415,6 @@ export default function FlipbookViewer({
               <div
                 className="hz-canvas-wrap"
                 style={{
-                  aspectRatio: mode === 'landscape' ? `${spreadAspect}` : `${singleWidth / singleHeight}`,
                   transform: `translate3d(${pan.x + coverCenterOffsetX}px, ${pan.y}px, 0) scale(${zoom})`,
                   transformOrigin: 'center center',
                   transition: isDraggingState
@@ -1676,20 +1682,9 @@ export default function FlipbookViewer({
               ›
             </button>
 
-            {/* Mobile/Compact Mode Switcher button */}
-            <button
-              className="hz-pill-btn"
-              onClick={() =>
-                setReadingMode((m) => (m === 'flip' ? 'scroll' : m === 'scroll' ? 'reader' : 'flip'))
-              }
-              title="Switch Reading Mode: 3D Flip / Vertical Scroll / Accessible Reader (Shortcut: M)"
-            >
-              {readingMode === 'flip' ? '📜 Scroll' : readingMode === 'scroll' ? '♿ Reader' : '📖 3D Flip'}
-            </button>
-
             {/* Zoom Controls (Available in 3D Flip & Scroll Modes with On-Demand HD Zoom) */}
             {readingMode !== 'reader' && (
-              <div className="hz-zoom-controls">
+              <div className="hz-zoom-controls hz-desktop-only">
                 <button
                   className="hz-pill-btn hz-zoom-btn"
                   onClick={() => handleZoomChange(zoom - 0.25)}
