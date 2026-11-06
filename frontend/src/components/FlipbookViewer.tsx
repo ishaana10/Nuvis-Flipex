@@ -555,25 +555,24 @@ export default function FlipbookViewer({
     host.current.appendChild(container);
 
     const isMobilePortrait = window.innerWidth < 768 && window.innerWidth < window.innerHeight;
-    const isSinglePageEffect = ['one_page', 'slider', 'cards', 'coverflow'].includes(
-      settings.pageEffect || 'magazine'
+    const isExplicitSinglePage = ['one_page', 'slider', 'cards', 'coverflow'].includes(
+      settings.pageEffect || ''
     );
     const isHardCoverEffect = ['book', 'album', 'notebook'].includes(settings.pageEffect || 'magazine');
-    const forceSinglePage = isMobilePortrait || isSinglePageEffect;
+    const shouldUsePortrait = isExplicitSinglePage || isMobilePortrait;
 
     const pf = new PageFlip(container, {
       width: singleWidth,
       height: singleHeight,
       size: 'stretch',
-      // When forceSinglePage is true, setting minWidth > containerWidth/2 guarantees PageFlip renders 1 full page without cutting off
-      minWidth: forceSinglePage ? Math.max(300, Math.floor(window.innerWidth * 0.75)) : 120,
+      minWidth: 200,
       maxWidth: 2400,
-      minHeight: 120,
+      minHeight: 260,
       maxHeight: 1800,
-      showCover: !isSinglePageEffect,
+      showCover: !isExplicitSinglePage,
       maxShadowOpacity: isHardCoverEffect ? 0.8 : 0.6,
       mobileScrollSupport: false,
-      usePortrait: true,
+      usePortrait: shouldUsePortrait,
       flippingTime: isHardCoverEffect ? 850 : 700,
       useMouseEvents: true,
       swipeDistance: 24,
@@ -678,7 +677,7 @@ export default function FlipbookViewer({
 
     flip.current = pf;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages, readingMode, isSoundActive, updateBookPageStacks, singleWidth, singleHeight]);
+  }, [pages, readingMode, isSoundActive, updateBookPageStacks, singleWidth, singleHeight, settings.pageEffect]);
 
   useEffect(() => {
     if (readingMode !== 'flip') {
@@ -726,10 +725,14 @@ export default function FlipbookViewer({
     };
 
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    (screen.orientation as any)?.addEventListener?.('change', handleResize);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      (screen.orientation as any)?.removeEventListener?.('change', handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       if (flip.current) {
         try {
@@ -1415,6 +1418,7 @@ export default function FlipbookViewer({
               <div
                 className="hz-canvas-wrap"
                 style={{
+                  aspectRatio: mode === 'landscape' ? `${spreadAspect}` : `${singleWidth / singleHeight}`,
                   transform: `translate3d(${pan.x + coverCenterOffsetX}px, ${pan.y}px, 0) scale(${zoom})`,
                   transformOrigin: 'center center',
                   transition: isDraggingState
