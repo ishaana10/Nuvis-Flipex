@@ -301,40 +301,60 @@ final class PdfRenderer
 
             $baseName = sprintf('page-%03d', $pageNum);
             $thumbFile = "{$outDir}/thumbs/{$baseName}.jpg";
+            $thumbWebpFile = "{$outDir}/thumbs/{$baseName}.webp";
             $highFile = "{$outDir}/high/{$baseName}.jpg";
+            $highWebpFile = "{$outDir}/high/{$baseName}.webp";
             $webpFile = "{$outDir}/{$baseName}.webp";
             $avifFile = "{$outDir}/{$baseName}.avif";
 
             $dims = @getimagesize($stdFile);
-            $w = $dims ? (int) $dims[0] : 1200;
-            $h = $dims ? (int) $dims[1] : 1600;
+            $w = $dims ? (int) $dims[0] : 1400;
+            $h = $dims ? (int) $dims[1] : 1900;
 
             // Generate WebP and AVIF derivatives + fallback thumbnail via GD if needed
             if (extension_loaded('gd') && function_exists('imagecreatefromjpeg')) {
                 $im = @imagecreatefromjpeg($stdFile);
                 if ($im !== false) {
-                    // Generate missing thumbnail if driver didn't create it
+                    // Level 1: Generate missing thumbnail (350–500px wide, target ~420px for rapid grid & preview)
                     if (!file_exists($thumbFile)) {
-                        $thumbW = 240;
+                        $thumbW = 420;
                         $thumbH = max(1, (int) round($h * ($thumbW / max(1, $w))));
                         $thumbIm = imagescale($im, $thumbW, $thumbH);
                         if ($thumbIm !== false) {
-                            @imagejpeg($thumbIm, $thumbFile, 78);
+                            @imagejpeg($thumbIm, $thumbFile, 82);
+                            if (function_exists('imagewebp')) {
+                                @imagewebp($thumbIm, $thumbWebpFile, 80);
+                            }
                             imagedestroy($thumbIm);
+                        }
+                    } elseif (function_exists('imagewebp') && !file_exists($thumbWebpFile)) {
+                        $tIm = @imagecreatefromjpeg($thumbFile);
+                        if ($tIm !== false) {
+                            @imagewebp($tIm, $thumbWebpFile, 80);
+                            imagedestroy($tIm);
                         }
                     }
 
-                    // Generate WebP derivative for modern browsers
+                    // Level 2: Generate crisp WebP derivative for standard reading (~90 quality for crisp text)
                     if (function_exists('imagewebp')) {
-                        @imagewebp($im, $webpFile, 82);
+                        @imagewebp($im, $webpFile, 90);
                     }
 
                     // Generate AVIF derivative if PHP GD was compiled with libavif support
                     if (function_exists('imageavif')) {
-                        @imageavif($im, $avifFile, 65);
+                        @imageavif($im, $avifFile, 70);
                     }
 
                     imagedestroy($im);
+                }
+
+                // Level 3: Generate high-resolution WebP derivative for zoom layer if highFile exists
+                if (file_exists($highFile) && function_exists('imagewebp') && !file_exists($highWebpFile)) {
+                    $highIm = @imagecreatefromjpeg($highFile);
+                    if ($highIm !== false) {
+                        @imagewebp($highIm, $highWebpFile, 88);
+                        imagedestroy($highIm);
+                    }
                 }
             }
 
@@ -529,22 +549,25 @@ final class PdfRenderer
             '-dBATCH',
             '-dSAFER',
             '-sDEVICE=jpeg',
-            '-dJPEGQ=85',
+            '-dJPEGQ=90',
             '-dTextAlphaBits=4',
             '-dGraphicsAlphaBits=4',
             "-dLastPage={$maxPages}",
         ];
 
-        if ($report) $report(20, 'Rendering standard resolution pages (110 DPI)');
-        $mainCmd = array_merge($base, ['-r110', "-sOutputFile={$outDir}/page-%03d.jpg", $pdfPath]);
+        // Level 2: Standard reading (~1,200–1,800px wide, 175 DPI mobile/desktop optimized)
+        if ($report) $report(20, 'Rendering standard resolution pages (175 DPI)');
+        $mainCmd = array_merge($base, ['-r175', "-sOutputFile={$outDir}/page-%03d.jpg", $pdfPath]);
         self::runProcess($mainCmd, 'Ghostscript (Standard Pages)', $timeoutSeconds);
 
-        if ($report) $report(40, 'Rendering high-resolution zoom pages (180 DPI)');
-        $highCmd = array_merge($base, ['-r180', "-sOutputFile={$outDir}/high/page-%03d.jpg", $pdfPath]);
+        // Level 3: High resolution zoom (~2,400–3,000px wide, 280 DPI crisp zoom)
+        if ($report) $report(40, 'Rendering high-resolution zoom pages (280 DPI)');
+        $highCmd = array_merge($base, ['-r280', "-sOutputFile={$outDir}/high/page-%03d.jpg", $pdfPath]);
         self::runProcess($highCmd, 'Ghostscript (High-Res Pages)', $timeoutSeconds);
 
-        if ($report) $report(55, 'Rendering navigation thumbnails (30 DPI)');
-        $thumbCmd = array_merge($base, ['-r30', "-sOutputFile={$outDir}/thumbs/page-%03d.jpg", $pdfPath]);
+        // Level 1: Navigation thumbnail (~350–500px wide, 50 DPI fast preview)
+        if ($report) $report(55, 'Rendering navigation thumbnails (50 DPI)');
+        $thumbCmd = array_merge($base, ['-r50', '-dJPEGQ=82', "-sOutputFile={$outDir}/thumbs/page-%03d.jpg", $pdfPath]);
         self::runProcess($thumbCmd, 'Ghostscript (Thumbnails)', $timeoutSeconds);
 
         $files = glob("{$outDir}/page-*.jpg") ?: [];
@@ -569,7 +592,7 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/high");
 
         $im = new \Imagick();
-        $im->setResolution(180, 180);
+        $im->setResolution(280, 280);
         $im->readImage($pdfPath);
 
         $total = $im->getNumberImages();
@@ -586,27 +609,28 @@ final class PdfRenderer
             $im->setIteratorIndex($i);
             $highPage = $im->getImage();
             $highPage->setImageFormat('jpeg');
-            $highPage->setImageCompressionQuality(86);
+            $highPage->setImageCompressionQuality(90);
 
             $highFile = sprintf('%s/high/page-%03d.jpg', $outDir, $pageNum);
             $pageFile = sprintf('%s/page-%03d.jpg', $outDir, $pageNum);
             $thumbFile = sprintf('%s/thumbs/page-%03d.jpg', $outDir, $pageNum);
 
-            // 1. High-resolution (180 DPI)
+            // 1. High-resolution Level 3 (280 DPI, ~2,400–2,800px wide)
             $highPage->writeImage($highFile);
 
-            // 2. Standard resolution (~110 DPI equivalent)
+            // 2. Standard resolution Level 2 (~175 DPI equivalent, 1,200–1,800px wide)
             $stdPage = clone $highPage;
             $origW = $stdPage->getImageWidth();
-            $stdW = max(600, (int) round($origW * (110 / 180)));
+            $stdW = max(800, (int) round($origW * (175 / 280)));
             $stdPage->thumbnailImage($stdW, 0);
-            $stdPage->setImageCompressionQuality(84);
+            $stdPage->setImageCompressionQuality(88);
             $stdPage->writeImage($pageFile);
 
-            // 3. Thumbnail (240px wide)
+            // 3. Thumbnail Level 1 (350–500px wide, ~420px target)
             $thumb = clone $stdPage;
-            $thumb->thumbnailImage(240, 0);
-            $thumb->setImageCompressionQuality(75);
+            $thumbW = max(350, min(500, (int) round($origW * (50 / 280))));
+            $thumb->thumbnailImage($thumbW, 0);
+            $thumb->setImageCompressionQuality(80);
             $thumb->writeImage($thumbFile);
 
             $thumb->clear();
@@ -643,14 +667,17 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/thumbs");
         Storage::ensureDir("{$outDir}/high");
 
-        if ($report) $report(20, 'Rendering standard resolution pages (110 DPI)');
-        self::runProcess([$ppm, '-jpeg', '-r', '110', '-l', (string) $maxPages, $pdfPath, "{$outDir}/pg"], 'Poppler (Standard Pages)', $timeoutSeconds);
+        // Level 2: Standard reading (~1,200–1,800px wide, 175 DPI)
+        if ($report) $report(20, 'Rendering standard resolution pages (175 DPI)');
+        self::runProcess([$ppm, '-jpeg', '-r', '175', '-l', (string) $maxPages, $pdfPath, "{$outDir}/pg"], 'Poppler (Standard Pages)', $timeoutSeconds);
 
-        if ($report) $report(40, 'Rendering high-resolution zoom pages (180 DPI)');
-        self::runProcess([$ppm, '-jpeg', '-r', '180', '-l', (string) $maxPages, $pdfPath, "{$outDir}/high/pg"], 'Poppler (High-Res Pages)', $timeoutSeconds);
+        // Level 3: High resolution zoom (~2,400–3,000px wide, 280 DPI)
+        if ($report) $report(40, 'Rendering high-resolution zoom pages (280 DPI)');
+        self::runProcess([$ppm, '-jpeg', '-r', '280', '-l', (string) $maxPages, $pdfPath, "{$outDir}/high/pg"], 'Poppler (High-Res Pages)', $timeoutSeconds);
 
-        if ($report) $report(55, 'Rendering navigation thumbnails (30 DPI)');
-        self::runProcess([$ppm, '-jpeg', '-r', '30', '-l', (string) $maxPages, $pdfPath, "{$outDir}/thumbs/pg"], 'Poppler (Thumbnails)', $timeoutSeconds);
+        // Level 1: Navigation thumbnails (~350–500px wide, 50 DPI)
+        if ($report) $report(55, 'Rendering navigation thumbnails (50 DPI)');
+        self::runProcess([$ppm, '-jpeg', '-r', '50', '-l', (string) $maxPages, $pdfPath, "{$outDir}/thumbs/pg"], 'Poppler (Thumbnails)', $timeoutSeconds);
 
         foreach ([$outDir, "{$outDir}/high", "{$outDir}/thumbs"] as $dir) {
             $list = glob("{$dir}/pg-*.jpg") ?: [];

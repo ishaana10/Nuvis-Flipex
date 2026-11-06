@@ -160,8 +160,20 @@ final class PublicController
 
         if ($isThumb) {
             $rel = (string) $p['thumb_path'];
+            if ($format === 'webp') {
+                $thumbWebp = preg_replace('/\.jpe?g$/i', '.webp', $rel);
+                if (file_exists(Storage::root() . '/' . $thumbWebp)) {
+                    $rel = $thumbWebp;
+                }
+            }
         } elseif ($resMode === 'high' && !empty($p['high_res_path'])) {
             $rel = (string) $p['high_res_path'];
+            if ($format === 'webp') {
+                $highWebp = preg_replace('/\.jpe?g$/i', '.webp', $rel);
+                if (file_exists(Storage::root() . '/' . $highWebp)) {
+                    $rel = $highWebp;
+                }
+            }
         } elseif ($format === 'webp' && !empty($p['webp_path'])) {
             $rel = (string) $p['webp_path'];
         } elseif ($format === 'avif' && !empty($p['avif_path'])) {

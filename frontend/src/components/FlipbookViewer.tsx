@@ -12,6 +12,8 @@ export interface PageInfo {
   thumb: string;
   w: number;
   h: number;
+  width?: number;
+  height?: number;
   text?: string;
 }
 
@@ -253,14 +255,18 @@ export default function FlipbookViewer({
     }
   }, []);
 
-  // Progressive & Lazy Page Preloader
+  // Progressive & Lazy Multi-Resolution Page Preloader with Memory Virtualization
   useEffect(() => {
     if (!pages.length) return;
+
+    // Active spread + next/prev window indices (eager preload with async decoding)
     const windowIndices: number[] = [];
-    for (let offset = 0; offset <= 4; offset++) {
+    for (let offset = 0; offset <= 3; offset++) {
       if (current + offset < pages.length) windowIndices.push(current + offset);
       if (offset > 0 && current - offset >= 0) windowIndices.push(current - offset);
     }
+
+    // 1. Browser background decoding for near pages
     windowIndices.forEach((idx) => {
       if (preloadedSet.current.has(idx)) return;
       preloadedSet.current.add(idx);
@@ -268,8 +274,55 @@ export default function FlipbookViewer({
       if (!pg) return;
       const img = new Image();
       img.decoding = 'async';
+      if (idx === current || idx === current + 1) {
+        (img as any).fetchPriority = 'high';
+      }
       img.src = pg.image;
     });
+
+    // 2. Flipbook PageFlip canvas promotion & memory release
+    try {
+      const pf = flip.current;
+      if (pf) {
+        const coll = (pf as any).getPageCollection?.();
+        const pageObjs = coll?.getPages?.();
+        if (pageObjs && pageObjs.length) {
+          // Promote pages in active window to standard crisp resolution
+          windowIndices.forEach((idx) => {
+            const pageObj = pageObjs[idx];
+            const pg = pages[idx];
+            if (pageObj && pg && pageObj.image && pageObj.image.src !== pg.image) {
+              const stdImg = new Image();
+              stdImg.decoding = 'async';
+              stdImg.onload = () => {
+                pageObj.image = stdImg;
+                pageObj.isLoad = true;
+                (pf as any).getRender?.()?.update?.();
+              };
+              stdImg.src = pg.image;
+            }
+          });
+
+          // Memory Release: For long publications (> 12 pages), release distant decoded canvases to avoid mobile GPU exhaustion
+          if (pages.length > 12) {
+            for (let i = 0; i < pages.length; i++) {
+              if (Math.abs(i - current) > 8) {
+                const distantObj = pageObjs[i];
+                const pg = pages[i];
+                if (distantObj && pg && pg.thumb && distantObj.image && distantObj.image.src !== pg.thumb) {
+                  const tImg = new Image();
+                  tImg.decoding = 'async';
+                  tImg.src = pg.thumb;
+                  distantObj.image = tImg;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Non-fatal optimization
+    }
   }, [current, pages]);
 
   // On-Demand High-Resolution Zoom Loader (loads 180 DPI assets only when zoom > 1.25)
@@ -579,7 +632,16 @@ export default function FlipbookViewer({
       startPage: current,
     });
 
-    pf.loadFromImages(pages.map((p) => p.image));
+    // Multi-resolution progressive initial loader:
+    // Active spreads load standard reading URLs immediately; distant pages on long publications load lightweight thumbnail placeholders (~15KB)
+    const initialUrls = pages.map((p, idx) => {
+      if (pages.length <= 8 || Math.abs(idx - current) <= 2) {
+        return p.image;
+      }
+      return p.thumb || p.image;
+    });
+
+    pf.loadFromImages(initialUrls);
 
     // Patch CanvasRenderer after loadFromImages creates `pf.render` so transparent background is preserved
     // and the bound magazine spine crease is drawn on the cover's left binding edge as well as open spreads.
@@ -1551,18 +1613,31 @@ export default function FlipbookViewer({
           >
             {pages.map((p) => {
               const pageHotspots = hotspots[p.n] || [];
+              const isVisibleOrNear = Math.abs(p.n - 1 - current) <= 2;
+              const isCurrentPage = p.n - 1 === current;
+              const pw = p.w || p.width || 1200;
+              const ph = p.h || p.height || 1600;
               return (
                 <div
                   key={p.n}
                   id={`flipex-scroll-page-${p.n}`}
                   data-scroll-page={p.n}
                   className="relative w-full overflow-hidden rounded-xl bg-white shadow-2xl"
+                  style={{
+                    aspectRatio: `${pw} / ${ph}`,
+                    backgroundImage: `url(${p.thumb})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
                 >
                   <img
                     src={zoom > 1.25 && p.imageHigh ? p.imageHigh : p.image}
                     alt={`Page ${p.n}`}
-                    loading="lazy"
+                    loading={isVisibleOrNear ? 'eager' : 'lazy'}
                     decoding="async"
+                    fetchPriority={isCurrentPage ? 'high' : 'auto'}
+                    width={pw}
+                    height={ph}
                     className="block w-full h-auto select-none"
                   />
                   <div className="absolute bottom-3 right-3 rounded-full bg-slate-950/75 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-sm">

@@ -210,13 +210,23 @@ final class FlipbookController
             $highRel = !empty($p['high_res_path'])
                 ? $this->resolveExistingRelPath($f, (string) $p['high_res_path'], false)
                 : $stdRel;
+            $highWebpRel = preg_replace('/\.jpe?g$/i', '.webp', $highRel);
+            if (file_exists(Storage::root() . '/' . $highWebpRel)) {
+                $highRel = $highWebpRel;
+            }
+
             $webpRel = !empty($p['webp_path'])
                 ? $this->resolveExistingRelPath($f, (string) $p['webp_path'], false)
                 : null;
             $avifRel = !empty($p['avif_path'])
                 ? $this->resolveExistingRelPath($f, (string) $p['avif_path'], false)
                 : null;
+
             $thumbRel = $this->resolveExistingRelPath($f, (string) $p['thumb_path'], true);
+            $thumbWebpRel = preg_replace('/\.jpe?g$/i', '.webp', $thumbRel);
+            if (file_exists(Storage::root() . '/' . $thumbWebpRel)) {
+                $thumbRel = $thumbWebpRel;
+            }
 
             return [
                 'n' => (int) $p['page_number'],
