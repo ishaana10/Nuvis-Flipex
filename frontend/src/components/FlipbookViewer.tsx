@@ -205,6 +205,8 @@ export default function FlipbookViewer({
   const dragStart = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef<number>(1);
+  const pinchMidpoint = useRef<{ x: number; y: number; startPanX: number; startPanY: number } | null>(null);
+  const lastTouchTap = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
   const pageEnterTimestamp = useRef<number>(Date.now());
 
   // Send telemetry helper
@@ -247,8 +249,23 @@ export default function FlipbookViewer({
     }
   }, [current, lastPageStorageKey, sendTelemetry]);
 
+  const getMaxPan = useCallback((targetZoom: number) => {
+    if (targetZoom <= 1) return { maxPanX: 0, maxPanY: 0 };
+    const stageW = window.innerWidth;
+    const stageH = window.innerHeight;
+    const baseW = bookBounds?.width || (stageW * 0.9);
+    const baseH = bookBounds?.height || (stageH * 0.85);
+    const scaledW = baseW * targetZoom;
+    const scaledH = baseH * targetZoom;
+
+    // Generous pan limits: allows moving all the way to each corner with comfortable margin
+    const maxPanX = Math.max(300, Math.round((scaledW - stageW * 0.2) / 2 + 160));
+    const maxPanY = Math.max(300, Math.round((scaledH - stageH * 0.2) / 2 + 160));
+    return { maxPanX, maxPanY };
+  }, [bookBounds]);
+
   const handleZoomChange = useCallback((newZoom: number) => {
-    const clamped = Math.round(Math.min(2.5, Math.max(1, newZoom)) * 100) / 100;
+    const clamped = Math.round(Math.min(3.5, Math.max(1, newZoom)) * 100) / 100;
     setZoom(clamped);
     if (clamped <= 1) {
       setPan({ x: 0, y: 0 });
@@ -345,15 +362,14 @@ export default function FlipbookViewer({
     });
   }, [zoom, current, mode, pages, hdLoadedPages]);
 
-  // Global mousemove/mouseup listeners when panning while zoomed in
+  // Global mousemove/mouseup listeners when panning while zoomed in (Desktop)
   useEffect(() => {
     if (!isDraggingState || zoom <= 1) return;
 
     const onMove = (e: MouseEvent) => {
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
-      const maxPanX = Math.max(120, (window.innerWidth * (zoom - 1)) / 1.5);
-      const maxPanY = Math.max(120, (window.innerHeight * (zoom - 1)) / 1.5);
+      const { maxPanX, maxPanY } = getMaxPan(zoom);
       const nextX = Math.max(-maxPanX, Math.min(maxPanX, dragStart.current.startPanX + dx));
       const nextY = Math.max(-maxPanY, Math.min(maxPanY, dragStart.current.startPanY + dy));
       setPan({ x: nextX, y: nextY });
@@ -369,7 +385,7 @@ export default function FlipbookViewer({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [isDraggingState, zoom]);
+  }, [isDraggingState, zoom, getMaxPan]);
 
   const handleStageMouseDown = (e: React.MouseEvent) => {
     if (zoom <= 1 || readingMode !== 'flip') return;
@@ -385,28 +401,121 @@ export default function FlipbookViewer({
     e.preventDefault();
   };
 
-  // Mobile Two-Finger Pinch-to-Zoom Gestures
+  // Mobile Touch Gestures: 1-Finger Pan when Zoomed, 2-Finger Pinch-to-Zoom, and Double-Tap Zoom
   const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('.reader-hotspot') || (e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+
     if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      // 2-Finger Pinch Start
+      const t0 = e.touches[0];
+      const t1 = e.touches[1];
+      const dx = t0.clientX - t1.clientX;
+      const dy = t0.clientY - t1.clientY;
       pinchStartDist.current = Math.hypot(dx, dy);
       pinchStartZoom.current = zoom;
+      pinchMidpoint.current = {
+        x: (t0.clientX + t1.clientX) / 2,
+        y: (t0.clientY + t1.clientY) / 2,
+        startPanX: pan.x,
+        startPanY: pan.y,
+      };
+      setIsDraggingState(true);
+    } else if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const now = Date.now();
+      const timeDiff = now - lastTouchTap.current.time;
+      const distDiff = Math.hypot(touch.clientX - lastTouchTap.current.x, touch.clientY - lastTouchTap.current.y);
+
+      // Mobile Double-Tap to Zoom In / Out
+      if (timeDiff < 320 && distDiff < 40) {
+        lastTouchTap.current = { time: 0, x: 0, y: 0 };
+        if (zoom > 1) {
+          handleZoomChange(1);
+          setPan({ x: 0, y: 0 });
+        } else {
+          const targetZoom = 2.2;
+          handleZoomChange(targetZoom);
+          const stageW = window.innerWidth;
+          const stageH = window.innerHeight;
+          const offsetX = (stageW / 2 - touch.clientX) * (targetZoom - 1);
+          const offsetY = (stageH / 2 - touch.clientY) * (targetZoom - 1);
+          const { maxPanX, maxPanY } = getMaxPan(targetZoom);
+          setPan({
+            x: Math.max(-maxPanX, Math.min(maxPanX, offsetX)),
+            y: Math.max(-maxPanY, Math.min(maxPanY, offsetY)),
+          });
+        }
+        return;
+      }
+
+      lastTouchTap.current = { time: now, x: touch.clientX, y: touch.clientY };
+
+      if (zoom > 1) {
+        setIsDraggingState(true);
+        dragStart.current = {
+          x: touch.clientX,
+          y: touch.clientY,
+          startPanX: pan.x,
+          startPanY: pan.y,
+        };
+      }
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && pinchStartDist.current !== null) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      if (e.cancelable) e.preventDefault();
+      const t0 = e.touches[0];
+      const t1 = e.touches[1];
+      const dx = t0.clientX - t1.clientX;
+      const dy = t0.clientY - t1.clientY;
       const dist = Math.hypot(dx, dy);
       const scaleRatio = dist / Math.max(1, pinchStartDist.current);
-      handleZoomChange(pinchStartZoom.current * scaleRatio);
+      const targetZoom = Math.round(Math.min(3.5, Math.max(1, pinchStartZoom.current * scaleRatio)) * 100) / 100;
+
+      setZoom(targetZoom);
+
+      if (targetZoom <= 1) {
+        setPan({ x: 0, y: 0 });
+      } else if (pinchMidpoint.current) {
+        const curMidX = (t0.clientX + t1.clientX) / 2;
+        const curMidY = (t0.clientY + t1.clientY) / 2;
+        const moveDx = curMidX - pinchMidpoint.current.x;
+        const moveDy = curMidY - pinchMidpoint.current.y;
+        const { maxPanX, maxPanY } = getMaxPan(targetZoom);
+        const nextX = Math.max(-maxPanX, Math.min(maxPanX, pinchMidpoint.current.startPanX + moveDx));
+        const nextY = Math.max(-maxPanY, Math.min(maxPanY, pinchMidpoint.current.startPanY + moveDy));
+        setPan({ x: nextX, y: nextY });
+      }
+    } else if (e.touches.length === 1 && zoom > 1 && isDraggingState) {
+      if (e.cancelable) e.preventDefault();
+      const touch = e.touches[0];
+      const dx = touch.clientX - dragStart.current.x;
+      const dy = touch.clientY - dragStart.current.y;
+      const { maxPanX, maxPanY } = getMaxPan(zoom);
+      const nextX = Math.max(-maxPanX, Math.min(maxPanX, dragStart.current.startPanX + dx));
+      const nextY = Math.max(-maxPanY, Math.min(maxPanY, dragStart.current.startPanY + dy));
+      setPan({ x: nextX, y: nextY });
     }
   };
 
-  const handleTouchEnd = () => {
-    pinchStartDist.current = null;
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && zoom > 1) {
+      // Transition smoothly from 2-finger pinch to 1-finger drag without sudden jumping
+      const touch = e.touches[0];
+      dragStart.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        startPanX: pan.x,
+        startPanY: pan.y,
+      };
+      pinchStartDist.current = null;
+      pinchMidpoint.current = null;
+    } else if (e.touches.length === 0) {
+      pinchStartDist.current = null;
+      pinchMidpoint.current = null;
+      setIsDraggingState(false);
+    }
   };
 
   const handleStageDoubleClick = (e: React.MouseEvent) => {
@@ -1373,6 +1482,7 @@ export default function FlipbookViewer({
           onTouchEnd={handleTouchEnd}
           style={{
             cursor: zoom > 1 ? (isDraggingState ? 'grabbing' : 'grab') : 'default',
+            touchAction: zoom > 1 ? 'none' : 'pan-y',
           }}
         >
           {/* Left-Side Company Heading, Subtitle & Optional Disclaimer Overlay (Heyzine Style) */}
@@ -1775,16 +1885,16 @@ export default function FlipbookViewer({
                   type="range"
                   className="hz-zoom-slider"
                   min="1"
-                  max="2.5"
+                  max="3.5"
                   step="0.05"
                   value={zoom}
                   onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                  title={`Zoom: ${Math.round(zoom * 100)}% (Drag to pan · High-Res HD activates > 125%)`}
+                  title={`Zoom: ${Math.round(zoom * 100)}% (Drag or touch to pan to any corner · High-Res HD activates > 125%)`}
                 />
                 <button
                   className="hz-pill-btn hz-zoom-btn"
                   onClick={() => handleZoomChange(zoom + 0.25)}
-                  disabled={zoom >= 2.5}
+                  disabled={zoom >= 3.5}
                   title="Zoom In (+)"
                 >
                   +
