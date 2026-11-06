@@ -608,21 +608,20 @@ export default function FlipbookViewer({
     host.current.appendChild(container);
 
     const isMobilePortrait = window.innerWidth < 768 && window.innerWidth < window.innerHeight;
-    const isExplicitSinglePage = ['one_page', 'slider', 'cards', 'coverflow'].includes(
-      settings.pageEffect || ''
-    );
-    const isHardCoverEffect = ['book', 'album', 'notebook'].includes(settings.pageEffect || 'magazine');
+    const normalizedPageEffect = (settings.pageEffect || 'magazine').toLowerCase().replace(/\s+/g, '_');
+    const isExplicitSinglePage = ['one_page', 'slider', 'cards', 'coverflow'].includes(normalizedPageEffect);
+    const isHardCoverEffect = ['book', 'album', 'notebook'].includes(normalizedPageEffect);
     const shouldUsePortrait = isExplicitSinglePage || isMobilePortrait;
 
     const pf = new PageFlip(container, {
       width: singleWidth,
       height: singleHeight,
       size: 'stretch',
-      minWidth: 200,
+      minWidth: shouldUsePortrait ? 9999 : 200,
       maxWidth: 2400,
       minHeight: 260,
       maxHeight: 1800,
-      showCover: !isExplicitSinglePage,
+      showCover: true,
       maxShadowOpacity: isHardCoverEffect ? 0.8 : 0.6,
       mobileScrollSupport: false,
       usePortrait: shouldUsePortrait,
@@ -1010,7 +1009,7 @@ export default function FlipbookViewer({
   if (readingMode === 'flip' && mode === 'landscape') {
     if (current === 0) {
       pageDisplay = `1 / ${total}`;
-    } else if (current >= total - 1) {
+    } else if (total > 1 && current >= total - 1 && total % 2 === 0) {
       pageDisplay = `${total} / ${total}`;
     } else {
       pageDisplay = `${current + 1} - ${Math.min(current + 2, total)} / ${total}`;
