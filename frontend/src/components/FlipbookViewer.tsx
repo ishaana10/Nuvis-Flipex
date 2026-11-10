@@ -201,6 +201,8 @@ export default function FlipbookViewer({
   const [isDraggingState, setIsDraggingState] = useState(false);
   const [hdLoadedPages, setHdLoadedPages] = useState<Record<number, string>>({});
   const [bookBounds, setBookBounds] = useState<{ left: number; top: number; width: number; height: number; pageWidth: number } | null>(null);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const flippingTimer = useRef<any>(null);
   const preloadedSet = useRef<Set<number>>(new Set());
   const dragStart = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
   const pinchStartDist = useRef<number | null>(null);
@@ -755,13 +757,35 @@ export default function FlipbookViewer({
 
     pf.loadFromImages(initialUrls);
 
-    // Patch CanvasRenderer after loadFromImages creates `pf.render` so transparent background is preserved
-    // and the bound magazine spine crease is drawn on the cover's left binding edge as well as open spreads.
+    // Patch CanvasRenderer and UI after loadFromImages to support High-DPI Retina displays
+    // and draw magazine spine creases on the covers.
     const render = (pf as any).getRender?.();
+    const ui = (pf as any).getUI?.();
+
+    if (ui && ui.canvas) {
+      const origResizeCanvas = ui.resizeCanvas.bind(ui);
+      ui.resizeCanvas = function () {
+        origResizeCanvas();
+        const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+        const cssW = parseInt(getComputedStyle(this.canvas).getPropertyValue('width'), 10) || this.canvas.clientWidth || 300;
+        const cssH = parseInt(getComputedStyle(this.canvas).getPropertyValue('height'), 10) || this.canvas.clientHeight || 400;
+        this.canvas.width = Math.round(cssW * dpr);
+        this.canvas.height = Math.round(cssH * dpr);
+        const ctx = this.app?.getRender()?.getContext?.();
+        if (ctx) {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+      };
+      ui.resizeCanvas();
+    }
+
     if (render) {
       render.clear = function () {
         if (this.ctx && this.canvas) {
+          const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+          this.ctx.setTransform(1, 0, 0, 1, 0, 0);
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
       };
       const origDrawBookShadow = render.drawBookShadow?.bind(render);
@@ -813,6 +837,20 @@ export default function FlipbookViewer({
       }
     }
 
+    pf.on('changeState', (e: any) => {
+      const st = e.data;
+      if (st === 'flipping' || st === 'user_fold' || st === 'fold_corner') {
+        setIsFlipping(true);
+        if (flippingTimer.current) clearTimeout(flippingTimer.current);
+        flippingTimer.current = setTimeout(() => {
+          setIsFlipping(false);
+        }, 950);
+      } else if (st === 'read') {
+        if (flippingTimer.current) clearTimeout(flippingTimer.current);
+        setIsFlipping(false);
+      }
+    });
+
     pf.on('flip', (e) => {
       const pageIdx = e.data as number;
       setCurrent(pageIdx);
@@ -821,6 +859,10 @@ export default function FlipbookViewer({
         playPageFlipSound();
       }
       setPan({ x: 0, y: 0 });
+      if (flippingTimer.current) clearTimeout(flippingTimer.current);
+      flippingTimer.current = setTimeout(() => {
+        setIsFlipping(false);
+      }, 70);
       setTimeout(() => {
         updateBookPageStacks(pageIdx, pages.length, pf.getOrientation());
       }, 50);
@@ -839,14 +881,18 @@ export default function FlipbookViewer({
 
     pf.on('init', () => {
       setReady(true);
+      setIsFlipping(false);
       const o = pf.getOrientation();
       setMode(o);
       setTimeout(() => {
         updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
-      }, 100);
+      }, 60);
       setTimeout(() => {
         updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
-      }, 300);
+      }, 200);
+      setTimeout(() => {
+        updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
+      }, 400);
     });
 
     flip.current = pf;
@@ -1614,10 +1660,10 @@ export default function FlipbookViewer({
                   }}
                 />
 
-                {/* On-Demand High-Resolution Zoom Layer (Active when zoom > 1.25) */}
-                {ready && zoom > 1.25 && bookBounds && (
+                {/* Razor-Sharp Native Image Overlay (Active for stationary reading & zoom/pan) */}
+                {ready && bookBounds && (
                   <div
-                    className="pointer-events-none absolute z-10 overflow-hidden"
+                    className="hz-crisp-page-overlay pointer-events-none absolute z-10 overflow-hidden"
                     style={{
                       left: `${Math.round(
                         mode === 'landscape' && current === 0
@@ -1633,39 +1679,79 @@ export default function FlipbookViewer({
                       )}px`,
                       height: `${Math.round(bookBounds.height)}px`,
                       display: 'flex',
+                      opacity: isFlipping && zoom <= 1 ? 0 : 1,
+                      transition: isFlipping ? 'opacity 0.08s ease-out' : 'opacity 0.16s ease-in',
                     }}
                   >
                     {mode === 'portrait' || current === 0 || (current >= total - 1 && total % 2 === 0) ? (
-                      pages[current] && hdLoadedPages[pages[current].n] ? (
-                        <img
-                          src={hdLoadedPages[pages[current].n]}
-                          alt={`HD Page ${pages[current].n}`}
-                          className="h-full w-full object-fill select-none"
-                          draggable={false}
-                        />
+                      pages[current] ? (
+                        <div className="relative h-full w-full">
+                          <img
+                            src={hdLoadedPages[pages[current].n] || pages[current].image}
+                            alt={`Page ${pages[current].n}`}
+                            className="h-full w-full object-fill select-none"
+                            draggable={false}
+                            style={{
+                              imageRendering: '-webkit-optimize-contrast',
+                            }}
+                          />
+                          {/* Realistic Magazine Spine Shadow/Crease */}
+                          {mode === 'landscape' && current === 0 && (
+                            <div
+                              className="pointer-events-none absolute inset-y-0 left-0 w-5 z-20"
+                              style={{
+                                background: 'linear-gradient(to right, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.08) 35%, rgba(255,255,255,0.14) 60%, rgba(0,0,0,0) 100%)',
+                                mixBlendMode: 'multiply',
+                              }}
+                            />
+                          )}
+                          {mode === 'landscape' && current >= total - 1 && total % 2 === 0 && (
+                            <div
+                              className="pointer-events-none absolute inset-y-0 right-0 w-5 z-20"
+                              style={{
+                                background: 'linear-gradient(to left, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.08) 35%, rgba(255,255,255,0.14) 60%, rgba(0,0,0,0) 100%)',
+                                mixBlendMode: 'multiply',
+                              }}
+                            />
+                          )}
+                        </div>
                       ) : null
                     ) : (
                       <>
-                        <div className="h-full w-1/2 overflow-hidden">
-                          {pages[current] && hdLoadedPages[pages[current].n] && (
+                        <div className="relative h-full w-1/2 overflow-hidden">
+                          {pages[current] && (
                             <img
-                              src={hdLoadedPages[pages[current].n]}
-                              alt={`HD Page ${pages[current].n}`}
+                              src={hdLoadedPages[pages[current].n] || pages[current].image}
+                              alt={`Page ${pages[current].n}`}
                               className="h-full w-full object-fill select-none"
                               draggable={false}
+                              style={{
+                                imageRendering: '-webkit-optimize-contrast',
+                              }}
                             />
                           )}
                         </div>
-                        <div className="h-full w-1/2 overflow-hidden">
-                          {pages[current + 1] && hdLoadedPages[pages[current + 1].n] && (
+                        <div className="relative h-full w-1/2 overflow-hidden">
+                          {pages[current + 1] && (
                             <img
-                              src={hdLoadedPages[pages[current + 1].n]}
-                              alt={`HD Page ${pages[current + 1].n}`}
+                              src={hdLoadedPages[pages[current + 1].n] || pages[current + 1].image}
+                              alt={`Page ${pages[current + 1].n}`}
                               className="h-full w-full object-fill select-none"
                               draggable={false}
+                              style={{
+                                imageRendering: '-webkit-optimize-contrast',
+                              }}
                             />
                           )}
                         </div>
+                        {/* Subtle Center Magazine Spine Crease */}
+                        <div
+                          className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-6 z-20"
+                          style={{
+                            background: 'linear-gradient(to right, rgba(0,0,0,0.16) 0%, rgba(0,0,0,0.05) 25%, rgba(255,255,255,0.08) 50%, rgba(0,0,0,0.05) 75%, rgba(0,0,0,0.16) 100%)',
+                            mixBlendMode: 'multiply',
+                          }}
+                        />
                       </>
                     )}
                   </div>
