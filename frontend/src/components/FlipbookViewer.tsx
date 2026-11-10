@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { PageFlip } from 'page-flip';
-import { playPageFlipSound } from '../utils/sound';
+import { playPageFlipSound, unlockAudio } from '../utils/sound';
 
 export interface PageInfo {
   n: number;
@@ -202,6 +202,8 @@ export default function FlipbookViewer({
   const [hdLoadedPages, setHdLoadedPages] = useState<Record<number, string>>({});
   const [bookBounds, setBookBounds] = useState<{ left: number; top: number; width: number; height: number; pageWidth: number } | null>(null);
   const [isFlipping, setIsFlipping] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const flippingTimer = useRef<any>(null);
   const preloadedSet = useRef<Set<number>>(new Set());
   const dragStart = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
@@ -210,6 +212,30 @@ export default function FlipbookViewer({
   const pinchMidpoint = useRef<{ x: number; y: number; startPanX: number; startPanY: number } | null>(null);
   const lastTouchTap = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
   const pageEnterTimestamp = useRef<number>(Date.now());
+
+  // Dynamically observe stage dimensions to compute aspect-constrained page fitting with zero mobile side cutoff
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      const isMobile = window.innerWidth < 768;
+      // Reserve safe padding (20px mobile, 48px desktop) and bottom bar clearance (42px mobile, 56px desktop)
+      const padX = isMobile ? 20 : 48;
+      const padY = isMobile ? 42 : 56;
+      const availW = Math.max(100, Math.floor(rect.width - padX));
+      const availH = Math.max(100, Math.floor(rect.height - padY));
+      setStageSize({ width: availW, height: availH });
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    window.addEventListener('resize', updateSize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, [readingMode]);
 
   // Send telemetry helper
   const sendTelemetry = useCallback(
@@ -391,6 +417,7 @@ export default function FlipbookViewer({
   }, [isDraggingState, zoom, getMaxPan]);
 
   const handleStageMouseDown = (e: React.MouseEvent) => {
+    unlockAudio();
     if (zoom <= 1 || readingMode !== 'flip') return;
     if ((e.target as HTMLElement).closest('.reader-hotspot')) return;
 
@@ -406,6 +433,7 @@ export default function FlipbookViewer({
 
   // Mobile Touch Gestures: 1-Finger Pan when Zoomed, 2-Finger Pinch-to-Zoom, and Double-Tap Zoom
   const handleTouchStart = (e: React.TouchEvent) => {
+    unlockAudio();
     if ((e.target as HTMLElement).closest('.reader-hotspot') || (e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
 
     if (e.touches.length === 2) {
@@ -532,11 +560,30 @@ export default function FlipbookViewer({
 
   const soundConfigEnabled = settings.soundEnabled ?? true;
   const isSoundActive = soundConfigEnabled && !soundMuted;
+  const isSoundActiveRef = useRef(isSoundActive);
+  isSoundActiveRef.current = isSoundActive;
 
   const first = pages[0];
-  const singleWidth = first?.w || 600;
-  const singleHeight = first?.h || 800;
+  const singleWidth = first?.width || first?.w || 600;
+  const singleHeight = first?.height || first?.h || 800;
   const spreadAspect = (2 * singleWidth) / singleHeight;
+  const pageAspect = singleWidth / singleHeight;
+
+  // Compute exact aspect-constrained fitting box so pages fit comfortably within screen with zero cutoff on sides
+  const targetAspect = mode === 'landscape' ? spreadAspect : pageAspect;
+  let fitWidth = 0;
+  let fitHeight = 0;
+  if (stageSize.width > 0 && stageSize.height > 0) {
+    if (stageSize.width / stageSize.height > targetAspect) {
+      // Height-constrained (desktop widescreen or short viewport)
+      fitHeight = Math.round(stageSize.height);
+      fitWidth = Math.round(fitHeight * targetAspect);
+    } else {
+      // Width-constrained (mobile portrait & narrow screens)
+      fitWidth = Math.round(stageSize.width);
+      fitHeight = Math.round(fitWidth / targetAspect);
+    }
+  }
 
   // Compute Automatic Table of Contents fallback if none provided
   const effectiveToc: TocItem[] =
@@ -788,6 +835,15 @@ export default function FlipbookViewer({
           this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
       };
+      // Wrap drawFrame with save/restore so clipping regions never accumulate across frames
+      const origDrawFrame = render.drawFrame?.bind(render);
+      if (origDrawFrame) {
+        render.drawFrame = function () {
+          if (this.ctx) this.ctx.save();
+          origDrawFrame();
+          if (this.ctx) this.ctx.restore();
+        };
+      }
       const origDrawBookShadow = render.drawBookShadow?.bind(render);
       if (origDrawBookShadow) {
         render.drawBookShadow = function () {
@@ -855,7 +911,7 @@ export default function FlipbookViewer({
       const pageIdx = e.data as number;
       setCurrent(pageIdx);
       setResumedBanner(null);
-      if (isSoundActive) {
+      if (isSoundActiveRef.current) {
         playPageFlipSound();
       }
       setPan({ x: 0, y: 0 });
@@ -897,7 +953,7 @@ export default function FlipbookViewer({
 
     flip.current = pf;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages, readingMode, isSoundActive, updateBookPageStacks, singleWidth, singleHeight, settings.pageEffect]);
+  }, [pages, readingMode, updateBookPageStacks, singleWidth, singleHeight, settings.pageEffect]);
 
   useEffect(() => {
     if (readingMode !== 'flip') {
@@ -965,8 +1021,21 @@ export default function FlipbookViewer({
     };
   }, [initFlip, readingMode, updateBookPageStacks, pages.length]);
 
+  // When container fit dimensions update, notify PageFlip to resize canvas and keep stacks aligned
+  useEffect(() => {
+    if (flip.current && fitWidth > 0 && fitHeight > 0) {
+      try {
+        flip.current.update();
+        updateBookPageStacks(flip.current.getCurrentPageIndex(), pages.length, flip.current.getOrientation());
+      } catch {
+        // ignore
+      }
+    }
+  }, [fitWidth, fitHeight, updateBookPageStacks, pages.length]);
+
   const goto = useCallback(
     (i: number) => {
+      unlockAudio();
       const target = Math.max(0, Math.min(pages.length - 1, i));
       setCurrent(target);
       setResumedBanner(null);
@@ -985,6 +1054,7 @@ export default function FlipbookViewer({
   );
 
   const next = useCallback(() => {
+    unlockAudio();
     if (readingMode === 'flip' && flip.current) {
       flip.current.flipNext();
     } else {
@@ -993,6 +1063,7 @@ export default function FlipbookViewer({
   }, [readingMode, goto, current]);
 
   const prev = useCallback(() => {
+    unlockAudio();
     if (readingMode === 'flip' && flip.current) {
       flip.current.flipPrev();
     } else {
@@ -1529,6 +1600,7 @@ export default function FlipbookViewer({
       {/* Main Reading Stage: Supports 3 Modes ('flip' | 'scroll' | 'reader') */}
       {readingMode === 'flip' && (
         <div
+          ref={stageRef}
           className="hz-stage"
           onMouseDown={handleStageMouseDown}
           onDoubleClick={handleStageDoubleClick}
@@ -1630,7 +1702,7 @@ export default function FlipbookViewer({
             // - Back cover (current === total - 1 when even page count) is drawn on the left half (-pageWidth/2 from center),
             //   so we shift right by +pageWidth/2 to place the single back cover dead-center!
             // - Only shift when `current` actually changes (not on hover/fold_corner), preventing any hover jitter!
-            const pageW = bookBounds?.pageWidth || 0;
+            const pageW = fitWidth > 0 ? (mode === 'landscape' ? fitWidth / 2 : fitWidth) : (bookBounds?.pageWidth || 0);
             let coverCenterOffsetX = 0;
             if (mode === 'landscape' && pageW > 0) {
               if (current === 0) {
@@ -1644,7 +1716,9 @@ export default function FlipbookViewer({
               <div
                 className="hz-canvas-wrap"
                 style={{
-                  aspectRatio: mode === 'landscape' ? `${spreadAspect}` : `${singleWidth / singleHeight}`,
+                  width: fitWidth > 0 ? `${fitWidth}px` : undefined,
+                  height: fitHeight > 0 ? `${fitHeight}px` : undefined,
+                  aspectRatio: fitWidth > 0 ? undefined : (mode === 'landscape' ? `${spreadAspect}` : `${pageAspect}`),
                   transform: `translate3d(${pan.x + coverCenterOffsetX}px, ${pan.y}px, 0) scale(${zoom})`,
                   transformOrigin: 'center center',
                   transition: isDraggingState
@@ -1661,23 +1735,24 @@ export default function FlipbookViewer({
                 />
 
                 {/* Razor-Sharp Native Image Overlay (Active for stationary reading & zoom/pan) */}
-                {ready && bookBounds && (
+                {ready && (
                   <div
                     className="hz-crisp-page-overlay pointer-events-none absolute z-10 overflow-hidden"
                     style={{
                       left: `${Math.round(
                         mode === 'landscape' && current === 0
-                          ? bookBounds.left + bookBounds.pageWidth
-                          : bookBounds.left
+                          ? (fitWidth > 0 ? fitWidth / 2 : (bookBounds ? bookBounds.left + bookBounds.pageWidth : 0))
+                          : (mode === 'landscape' && fitWidth === 0 && bookBounds ? bookBounds.left : 0)
                       )}px`,
-                      top: `${Math.round(bookBounds.top)}px`,
+                      top: 0,
                       width: `${Math.round(
-                        mode === 'portrait' ||
-                          (mode === 'landscape' && (current === 0 || (current >= total - 1 && total % 2 === 0)))
-                          ? bookBounds.pageWidth
-                          : bookBounds.width
+                        mode === 'portrait'
+                          ? (fitWidth > 0 ? fitWidth : (bookBounds?.pageWidth || 0))
+                          : mode === 'landscape' && (current === 0 || (current >= total - 1 && total % 2 === 0))
+                          ? (fitWidth > 0 ? fitWidth / 2 : (bookBounds?.pageWidth || 0))
+                          : (fitWidth > 0 ? fitWidth : (bookBounds?.width || 0))
                       )}px`,
-                      height: `${Math.round(bookBounds.height)}px`,
+                      height: `${Math.round(fitHeight > 0 ? fitHeight : (bookBounds?.height || 0))}px`,
                       display: 'flex',
                       opacity: isFlipping && zoom <= 1 ? 0 : 1,
                       transition: isFlipping ? 'opacity 0.08s ease-out' : 'opacity 0.16s ease-in',
@@ -1689,7 +1764,7 @@ export default function FlipbookViewer({
                           <img
                             src={hdLoadedPages[pages[current].n] || pages[current].image}
                             alt={`Page ${pages[current].n}`}
-                            className="h-full w-full object-fill select-none"
+                            className="h-full w-full object-contain select-none"
                             draggable={false}
                             style={{
                               imageRendering: '-webkit-optimize-contrast',
@@ -1723,7 +1798,7 @@ export default function FlipbookViewer({
                             <img
                               src={hdLoadedPages[pages[current].n] || pages[current].image}
                               alt={`Page ${pages[current].n}`}
-                              className="h-full w-full object-fill select-none"
+                              className="h-full w-full object-contain select-none"
                               draggable={false}
                               style={{
                                 imageRendering: '-webkit-optimize-contrast',
@@ -1736,7 +1811,7 @@ export default function FlipbookViewer({
                             <img
                               src={hdLoadedPages[pages[current + 1].n] || pages[current + 1].image}
                               alt={`Page ${pages[current + 1].n}`}
-                              className="h-full w-full object-fill select-none"
+                              className="h-full w-full object-contain select-none"
                               draggable={false}
                               style={{
                                 imageRendering: '-webkit-optimize-contrast',
