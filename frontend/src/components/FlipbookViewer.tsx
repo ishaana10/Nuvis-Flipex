@@ -143,7 +143,17 @@ export default function FlipbookViewer({
   });
 
   const [ready, setReady] = useState(false);
-  const [mode, setMode] = useState<'portrait' | 'landscape'>('landscape');
+  const [mode, setMode] = useState<'portrait' | 'landscape'>(() => {
+    if (typeof window !== 'undefined') {
+      const normalizedEffect = (settings.pageEffect || 'magazine').toLowerCase().replace(/\s+/g, '_');
+      const isSingle = ['one_page', 'slider', 'cards', 'coverflow'].includes(normalizedEffect);
+      const isMobPortrait = window.innerWidth < 768 && window.innerWidth < window.innerHeight;
+      if (isSingle || isMobPortrait) return 'portrait';
+    }
+    return 'landscape';
+  });
+  const currentRef = useRef(current);
+  currentRef.current = current;
   const [soundMuted, setSoundMuted] = useState(false);
 
   // Drawers & Modals
@@ -213,16 +223,15 @@ export default function FlipbookViewer({
   const lastTouchTap = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
   const pageEnterTimestamp = useRef<number>(Date.now());
 
-  // Dynamically observe stage dimensions to compute aspect-constrained page fitting with zero mobile side cutoff
+  // Dynamically observe stage dimensions to compute aspect-constrained page fitting with zero mobile side/bottom cutoff
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
     const updateSize = () => {
       const rect = el.getBoundingClientRect();
-      const isMobile = window.innerWidth < 768;
-      // Reserve safe padding (20px mobile, 48px desktop) and bottom bar clearance (42px mobile, 56px desktop)
-      const padX = isMobile ? 20 : 48;
-      const padY = isMobile ? 42 : 56;
+      const cs = window.getComputedStyle(el);
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + 4;
+      const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0) + 4;
       const availW = Math.max(100, Math.floor(rect.width - padX));
       const availH = Math.max(100, Math.floor(rect.height - padY));
       setStageSize({ width: availW, height: availH });
@@ -445,7 +454,13 @@ export default function FlipbookViewer({
     if ((e.target as HTMLElement).closest('.reader-hotspot') || (e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
 
     if (e.touches.length === 2) {
-      // 2-Finger Pinch Start
+      // 2-Finger Pinch Start: cancel any single-finger page fold
+      if (flip.current) {
+        const pfAny = flip.current as any;
+        pfAny.isUserTouch = false;
+        pfAny.isUserMove = false;
+        if (pfAny.ui) pfAny.ui.touchPoint = null;
+      }
       const t0 = e.touches[0];
       const t1 = e.touches[1];
       const dx = t0.clientX - t1.clientX;
@@ -468,6 +483,12 @@ export default function FlipbookViewer({
       // Mobile Double-Tap to Zoom In / Out
       if (timeDiff < 320 && distDiff < 40) {
         lastTouchTap.current = { time: 0, x: 0, y: 0 };
+        if (flip.current) {
+          const pfAny = flip.current as any;
+          pfAny.isUserTouch = false;
+          pfAny.isUserMove = false;
+          if (pfAny.ui) pfAny.ui.touchPoint = null;
+        }
         if (zoom > 1) {
           handleZoomChange(1);
           setPan({ x: 0, y: 0 });
@@ -623,10 +644,6 @@ export default function FlipbookViewer({
       leftStack = document.createElement('div');
       leftStack.className = 'stf-page-stack stf-page-stack-left';
       leftStack.innerHTML = '<div class="stf-stack-stepped top"></div><div class="stf-stack-stepped bottom"></div>';
-      leftStack.addEventListener('click', (e) => {
-        e.stopPropagation();
-        flip.current?.flipPrev();
-      });
       parent.appendChild(leftStack);
     }
 
@@ -635,10 +652,6 @@ export default function FlipbookViewer({
       rightStack = document.createElement('div');
       rightStack.className = 'stf-page-stack stf-page-stack-right';
       rightStack.innerHTML = '<div class="stf-stack-stepped top"></div><div class="stf-stack-stepped bottom"></div>';
-      rightStack.addEventListener('click', (e) => {
-        e.stopPropagation();
-        flip.current?.flipNext();
-      });
       parent.appendChild(rightStack);
     }
 
@@ -770,14 +783,17 @@ export default function FlipbookViewer({
     const isExplicitSinglePage = ['one_page', 'slider', 'cards', 'coverflow'].includes(normalizedPageEffect);
     const isHardCoverEffect = ['book', 'album', 'notebook'].includes(normalizedPageEffect);
     const shouldUsePortrait = isExplicitSinglePage || isMobilePortrait;
+    const startPageIdx = Math.max(0, Math.min(pages.length - 1, currentRef.current));
+
+    setMode(shouldUsePortrait ? 'portrait' : 'landscape');
 
     const pf = new PageFlip(container, {
       width: singleWidth,
       height: singleHeight,
       size: 'stretch',
-      minWidth: shouldUsePortrait ? 9999 : 200,
+      minWidth: shouldUsePortrait ? 9999 : 100,
       maxWidth: 2400,
-      minHeight: 260,
+      minHeight: 100,
       maxHeight: 1800,
       showCover: true,
       maxShadowOpacity: 0.85,
@@ -787,7 +803,7 @@ export default function FlipbookViewer({
       useMouseEvents: true,
       showPageCorners: false,
       swipeDistance: 30,
-      startPage: current,
+      startPage: startPageIdx,
     });
 
     const BLANK_PAGE_SVG =
@@ -797,35 +813,83 @@ export default function FlipbookViewer({
     // Loads images for publications up to 24 pages or within +-6 pages of current spread.
     // Distant pages receive an instant solid opaque SVG data URI placeholder.
     const initialUrls = pages.map((p, idx) => {
-      const inWindow = pages.length <= 24 || Math.abs(idx - current) <= 6;
+      const inWindow = pages.length <= 24 || Math.abs(idx - startPageIdx) <= 6;
       return inWindow ? p.image : BLANK_PAGE_SVG;
     });
 
     pf.loadFromImages(initialUrls);
 
-    // Patch CanvasRenderer and UI after loadFromImages to support High-DPI Retina displays
-    // and draw magazine spine creases on the covers.
+    // Patch CanvasRenderer and UI after loadFromImages to support High-DPI Retina displays,
+    // exact 100% container fitting (zero bottom/right cutoff), and magazine spine creases.
     const render = (pf as any).getRender?.();
     const ui = (pf as any).getUI?.();
 
-    if (ui && ui.canvas) {
-      const origResizeCanvas = ui.resizeCanvas.bind(ui);
-      ui.resizeCanvas = function () {
-        origResizeCanvas();
-        const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
-        const cssW = parseInt(getComputedStyle(this.canvas).getPropertyValue('width'), 10) || this.canvas.clientWidth || 300;
-        const cssH = parseInt(getComputedStyle(this.canvas).getPropertyValue('height'), 10) || this.canvas.clientHeight || 400;
-        this.canvas.width = Math.round(cssW * dpr);
-        this.canvas.height = Math.round(cssH * dpr);
-        const ctx = this.app?.getRender()?.getContext?.();
-        if (ctx) {
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-        }
-      };
-      ui.resizeCanvas();
+    container.style.minWidth = '0px';
+    container.style.minHeight = '0px';
+    container.style.width = '100%';
+    container.style.height = '100%';
+
+    if (ui) {
+      if (ui.wrapper) {
+        ui.wrapper.style.paddingBottom = '0px';
+        ui.wrapper.style.width = '100%';
+        ui.wrapper.style.height = '100%';
+      }
+
+      if (ui.setOrientationStyle) {
+        const origSetOrientationStyle = ui.setOrientationStyle.bind(ui);
+        ui.setOrientationStyle = function (orientation: any) {
+          origSetOrientationStyle(orientation);
+          if (this.wrapper) {
+            this.wrapper.style.paddingBottom = '0px';
+            this.wrapper.style.width = '100%';
+            this.wrapper.style.height = '100%';
+          }
+          this.resizeCanvas?.();
+        };
+      }
+
+      if (ui.canvas) {
+        ui.resizeCanvas = function () {
+          const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+          const cssW =
+            this.canvas.offsetWidth ||
+            this.canvas.clientWidth ||
+            parseInt(getComputedStyle(this.canvas).getPropertyValue('width'), 10) ||
+            300;
+          const cssH =
+            this.canvas.offsetHeight ||
+            this.canvas.clientHeight ||
+            parseInt(getComputedStyle(this.canvas).getPropertyValue('height'), 10) ||
+            400;
+          const targetW = Math.round(cssW * dpr);
+          const targetH = Math.round(cssH * dpr);
+          if (this.canvas.width !== targetW || this.canvas.height !== targetH) {
+            this.canvas.width = targetW;
+            this.canvas.height = targetH;
+          }
+          const ctx = this.app?.getRender()?.getContext?.();
+          if (ctx) {
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+          }
+        };
+        ui.resizeCanvas();
+      }
     }
+
+    const origPfUpdate = pf.update.bind(pf);
+    pf.update = function () {
+      if (ui?.wrapper) {
+        ui.wrapper.style.paddingBottom = '0px';
+        ui.wrapper.style.width = '100%';
+        ui.wrapper.style.height = '100%';
+      }
+      ui?.resizeCanvas?.();
+      origPfUpdate();
+      ui?.resizeCanvas?.();
+    };
 
     const limitPointToCircle = (
       centerPoint: { x: number; y: number },
@@ -1330,7 +1394,90 @@ export default function FlipbookViewer({
         }
         return res;
       };
+
+      const origGetDirectionByPoint = flipController.getDirectionByPoint?.bind(flipController);
+      if (origGetDirectionByPoint) {
+        flipController.getDirectionByPoint = function (bookPos: { x: number; y: number }) {
+          if (this.render?.getOrientation?.() === 'portrait' && (pf as any).__lastDragDx !== undefined) {
+            const dx = (pf as any).__lastDragDx as number;
+            if (Math.abs(dx) > 2) {
+              return dx > 0 ? 1 : 0;
+            }
+          }
+          return origGetDirectionByPoint(bookPos);
+        };
+      }
+
+      flipController.stopMove = function (forceSwipeTurn = false) {
+        if (this.calc === null) return;
+        const pos = this.calc.getPosition();
+        const bounds = this.getBoundsRect();
+        const destY = this.calc.getCorner() === 'bottom' ? bounds.height : 0;
+        const isPortrait = this.render?.getOrientation?.() === 'portrait';
+        const dir = this.calc.getDirection();
+
+        const crossedThreshold = isPortrait
+          ? dir === 0
+            ? pos.x <= bounds.pageWidth * 0.55
+            : pos.x <= -bounds.pageWidth * 0.45
+          : pos.x <= 0;
+
+        if (forceSwipeTurn || crossedThreshold) {
+          this.animateFlippingTo(pos, { x: -bounds.pageWidth, y: destY }, true);
+        } else {
+          this.animateFlippingTo(pos, { x: bounds.pageWidth, y: destY }, false);
+        }
+      };
     }
+
+    // Restrict page flip trigger strictly to:
+    // 1. Clicking navigation arrows (flipNext / flipPrev), OR
+    // 2. Actively dragging/flopping the page with mouse or finger (never on a simple click or tap!)
+    (pf as any).userMove = function (pos: { x: number; y: number }, isTouch: boolean) {
+      // If user started touching on mobile, start folding immediately on drag (> 6px) without 250ms delay
+      if (isTouch && !this.isUserTouch && this.ui?.touchPoint) {
+        const startPt = this.ui.touchPoint.point;
+        if (Math.hypot(pos.x - startPt.x, pos.y - startPt.y) > 6) {
+          this.__touchStartTime = this.ui.touchPoint.time;
+          this.ui.touchPoint = null;
+          this.startUserTouch(startPt);
+        }
+      }
+
+      if (this.isUserTouch) {
+        const dx = pos.x - this.mousePosition.x;
+        const dy = pos.y - this.mousePosition.y;
+        if (Math.hypot(dx, dy) > 6) {
+          this.__lastDragDx = dx;
+          if (!this.isUserMove && this.render?.getOrientation?.() === 'landscape') {
+            // In landscape mode, only start folding when pulling inward toward the spine
+            const bounds = this.render.getRect();
+            const bookX = pos.x - bounds.left;
+            if ((bookX >= bounds.width / 2 && dx > 2) || (bookX < bounds.width / 2 && dx < -2)) {
+              return;
+            }
+          }
+          this.isUserMove = true;
+          this.flipController.fold(pos);
+        }
+      }
+    };
+
+    (pf as any).userStop = function (pos: { x: number; y: number }, isSwipe = false) {
+      if (this.isUserTouch) {
+        this.isUserTouch = false;
+        if (!isSwipe && this.isUserMove) {
+          const dx = this.mousePosition ? pos.x - this.mousePosition.x : 0;
+          const dir = this.flipController?.calc?.getDirection?.();
+          const swipeTurn =
+            (dir === 0 && dx < -35) ||
+            (dir === 1 && dx > 35);
+          this.flipController.stopMove(swipeTurn);
+        }
+      }
+      this.isUserMove = false;
+      this.__lastDragDx = undefined;
+    };
 
     pf.on('changeState', (e: any) => {
       const st = e.data;
@@ -1372,8 +1519,11 @@ export default function FlipbookViewer({
 
     pf.on('changeOrientation', (e) => {
       const o = e.data as 'portrait' | 'landscape';
+      const actualIdx = pf.getCurrentPageIndex();
       setMode(o);
+      setCurrent(actualIdx);
       setTimeout(() => {
+        pf.update();
         updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
       }, 60);
     });
@@ -1381,15 +1531,21 @@ export default function FlipbookViewer({
     pf.on('init', () => {
       setReady(true);
       setIsFlipping(false);
+      pf.update();
       const o = pf.getOrientation();
+      const actualIdx = pf.getCurrentPageIndex();
       setMode(o);
+      setCurrent(actualIdx);
       setTimeout(() => {
+        pf.update();
         updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
       }, 60);
       setTimeout(() => {
+        pf.update();
         updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
       }, 200);
       setTimeout(() => {
+        pf.update();
         updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
       }, 400);
     });
