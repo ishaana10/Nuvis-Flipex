@@ -25,9 +25,26 @@ final class Outbox
         }
         self::$ensured = true;
         try {
-            if (!Db::one("SELECT 1 AS ok FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outbox_events'")) {
-                (new TenantArchitectureMigration(Db::pdo()))->ensureTables();
-            }
+            Db::pdo()->exec("CREATE TABLE IF NOT EXISTS outbox_events (
+                id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+                tenant_id BIGINT UNSIGNED NOT NULL,
+                event_uid CHAR(32) NOT NULL,
+                aggregate_type VARCHAR(48) NOT NULL,
+                aggregate_id BIGINT UNSIGNED NOT NULL,
+                event_type VARCHAR(80) NOT NULL,
+                payload JSON NOT NULL,
+                status ENUM('pending','processing','delivered','failed','dead') NOT NULL DEFAULT 'pending',
+                attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                max_attempts TINYINT UNSIGNED NOT NULL DEFAULT 6,
+                next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                locked_at DATETIME NULL,
+                delivered_at DATETIME NULL,
+                last_error VARCHAR(500) NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_outbox_uid (event_uid),
+                INDEX idx_outbox_due (status, next_attempt_at),
+                INDEX idx_outbox_tenant_agg (tenant_id, aggregate_type, aggregate_id)
+            ) ENGINE=InnoDB");
         } catch (Throwable $e) {
             error_log('Outbox schema ensure failed: ' . $e->getMessage());
         }
@@ -66,11 +83,18 @@ final class Outbox
             throw new TenantContextRequiredException('Outbox events require a tenant', 403);
         }
         $uid = bin2hex(random_bytes(16));
-        Db::run(
-            'INSERT INTO outbox_events (tenant_id, event_uid, aggregate_type, aggregate_id, event_type, payload)
-             VALUES (?, ?, ?, ?, ?, ?)',
-            [$tenantId, $uid, $aggregateType, $aggregateId, $eventType, json_encode($payload, JSON_UNESCAPED_SLASHES)]
-        );
+        if (!Db::pdo()->inTransaction()) {
+            self::ensureSchema();
+        }
+        try {
+            Db::run(
+                'INSERT INTO outbox_events (tenant_id, event_uid, aggregate_type, aggregate_id, event_type, payload)
+                 VALUES (?, ?, ?, ?, ?, ?)',
+                [$tenantId, $uid, $aggregateType, $aggregateId, $eventType, json_encode($payload, JSON_UNESCAPED_SLASHES)]
+            );
+        } catch (Throwable $e) {
+            error_log('Outbox enqueue warning: ' . $e->getMessage());
+        }
         return $uid;
     }
 

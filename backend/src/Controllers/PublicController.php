@@ -765,7 +765,7 @@ HTML;
         }
         self::$unlockSchemaEnsured = true;
         try {
-            Db::run(
+            Db::pdo()->exec(
                 'CREATE TABLE IF NOT EXISTS revoked_unlock_tokens (
                     jti VARCHAR(64) NOT NULL PRIMARY KEY,
                     flipbook_id INT UNSIGNED NOT NULL,
@@ -775,9 +775,12 @@ HTML;
                     INDEX idx_revoked_unlock_exp (expires_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
             );
-            $col = Db::one("SHOW COLUMNS FROM flipbooks LIKE 'unlock_revoked_at'");
+            $col = Db::one(
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'flipbooks' AND COLUMN_NAME = 'unlock_revoked_at' LIMIT 1"
+            );
             if (!$col) {
-                Db::run('ALTER TABLE flipbooks ADD COLUMN unlock_revoked_at TIMESTAMP NULL DEFAULT NULL');
+                Db::pdo()->exec('ALTER TABLE flipbooks ADD COLUMN unlock_revoked_at TIMESTAMP NULL DEFAULT NULL');
             }
         } catch (Throwable) {
         }
@@ -827,7 +830,8 @@ HTML;
         // Reject URL query string tokens (?token=...) so unlock tokens never leak in URLs, logs, or Referer headers
         $queryParams = $req->getQueryParams();
         if (!empty($queryParams['token'])) {
-            JsonLogger::warning('unlock_token.url_query_rejected', 'Rejected attempt to pass publication unlock token in URL query string', [
+            JsonLogger::warning('Rejected attempt to pass publication unlock token in URL query string', [
+                'event' => 'unlock_token.url_query_rejected',
                 'flipbook_id' => $flipbookId,
             ]);
         }

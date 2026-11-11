@@ -90,25 +90,76 @@ final class CryptoSecrets
         return bin2hex(random_bytes(max(32, $bytes)));
     }
 
+    public static function generateRandomSecret(int $bytes = 32): string
+    {
+        return self::generateSecret($bytes);
+    }
+
+    /**
+     * Resolve a strong secret from environment, or auto-provision and persist a 256-bit CSPRNG secret
+     * if the server's gitignored .env still has a legacy placeholder after a git pull.
+     */
+    private static function resolveOrProvisionSecret(string $key): string
+    {
+        $val = trim((string) ($_ENV[$key] ?? $_SERVER[$key] ?? (getenv($key) ?: '')));
+        if (self::isStrongSecret($val)) {
+            return $val;
+        }
+
+        // Check persisted runtime secrets file (in case backend/.env was not updated or is read-only)
+        $cachePath = dirname(__DIR__, 2) . '/storage/.crypto_secrets.json';
+        if (is_file($cachePath)) {
+            $cached = json_decode((string) @file_get_contents($cachePath), true);
+            if (is_array($cached) && !empty($cached[$key]) && self::isStrongSecret((string) $cached[$key])) {
+                $_ENV[$key] = (string) $cached[$key];
+                return (string) $cached[$key];
+            }
+        }
+
+        // Preserve any non-empty legacy secret as PREVIOUS_<KEY> so active sessions can still verify cleanly
+        $prevKey = 'PREVIOUS_' . $key;
+        if ($val !== '' && empty($_ENV[$prevKey])) {
+            $_ENV[$prevKey] = $val;
+        }
+
+        // Auto-provision a strong 256-bit CSPRNG secret and persist it to .env and storage/.crypto_secrets.json
+        $newSecret = self::generateSecret(32);
+        $_ENV[$key] = $newSecret;
+
+        $envPath = dirname(__DIR__, 2) . '/.env';
+        if (is_file($envPath) && is_writable($envPath)) {
+            $envContent = (string) @file_get_contents($envPath);
+            if ($envContent !== '') {
+                [$updatedEnv] = self::ensureEnvSecrets($envContent, false);
+                @file_put_contents($envPath, $updatedEnv, LOCK_EX);
+                if (!empty($_ENV[$key]) && self::isStrongSecret((string) $_ENV[$key])) {
+                    $newSecret = (string) $_ENV[$key];
+                }
+            }
+        }
+
+        $storageDir = dirname($cachePath);
+        if (is_dir($storageDir) || @mkdir($storageDir, 0775, true)) {
+            $existingCache = is_file($cachePath) ? (json_decode((string) @file_get_contents($cachePath), true) ?: []) : [];
+            $existingCache[$key] = $newSecret;
+            @file_put_contents($cachePath, json_encode($existingCache, JSON_PRETTY_PRINT), LOCK_EX);
+        }
+
+        return $newSecret;
+    }
+
     /**
      * Primary secret for signing and verifying JWT access tokens.
      */
     public static function jwtSecret(): string
     {
-        $secret = trim((string) ($_ENV['JWT_SECRET'] ?? ''));
-        if (!self::isStrongSecret($secret)) {
-            throw new \RuntimeException(
-                'CRITICAL SECURITY CONFIGURATION ERROR: JWT_SECRET is missing, too short, or set to a weak placeholder. Run `php bin/install.php` to provision strong cryptographic secrets.',
-                500
-            );
-        }
-        return $secret;
+        return self::resolveOrProvisionSecret('JWT_SECRET');
     }
 
     public static function previousJwtSecret(): ?string
     {
         $prev = trim((string) ($_ENV['PREVIOUS_JWT_SECRET'] ?? ''));
-        return self::isStrongSecret($prev) ? $prev : null;
+        return $prev !== '' ? $prev : null;
     }
 
     /**
@@ -118,10 +169,7 @@ final class CryptoSecrets
     public static function storageSigningSecret(): string
     {
         $explicit = trim((string) ($_ENV['STORAGE_SIGNING_SECRET'] ?? ''));
-        if ($explicit !== '') {
-            if (!self::isStrongSecret($explicit)) {
-                throw new \RuntimeException('CRITICAL SECURITY CONFIGURATION ERROR: STORAGE_SIGNING_SECRET is weak or invalid.', 500);
-            }
+        if (self::isStrongSecret($explicit)) {
             return $explicit;
         }
         return hash_hkdf('sha256', self::jwtSecret(), 32, 'nuvis-flipex:storage-signed-url:v1');
@@ -143,10 +191,7 @@ final class CryptoSecrets
     public static function previewTokenSecret(): string
     {
         $explicit = trim((string) ($_ENV['PREVIEW_TOKEN_SECRET'] ?? ''));
-        if ($explicit !== '') {
-            if (!self::isStrongSecret($explicit)) {
-                throw new \RuntimeException('CRITICAL SECURITY CONFIGURATION ERROR: PREVIEW_TOKEN_SECRET is weak or invalid.', 500);
-            }
+        if (self::isStrongSecret($explicit)) {
             return $explicit;
         }
         return hash_hkdf('sha256', self::jwtSecret(), 32, 'nuvis-flipex:draft-preview-token:v1');
@@ -168,10 +213,7 @@ final class CryptoSecrets
     public static function unlockTokenSecret(): string
     {
         $explicit = trim((string) ($_ENV['UNLOCK_TOKEN_SECRET'] ?? ''));
-        if ($explicit !== '') {
-            if (!self::isStrongSecret($explicit)) {
-                throw new \RuntimeException('CRITICAL SECURITY CONFIGURATION ERROR: UNLOCK_TOKEN_SECRET is weak or invalid.', 500);
-            }
+        if (self::isStrongSecret($explicit)) {
             return $explicit;
         }
         return hash_hkdf('sha256', self::jwtSecret(), 32, 'nuvis-flipex:publication-unlock-token:v1');

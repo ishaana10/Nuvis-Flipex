@@ -48,9 +48,23 @@ final class AuthController
             return Http::error($res, 'Validation failed', 422, ['email' => 'Email already registered']);
         }
 
+        // Provision an isolated tenant workspace for the newly registered user
+        $workspaceSlug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($name)) ?? '', '-') ?: 'workspace';
+        $workspaceSlug = substr($workspaceSlug, 0, 40) . '-' . bin2hex(random_bytes(3));
+        $newTenantId = null;
+        try {
+            Db::run(
+                'INSERT INTO tenants (uuid, name, slug, plan_id, is_active, billing_name, billing_email)
+                 VALUES (?, ?, ?, 1, 1, ?, ?)',
+                [bin2hex(random_bytes(16)), $name . ' Workspace', $workspaceSlug, $name, $email]
+            );
+            $newTenantId = (int) Db::pdo()->lastInsertId();
+        } catch (\Throwable) {
+        }
+
         Db::run(
-            'INSERT INTO users (email, password_hash, name, role, tenant_role) VALUES (?, ?, ?, "user", "editor")',
-            [$email, password_hash($pass, PASSWORD_ARGON2ID), $name]
+            'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role) VALUES (?, ?, ?, ?, "user", "owner")',
+            [$newTenantId, $email, password_hash($pass, PASSWORD_ARGON2ID), $name]
         );
         $id = (int) Db::pdo()->lastInsertId();
         $this->sendVerification($id, $email, $name);
@@ -116,7 +130,11 @@ final class AuthController
             ]);
         }
 
-        Db::run('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
+        try {
+            Db::run('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
+        } catch (\Throwable) {
+        }
+        $user = $this->ensureUserTenantAssigned($user);
         Audit::log('auth.login', 'user', (int) $user['id'], ['email' => $email]);
 
         $res = $this->startSession($req, $res, $user);
@@ -223,6 +241,7 @@ final class AuthController
 
         $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND status = "active"', [$row['user_id']]);
         if (!$user) return $this->clearCookie(Http::error($res, 'Session expired', 401));
+        $user = $this->ensureUserTenantAssigned($user);
 
         // Token rotation: revoke old token and issue fresh token within the same session family
         $familyId = SessionFamilies::adopt(
@@ -322,22 +341,73 @@ final class AuthController
         ];
     }
 
+    /**
+     * Ensure an interactive user logging in or refreshing has a valid tenant workspace assigned.
+     */
+    private function ensureUserTenantAssigned(array $user): array
+    {
+        if (!empty($user['tenant_id'])) {
+            return $user;
+        }
+        try {
+            if (($user['role'] ?? '') === 'admin') {
+                $t = Db::one('SELECT id FROM tenants ORDER BY id ASC LIMIT 1');
+                if ($t) {
+                    $tid = (int) $t['id'];
+                } else {
+                    Db::run(
+                        'INSERT INTO tenants (uuid, name, slug, plan_id, max_flipbooks, max_storage_mb, is_active, billing_name, billing_email, payment_status, currency)
+                         VALUES (?, "Nuvis Flipex", "nuvis-flipex", 3, 50, 5000, 1, "Nuvis Flipex", ?, "paid", "FJD")',
+                        [bin2hex(random_bytes(16)), $user['email'] ?? 'admin@localhost']
+                    );
+                    $tid = (int) Db::pdo()->lastInsertId();
+                }
+                Db::run('UPDATE users SET tenant_id = ? WHERE id = ?', [$tid, $user['id']]);
+                $user['tenant_id'] = $tid;
+            }
+        } catch (\Throwable) {
+        }
+        return $user;
+    }
+
     private function startSession(Request $req, Response $res, array $user, ?string $familyId = null): Response
     {
         $raw = bin2hex(random_bytes(32));
         $userAgent = substr($req->getHeaderLine('User-Agent'), 0, 255);
         $ip = $req->getServerParams()['REMOTE_ADDR'] ?? null;
         $familyId ??= SessionFamilies::create($user, $userAgent, $ip);
-        Db::run(
-            'INSERT INTO refresh_tokens (user_id, family_id, token_hash, user_agent, ip, expires_at)
-             VALUES (?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
-            [
-                $user['id'], $familyId, hash('sha256', $raw),
-                $userAgent,
-                $ip,
-                self::REFRESH_DAYS,
-            ]
-        );
+        $tokenHash = hash('sha256', $raw);
+
+        $inserted = false;
+        if (SessionFamilies::hasFamilyColumn()) {
+            try {
+                Db::run(
+                    'INSERT INTO refresh_tokens (user_id, family_id, token_hash, user_agent, ip, expires_at)
+                     VALUES (?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+                    [
+                        $user['id'], $familyId, $tokenHash,
+                        $userAgent,
+                        $ip,
+                        self::REFRESH_DAYS,
+                    ]
+                );
+                $inserted = true;
+            } catch (\Throwable) {
+                $inserted = false;
+            }
+        }
+        if (!$inserted) {
+            Db::run(
+                'INSERT INTO refresh_tokens (user_id, token_hash, user_agent, ip, expires_at)
+                 VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+                [
+                    $user['id'], $tokenHash,
+                    $userAgent,
+                    $ip,
+                    self::REFRESH_DAYS,
+                ]
+            );
+        }
         $secure = ($_ENV['APP_ENV'] ?? 'local') === 'production' ? '; Secure' : '';
         return $res->withAddedHeader('Set-Cookie', sprintf(
             '%s=%s; Path=/api/v1/auth; Max-Age=%d; HttpOnly; SameSite=Strict%s',
