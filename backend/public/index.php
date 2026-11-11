@@ -94,6 +94,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $f->get('/{id:[0-9]+}/versions', [FlipbookController::class, 'versions']);
         $f->post('/{id:[0-9]+}/versions/{versionId:[0-9]+}/restore', [FlipbookController::class, 'restoreVersion']);
         $f->post('/{id:[0-9]+}/retry', [FlipbookController::class, 'retryConversion']);
+        $f->post('/{id:[0-9]+}/revoke-unlock-tokens', [FlipbookController::class, 'revokeUnlockTokens']);
 
         // Protected Document & Thumbnail Streaming (Strictly Authenticated & Tenant-Scoped)
         $f->get('/{id:[0-9]+}/pages/{page:[0-9]+}', [FlipbookController::class, 'servePage']);
@@ -145,6 +146,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->get('/public/{slug}/thumbs/{page:[0-9]+}', [PublicController::class, 'thumb']);
     $g->get('/public/{slug}/search', [PublicController::class, 'search']);
     $g->post('/public/{slug}/unlock', [PublicController::class, 'unlock'])->add(new RateLimit('unlock', 20, 300));
+    $g->post('/public/{slug}/lock', [PublicController::class, 'lock']);
     $g->post('/public/{slug}/view', [PublicController::class, 'trackView']);
     $g->post('/public/{slug}/telemetry', [PublicController::class, 'trackTelemetry']);
     $g->get('/public/{slug}/download', [PublicController::class, 'download']);
@@ -155,6 +157,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->group('/integrations', function (RouteCollectorProxy $int) {
         $int->get('/api-keys', [IntegrationController::class, 'listApiKeys']);
         $int->post('/api-keys', [IntegrationController::class, 'createApiKey']);
+        $int->post('/api-keys/{id:[0-9]+}/rotate', [IntegrationController::class, 'rotateApiKey']);
         $int->delete('/api-keys/{id:[0-9]+}', [IntegrationController::class, 'revokeApiKey']);
 
         $int->get('/webhooks', [IntegrationController::class, 'listWebhooks']);
@@ -170,6 +173,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $int->get('/wordpress-plugin', [IntegrationController::class, 'downloadWordpressPlugin']);
     })->add(new TenantScope())->add(new Auth());
 
+    // Signed Payment Gateway Webhook Verification (HMAC-SHA256 via X-Payment-Signature)
+    $g->post('/billing/webhooks/{provider}', [BillingController::class, 'handlePaymentWebhook']);
+
     // Commercial Billing, Invoices, Tax, Metering, Renewals & Fiji Bank Reconciliation
     $g->group('/billing', function (RouteCollectorProxy $bil) {
         $bil->get('/overview', [BillingController::class, 'overview']);
@@ -179,11 +185,13 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $bil->post('/generate-invoice', [BillingController::class, 'generateInvoice']);
         $bil->post('/invoices/{id:[0-9]+}/pay', [BillingController::class, 'payInvoice']);
         $bil->post('/invoices/{id:[0-9]+}/reconcile', [BillingController::class, 'reconcileInvoice']);
+        $bil->post('/invoices/{id:[0-9]+}/reverse', [BillingController::class, 'reversePayment']);
     })->add(new TenantScope())->add(new Auth());
 
     // Modular Architecture, System Telemetry, DLQ, Structured Logs, Error Monitor & Backups
     $g->group('/devops', function (RouteCollectorProxy $dev) {
         $dev->get('/overview', [DevOpsController::class, 'overview']);
+        $dev->get('/jobs', [DevOpsController::class, 'publicationJobs']);
         $dev->post('/backups/create', [DevOpsController::class, 'createBackup']);
         $dev->post('/backups/{id:[0-9]+}/verify', [DevOpsController::class, 'verifyBackup']);
         $dev->post('/dlq/{id:[0-9]+}/retry', [DevOpsController::class, 'retryDeadLetter']);
@@ -191,6 +199,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $dev->post('/errors/simulate', [DevOpsController::class, 'simulateErrorReport']);
         $dev->post('/errors/{id:[0-9]+}/resolve', [DevOpsController::class, 'resolveErrorReport']);
         $dev->post('/migrations/run', [DevOpsController::class, 'runMigrations']);
+        $dev->post('/secrets/rotate', [DevOpsController::class, 'rotateSecrets']);
     })->add(new TenantScope())->add(new Auth());
 
     $g->group('/me', function (RouteCollectorProxy $m) {

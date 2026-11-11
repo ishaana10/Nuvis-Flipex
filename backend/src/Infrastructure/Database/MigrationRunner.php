@@ -48,6 +48,12 @@ final class MigrationRunner
             'downSql' => 'DROP TABLE IF EXISTS system_backups; DROP TABLE IF EXISTS error_reports; DROP TABLE IF EXISTS dead_letter_jobs;',
             'reversible' => true,
         ],
+        '2026_11_11_000007_payment_security_and_api_key_controls' => [
+            'description' => 'Three-stage payment verification, payment_transactions, immutable payment_audit_logs, finance RBAC role, and API key scope/quota/IP enforcement',
+            'upSql' => 'SELECT 1',
+            'downSql' => 'DROP TABLE IF EXISTS payment_audit_logs; DROP TABLE IF EXISTS payment_transactions;',
+            'reversible' => true,
+        ],
     ];
 
     public static function status(): array

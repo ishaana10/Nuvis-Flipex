@@ -7,6 +7,7 @@ use App\Middleware\TenantScope;
 use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\Rbac;
 use App\Support\Slug;
 use App\Support\WebhookDispatcher;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -116,20 +117,29 @@ final class IntegrationController
      */
     public function listApiKeys(Request $req, Response $res): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'api_keys.manage');
+
         $tid = $this->resolveTenantId($req);
         $rows = Db::all(
-            'SELECT id, name, key_prefix, scopes, last_used_at, last_used_ip, expires_at, revoked_at, created_at
+            'SELECT id, name, key_prefix, scopes, allowed_ips, daily_quota, usage_count, quota_date,
+                    last_used_at, last_used_ip, expires_at, revoked_at, rotated_from_id, created_at
              FROM api_keys
              WHERE tenant_id = ? AND revoked_at IS NULL
              ORDER BY created_at DESC',
             [$tid]
         );
 
+        $today = date('Y-m-d');
         return Http::json($res, array_map(fn($r) => [
             'id' => (int) $r['id'],
             'name' => $r['name'],
             'keyPrefix' => $r['key_prefix'],
-            'scopes' => json_decode((string) ($r['scopes'] ?? '[]'), true) ?: ['flipbooks:read', 'flipbooks:write', 'erp:publish'],
+            'scopes' => Rbac::extractScopes($r),
+            'allowedIps' => $r['allowed_ips'] ?: null,
+            'dailyQuota' => $r['daily_quota'] !== null ? (int) $r['daily_quota'] : null,
+            'usageToday' => (($r['quota_date'] ?? '') === $today) ? (int) ($r['usage_count'] ?? 0) : 0,
+            'rotatedFromId' => $r['rotated_from_id'] !== null ? (int) $r['rotated_from_id'] : null,
             'lastUsedAt' => $r['last_used_at'],
             'lastUsedIp' => $r['last_used_ip'],
             'expiresAt' => $r['expires_at'],
@@ -139,12 +149,14 @@ final class IntegrationController
 
     /**
      * POST /api/v1/integrations/api-keys
-     * Generates a new SHA-256 hashed API key scoped to the tenant.
+     * Generates a new SHA-256 hashed API key scoped to the tenant with explicit scopes, optional IP allowlist, and optional daily quota.
      */
     public function createApiKey(Request $req, Response $res): Response
     {
-        $tid = $this->resolveTenantId($req);
         $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'api_keys.manage');
+
+        $tid = $this->resolveTenantId($req);
         $b = (array) $req->getParsedBody();
 
         $name = trim((string) ($b['name'] ?? 'ERP Catalogue Integration Key'));
@@ -152,9 +164,25 @@ final class IntegrationController
             return Http::error($res, 'Key name is required', 422);
         }
 
-        $scopes = isset($b['scopes']) && is_array($b['scopes'])
+        $requestedScopes = isset($b['scopes']) && is_array($b['scopes'])
             ? array_values(array_map('strval', $b['scopes']))
             : ['flipbooks:read', 'flipbooks:write', 'erp:publish', 'analytics:read'];
+
+        $scopes = array_values(array_intersect($requestedScopes, Rbac::SUPPORTED_API_SCOPES));
+        if (empty($scopes)) {
+            return Http::error(
+                $res,
+                'At least one valid API scope is required (' . implode(', ', Rbac::SUPPORTED_API_SCOPES) . ')',
+                422
+            );
+        }
+
+        $allowedIps = isset($b['allowedIps']) && trim((string) $b['allowedIps']) !== ''
+            ? trim((string) $b['allowedIps'])
+            : null;
+        $dailyQuota = isset($b['dailyQuota']) && $b['dailyQuota'] !== '' && (int) $b['dailyQuota'] > 0
+            ? (int) $b['dailyQuota']
+            : null;
 
         $expiresInDays = isset($b['expiresInDays']) ? (int) $b['expiresInDays'] : 365;
         $expiresAt = $expiresInDays > 0 ? date('Y-m-d H:i:s', time() + ($expiresInDays * 86400)) : null;
@@ -164,12 +192,17 @@ final class IntegrationController
         $hash = hash('sha256', $rawKey);
 
         $id = Db::insert(
-            'INSERT INTO api_keys (tenant_id, user_id, name, key_prefix, key_hash, scopes, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [$tid, $u['id'], $name, $prefix, $hash, json_encode($scopes), $expiresAt]
+            'INSERT INTO api_keys (tenant_id, user_id, name, key_prefix, key_hash, scopes, allowed_ips, daily_quota, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$tid, $u['id'], $name, $prefix, $hash, json_encode($scopes), $allowedIps, $dailyQuota, $expiresAt]
         );
 
-        Audit::log('integration.api_key_create', 'api_key', $id, ['name' => $name, 'scopes' => $scopes]);
+        Audit::log('integration.api_key_create', 'api_key', $id, [
+            'name' => $name,
+            'scopes' => $scopes,
+            'allowed_ips' => $allowedIps,
+            'daily_quota' => $dailyQuota,
+        ]);
 
         return Http::json($res, [
             'id' => $id,
@@ -177,8 +210,101 @@ final class IntegrationController
             'rawKey' => $rawKey,
             'keyPrefix' => $prefix,
             'scopes' => $scopes,
+            'allowedIps' => $allowedIps,
+            'dailyQuota' => $dailyQuota,
             'expiresAt' => $expiresAt,
             'message' => 'Copy this API key now. For security, only its SHA-256 hash is stored in the database.',
+        ], 201);
+    }
+
+    /**
+     * POST /api/v1/integrations/api-keys/{id}/rotate
+     * Atomically revokes an existing API key and issues a rotated replacement key with identical scopes, quota, and IP restrictions.
+     */
+    public function rotateApiKey(Request $req, Response $res, array $args): Response
+    {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'api_keys.manage');
+
+        $tid = $this->resolveTenantId($req);
+        $oldId = (int) $args['id'];
+        $b = (array) $req->getParsedBody();
+
+        $oldRow = Db::one(
+            'SELECT * FROM api_keys WHERE id = ? AND tenant_id = ? AND revoked_at IS NULL',
+            [$oldId, $tid]
+        );
+        if (!$oldRow) {
+            return Http::error($res, 'Active API key not found', 404);
+        }
+
+        $scopes = Rbac::extractScopes($oldRow);
+        if (empty($scopes)) {
+            $scopes = ['flipbooks:read'];
+        }
+        $allowedIps = isset($b['allowedIps'])
+            ? (trim((string) $b['allowedIps']) ?: null)
+            : ($oldRow['allowed_ips'] ?: null);
+        $dailyQuota = isset($b['dailyQuota'])
+            ? ((int) $b['dailyQuota'] > 0 ? (int) $b['dailyQuota'] : null)
+            : ($oldRow['daily_quota'] !== null ? (int) $oldRow['daily_quota'] : null);
+        $expiresInDays = isset($b['expiresInDays']) ? (int) $b['expiresInDays'] : 365;
+        $expiresAt = $expiresInDays > 0 ? date('Y-m-d H:i:s', time() + ($expiresInDays * 86400)) : $oldRow['expires_at'];
+
+        $rawKey = 'nvf_live_' . bin2hex(random_bytes(20));
+        $prefix = substr($rawKey, 0, 16) . '…';
+        $hash = hash('sha256', $rawKey);
+
+        $pdo = Db::pdo();
+        $pdo->beginTransaction();
+        try {
+            Db::run(
+                'UPDATE api_keys SET revoked_at = NOW() WHERE id = ? AND tenant_id = ?',
+                [$oldId, $tid]
+            );
+
+            $newId = Db::insert(
+                'INSERT INTO api_keys (tenant_id, user_id, name, key_prefix, key_hash, scopes, allowed_ips, daily_quota, expires_at, rotated_from_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    $tid,
+                    $u['id'],
+                    $oldRow['name'],
+                    $prefix,
+                    $hash,
+                    json_encode($scopes),
+                    $allowedIps,
+                    $dailyQuota,
+                    $expiresAt,
+                    $oldId,
+                ]
+            );
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+        Audit::log('integration.api_key_rotate', 'api_key', $newId, [
+            'rotated_from_id' => $oldId,
+            'name' => $oldRow['name'],
+            'scopes' => $scopes,
+        ]);
+
+        return Http::json($res, [
+            'ok' => true,
+            'id' => $newId,
+            'rotatedFromId' => $oldId,
+            'name' => $oldRow['name'],
+            'rawKey' => $rawKey,
+            'keyPrefix' => $prefix,
+            'scopes' => $scopes,
+            'allowedIps' => $allowedIps,
+            'dailyQuota' => $dailyQuota,
+            'expiresAt' => $expiresAt,
+            'message' => 'API key rotated atomically. Previous key has been revoked immediately.',
         ], 201);
     }
 
@@ -187,6 +313,9 @@ final class IntegrationController
      */
     public function revokeApiKey(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'api_keys.manage');
+
         $tid = $this->resolveTenantId($req);
         $id = (int) $args['id'];
 
@@ -209,6 +338,9 @@ final class IntegrationController
      */
     public function listWebhooks(Request $req, Response $res): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'webhooks.manage');
+
         $tid = $this->resolveTenantId($req);
         $hooks = Db::all(
             'SELECT * FROM webhooks WHERE tenant_id = ? ORDER BY created_at DESC',
@@ -255,8 +387,10 @@ final class IntegrationController
      */
     public function createWebhook(Request $req, Response $res): Response
     {
-        $tid = $this->resolveTenantId($req);
         $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'webhooks.manage');
+
+        $tid = $this->resolveTenantId($req);
         $b = (array) $req->getParsedBody();
 
         $name = trim((string) ($b['name'] ?? 'Publication Event Webhook'));
@@ -293,6 +427,9 @@ final class IntegrationController
      */
     public function testWebhook(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'webhooks.manage');
+
         $tid = $this->resolveTenantId($req);
         $id = (int) $args['id'];
 
@@ -317,6 +454,9 @@ final class IntegrationController
      */
     public function deleteWebhook(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'webhooks.manage');
+
         $tid = $this->resolveTenantId($req);
         $id = (int) $args['id'];
         Db::run('DELETE FROM webhooks WHERE id = ? AND tenant_id = ?', [$id, $tid]);
@@ -329,6 +469,9 @@ final class IntegrationController
      */
     public function listConnectors(Request $req, Response $res): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'settings.manage');
+
         $tid = $this->resolveTenantId($req);
         $rows = Db::all('SELECT * FROM tenant_integrations WHERE tenant_id = ?', [$tid]);
         $byType = [];
@@ -368,6 +511,9 @@ final class IntegrationController
      */
     public function saveConnector(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'settings.manage');
+
         $tid = $this->resolveTenantId($req);
         $type = strtolower(trim((string) $args['type']));
         if (!isset(self::DEFAULT_CONNECTORS[$type])) {
@@ -407,6 +553,9 @@ final class IntegrationController
      */
     public function testConnector(Request $req, Response $res, array $args): Response
     {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'settings.manage');
+
         $tid = $this->resolveTenantId($req);
         $type = strtolower(trim((string) $args['type']));
         if (!isset(self::DEFAULT_CONNECTORS[$type])) {
@@ -440,11 +589,14 @@ final class IntegrationController
      * POST /api/v1/integrations/erp/publish-catalogue
      * Allows an ERP system (SAP, Odoo, NetSuite, etc.) to automatically publish or update
      * a product catalogue flipbook and inject interactive SKU product hotspots via API!
+     * Strictly requires BOTH user permission AND API key 'erp:publish' scope (when called via API key).
      */
     public function publishErpCatalogue(Request $req, Response $res): Response
     {
-        $tid = $this->resolveTenantId($req);
         $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'erp.publish');
+
+        $tid = $this->resolveTenantId($req);
         $b = (array) $req->getParsedBody();
 
         $title = trim((string) ($b['title'] ?? 'ERP Automated Product Catalogue'));
@@ -452,8 +604,6 @@ final class IntegrationController
         $autoPublish = !isset($b['autoPublish']) || !empty($b['autoPublish']);
         $products = isset($b['products']) && is_array($b['products']) ? $b['products'] : [];
 
-        // Find base template flipbook in this tenant to clone pages from if no new PDF binary is attached,
-        // so ERP API calls work instantaneously in both live and test/sandbox environments.
         $sourceBookId = isset($b['sourceBookId']) ? (int) $b['sourceBookId'] : (isset($b['sourceFlipbookId']) ? (int) $b['sourceFlipbookId'] : 0);
         $sourceBook = $sourceBookId > 0
             ? Db::one('SELECT * FROM flipbooks WHERE id = ? AND tenant_id = ?', [$sourceBookId, $tid])
@@ -472,7 +622,6 @@ final class IntegrationController
             [$u['id'], $tid, $title, $description, $slug, $wfStatus, $pageCount, $publishedAt, $pdfPath]
         );
 
-        // Copy pages from template if available
         if ($sourceBook) {
             $pages = Db::all('SELECT * FROM pages WHERE flipbook_id = ? ORDER BY page_number ASC', [$sourceBook['id']]);
             foreach ($pages as $pg) {
@@ -495,7 +644,6 @@ final class IntegrationController
             }
         }
 
-        // Auto-generate interactive product hotspots from ERP SKU payload
         $hotspotsCreated = 0;
         foreach ($products as $idx => $prod) {
             if (!is_array($prod)) continue;

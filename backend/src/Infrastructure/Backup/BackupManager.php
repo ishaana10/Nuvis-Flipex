@@ -10,6 +10,10 @@ use App\Support\Storage;
 /**
  * Automated MySQL & Tenant Storage Backup & Recovery Verification Service.
  * Generates portable JSON/SQL snapshots with SHA-256 integrity hashes and executes tested restoration drills.
+ *
+ * Security Invariant:
+ * - Tenant backup requests strictly scope all dumped tables and storage files to `tenant_id`.
+ * - `verifyAndTestRecovery()` independently enforces tenant ownership unless executed by an authorized platform administrator.
  */
 final class BackupManager
 {
@@ -20,14 +24,33 @@ final class BackupManager
         return $dir;
     }
 
-    public static function createSnapshot(?int $tenantId = null, ?int $userId = null, string $type = 'full_snapshot'): array
-    {
+    public static function createSnapshot(
+        ?int $tenantId = null,
+        ?int $userId = null,
+        string $type = 'full_snapshot',
+        bool $isPlatformAdmin = false
+    ): array {
+        if (!$isPlatformAdmin && $tenantId === null) {
+            throw new \RuntimeException('Forbidden: Tenant ownership context is required for tenant backup creation', 403);
+        }
+
+        // Non-platform admins can only create tenant-scoped backups
+        if (!$isPlatformAdmin) {
+            $type = 'tenant_storage';
+        }
+
         $code = 'BKP-' . gmdate('Ymd-His') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
-        $tablesToDump = [
-            'plans', 'tenants', 'users', 'flipbooks', 'pages', 'hotspots',
-            'categories', 'collections', 'api_keys', 'webhooks', 'tenant_integrations',
-            'invoices', 'subscription_history', 'scheduled_reports', 'schema_migrations',
+        $tenantScopedTables = [
+            'flipbooks', 'categories', 'collections', 'api_keys', 'webhooks',
+            'tenant_integrations', 'invoices', 'subscription_history', 'scheduled_reports',
         ];
+        $globalTables = [
+            'plans', 'tenants', 'users', 'pages', 'hotspots', 'schema_migrations',
+        ];
+
+        $tablesToDump = $isPlatformAdmin
+            ? array_merge($globalTables, $tenantScopedTables)
+            : $tenantScopedTables;
 
         $snapshot = [
             'backup_code' => $code,
@@ -44,10 +67,12 @@ final class BackupManager
 
         foreach ($tablesToDump as $tbl) {
             try {
-                if ($tenantId !== null && in_array($tbl, ['flipbooks', 'categories', 'collections', 'api_keys', 'webhooks', 'tenant_integrations', 'invoices', 'subscription_history', 'scheduled_reports'], true)) {
+                if ($tenantId !== null && in_array($tbl, $tenantScopedTables, true)) {
                     $rows = Db::all("SELECT * FROM `{$tbl}` WHERE tenant_id = ?", [$tenantId]);
-                } else {
+                } elseif ($isPlatformAdmin) {
                     $rows = Db::all("SELECT * FROM `{$tbl}` LIMIT 500");
+                } else {
+                    continue;
                 }
                 $snapshot['tables'][$tbl] = [
                     'row_count' => count($rows),
@@ -95,7 +120,7 @@ final class BackupManager
             [
                 $tenantId,
                 $code,
-                in_array($type, ['full_snapshot', 'mysql_schema_data', 'tenant_storage'], true) ? $type : 'full_snapshot',
+                in_array($type, ['full_snapshot', 'mysql_schema_data', 'tenant_storage'], true) ? $type : 'tenant_storage',
                 "backups/{$fileName}",
                 $sizeBytes,
                 $checksum,
@@ -108,39 +133,48 @@ final class BackupManager
 
         JsonLogger::info("Created automated system backup {$code}", [
             'backup_id' => $id,
+            'tenant_id' => $tenantId,
             'tables' => $tablesCount,
             'rows' => $totalRows,
             'files' => $filesCount,
             'checksum' => $checksum,
         ]);
 
-        return self::getById($id);
+        return self::getById($id, $tenantId, $isPlatformAdmin);
     }
 
     /**
-     * Execute a non-destructive Recovery Verification Drill on a backup snapshot:
-     * 1. Verifies file existence on disk.
-     * 2. Recomputes SHA-256 cryptographic hash and compares against recorded checksum.
-     * 3. Parses JSON schema & table rows to confirm 100% restorable structure.
+     * Execute a non-destructive Recovery Verification Drill on a backup snapshot.
+     * Independently enforces tenant ownership unless $isPlatformAdmin is true.
      */
-    public static function verifyAndTestRecovery(int $backupId): array
-    {
-        $row = Db::one('SELECT * FROM system_backups WHERE id = ?', [$backupId]);
+    public static function verifyAndTestRecovery(
+        int $backupId,
+        ?int $tenantId = null,
+        bool $isPlatformAdmin = false
+    ): array {
+        if (!$isPlatformAdmin && $tenantId === null) {
+            throw new \RuntimeException('Forbidden: Tenant ownership context is required to verify backup snapshots', 403);
+        }
+
+        $row = $isPlatformAdmin
+            ? Db::one('SELECT * FROM system_backups WHERE id = ?', [$backupId])
+            : Db::one('SELECT * FROM system_backups WHERE id = ? AND tenant_id = ?', [$backupId, $tenantId]);
+
         if (!$row) {
-            throw new \RuntimeException('Backup snapshot record not found');
+            throw new \RuntimeException('Backup snapshot record not found in your workspace', 404);
         }
 
         $fullPath = Storage::root() . '/' . ltrim((string) $row['file_path'], '/');
         if (!is_file($fullPath)) {
             Db::run("UPDATE system_backups SET status = 'failed', recovery_notes = 'Snapshot file missing on disk' WHERE id = ?", [$backupId]);
-            throw new \RuntimeException('Backup archive file missing from storage');
+            throw new \RuntimeException('Backup archive file missing from storage', 422);
         }
 
         $raw = (string) file_get_contents($fullPath);
         $actualHash = hash('sha256', $raw);
         if (!hash_equals((string) $row['checksum_sha256'], $actualHash)) {
             Db::run("UPDATE system_backups SET status = 'failed', recovery_notes = 'SHA-256 checksum mismatch' WHERE id = ?", [$backupId]);
-            throw new \RuntimeException('Backup integrity check failed: SHA-256 mismatch');
+            throw new \RuntimeException('Backup integrity check failed: SHA-256 mismatch', 422);
         }
 
         $decoded = json_decode($raw, true);
@@ -160,25 +194,34 @@ final class BackupManager
 
         JsonLogger::info("Recovery verification drill passed for {$row['backup_code']}", ['notes' => $notes]);
 
-        return self::getById($backupId);
+        return self::getById($backupId, $tenantId, $isPlatformAdmin);
     }
 
-    public static function list(?int $tenantId = null): array
+    public static function list(?int $tenantId = null, bool $isPlatformAdmin = false): array
     {
-        $rows = Db::all(
-            'SELECT * FROM system_backups ' . ($tenantId !== null ? 'WHERE tenant_id = ? OR tenant_id IS NULL ' : '') . 'ORDER BY created_at DESC LIMIT 20',
-            $tenantId !== null ? [$tenantId] : []
-        );
-        if (empty($rows)) {
-            self::createSnapshot($tenantId, null, 'full_snapshot');
-            $rows = Db::all('SELECT * FROM system_backups ORDER BY created_at DESC LIMIT 20');
+        if ($isPlatformAdmin) {
+            $rows = Db::all(
+                'SELECT * FROM system_backups ' . ($tenantId !== null ? 'WHERE tenant_id = ? OR tenant_id IS NULL ' : '') . 'ORDER BY created_at DESC LIMIT 20',
+                $tenantId !== null ? [$tenantId] : []
+            );
+        } else {
+            if ($tenantId === null) {
+                return [];
+            }
+            $rows = Db::all(
+                'SELECT * FROM system_backups WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 20',
+                [$tenantId]
+            );
         }
+
         return array_map([self::class, 'formatRow'], $rows);
     }
 
-    public static function getById(int $id): array
+    public static function getById(int $id, ?int $tenantId = null, bool $isPlatformAdmin = false): array
     {
-        $r = Db::one('SELECT * FROM system_backups WHERE id = ?', [$id]);
+        $r = $isPlatformAdmin
+            ? Db::one('SELECT * FROM system_backups WHERE id = ?', [$id])
+            : Db::one('SELECT * FROM system_backups WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
         return $r ? self::formatRow($r) : [];
     }
 
@@ -186,6 +229,7 @@ final class BackupManager
     {
         return [
             'id' => (int) $r['id'],
+            'tenantId' => $r['tenant_id'] !== null ? (int) $r['tenant_id'] : null,
             'backupCode' => $r['backup_code'],
             'backupType' => $r['backup_type'],
             'filePath' => $r['file_path'],

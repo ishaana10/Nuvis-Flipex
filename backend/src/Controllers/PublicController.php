@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Infrastructure\Logging\JsonLogger;
+use App\Support\CryptoSecrets;
 use App\Support\Db;
 use App\Support\Http;
 use App\Support\Storage;
@@ -14,6 +16,10 @@ use Throwable;
 /** Unauthenticated reader & signed draft-preview endpoints. */
 final class PublicController
 {
+    /** Default password-protected publication unlock session TTL: 30 minutes (1800 seconds). */
+    private const UNLOCK_TTL_SECONDS = 1800;
+
+    private static bool $unlockSchemaEnsured = false;
     public function show(Request $req, Response $res, array $args): Response
     {
         $this->tickScheduledLifecycle();
@@ -435,10 +441,73 @@ HTML;
 
     public function unlock(Request $req, Response $res, array $args): Response
     {
+        self::ensureUnlockRevocationSchema();
+
         $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND published_at IS NOT NULL AND visibility = "password"', [$args['slug']]);
         $pw = (string) (((array) $req->getParsedBody())['password'] ?? '');
-        if (!$f || !password_verify($pw, $f['password_hash'])) return Http::error($res, 'Incorrect password', 403);
-        return Http::json($res, ['unlockToken' => $this->token($f)]);
+        if (!$f || !password_verify($pw, (string) $f['password_hash'])) {
+            return Http::error($res, 'Incorrect password', 403);
+        }
+
+        $cookies = $req->getCookieParams();
+        $readerSid = isset($cookies['nvf_reader_sid']) && preg_match('/^[a-f0-9]{32}$/', (string) $cookies['nvf_reader_sid'])
+            ? (string) $cookies['nvf_reader_sid']
+            : bin2hex(random_bytes(16));
+
+        $expiresAt = time() + self::UNLOCK_TTL_SECONDS;
+        $unlockToken = $this->issueUnlockToken($req, $f, $readerSid, $expiresAt);
+
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        $secureAttr = $isHttps ? '; Secure' : '';
+
+        $res = $res
+            ->withAddedHeader('Set-Cookie', "nvf_reader_sid={$readerSid}; Path=/; Max-Age=86400; HttpOnly; SameSite=Lax{$secureAttr}")
+            ->withAddedHeader('Set-Cookie', "nvf_unlock_{$f['id']}={$unlockToken}; Path=/; Max-Age=" . self::UNLOCK_TTL_SECONDS . "; HttpOnly; SameSite=Lax{$secureAttr}");
+
+        return Http::json($res, [
+            'unlockToken' => $unlockToken,
+            'expiresAt' => gmdate('c', $expiresAt),
+            'expiresInSeconds' => self::UNLOCK_TTL_SECONDS,
+        ]);
+    }
+
+    /**
+     * Explicit reader session lock / unlock-token revocation (POST /api/v1/public/{slug}/lock).
+     */
+    public function lock(Request $req, Response $res, array $args): Response
+    {
+        self::ensureUnlockRevocationSchema();
+
+        $f = Db::one('SELECT id, tenant_id, slug FROM flipbooks WHERE slug = ?', [(string) $args['slug']]);
+        if (!$f) {
+            return Http::error($res, 'Not found', 404);
+        }
+
+        $rawToken = $this->extractUnlockTokenFromCookieOrHeader($req, (int) $f['id']);
+        if ($rawToken !== '') {
+            $claims = $this->verifyUnlockTokenClaims($rawToken);
+            if ($claims && !empty($claims['jti'])) {
+                try {
+                    Db::run(
+                        'INSERT IGNORE INTO revoked_unlock_tokens (jti, flipbook_id, expires_at) VALUES (?, ?, FROM_UNIXTIME(?))',
+                        [(string) $claims['jti'], (int) $f['id'], (int) ($claims['exp'] ?? (time() + self::UNLOCK_TTL_SECONDS))]
+                    );
+                } catch (Throwable) {
+                }
+            }
+        }
+
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        $secureAttr = $isHttps ? '; Secure' : '';
+
+        $res = $res->withAddedHeader(
+            'Set-Cookie',
+            "nvf_unlock_{$f['id']}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax{$secureAttr}"
+        );
+
+        return Http::json($res, ['locked' => true, 'revoked' => true]);
     }
 
     public function trackView(Request $req, Response $res, array $args): Response
@@ -576,10 +645,13 @@ HTML;
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT id, tenant_id, published_at, workflow_status FROM flipbooks WHERE slug = ? AND status = "ready"', [$slug]);
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND status = "ready"', [$slug]);
         if (!$f) return Http::error($res, 'Not found', 404);
         if (!$isPreview && ($f['published_at'] === null || ($f['workflow_status'] ?? 'published') !== 'published')) {
             return Http::error($res, 'Not found', 404);
+        }
+        if (!$isPreview && ($f['visibility'] ?? 'public') === 'password' && !$this->unlocked($req, $f)) {
+            return Http::error($res, 'Password required', 403);
         }
 
         $q = trim((string) ($req->getQueryParams()['q'] ?? ''));
@@ -684,17 +756,178 @@ HTML;
         }
     }
 
-    private function token(array $f): string
+    public static function ensureUnlockRevocationSchema(): void
     {
-        return hash_hmac('sha256', $f['id'] . '|' . $f['password_hash'], $_ENV['JWT_SECRET']);
+        if (self::$unlockSchemaEnsured) {
+            return;
+        }
+        self::$unlockSchemaEnsured = true;
+        try {
+            Db::run(
+                'CREATE TABLE IF NOT EXISTS revoked_unlock_tokens (
+                    jti VARCHAR(64) NOT NULL PRIMARY KEY,
+                    flipbook_id INT UNSIGNED NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_revoked_unlock_flipbook (flipbook_id),
+                    INDEX idx_revoked_unlock_exp (expires_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+            $col = Db::one("SHOW COLUMNS FROM flipbooks LIKE 'unlock_revoked_at'");
+            if (!$col) {
+                Db::run('ALTER TABLE flipbooks ADD COLUMN unlock_revoked_at TIMESTAMP NULL DEFAULT NULL');
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    private function unlockPasswordVersion(array $f): string
+    {
+        $revokedAt = (string) ($f['unlock_revoked_at'] ?? '');
+        return substr(hash('sha256', (string) ($f['password_hash'] ?? '') . '|' . $revokedAt), 0, 16);
+    }
+
+    private function computeUnlockSessionBinding(Request $req, string $readerSid = ''): string
+    {
+        $ua = substr(trim($req->getHeaderLine('User-Agent')), 0, 180);
+        // If cookie readerSid is present, bind to UA + readerSid; if stateless header client, bind to UA
+        return substr(hash('sha256', $ua . '|' . $readerSid), 0, 20);
+    }
+
+    private function issueUnlockToken(Request $req, array $f, string $readerSid, int $expiresAt): string
+    {
+        $claims = [
+            'fid' => (int) $f['id'],
+            'iat' => time(),
+            'exp' => $expiresAt,
+            'jti' => bin2hex(random_bytes(8)),
+            'sbh' => $this->computeUnlockSessionBinding($req, $readerSid),
+            'uab' => $this->computeUnlockSessionBinding($req, ''),
+            'v'   => $this->unlockPasswordVersion($f),
+        ];
+
+        $b64 = rtrim(strtr(base64_encode(json_encode($claims)), '+/', '-_'), '=');
+        $sig = hash_hmac('sha256', $b64, CryptoSecrets::unlockTokenSecret());
+        return $b64 . '.' . $sig;
+    }
+
+    private function extractUnlockTokenFromCookieOrHeader(Request $req, int $flipbookId): string
+    {
+        // Reject URL query string tokens (?token=...) so unlock tokens never leak in URLs, logs, or Referer headers
+        $queryParams = $req->getQueryParams();
+        if (!empty($queryParams['token'])) {
+            JsonLogger::warning('unlock_token.url_query_rejected', 'Rejected attempt to pass publication unlock token in URL query string', [
+                'flipbook_id' => $flipbookId,
+            ]);
+        }
+
+        $cookies = $req->getCookieParams();
+        $cookieKey = 'nvf_unlock_' . $flipbookId;
+        if (!empty($cookies[$cookieKey]) && is_string($cookies[$cookieKey])) {
+            return trim($cookies[$cookieKey]);
+        }
+
+        $header = trim($req->getHeaderLine('X-Unlock-Token'));
+        if ($header !== '') {
+            return $header;
+        }
+
+        return '';
+    }
+
+    private function verifyUnlockTokenClaims(string $rawToken): ?array
+    {
+        if (!str_contains($rawToken, '.')) {
+            return null;
+        }
+        [$b64, $sig] = explode('.', $rawToken, 2);
+        if ($b64 === '' || $sig === '') {
+            return null;
+        }
+
+        $primaryExpected = hash_hmac('sha256', $b64, CryptoSecrets::unlockTokenSecret());
+        $validSig = hash_equals($primaryExpected, $sig);
+
+        if (!$validSig) {
+            $prevSecret = CryptoSecrets::previousUnlockTokenSecret();
+            if ($prevSecret !== null) {
+                $prevExpected = hash_hmac('sha256', $b64, $prevSecret);
+                $validSig = hash_equals($prevExpected, $sig);
+            }
+        }
+
+        if (!$validSig) {
+            return null;
+        }
+
+        $decoded = base64_decode(strtr($b64, '-_', '+/'), true);
+        if ($decoded === false) {
+            return null;
+        }
+        $claims = json_decode($decoded, true);
+        return is_array($claims) ? $claims : null;
     }
 
     private function unlocked(Request $req, array $f): bool
     {
-        $header = $req->getHeaderLine('X-Unlock-Token');
-        $query = (string) ($req->getQueryParams()['token'] ?? '');
-        $token = $header ?: $query;
-        return $token !== '' && hash_equals($this->token($f), $token);
+        self::ensureUnlockRevocationSchema();
+
+        $flipbookId = (int) $f['id'];
+        $rawToken = $this->extractUnlockTokenFromCookieOrHeader($req, $flipbookId);
+        if ($rawToken === '') {
+            return false;
+        }
+
+        $claims = $this->verifyUnlockTokenClaims($rawToken);
+        if (!$claims) {
+            return false;
+        }
+
+        // 1. Verify publication ID match
+        if ((int) ($claims['fid'] ?? 0) !== $flipbookId) {
+            return false;
+        }
+
+        // 2. Verify expiration timestamp (30-minute TTL)
+        $exp = (int) ($claims['exp'] ?? 0);
+        if ($exp <= 0 || $exp < time()) {
+            return false;
+        }
+
+        // 3. Verify password hash & publication-level revocation version
+        $expectedVer = $this->unlockPasswordVersion($f);
+        if (!isset($claims['v']) || !hash_equals($expectedVer, (string) $claims['v'])) {
+            return false;
+        }
+
+        // 4. Verify session / client binding
+        $cookies = $req->getCookieParams();
+        $readerSid = isset($cookies['nvf_reader_sid']) ? (string) $cookies['nvf_reader_sid'] : '';
+        $expectedSbh = $this->computeUnlockSessionBinding($req, $readerSid);
+        $expectedUab = $this->computeUnlockSessionBinding($req, '');
+        $claimSbh = (string) ($claims['sbh'] ?? '');
+        $claimUab = (string) ($claims['uab'] ?? '');
+
+        $bindingValid = ($claimSbh !== '' && hash_equals($expectedSbh, $claimSbh))
+            || ($readerSid === '' && $claimUab !== '' && hash_equals($expectedUab, $claimUab));
+        if (!$bindingValid) {
+            return false;
+        }
+
+        // 5. Check explicit token revocation list (jti)
+        $jti = (string) ($claims['jti'] ?? '');
+        if ($jti === '') {
+            return false;
+        }
+        try {
+            $revoked = Db::one('SELECT jti FROM revoked_unlock_tokens WHERE jti = ? LIMIT 1', [$jti]);
+            if ($revoked) {
+                return false;
+            }
+        } catch (Throwable) {
+        }
+
+        return true;
     }
 
     private function resolveDevice(string $ua): string

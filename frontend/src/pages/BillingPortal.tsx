@@ -4,6 +4,12 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 
 interface BillingOverviewResponse {
+  permissions?: {
+    canManageBilling: boolean;
+    canReconcile: boolean;
+    tenantRole: string;
+    systemRole: string;
+  };
   tenant: {
     id: number;
     name: string;
@@ -73,7 +79,7 @@ interface BillingOverviewResponse {
     taxRate: number;
     taxAmount: number;
     totalAmount: number;
-    status: 'draft' | 'issued' | 'reconciling' | 'paid' | 'overdue' | 'void';
+    status: 'draft' | 'issued' | 'pending' | 'reconciling' | 'paid' | 'overdue' | 'reversed' | 'void';
     paymentMethod: string;
     paymentReference: string | null;
     bankName: string | null;
@@ -95,6 +101,39 @@ interface BillingOverviewResponse {
     paymentMethod: string | null;
     reference: string | null;
     notes: string | null;
+    createdAt: string;
+  }>;
+  transactions?: Array<{
+    id: number;
+    invoiceId: number;
+    transactionUid: string;
+    idempotencyKey: string;
+    provider: string;
+    paymentReference: string | null;
+    bankName: string | null;
+    amount: number;
+    currency: string;
+    status: 'pending' | 'reconciling' | 'succeeded' | 'failed' | 'reversed';
+    webhookSignatureVerified: boolean;
+    verifiedBy: number | null;
+    verifiedAt: string | null;
+    reversalReason: string | null;
+    reversedAt: string | null;
+    immutableHash: string;
+    createdAt: string;
+  }>;
+  paymentAuditLogs?: Array<{
+    id: number;
+    invoiceId: number;
+    transactionId: number | null;
+    actorUserId: number | null;
+    eventType: string;
+    amount: number;
+    currency: string;
+    statusFrom: string | null;
+    statusTo: string;
+    prevHash: string;
+    entryHash: string;
     createdAt: string;
   }>;
   fijiBankAccounts: Array<{
@@ -214,10 +253,12 @@ export default function BillingPortal() {
     if (!payModalInvoice) return;
     setBusy(true);
     try {
+      const idempotencyKey = `idem_${payModalInvoice.id}_${Date.now()}`;
       const res = await api<{ message: string }>(`/billing/invoices/${payModalInvoice.id}/pay`, 'POST', {
         paymentMethod: payMethod,
         bankName: payBankName,
         paymentReference: payReference,
+        idempotencyKey,
       });
       flash(res.message);
       setPayModalInvoice(null);
@@ -231,7 +272,24 @@ export default function BillingPortal() {
   const handleReconcileInvoice = async (invId: number) => {
     setBusy(true);
     try {
-      const res = await api<{ message: string }>(`/billing/invoices/${invId}/reconcile`, 'POST');
+      const res = await api<{ message: string }>(`/billing/invoices/${invId}/reconcile`, 'POST', {
+        decision: 'approve',
+      });
+      flash(res.message);
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReverseInvoice = async (invId: number) => {
+    const reason = prompt('Enter payment reversal / refund reason for the immutable audit log:');
+    if (!reason) return;
+    setBusy(true);
+    try {
+      const res = await api<{ message: string }>(`/billing/invoices/${invId}/reverse`, 'POST', {
+        reason,
+      });
       flash(res.message);
       load();
     } finally {
@@ -644,12 +702,22 @@ export default function BillingPortal() {
                           💳 Pay / Submit Transfer
                         </button>
                       )}
-                      {inv.status === 'reconciling' && (
+                      {(inv.status === 'reconciling' || inv.status === 'pending') && data.permissions?.canReconcile && (
                         <button
                           className="action-pill analytics"
                           onClick={() => handleReconcileInvoice(inv.id)}
+                          title="Finance Administrator / Owner Verification"
                         >
                           ✓ Reconcile
+                        </button>
+                      )}
+                      {inv.status === 'paid' && data.permissions?.canReconcile && (
+                        <button
+                          className="action-pill delete"
+                          onClick={() => handleReverseInvoice(inv.id)}
+                          title="Reverse / Refund Payment"
+                        >
+                          ↩ Reverse
                         </button>
                       )}
                     </div>
@@ -661,52 +729,91 @@ export default function BillingPortal() {
         </div>
       )}
 
-      {/* TAB 4: SUBSCRIPTION HISTORY AUDIT LOG */}
+      {/* TAB 4: SUBSCRIPTION HISTORY & IMMUTABLE PAYMENT AUDIT LOG */}
       {activeTab === 'history' && (
-        <div className="card space-y-3">
-          <h3 style={{ margin: 0 }}>📜 Subscription Lifecycle & Reconciliation History</h3>
-          <table className="activity-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Event</th>
-                <th>Plan Transition</th>
-                <th>Amount</th>
-                <th>Method / Reference</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.history.map((h) => (
-                <tr key={h.id}>
-                  <td>{h.createdAt}</td>
-                  <td>
-                    <Badge
-                      variant={
-                        h.action === 'upgrade' || h.action === 'reconciliation'
-                          ? 'success'
-                          : h.action === 'suspension'
-                            ? 'danger'
-                            : 'golden'
-                      }
-                    >
-                      {h.action.toUpperCase()}
-                    </Badge>
-                  </td>
-                  <td>
-                    {h.fromPlanName ? `${h.fromPlanName} → ` : ''}
-                    <b>{h.toPlanName || tenant.planName}</b>
-                  </td>
-                  <td><b>{h.currency} {h.amount.toFixed(2)}</b></td>
-                  <td>
-                    {h.paymentMethod || '—'}
-                    {h.reference ? ` (${h.reference})` : ''}
-                  </td>
-                  <td className="text-xs text-slate-500">{h.notes}</td>
+        <div className="space-y-4">
+          <div className="card space-y-3">
+            <h3 style={{ margin: 0 }}>📜 Subscription Lifecycle & Reconciliation History</h3>
+            <table className="activity-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Event</th>
+                  <th>Plan Transition</th>
+                  <th>Amount</th>
+                  <th>Method / Reference</th>
+                  <th>Notes</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.history.map((h) => (
+                  <tr key={h.id}>
+                    <td>{h.createdAt}</td>
+                    <td>
+                      <Badge
+                        variant={
+                          h.action === 'upgrade' || h.action === 'reconciliation'
+                            ? 'success'
+                            : h.action === 'suspension' || h.action === 'reversal'
+                              ? 'danger'
+                              : 'golden'
+                        }
+                      >
+                        {h.action.toUpperCase()}
+                      </Badge>
+                    </td>
+                    <td>
+                      {h.fromPlanName ? `${h.fromPlanName} → ` : ''}
+                      <b>{h.toPlanName || tenant.planName}</b>
+                    </td>
+                    <td><b>{h.currency} {h.amount.toFixed(2)}</b></td>
+                    <td>
+                      {h.paymentMethod || '—'}
+                      {h.reference ? ` (${h.reference})` : ''}
+                    </td>
+                    <td className="text-xs text-slate-500">{h.notes}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {data.paymentAuditLogs && data.paymentAuditLogs.length > 0 && (
+            <div className="card space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 style={{ margin: 0 }}>🔒 Immutable SHA-256 Chained Payment Audit Ledger</h3>
+                <Badge variant="golden">Append-Only Cryptographic Chain</Badge>
+              </div>
+              <table className="activity-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Event</th>
+                    <th>Invoice</th>
+                    <th>Amount</th>
+                    <th>Transition</th>
+                    <th>Chain Hash (SHA-256)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.paymentAuditLogs.map((al) => (
+                    <tr key={al.id}>
+                      <td>{al.createdAt}</td>
+                      <td><code>{al.eventType}</code></td>
+                      <td>#{al.invoiceId}</td>
+                      <td><b>{al.currency} {al.amount.toFixed(2)}</b></td>
+                      <td>{al.statusFrom || '—'} → <b>{al.statusTo}</b></td>
+                      <td>
+                        <code className="text-[11px]" title={`Prev: ${al.prevHash}\nEntry: ${al.entryHash}`}>
+                          {al.entryHash.slice(0, 16)}…
+                        </code>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

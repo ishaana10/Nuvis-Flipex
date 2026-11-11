@@ -65,6 +65,7 @@ export default function PublicViewer() {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [token, setToken] = useState('');
+  const [unlockExpiresAt, setUnlockExpiresAt] = useState<string | null>(null);
 
   const load = (t = token) => {
     const headers: Record<string, string> = {};
@@ -72,7 +73,7 @@ export default function PublicViewer() {
     if (previewToken) headers['X-Preview-Token'] = previewToken;
 
     const query = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
-    fetch(`/api/v1/public/${slug}${query}`, { headers }).then(async (r) => {
+    fetch(`/api/v1/public/${slug}${query}`, { headers, credentials: 'same-origin' }).then(async (r) => {
       if (!r.ok) {
         try {
           const errBody = await r.json();
@@ -140,16 +141,56 @@ export default function PublicViewer() {
 
   const unlock = async (e: FormEvent) => {
     e.preventDefault();
+    setErr('');
     const r = await fetch(`/api/v1/public/${slug}/unlock`, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw }),
     });
     if (!r.ok) return setErr('Incorrect password');
-    const { unlockToken } = await r.json();
+    const body = await r.json();
+    const unlockToken = body.unlockToken || '';
     setToken(unlockToken);
+    setPw('');
+    if (body.expiresAt) {
+      setUnlockExpiresAt(body.expiresAt);
+    }
     load(unlockToken);
   };
+
+  const lockSession = async () => {
+    const headers: Record<string, string> = {};
+    if (token) headers['X-Unlock-Token'] = token;
+    await fetch(`/api/v1/public/${slug}/lock`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers,
+    }).catch(() => {});
+    setToken('');
+    setUnlockExpiresAt(null);
+    load('');
+  };
+
+  useEffect(() => {
+    if (!unlockExpiresAt) return;
+    const msRemaining = new Date(unlockExpiresAt).getTime() - Date.now();
+    if (msRemaining <= 0) {
+      setToken('');
+      setUnlockExpiresAt(null);
+      setErr('Your 30-minute reading session has expired. Please re-enter the password.');
+      load('');
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setToken('');
+      setUnlockExpiresAt(null);
+      setErr('Your 30-minute reading session has expired. Please re-enter the password.');
+      load('');
+    }, msRemaining);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlockExpiresAt]);
 
   if (lifecycleNotice) {
     return (
@@ -192,6 +233,16 @@ export default function PublicViewer() {
 
   return (
     <div className="public-reader-wrap relative">
+      {unlockExpiresAt && !data.isPreview && (
+        <button
+          type="button"
+          onClick={lockSession}
+          title="Lock protected publication & revoke session token"
+          className="fixed bottom-3 right-3 z-50 flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-slate-950/85 px-3 py-1 text-[11px] font-medium text-amber-300 shadow-lg backdrop-blur-md transition hover:border-amber-400 hover:bg-slate-900"
+        >
+          <span>Lock Session</span>
+        </button>
+      )}
       {data.isPreview && (
         <div className="fixed top-3 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-amber-400/50 bg-slate-950/90 px-4 py-1.5 text-xs font-medium text-amber-300 shadow-lg backdrop-blur-md">
           <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />

@@ -15,7 +15,7 @@ final class Jwt
         $now = time();
         return FirebaseJwt::encode(
             ['sub' => $userId, 'role' => $role, 'iat' => $now, 'exp' => $now + self::TTL],
-            $_ENV['JWT_SECRET'],
+            CryptoSecrets::jwtSecret(),
             'HS256'
         );
     }
@@ -25,7 +25,7 @@ final class Jwt
         $now = time();
         return FirebaseJwt::encode(
             ['sub' => $userId, 'type' => '2fa', 'iat' => $now, 'exp' => $now + 600],
-            $_ENV['JWT_SECRET'],
+            CryptoSecrets::jwtSecret(),
             'HS256'
         );
     }
@@ -33,10 +33,17 @@ final class Jwt
     public static function verify(string $token): ?object
     {
         try {
-            return FirebaseJwt::decode($token, new Key($_ENV['JWT_SECRET'], 'HS256'));
+            return FirebaseJwt::decode($token, new Key(CryptoSecrets::jwtSecret(), 'HS256'));
         } catch (\Throwable) {
+            $prev = CryptoSecrets::previousJwtSecret();
+            if ($prev !== null) {
+                try {
+                    return FirebaseJwt::decode($token, new Key($prev, 'HS256'));
+                } catch (\Throwable) {
+                    return null;
+                }
+            }
             return null;
         }
     }
 }
-

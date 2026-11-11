@@ -9,11 +9,24 @@ interface ApiKeyItem {
   name: string;
   keyPrefix: string;
   scopes: string[];
+  allowedIps?: string | null;
+  dailyQuota?: number | null;
+  usageToday?: number;
+  rotatedFromId?: number | null;
   lastUsedAt: string | null;
   lastUsedIp: string | null;
   expiresAt: string | null;
   createdAt: string;
 }
+
+const ALL_API_SCOPES = [
+  'flipbooks:read',
+  'flipbooks:write',
+  'erp:publish',
+  'analytics:read',
+  'webhooks:manage',
+  'billing:manage',
+];
 
 interface WebhookItem {
   id: number;
@@ -63,6 +76,14 @@ export default function IntegrationsHub() {
   // API Keys state
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
   const [newKeyName, setNewKeyName] = useState('SAP / Odoo ERP Catalogue Sync Key');
+  const [newKeyScopes, setNewKeyScopes] = useState<string[]>([
+    'flipbooks:read',
+    'flipbooks:write',
+    'erp:publish',
+    'analytics:read',
+  ]);
+  const [newKeyAllowedIps, setNewKeyAllowedIps] = useState('');
+  const [newKeyDailyQuota, setNewKeyDailyQuota] = useState('');
   const [createdRawKey, setCreatedRawKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
 
@@ -173,14 +194,25 @@ export default function IntegrationsHub() {
   }, [loadApiKeys, loadWebhooks, loadConnectors]);
 
   const handleCreateApiKey = async () => {
-    if (!newKeyName.trim()) return;
+    if (!newKeyName.trim() || newKeyScopes.length === 0) return;
     const res = await api<{ rawKey: string }>('/integrations/api-keys', 'POST', {
       name: newKeyName.trim(),
-      scopes: ['flipbooks:read', 'flipbooks:write', 'erp:publish', 'analytics:read'],
+      scopes: newKeyScopes,
+      allowedIps: newKeyAllowedIps.trim() || null,
+      dailyQuota: newKeyDailyQuota.trim() ? Number(newKeyDailyQuota) : null,
       expiresInDays: 365,
     });
     setCreatedRawKey(res.rawKey);
     setNewKeyName('');
+    setNewKeyAllowedIps('');
+    setNewKeyDailyQuota('');
+    loadApiKeys();
+  };
+
+  const handleRotateKey = async (id: number) => {
+    if (!confirm('Rotate this API key now? A new key will be generated with the same scopes and the old key will be revoked immediately.')) return;
+    const res = await api<{ rawKey: string }>(`/integrations/api-keys/${id}/rotate`, 'POST');
+    setCreatedRawKey(res.rawKey);
     loadApiKeys();
   };
 
@@ -355,16 +387,55 @@ export default function IntegrationsHub() {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2">
-              <input
-                className="boardui-input flex-1"
-                placeholder="Key description (e.g. SAP Business One Catalogue Sync)…"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-              />
-              <Button variant="primary" onClick={handleCreateApiKey}>
-                + Generate API Key
-              </Button>
+            <div className="space-y-3 border rounded-xl p-3 bg-slate-50/40">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <input
+                  className="boardui-input"
+                  placeholder="Key description (e.g. SAP Catalogue Sync)…"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                />
+                <input
+                  className="boardui-input"
+                  placeholder="Optional IP/CIDR allowlist (e.g. 203.0.113.5, 10.0.0.0/8)"
+                  value={newKeyAllowedIps}
+                  onChange={(e) => setNewKeyAllowedIps(e.target.value)}
+                />
+                <input
+                  type="number"
+                  min={1}
+                  className="boardui-input"
+                  placeholder="Optional daily quota (e.g. 5000 req/day)"
+                  value={newKeyDailyQuota}
+                  onChange={(e) => setNewKeyDailyQuota(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <b className="text-slate-600">Explicit API Scopes:</b>
+                  {ALL_API_SCOPES.map((sc) => {
+                    const checked = newKeyScopes.includes(sc);
+                    return (
+                      <label key={sc} className="inline-flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setNewKeyScopes((prev) =>
+                              checked ? prev.filter((x) => x !== sc) : [...prev, sc]
+                            )
+                          }
+                        />
+                        <code>{sc}</code>
+                      </label>
+                    );
+                  })}
+                </div>
+                <Button variant="primary" onClick={handleCreateApiKey}>
+                  + Generate Scoped API Key
+                </Button>
+              </div>
             </div>
 
             <table className="activity-table">
@@ -372,7 +443,8 @@ export default function IntegrationsHub() {
                 <tr>
                   <th>Name</th>
                   <th>Key Prefix</th>
-                  <th>Scopes</th>
+                  <th>Enforced Scopes</th>
+                  <th>Quota / IP Controls</th>
                   <th>Last Used</th>
                   <th>Expires</th>
                   <th>Action</th>
@@ -381,7 +453,7 @@ export default function IntegrationsHub() {
               <tbody>
                 {apiKeys.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center text-slate-400 py-4">
+                    <td colSpan={7} className="text-center text-slate-400 py-4">
                       No active API keys yet. Generate one above to connect your ERP or external system.
                     </td>
                   </tr>
@@ -397,12 +469,25 @@ export default function IntegrationsHub() {
                           ))}
                         </div>
                       </td>
+                      <td className="text-xs">
+                        <div>
+                          Quota: <b>{k.dailyQuota ? `${k.usageToday || 0}/${k.dailyQuota} day` : 'Unlimited'}</b>
+                        </div>
+                        <div className="text-slate-500">
+                          IPs: <code>{k.allowedIps || 'Any (*)'}</code>
+                        </div>
+                      </td>
                       <td>{k.lastUsedAt ? `${k.lastUsedAt} (${k.lastUsedIp || 'API'})` : 'Never'}</td>
                       <td>{k.expiresAt ? k.expiresAt.slice(0, 10) : 'Never'}</td>
                       <td>
-                        <button className="action-pill delete" onClick={() => handleRevokeKey(k.id)}>
-                          Revoke
-                        </button>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button className="action-pill preview" onClick={() => handleRotateKey(k.id)}>
+                            🔄 Rotate
+                          </button>
+                          <button className="action-pill delete" onClick={() => handleRevokeKey(k.id)}>
+                            Revoke
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -6,6 +6,8 @@ namespace App\Support;
 /**
  * Multi-Tenant Secure File Storage & Protected Document Delivery.
  * Enforces customer isolation under /storage/tenants/{tenant_id}/.
+ * Uses domain-separated cryptographic secrets (STORAGE_SIGNING_SECRET and PREVIEW_TOKEN_SECRET)
+ * with zero hardcoded fallback secrets.
  */
 final class Storage
 {
@@ -62,7 +64,7 @@ final class Storage
     public static function temporarySignedUrl(string $relPath, int $ttlSeconds = 3600): string
     {
         $expires = time() + $ttlSeconds;
-        $secret = $_ENV['JWT_SECRET'] ?? 'nuvis_fallback_secret_key';
+        $secret = CryptoSecrets::storageSigningSecret();
         $sig = hash_hmac('sha256', "{$relPath}|{$expires}", $secret);
 
         return sprintf(
@@ -73,28 +75,37 @@ final class Storage
         );
     }
 
-    /** Verify cryptographic signature on a temporary signed URL */
+    /** Verify cryptographic signature on a temporary signed URL (supports secret rotation) */
     public static function verifySignature(string $relPath, int $expires, string $signature): bool
     {
         if (time() > $expires) {
             return false; // Expired
         }
-        $secret = $_ENV['JWT_SECRET'] ?? 'nuvis_fallback_secret_key';
+        $secret = CryptoSecrets::storageSigningSecret();
         $expected = hash_hmac('sha256', "{$relPath}|{$expires}", $secret);
+        if (hash_equals($expected, $signature)) {
+            return true;
+        }
 
-        return hash_equals($expected, $signature);
+        $prevSecret = CryptoSecrets::previousStorageSigningSecret();
+        if ($prevSecret !== null) {
+            $expectedPrev = hash_hmac('sha256', "{$relPath}|{$expires}", $prevSecret);
+            return hash_equals($expectedPrev, $signature);
+        }
+
+        return false;
     }
 
     /** Generate a short-lived HMAC-SHA256 draft preview token for a publication slug */
     public static function generatePreviewToken(string $slug, int $ttlSeconds = 14400): string
     {
         $expires = time() + $ttlSeconds;
-        $secret = $_ENV['JWT_SECRET'] ?? 'nuvis_fallback_secret_key';
+        $secret = CryptoSecrets::previewTokenSecret();
         $sig = hash_hmac('sha256', "preview|{$slug}|{$expires}", $secret);
         return "{$expires}.{$sig}";
     }
 
-    /** Verify a draft preview token for a publication slug */
+    /** Verify a draft preview token for a publication slug (supports secret rotation) */
     public static function verifyPreviewToken(string $slug, ?string $token): bool
     {
         if (!$token || !str_contains($token, '.')) {
@@ -105,8 +116,18 @@ final class Storage
         if ($expires < time()) {
             return false;
         }
-        $secret = $_ENV['JWT_SECRET'] ?? 'nuvis_fallback_secret_key';
+        $secret = CryptoSecrets::previewTokenSecret();
         $expected = hash_hmac('sha256', "preview|{$slug}|{$expires}", $secret);
-        return hash_equals($expected, $sig);
+        if (hash_equals($expected, $sig)) {
+            return true;
+        }
+
+        $prevSecret = CryptoSecrets::previousPreviewTokenSecret();
+        if ($prevSecret !== null) {
+            $expectedPrev = hash_hmac('sha256', "preview|{$slug}|{$expires}", $prevSecret);
+            return hash_equals($expectedPrev, $sig);
+        }
+
+        return false;
     }
 }

@@ -63,7 +63,7 @@ final class JsonLogger
         self::write('ERROR', $message, $context);
     }
 
-    public static function recentEntries(int $limit = 40, ?int $tenantId = null): array
+    public static function recentEntries(int $limit = 40, ?int $tenantId = null, bool $isPlatformAdmin = false): array
     {
         $file = self::logDir() . '/app-' . gmdate('Y-m-d') . '.jsonl';
         if (!is_file($file)) {
@@ -76,7 +76,11 @@ final class JsonLogger
             if (!is_array($item)) {
                 continue;
             }
-            if ($tenantId !== null && !empty($item['tenant_id']) && (int) $item['tenant_id'] !== $tenantId) {
+            if (!$isPlatformAdmin) {
+                if ($tenantId === null || empty($item['tenant_id']) || (int) $item['tenant_id'] !== $tenantId) {
+                    continue;
+                }
+            } elseif ($tenantId !== null && !empty($item['tenant_id']) && (int) $item['tenant_id'] !== $tenantId) {
                 continue;
             }
             $parsed[] = $item;

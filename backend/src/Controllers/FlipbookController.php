@@ -1130,6 +1130,40 @@ final class FlipbookController
         }
     }
 
+    /**
+     * Explicitly revoke all active password-unlock tokens for a publication.
+     * POST /api/v1/flipbooks/{id}/revoke-unlock-tokens
+     */
+    public function revokeUnlockTokens(Request $req, Response $res, array $args): Response
+    {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
+
+        $f = $this->owned($req, (int) $args['id']);
+        if (!$f) {
+            return Http::error($res, 'Not found', 404);
+        }
+
+        PublicController::ensureUnlockRevocationSchema();
+
+        $revokedAt = date('Y-m-d H:i:s');
+        try {
+            Db::run('UPDATE flipbooks SET unlock_revoked_at = ? WHERE id = ?', [$revokedAt, $f['id']]);
+        } catch (Throwable) {
+        }
+
+        Audit::log('flipbook.revoke_unlock_tokens', 'flipbook', (int) $f['id'], [
+            'slug' => $f['slug'],
+            'revoked_at' => $revokedAt,
+        ]);
+
+        return Http::json($res, [
+            'revoked' => true,
+            'flipbookId' => (int) $f['id'],
+            'revokedAt' => $revokedAt,
+        ]);
+    }
+
     private function tickScheduledLifecycle(): void
     {
         try {

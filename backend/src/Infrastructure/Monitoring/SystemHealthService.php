@@ -16,7 +16,7 @@ use App\Support\Db;
  */
 final class SystemHealthService
 {
-    public static function collect(?int $tenantId = null): array
+    public static function collect(?int $tenantId = null, bool $isPlatformAdmin = false): array
     {
         $memUsedBytes = memory_get_usage(true);
         $memPeakBytes = memory_get_peak_usage(true);
@@ -32,10 +32,12 @@ final class SystemHealthService
             }
         }
 
-        // Worker daemon telemetry
+        // Worker daemon telemetry (scoped to tenant unless platform admin)
         $recentWorkerJob = null;
         try {
-            $recentWorkerJob = Db::one('SELECT id, status, updated_at, current_step FROM conversion_jobs ORDER BY updated_at DESC LIMIT 1');
+            $recentWorkerJob = (!$isPlatformAdmin && $tenantId !== null)
+                ? Db::one('SELECT id, status, updated_at, current_step FROM conversion_jobs WHERE tenant_id = ? ORDER BY updated_at DESC LIMIT 1', [$tenantId])
+                : Db::one('SELECT id, status, updated_at, current_step FROM conversion_jobs ORDER BY updated_at DESC LIMIT 1');
         } catch (\Throwable) {
         }
 
@@ -69,7 +71,7 @@ final class SystemHealthService
             ],
             'database' => DatabaseManager::health(),
             'cache' => CacheManager::driverInfo(),
-            'queue' => QueueManager::stats($tenantId),
+            'queue' => QueueManager::stats($tenantId, $isPlatformAdmin),
             'storage' => ObjectStorageAdapter::status($tenantId),
             'mail' => TransactionalMailer::status(),
         ];

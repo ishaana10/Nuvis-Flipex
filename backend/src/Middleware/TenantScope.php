@@ -44,8 +44,8 @@ final class TenantScope implements MiddlewareInterface
             }
         }
 
-        // Initialize tenant context
-        TenantContext::set($user, $tenant);
+        // Initialize tenant context (including active API key for RBAC scope enforcement)
+        TenantContext::set($user, $tenant, $req->getAttribute('api_key'));
 
         // IDOR Protection: Check route parameters for entity targets
         $routeContext = RouteContext::fromRequest($req);

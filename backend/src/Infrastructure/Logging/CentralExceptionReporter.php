@@ -9,6 +9,9 @@ use App\Support\TenantContext;
 /**
  * Centralised Exception Reporting & Error Monitoring Service (Sentry / Datadog compatible).
  * Captures unhandled exceptions, deduplicates recurring errors, and stores telemetry in `error_reports`.
+ *
+ * Security Invariant:
+ * - `resolve()` and `recent()` independently enforce tenant ownership unless `$isPlatformAdmin === true`.
  */
 final class CentralExceptionReporter
 {
@@ -34,10 +37,16 @@ final class CentralExceptionReporter
         ] + $extraContext);
 
         try {
-            $existing = Db::one(
-                'SELECT id, occurrences FROM error_reports WHERE exception_class = ? AND file = ? AND line = ? AND resolved = 0 LIMIT 1',
-                [$class, $file, $line]
-            );
+            $existing = $tenantId !== null
+                ? Db::one(
+                    'SELECT id, occurrences FROM error_reports WHERE tenant_id = ? AND exception_class = ? AND file = ? AND line = ? AND resolved = 0 LIMIT 1',
+                    [$tenantId, $class, $file, $line]
+                )
+                : Db::one(
+                    'SELECT id, occurrences FROM error_reports WHERE tenant_id IS NULL AND exception_class = ? AND file = ? AND line = ? AND resolved = 0 LIMIT 1',
+                    [$class, $file, $line]
+                );
+
             if ($existing) {
                 Db::run(
                     'UPDATE error_reports SET occurrences = occurrences + 1, last_seen_at = NOW(), trace_id = ? WHERE id = ?',
@@ -70,15 +79,28 @@ final class CentralExceptionReporter
         }
     }
 
-    public static function recent(?int $tenantId = null, int $limit = 25): array
+    public static function recent(?int $tenantId = null, int $limit = 25, bool $isPlatformAdmin = false): array
     {
         try {
-            $sql = 'SELECT * FROM error_reports '
-                . ($tenantId !== null ? 'WHERE tenant_id = ? OR tenant_id IS NULL ' : '')
-                . 'ORDER BY resolved ASC, last_seen_at DESC LIMIT ' . max(1, min(100, $limit));
-            $rows = Db::all($sql, $tenantId !== null ? [$tenantId] : []);
+            $safeLimit = max(1, min(100, $limit));
+            if ($isPlatformAdmin) {
+                $sql = 'SELECT * FROM error_reports '
+                    . ($tenantId !== null ? 'WHERE tenant_id = ? OR tenant_id IS NULL ' : '')
+                    . 'ORDER BY resolved ASC, last_seen_at DESC LIMIT ' . $safeLimit;
+                $rows = Db::all($sql, $tenantId !== null ? [$tenantId] : []);
+            } else {
+                if ($tenantId === null) {
+                    return [];
+                }
+                $rows = Db::all(
+                    'SELECT * FROM error_reports WHERE tenant_id = ? ORDER BY resolved ASC, last_seen_at DESC LIMIT ' . $safeLimit,
+                    [$tenantId]
+                );
+            }
+
             return array_map(fn($r) => [
                 'id' => (int) $r['id'],
+                'tenantId' => $r['tenant_id'] !== null ? (int) $r['tenant_id'] : null,
                 'traceId' => $r['trace_id'],
                 'severity' => $r['severity'],
                 'exceptionClass' => $r['exception_class'],
@@ -97,8 +119,28 @@ final class CentralExceptionReporter
         }
     }
 
-    public static function resolve(int $id): void
+    /**
+     * Resolve an error report. Independently enforces tenant ownership unless $isPlatformAdmin is true.
+     */
+    public static function resolve(int $id, ?int $tenantId = null, bool $isPlatformAdmin = false): bool
     {
-        Db::run('UPDATE error_reports SET resolved = 1 WHERE id = ?', [$id]);
+        if (!$isPlatformAdmin && $tenantId === null) {
+            throw new \RuntimeException('Forbidden: Tenant ownership context is required to resolve error reports', 403);
+        }
+
+        $row = $isPlatformAdmin
+            ? Db::one('SELECT id FROM error_reports WHERE id = ?', [$id])
+            : Db::one('SELECT id FROM error_reports WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+
+        if (!$row) {
+            return false;
+        }
+
+        if ($isPlatformAdmin) {
+            Db::run('UPDATE error_reports SET resolved = 1 WHERE id = ?', [$id]);
+        } else {
+            Db::run('UPDATE error_reports SET resolved = 1 WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+        }
+        return true;
     }
 }

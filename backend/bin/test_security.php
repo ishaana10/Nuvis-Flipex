@@ -75,8 +75,8 @@ function httpReq(string $method, string $url, ?array $body = null, ?string $toke
 echo "Setting up isolated test fixtures in database...\n";
 
 // Pre-clean any leftover fixtures from prior runs
-Db::run("DELETE FROM flipbooks WHERE slug IN ('alpha-secret-doc', 'beta-confidential-doc', 'protected-sec-test-doc', 'unpublished-draft-sec-test') OR slug LIKE 'unpublished-draft-sec-test-copy%' OR slug LIKE 'fiji-hardware-erp-catalogue-q4%'");
-Db::run("DELETE FROM users WHERE email IN ('user-a@alpha.test', 'user-b@beta.test', 'viewer-a@alpha.test')");
+Db::run("DELETE FROM flipbooks WHERE slug IN ('alpha-secret-doc', 'beta-confidential-doc', 'protected-sec-test-doc', 'unpublished-draft-sec-test', 'locked-magazine-sec-test') OR slug LIKE 'unpublished-draft-sec-test-copy%' OR slug LIKE 'fiji-hardware-erp-catalogue-q4%'");
+Db::run("DELETE FROM users WHERE email IN ('user-a@alpha.test', 'user-b@beta.test', 'viewer-a@alpha.test', 'finance-a@alpha.test', 'owner-a@alpha.test', 'owner-b@beta.test', 'platadmin@alpha.test')");
 Db::run("DELETE FROM tenants WHERE slug IN ('test-corp-alpha', 'test-corp-beta')");
 
 // 1. Setup Tenant Alpha and Tenant Beta
@@ -106,6 +106,29 @@ $tokenB = Jwt::issue($userBId, 'user');
 Db::run("INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (?, 'viewer-a@alpha.test', ?, 'Vince Viewer', 'user', 'viewer', 'active', NOW())", [$tenantAId, $passHash]);
 $viewerAId = (int) Db::pdo()->lastInsertId();
 $tokenViewerA = Jwt::issue($viewerAId, 'user');
+
+// Ensure 'finance' is in users.tenant_role ENUM before creating Finance user
+\App\Controllers\BillingController::ensureBillingSecuritySchema();
+
+// User A Finance Administrator (Finance in Tenant Alpha)
+Db::run("INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (?, 'finance-a@alpha.test', ?, 'Fiona Finance', 'user', 'finance', 'active', NOW())", [$tenantAId, $passHash]);
+$financeAId = (int) Db::pdo()->lastInsertId();
+$tokenFinanceA = Jwt::issue($financeAId, 'user');
+
+// User A Tenant Owner (Owner in Tenant Alpha)
+Db::run("INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (?, 'owner-a@alpha.test', ?, 'Olivia Owner Alpha', 'user', 'owner', 'active', NOW())", [$tenantAId, $passHash]);
+$ownerAId = (int) Db::pdo()->lastInsertId();
+$tokenOwnerA = Jwt::issue($ownerAId, 'user');
+
+// User B Tenant Owner (Owner in Tenant Beta)
+Db::run("INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (?, 'owner-b@beta.test', ?, 'Oscar Owner Beta', 'user', 'owner', 'active', NOW())", [$tenantBId, $passHash]);
+$ownerBId = (int) Db::pdo()->lastInsertId();
+$tokenOwnerB = Jwt::issue($ownerBId, 'user');
+
+// Platform Administrator
+Db::run("INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (?, 'platadmin@alpha.test', ?, 'Platform Admin', 'admin', 'owner', 'active', NOW())", [$tenantAId, $passHash]);
+$platAdminId = (int) Db::pdo()->lastInsertId();
+$tokenPlatAdmin = Jwt::issue($platAdminId, 'admin');
 
 // Setup Flipbooks
 Db::run("INSERT INTO flipbooks (tenant_id, user_id, title, slug, status, visibility) VALUES (?, ?, 'Alpha Confidential Report', 'alpha-confidential-report', 'ready', 'unlisted')", [$tenantAId, $userAId]);
@@ -232,14 +255,21 @@ $pwHash = password_hash('AlphaSecret99!', PASSWORD_ARGON2ID);
 Db::run("INSERT INTO flipbooks (tenant_id, user_id, title, slug, status, workflow_status, visibility, password_hash, published_at) VALUES (?, ?, 'Locked Magazine', 'locked-magazine-sec-test', 'ready', 'published', 'password', ?, NOW())", [$tenantAId, $userAId, $pwHash]);
 $lockedFid = (int) Db::pdo()->lastInsertId();
 
-// Mock page asset
+// Mock page assets (Page 1 & Page 2)
 $dummyPath = Storage::root() . "/tenants/{$tenantAId}/publications/{$lockedFid}/page-001.jpg";
+$dummyPath2 = Storage::root() . "/tenants/{$tenantAId}/publications/{$lockedFid}/page-002.jpg";
 Storage::ensureDir(dirname($dummyPath));
 file_put_contents($dummyPath, "\xFF\xD8\xFF\xE0\x00\x10JFIF" . str_repeat('0', 50));
+file_put_contents($dummyPath2, "\xFF\xD8\xFF\xE0\x00\x10JFIF" . str_repeat('0', 50));
 Db::run("INSERT INTO pages (flipbook_id, page_number, image_path, thumb_path, width, height) VALUES (?, 1, ?, ?, 800, 1100)", [
     $lockedFid,
     "tenants/{$tenantAId}/publications/{$lockedFid}/page-001.jpg",
     "tenants/{$tenantAId}/publications/{$lockedFid}/page-001.jpg",
+]);
+Db::run("INSERT INTO pages (flipbook_id, page_number, image_path, thumb_path, width, height) VALUES (?, 2, ?, ?, 800, 1100)", [
+    $lockedFid,
+    "tenants/{$tenantAId}/publications/{$lockedFid}/page-002.jpg",
+    "tenants/{$tenantAId}/publications/{$lockedFid}/page-002.jpg",
 ]);
 
 // 3.1 Metadata inspection
@@ -251,9 +281,9 @@ assertTest(
 );
 
 // 3.2 Direct asset access without unlock token is forbidden
-$r = httpReq('GET', "{$apiUrl}/public/locked-magazine-sec-test/pages/1");
+$r = httpReq('GET', "{$apiUrl}/public/locked-magazine-sec-test/pages/2");
 assertTest(
-    "Direct page access without unlock token blocked (HTTP 403 Forbidden)",
+    "Direct protected page access without unlock token blocked (HTTP 403 Forbidden)",
     $r['status'] === 403,
     "Received status: {$r['status']}"
 );
@@ -266,21 +296,41 @@ assertTest(
     "Received status: {$r['status']}"
 );
 
-// 3.4 Unlock with correct password
+// 3.4 Unlock with correct password returns expiring (30-min) signed unlock token
 $r = httpReq('POST', "{$apiUrl}/public/locked-magazine-sec-test/unlock", ['password' => 'AlphaSecret99!']);
 $unlockToken = $r['body']['unlockToken'] ?? '';
+$unlockTtl = (int) ($r['body']['expiresInSeconds'] ?? 0);
 assertTest(
-    "Correct password unlock returns cryptographic unlock token",
-    $r['status'] === 200 && !empty($unlockToken),
-    "Unlock token received: " . substr($unlockToken, 0, 10) . "..."
+    "Correct password unlock returns 30-minute expiring cryptographic unlock token (1800s TTL)",
+    $r['status'] === 200 && !empty($unlockToken) && str_contains($unlockToken, '.') && $unlockTtl === 1800,
+    "Unlock token received: " . substr($unlockToken, 0, 10) . "..., TTL: {$unlockTtl}"
 );
 
-// 3.5 Asset access WITH unlock token succeeds
-$r = httpReq('GET', "{$apiUrl}/public/locked-magazine-sec-test/pages/1", null, null, ['X-Unlock-Token' => $unlockToken]);
+// 3.5 Asset access WITH unlock token in header succeeds, while URL query ?token=... is strictly rejected
+$rHeader = httpReq('GET', "{$apiUrl}/public/locked-magazine-sec-test/pages/2", null, null, ['X-Unlock-Token' => $unlockToken]);
+$rUrlQuery = httpReq('GET', "{$apiUrl}/public/locked-magazine-sec-test/pages/2?token=" . rawurlencode($unlockToken));
 assertTest(
-    "Authorized image streaming with valid unlock token succeeds (HTTP 200)",
-    $r['status'] === 200,
-    "Received status: {$r['status']}"
+    "Authorized image streaming with X-Unlock-Token succeeds (200) while URL query ?token=... is rejected (403)",
+    $rHeader['status'] === 200 && $rUrlQuery['status'] === 403,
+    "Header status: {$rHeader['status']}, URL query status: {$rUrlQuery['status']}"
+);
+
+// 3.6 Explicit reader session lock revokes token jti immediately
+$rLock = httpReq('POST', "{$apiUrl}/public/locked-magazine-sec-test/lock", [], null, ['X-Unlock-Token' => $unlockToken]);
+$rAfterLock = httpReq('GET', "{$apiUrl}/public/locked-magazine-sec-test/pages/2", null, null, ['X-Unlock-Token' => $unlockToken]);
+assertTest(
+    "Reader session lock (POST /public/{slug}/lock) immediately revokes unlock token (subsequent access 403)",
+    $rLock['status'] === 200 && $rAfterLock['status'] === 403
+);
+
+// 3.7 Publication owner bulk revocation (POST /flipbooks/{id}/revoke-unlock-tokens) invalidates all active tokens
+$rUnlock2 = httpReq('POST', "{$apiUrl}/public/locked-magazine-sec-test/unlock", ['password' => 'AlphaSecret99!']);
+$unlockToken2 = $rUnlock2['body']['unlockToken'] ?? '';
+$rOwnerRevoke = httpReq('POST', "{$apiUrl}/flipbooks/{$lockedFid}/revoke-unlock-tokens", [], $tokenA);
+$rAfterOwnerRevoke = httpReq('GET', "{$apiUrl}/public/locked-magazine-sec-test/pages/2", null, null, ['X-Unlock-Token' => $unlockToken2]);
+assertTest(
+    "Publication owner revocation (POST /flipbooks/{id}/revoke-unlock-tokens) invalidates all active unlock tokens (403)",
+    $rOwnerRevoke['status'] === 200 && $rAfterOwnerRevoke['status'] === 403
 );
 
 echo "\n";
@@ -641,12 +691,75 @@ assertTest(
     $rOembed['status'] === 200 && ($rOembed['body']['provider_name'] ?? '') === 'Nuvis Flipex' && str_contains($rOembed['body']['html'] ?? '', '<iframe')
 );
 
+// 8.5 P0 API Key Scope Enforcement: Read-only key ('flipbooks:read') cannot write, publish ERP, read analytics, or manage billing
+$rReadKeyCreate = httpReq('POST', "{$apiUrl}/integrations/api-keys", [
+    'name' => 'Read-Only Catalogue Viewer Key',
+    'scopes' => ['flipbooks:read'],
+    'expiresInDays' => 30,
+], $tokenA);
+$readOnlyRawKey = (string) ($rReadKeyCreate['body']['rawKey'] ?? '');
+$readOnlyKeyId = (int) ($rReadKeyCreate['body']['id'] ?? 0);
+
+$rReadAllowed = httpReq('GET', "{$apiUrl}/flipbooks", null, $readOnlyRawKey);
+$rReadBlockErp = httpReq('POST', "{$apiUrl}/integrations/erp/publish-catalogue", ['title' => 'Blocked ERP Push'], $readOnlyRawKey);
+$rReadBlockWebhooks = httpReq('GET', "{$apiUrl}/integrations/webhooks", null, $readOnlyRawKey);
+$rReadBlockBilling = httpReq('GET', "{$apiUrl}/billing/overview", null, $readOnlyRawKey);
+$rReadBlockKeyMgmt = httpReq('GET', "{$apiUrl}/integrations/api-keys", null, $readOnlyRawKey);
+assertTest(
+    "P0 Scope Enforcement: 'flipbooks:read' API key can view flipbooks (200) but is blocked (403) on ERP publish, webhooks, billing, and key management",
+    $rReadAllowed['status'] === 200
+    && $rReadBlockErp['status'] === 403
+    && $rReadBlockWebhooks['status'] === 403
+    && $rReadBlockBilling['status'] === 403
+    && $rReadBlockKeyMgmt['status'] === 403
+);
+
+// 8.6 P0 Dual Permission Enforcement: API key owned by 'viewer' user is blocked on write endpoints even if key scope includes 'erp:publish'
+$viewerRawKey = 'nvf_live_' . bin2hex(random_bytes(20));
+Db::run(
+    'INSERT INTO api_keys (tenant_id, user_id, name, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?)',
+    [$tenantAId, $viewerAId, 'Viewer Escalated Key', substr($viewerRawKey, 0, 16) . '…', hash('sha256', $viewerRawKey), json_encode(['flipbooks:read', 'flipbooks:write', 'erp:publish'])]
+);
+$rViewerKeyErp = httpReq('POST', "{$apiUrl}/integrations/erp/publish-catalogue", ['title' => 'Viewer Escalation Attempt'], $viewerRawKey);
+assertTest(
+    "P0 Dual RBAC + Scope Check: API key cannot exceed its owner user's RBAC permissions (viewer blocked with HTTP 403)",
+    $rViewerKeyErp['status'] === 403
+);
+
+// 8.7 API Key IP Restriction & Daily Usage Quota Enforcement
+$rGuardedKey = httpReq('POST', "{$apiUrl}/integrations/api-keys", [
+    'name' => 'IP & Quota Restricted Key',
+    'scopes' => ['flipbooks:read'],
+    'allowedIps' => '203.0.113.50, 10.20.0.0/16',
+    'dailyQuota' => 1,
+], $tokenA);
+$guardedRawKey = (string) ($rGuardedKey['body']['rawKey'] ?? '');
+$guardedKeyId = (int) ($rGuardedKey['body']['id'] ?? 0);
+
+$rIpBlocked = httpReq('GET', "{$apiUrl}/flipbooks", null, $guardedRawKey, ['X-Client-IP' => '198.51.100.99']);
+$rIpAllowedFirst = httpReq('GET', "{$apiUrl}/flipbooks", null, $guardedRawKey, ['X-Client-IP' => '203.0.113.50']);
+$rQuotaExceededSecond = httpReq('GET', "{$apiUrl}/flipbooks", null, $guardedRawKey, ['X-Client-IP' => '203.0.113.50']);
+assertTest(
+    "API Key IP Allowlist (403 on unauthorized IP, 200 on allowed IP) and Daily Usage Quota (429 when exceeded) enforced",
+    $rIpBlocked['status'] === 403 && $rIpAllowedFirst['status'] === 200 && $rQuotaExceededSecond['status'] === 429
+);
+
+// 8.8 API Key Atomic Rotation
+$rRotate = httpReq('POST', "{$apiUrl}/integrations/api-keys/{$readOnlyKeyId}/rotate", [], $tokenA);
+$rotatedRawKey = (string) ($rRotate['body']['rawKey'] ?? '');
+$rOldKeyAfterRotate = httpReq('GET', "{$apiUrl}/flipbooks", null, $readOnlyRawKey);
+$rNewKeyAfterRotate = httpReq('GET', "{$apiUrl}/flipbooks", null, $rotatedRawKey);
+assertTest(
+    "API Key Rotation atomically revokes old key (401) and issues working replacement key (200)",
+    $rRotate['status'] === 201 && $rOldKeyAfterRotate['status'] === 401 && $rNewKeyAfterRotate['status'] === 200
+);
+
 echo "\n";
 
 // ============================================================================
-// TEST SUITE 9: COMMERCIAL BILLING, INVOICES, TAX & FIJI BANK RECONCILIATION
+// TEST SUITE 9: COMMERCIAL BILLING, 3-STAGE PAYMENT VERIFICATION & RECONCILIATION SECURITY
 // ============================================================================
-echo "9. Commercial Billing, Tax Invoices, Metering & Fiji Manual Bank Reconciliation:\n";
+echo "9. Commercial Billing, 3-Stage Payment Verification, Signed Webhooks & Finance RBAC:\n";
 
 // 9.1 Generate itemized Tax Invoice for Tenant A (with 15% Fiji VAT calculation)
 $rGenInv = httpReq('POST', "{$apiUrl}/billing/generate-invoice", ['notes' => 'Automated renewal invoice test'], $tokenA);
@@ -657,16 +770,26 @@ assertTest(
     "Status: {$rGenInv['status']}, body: " . json_encode($rGenInv['body'])
 );
 
-// 9.2 Submit Fiji Manual Bank Transfer reference (BSP Fiji) -> transitions invoice to 'reconciling'
-$rPayBank = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/pay", [
-    'paymentMethod' => 'manual_bank_fiji',
+// 9.2 Stage 1 Customer Payment Submission: Unsafe client-supplied autoReconcile=true or stripe_card NEVER marks invoice 'paid'
+$idemKey1 = 'idem-test-' . bin2hex(random_bytes(6));
+$rPayStage1 = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/pay", [
+    'paymentMethod' => 'stripe_card',
+    'autoReconcile' => true,
     'bankName' => 'Bank of South Pacific (BSP) Fiji',
     'paymentReference' => 'BSP-FJ-99887766',
     'notes' => 'Transferred from Suva corporate account',
-], $tokenA);
+], $tokenA, ['Idempotency-Key' => $idemKey1]);
+$rPayReplay = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/pay", [
+    'paymentMethod' => 'stripe_card',
+    'autoReconcile' => true,
+], $tokenA, ['Idempotency-Key' => $idemKey1]);
 assertTest(
-    "Fiji Manual Bank Transfer submission marks invoice as 'reconciling' with bank reference",
-    $rPayBank['status'] === 200 && ($rPayBank['body']['status'] ?? '') === 'reconciling'
+    "P0 Payment Submission: Client-supplied autoReconcile/stripe_card cannot mark invoice 'paid' directly (enters 'reconciling' + idempotent replay)",
+    $rPayStage1['status'] === 200
+    && ($rPayStage1['body']['status'] ?? '') === 'reconciling'
+    && ($rPayStage1['body']['requiresVerification'] ?? false) === true
+    && ($rPayReplay['body']['idempotentReplay'] ?? false) === true
+    && ($rPayReplay['body']['transactionId'] ?? 0) === ($rPayStage1['body']['transactionId'] ?? -1)
 );
 
 // 9.3 Tenant B cannot pay or view Tenant A's invoice (Cross-tenant billing isolation)
@@ -678,14 +801,57 @@ assertTest(
     $rCrossPay['status'] === 404
 );
 
-// 9.4 Reconcile & approve Fiji Bank Transfer -> marks invoice 'paid' and extends subscription renewal
-$rReconcile = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/reconcile", [
+// 9.4a P0 Reconciliation RBAC: Ordinary tenant users (editor & viewer) are blocked (403 Forbidden) from reconciling invoices
+$rEditorReconcile = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/reconcile", [
     'decision' => 'approve',
-    'notes' => 'Verified on BSP Fiji statement',
 ], $tokenA);
+$rViewerReconcile = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/reconcile", [
+    'decision' => 'approve',
+], $tokenViewerA);
 assertTest(
-    "Bank transfer reconciliation approves payment, marks invoice 'paid', and renews subscription",
-    $rReconcile['status'] === 200 && ($rReconcile['body']['status'] ?? '') === 'paid'
+    "P0 Reconciliation RBAC: Ordinary tenant users ('editor' and 'viewer') are blocked from reconciling invoices (HTTP 403)",
+    $rEditorReconcile['status'] === 403 && $rViewerReconcile['status'] === 403
+);
+
+// 9.4b Stage 2A & Stage 3: Authorized Finance Administrator reconciles invoice atomically + records immutable SHA-256 audit chain
+$rFinanceReconcile = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId}/reconcile", [
+    'decision' => 'approve',
+    'notes' => 'Verified on BSP Fiji statement by Finance Admin',
+], $tokenFinanceA);
+assertTest(
+    "Authorized Finance Administrator ('finance' role) reconciles invoice, marks it 'paid', and records SHA-256 chained audit hash",
+    $rFinanceReconcile['status'] === 200
+    && ($rFinanceReconcile['body']['status'] ?? '') === 'paid'
+    && strlen((string) ($rFinanceReconcile['body']['auditHash'] ?? '')) === 64
+);
+
+// 9.4c Stage 2B: Signed Payment Gateway Webhook Verification (HMAC-SHA256) & Payment Reversal
+$rGenInv2 = httpReq('POST', "{$apiUrl}/billing/generate-invoice", ['notes' => 'Webhook test invoice'], $tokenA);
+$invId2 = (int) ($rGenInv2['body']['id'] ?? 0);
+$whPayload = [
+    'event' => 'payment.succeeded',
+    'eventId' => 'evt_' . bin2hex(random_bytes(6)),
+    'invoiceId' => $invId2,
+    'tenantId' => $tenantAId,
+    'paymentReference' => 'STRIPE-WH-VERIFIED-01',
+];
+$whRawJson = json_encode($whPayload);
+$whSecret = \App\Controllers\BillingController::webhookSigningSecret('stripe_card');
+$validSig = 't=' . time() . ',v1=' . hash_hmac('sha256', time() . '.' . $whRawJson, $whSecret);
+
+$rWhBadSig = httpReq('POST', "{$apiUrl}/billing/webhooks/stripe_card", $whPayload, null, ['X-Payment-Signature' => 't=' . time() . ',v1=deadbeef']);
+$rWhValid = httpReq('POST', "{$apiUrl}/billing/webhooks/stripe_card", $whPayload, null, ['X-Payment-Signature' => $validSig]);
+assertTest(
+    "Signed Payment Webhook rejects invalid signature (401) and atomically confirms payment + activates subscription on valid HMAC-SHA256 (200)",
+    $rWhBadSig['status'] === 401 && $rWhValid['status'] === 200 && ($rWhValid['body']['status'] ?? '') === 'paid'
+);
+
+// 9.4d Payment Reversal: Blocked for ordinary editor (403), succeeds for Finance Administrator (200)
+$rEditorReverse = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId2}/reverse", ['reason' => 'Unauthorized attempt'], $tokenA);
+$rFinanceReverse = httpReq('POST', "{$apiUrl}/billing/invoices/{$invId2}/reverse", ['reason' => 'Customer chargeback reversal'], $tokenFinanceA);
+assertTest(
+    "Payment Reversal blocked for ordinary tenant user (403) and executed atomically by Finance Administrator (200 -> status 'reversed')",
+    $rEditorReverse['status'] === 403 && $rFinanceReverse['status'] === 200 && ($rFinanceReverse['body']['status'] ?? '') === 'reversed'
 );
 
 // 9.5 Self-service Plan Upgrade / Downgrade records Subscription History audit log
@@ -705,51 +871,83 @@ if ($proPlan) {
 echo "\n";
 
 // ============================================================================
-// TEST SUITE 10: MODULAR ARCHITECTURE & DEVOPS PRODUCTION READINESS
+// TEST SUITE 10: DEVOPS RBAC SPLIT, TENANT OWNERSHIP & CRYPTOGRAPHIC SECRET STRENGTH
 // ============================================================================
-echo "10. Modular Backend Architecture (15 Modules), DLQ, JSONL Logs, Error Monitor & Backups:\n";
+echo "10. DevOps Control-Plane RBAC Split, Service Ownership Enforcement & Cryptographic Secret Hygiene:\n";
 
-// 10.1 Verify DevOps Overview returns 15 Domain Modules, 6 Architectural Layers, CPU/Memory/Storage Health & Reversible Migrations
-$rDev = httpReq('GET', "{$apiUrl}/devops/overview", null, $tokenA);
-$modCount = count($rDev['body']['architecture']['modules'] ?? []);
-$layerCount = count($rDev['body']['architecture']['layers'] ?? []);
-$migCount = count($rDev['body']['migrations'] ?? []);
+// 10.0 Cryptographic Secret Hygiene: reject placeholders ('change-me-to-a-long-random-string', 'nuvis_fallback_secret_key')
+$weakPlaceholder1 = \App\Support\CryptoSecrets::isStrongSecret('change-me-to-a-long-random-string');
+$weakPlaceholder2 = \App\Support\CryptoSecrets::isStrongSecret('nuvis_fallback_secret_key');
+$weakLowEntropy = \App\Support\CryptoSecrets::isStrongSecret(str_repeat('a', 64));
+$strongRandom = \App\Support\CryptoSecrets::isStrongSecret(\App\Support\CryptoSecrets::generateRandomSecret(32));
 assertTest(
-    "Modular Architecture registry exposes all 15 Domain Modules, 6 Layers & 6 Reversible Migrations",
-    $rDev['status'] === 200 && $modCount === 15 && $layerCount === 6 && $migCount >= 6,
-    "Status: {$rDev['status']}, modules: {$modCount}, layers: {$layerCount}, migrations: {$migCount}"
+    "P0 CryptoSecrets: Rejects 'change-me-to-a-long-random-string', 'nuvis_fallback_secret_key', and low-entropy strings; accepts 256-bit CSPRNG secret",
+    $weakPlaceholder1 === false && $weakPlaceholder2 === false && $weakLowEntropy === false && $strongRandom === true
 );
 
-// 10.2 Create Automated MySQL & Tenant Storage Snapshot Backup + Run SHA-256 Recovery Drill
-$rBkp = httpReq('POST', "{$apiUrl}/devops/backups/create", ['backupType' => 'full_snapshot'], $tokenA);
+// 10.1 P0 DevOps RBAC Split: Ordinary editor/viewer blocked (403) from global migrations, error simulation, backup creation & DevOps overview
+$rEditorMig = httpReq('POST', "{$apiUrl}/devops/migrations/run", ['direction' => 'up'], $tokenA);
+$rOwnerMig = httpReq('POST', "{$apiUrl}/devops/migrations/run", ['direction' => 'up'], $tokenOwnerA);
+$rEditorOverview = httpReq('GET', "{$apiUrl}/devops/overview", null, $tokenA);
+$rEditorBkp = httpReq('POST', "{$apiUrl}/devops/backups/create", ['backupType' => 'full_snapshot'], $tokenA);
+$rEditorErrSim = httpReq('POST', "{$apiUrl}/devops/errors/simulate", [], $tokenA);
+assertTest(
+    "P0 DevOps RBAC: Ordinary tenant users ('editor' & 'owner') blocked from global migrations (403); 'editor' blocked from overview, backups & error simulation (403)",
+    $rEditorMig['status'] === 403
+    && $rOwnerMig['status'] === 403
+    && $rEditorOverview['status'] === 403
+    && $rEditorBkp['status'] === 403
+    && $rEditorErrSim['status'] === 403
+);
+
+// 10.2 Tenant Publication Job Status (/devops/jobs): Accessible to Tenant Editor (200), blocked for Viewer (403)
+$rEditorJobs = httpReq('GET', "{$apiUrl}/devops/jobs", null, $tokenA);
+$rViewerJobs = httpReq('GET', "{$apiUrl}/devops/jobs", null, $tokenViewerA);
+assertTest(
+    "DevOps Tenant Publication Job Status (/devops/jobs) allowed for 'editor' (200) and blocked for 'viewer' (403)",
+    $rEditorJobs['status'] === 200 && $rViewerJobs['status'] === 403
+);
+
+// 10.3 Tenant Owner Overview & Backup Creation + Cross-Tenant Ownership Enforcement in BackupManager::verifyAndTestRecovery()
+$rDev = httpReq('GET', "{$apiUrl}/devops/overview", null, $tokenOwnerA);
+$modCount = count($rDev['body']['architecture']['modules'] ?? []);
+$layerCount = count($rDev['body']['architecture']['layers'] ?? []);
+assertTest(
+    "Tenant Owner ('owner') accesses scoped DevOps usage overview (200) with 15 Domain Modules & 6 Layers",
+    $rDev['status'] === 200 && $modCount === 15 && $layerCount === 6
+);
+
+$rBkp = httpReq('POST', "{$apiUrl}/devops/backups/create", ['backupType' => 'full_snapshot'], $tokenOwnerA);
 $bkpId = (int) ($rBkp['body']['backup']['id'] ?? 0);
 assertTest(
-    "Automated MySQL & Tenant Storage backup snapshot created with SHA-256 checksum (HTTP 201)",
+    "Tenant Owner creates tenant-scoped backup snapshot with SHA-256 checksum (HTTP 201)",
     $rBkp['status'] === 201 && $bkpId > 0 && strlen($rBkp['body']['backup']['checksumSha256'] ?? '') === 64
 );
 
-$rVerBkp = httpReq('POST', "{$apiUrl}/devops/backups/{$bkpId}/verify", [], $tokenA);
+$rCrossVerBkp = httpReq('POST', "{$apiUrl}/devops/backups/{$bkpId}/verify", [], $tokenOwnerB);
+$rVerBkp = httpReq('POST', "{$apiUrl}/devops/backups/{$bkpId}/verify", [], $tokenOwnerA);
 assertTest(
-    "Backup Recovery Verification Drill validates SHA-256 hash and table/storage restorability",
-    $rVerBkp['status'] === 200 && ($rVerBkp['body']['backup']['status'] ?? '') === 'verified'
+    "BackupManager::verifyAndTestRecovery() enforces tenant ownership (Tenant B owner blocked with 404; Tenant A owner succeeds with 200)",
+    $rCrossVerBkp['status'] === 404 && $rVerBkp['status'] === 200 && ($rVerBkp['body']['backup']['status'] ?? '') === 'verified'
 );
 
-// 10.3 Dead-Letter Queue (DLQ) job capture & replay
-$rDlqSim = httpReq('POST', "{$apiUrl}/devops/dlq/simulate", [], $tokenA);
+// 10.4 Platform Administrator Only Operations: DLQ simulation, Error Management & Global Database Migrations
+$rDlqSim = httpReq('POST', "{$apiUrl}/devops/dlq/simulate", [], $tokenPlatAdmin);
 $dlqId = (int) ($rDlqSim['body']['dlqId'] ?? 0);
+$rCrossDlqRetry = httpReq('POST', "{$apiUrl}/devops/dlq/{$dlqId}/retry", [], $tokenB);
 $rDlqRetry = httpReq('POST', "{$apiUrl}/devops/dlq/{$dlqId}/retry", [], $tokenA);
 assertTest(
-    "Persistent Queue Dead-Letter (DLQ) captures exhausted jobs and supports 1-click replay",
-    $rDlqSim['status'] === 201 && $dlqId > 0 && $rDlqRetry['status'] === 200
+    "Platform Admin simulates DLQ job (201); QueueManager::retryDeadLetter() blocks Tenant B (404) and allows Tenant A editor (200)",
+    $rDlqSim['status'] === 201 && $dlqId > 0 && $rCrossDlqRetry['status'] === 404 && $rDlqRetry['status'] === 200
 );
 
-// 10.4 Centralised Exception Reporting & Structured JSONL Logging
-$rErrSim = httpReq('POST', "{$apiUrl}/devops/errors/simulate", [], $tokenA);
+$rErrSim = httpReq('POST', "{$apiUrl}/devops/errors/simulate", [], $tokenPlatAdmin);
 $errId = (int) ($rErrSim['body']['reportId'] ?? 0);
-$rErrRes = httpReq('POST', "{$apiUrl}/devops/errors/{$errId}/resolve", [], $tokenA);
+$rOwnerErrRes = httpReq('POST', "{$apiUrl}/devops/errors/{$errId}/resolve", [], $tokenOwnerA);
+$rPlatErrRes = httpReq('POST', "{$apiUrl}/devops/errors/{$errId}/resolve", [], $tokenPlatAdmin);
 assertTest(
-    "Centralised Exception Reporter captures error with trace_id in JSONL log and resolves report",
-    $rErrSim['status'] === 201 && $errId > 0 && $rErrRes['status'] === 200
+    "Global Error Management restricted to Platform Admin: tenant owner blocked from resolving error (403), Platform Admin resolves (200)",
+    $rErrSim['status'] === 201 && $errId > 0 && $rOwnerErrRes['status'] === 403 && $rPlatErrRes['status'] === 200
 );
 
 echo "\n";
@@ -762,8 +960,11 @@ Db::run("DELETE FROM dead_letter_jobs WHERE tenant_id IN (?, ?)", [$tenantAId, $
 Db::run("DELETE FROM error_reports WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Db::run("DELETE FROM system_backups WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Db::run("DELETE FROM api_keys WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM payment_audit_logs WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM payment_transactions WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Db::run("DELETE FROM invoices WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Db::run("DELETE FROM subscription_history WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM revoked_unlock_tokens WHERE flipbook_id = ?", [$lockedFid]);
 Db::run("DELETE FROM hotspots WHERE flipbook_id IN (?, ?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid, $erpFid]);
 Db::run("DELETE FROM pages WHERE flipbook_id IN (?, ?, ?, ?)", [$lockedFid, $draftFid, $dupFid, $erpFid]);
 Db::run("DELETE FROM flipbooks WHERE id IN (?, ?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid, $erpFid]);
@@ -774,8 +975,8 @@ if ($dupFid > 0) {
 if ($erpFid > 0) {
     Storage::rrmdir(Storage::publicationDir($tenantAId, $erpFid));
 }
-Db::run("DELETE FROM refresh_tokens WHERE user_id IN (?, ?, ?)", [$userAId, $userBId, $viewerAId]);
-Db::run("DELETE FROM users WHERE id IN (?, ?, ?)", [$userAId, $userBId, $viewerAId]);
+Db::run("DELETE FROM refresh_tokens WHERE user_id IN (?, ?, ?, ?, ?, ?, ?)", [$userAId, $userBId, $viewerAId, $financeAId, $ownerAId, $ownerBId, $platAdminId]);
+Db::run("DELETE FROM users WHERE id IN (?, ?, ?, ?, ?, ?, ?)", [$userAId, $userBId, $viewerAId, $financeAId, $ownerAId, $ownerBId, $platAdminId]);
 Db::run("DELETE FROM tenants WHERE id IN (?, ?)", [$tenantAId, $tenantBId]);
 Storage::rrmdir(dirname($dummyPath));
 

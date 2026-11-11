@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
+use App\Support\CryptoSecrets;
 use App\Support\Db;
 use App\Support\PdfRenderer;
 use Dotenv\Dotenv;
@@ -51,25 +52,34 @@ if (!file_exists($envFile)) {
     }
 }
 
-// Ensure cryptographically secure random JWT_SECRET
-$envContent = file_get_contents($envFile);
-if (
-    !preg_match('/^JWT_SECRET=(.+)$/m', $envContent, $matches) ||
-    trim($matches[1]) === '' ||
-    str_contains($matches[1], 'replace_with') ||
-    str_contains($matches[1], 'generate_using')
-) {
-    $randomSecret = bin2hex(random_bytes(32));
-    if (preg_match('/^JWT_SECRET=.*$/m', $envContent)) {
-        $envContent = preg_replace('/^JWT_SECRET=.*$/m', 'JWT_SECRET=' . $randomSecret, $envContent);
-    } else {
-        $envContent .= "\nJWT_SECRET=" . $randomSecret . "\n";
-    }
-    file_put_contents($envFile, $envContent);
-    echo "Generated cryptographically secure 256-bit random JWT_SECRET.\n";
+// Ensure cryptographically secure random secrets for JWT, Storage Signing, Preview Tokens, and Unlock Tokens
+$cliRotateOpts = getopt('', ['rotate-secrets']);
+$forceRotate = isset($cliRotateOpts['rotate-secrets']);
+$envContent = (string) file_get_contents($envFile);
+[$updatedEnvContent, $generatedSecretKeys] = CryptoSecrets::ensureEnvSecrets($envContent, $forceRotate);
+if (!empty($generatedSecretKeys)) {
+    file_put_contents($envFile, $updatedEnvContent);
+    echo ($forceRotate ? "Rotated" : "Generated") . " cryptographically secure 256-bit random secrets for: " . implode(', ', $generatedSecretKeys) . "\n";
 }
 
 Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
+
+// Strict Cryptographic Entropy & Production Security Validation
+foreach (['JWT_SECRET', 'STORAGE_SIGNING_SECRET', 'PREVIEW_TOKEN_SECRET', 'UNLOCK_TOKEN_SECRET'] as $secKey) {
+    $secVal = (string) ($_ENV[$secKey] ?? '');
+    if (!CryptoSecrets::isStrongSecret($secVal)) {
+        fwrite(STDERR, "ERROR: Insecure {$secKey} detected in .env (rejected placeholder or insufficient entropy).\n");
+        exit(1);
+    }
+}
+
+if (strtolower((string) ($_ENV['APP_ENV'] ?? 'local')) === 'production') {
+    $dbPass = trim((string) ($_ENV['DB_PASS'] ?? ''));
+    if ($dbPass === '' || in_array(strtolower($dbPass), ['secret', 'password', 'root', '123456', 'change-me'], true)) {
+        fwrite(STDERR, "ERROR: Production installation aborted — DB_PASS in .env uses an insecure default.\n");
+        exit(1);
+    }
+}
 
 // 2b. Validate PDF Rasterization Engines (Ghostscript / Imagick / Poppler)
 echo "Detecting PDF rendering engines:\n";

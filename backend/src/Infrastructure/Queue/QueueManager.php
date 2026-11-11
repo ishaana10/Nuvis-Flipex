@@ -8,6 +8,9 @@ use App\Support\Db;
 /**
  * Infrastructure Queue Service.
  * Manages persistent conversion & notification jobs with exponential backoff retry and Dead-Letter Queue (DLQ) handling.
+ *
+ * Security Invariant:
+ * - `stats()` and `retryDeadLetter()` strictly enforce `tenant_id` ownership unless `$isPlatformAdmin === true`.
  */
 final class QueueManager
 {
@@ -78,7 +81,7 @@ final class QueueManager
         }
     }
 
-    public static function stats(?int $tenantId = null): array
+    public static function stats(?int $tenantId = null, bool $isPlatformAdmin = false): array
     {
         self::syncExhaustedConversionJobs($tenantId);
 
@@ -99,10 +102,16 @@ final class QueueManager
         } catch (\Throwable) {
         }
 
-        $dlqRows = Db::all(
-            "SELECT * FROM dead_letter_jobs " . ($tenantId !== null ? 'WHERE tenant_id = ? OR tenant_id IS NULL' : '') . " ORDER BY failed_at DESC LIMIT 25",
-            $params
-        );
+        if ($isPlatformAdmin) {
+            $dlqRows = Db::all(
+                "SELECT * FROM dead_letter_jobs " . ($tenantId !== null ? 'WHERE tenant_id = ? OR tenant_id IS NULL' : '') . " ORDER BY failed_at DESC LIMIT 25",
+                $params
+            );
+        } else {
+            $dlqRows = $tenantId !== null
+                ? Db::all("SELECT * FROM dead_letter_jobs WHERE tenant_id = ? ORDER BY failed_at DESC LIMIT 25", [$tenantId])
+                : [];
+        }
 
         return [
             'driver' => 'persistent_mysql_with_redis_locks',
@@ -114,6 +123,7 @@ final class QueueManager
             'deadLetterCount' => count(array_filter($dlqRows, fn($r) => $r['status'] === 'dead')),
             'deadLetterJobs' => array_map(fn($r) => [
                 'id' => (int) $r['id'],
+                'tenantId' => $r['tenant_id'] !== null ? (int) $r['tenant_id'] : null,
                 'originalJobId' => $r['original_job_id'] ? (int) $r['original_job_id'] : null,
                 'queueName' => $r['queue_name'],
                 'jobType' => $r['job_type'],
@@ -128,30 +138,51 @@ final class QueueManager
         ];
     }
 
-    public static function retryDeadLetter(int $dlqId, ?int $tenantId = null): bool
+    /**
+     * Retry a dead-letter job. Independently enforces strict tenant ownership unless $isPlatformAdmin is true.
+     */
+    public static function retryDeadLetter(int $dlqId, ?int $tenantId = null, bool $isPlatformAdmin = false): bool
     {
-        $dlq = Db::one('SELECT * FROM dead_letter_jobs WHERE id = ?', [$dlqId]);
-        if (!$dlq) {
+        if (!$isPlatformAdmin && $tenantId === null) {
             return false;
         }
-        if ($tenantId !== null && !empty($dlq['tenant_id']) && (int) $dlq['tenant_id'] !== $tenantId) {
+
+        $dlq = $isPlatformAdmin
+            ? Db::one('SELECT * FROM dead_letter_jobs WHERE id = ?', [$dlqId])
+            : Db::one('SELECT * FROM dead_letter_jobs WHERE id = ? AND tenant_id = ?', [$dlqId, $tenantId]);
+
+        if (!$dlq) {
             return false;
         }
 
         if (!empty($dlq['original_job_id'])) {
             try {
-                Db::run(
-                    "UPDATE jobs SET status = 'queued', progress = 0, current_step = 'Requeued from Dead-Letter Queue', error_message = NULL WHERE id = ?",
-                    [(int) $dlq['original_job_id']]
-                );
+                if ($isPlatformAdmin) {
+                    Db::run(
+                        "UPDATE jobs SET status = 'queued', progress = 0, current_step = 'Requeued from Dead-Letter Queue', error_message = NULL WHERE id = ?",
+                        [(int) $dlq['original_job_id']]
+                    );
+                } else {
+                    Db::run(
+                        "UPDATE jobs SET status = 'queued', progress = 0, current_step = 'Requeued from Dead-Letter Queue', error_message = NULL WHERE id = ? AND tenant_id = ?",
+                        [(int) $dlq['original_job_id'], $tenantId]
+                    );
+                }
             } catch (\Throwable) {
             }
         }
 
-        Db::run(
-            "UPDATE dead_letter_jobs SET status = 'requeued', requeued_at = NOW() WHERE id = ?",
-            [$dlqId]
-        );
+        if ($isPlatformAdmin) {
+            Db::run(
+                "UPDATE dead_letter_jobs SET status = 'requeued', requeued_at = NOW() WHERE id = ?",
+                [$dlqId]
+            );
+        } else {
+            Db::run(
+                "UPDATE dead_letter_jobs SET status = 'requeued', requeued_at = NOW() WHERE id = ? AND tenant_id = ?",
+                [$dlqId, $tenantId]
+            );
+        }
         return true;
     }
 }
