@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Repository\TenantRepository;
 use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
@@ -245,15 +246,15 @@ final class AnalyticsController
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'analytics.view');
-        $tenantId = TenantContext::id();
+        $tenantId = TenantContext::requireId();
 
         $rows = Db::all(
             'SELECT sr.*, f.title AS flipbook_title
              FROM scheduled_reports sr
-             LEFT JOIN flipbooks f ON f.id = sr.flipbook_id
-             WHERE sr.tenant_id = ? OR sr.user_id = ?
+             LEFT JOIN flipbooks f ON f.id = sr.flipbook_id AND f.tenant_id = sr.tenant_id
+             WHERE sr.tenant_id = ?
              ORDER BY sr.id DESC',
-            [$tenantId, $u['id']]
+            [$tenantId]
         );
         return Http::json($res, $rows);
     }
@@ -262,7 +263,7 @@ final class AnalyticsController
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'analytics.view');
-        $tenantId = TenantContext::id();
+        $tenantId = TenantContext::requireId();
         $b = (array) $req->getParsedBody();
 
         $email = trim((string) ($b['recipientEmail'] ?? $u['email']));
@@ -274,6 +275,9 @@ final class AnalyticsController
         $rawFormat = (string) ($b['format'] ?? 'pdf_summary');
         $format = in_array($rawFormat, ['csv', 'pdf_summary'], true) ? $rawFormat : 'pdf_summary';
         $flipbookId = !empty($b['flipbookId']) ? (int) $b['flipbookId'] : null;
+        if ($flipbookId !== null && !TenantRepository::for('flipbooks')->existsForTenant($flipbookId, $tenantId)) {
+            return Http::error($res, 'Publication not found', 404);
+        }
 
         Db::run(
             'INSERT INTO scheduled_reports (tenant_id, user_id, flipbook_id, recipient_email, frequency, format)
@@ -283,17 +287,17 @@ final class AnalyticsController
         $id = (int) Db::pdo()->lastInsertId();
         Audit::log('analytics.schedule_report', 'scheduled_report', $id, ['email' => $email, 'frequency' => $frequency]);
 
-        return Http::json($res, Db::one('SELECT * FROM scheduled_reports WHERE id = ?', [$id]), 201);
+        return Http::json($res, TenantRepository::for('scheduled_reports')->findForTenant($id, $tenantId), 201);
     }
 
     public function deleteScheduledReport(Request $req, Response $res, array $args): Response
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'analytics.view');
-        $tenantId = TenantContext::id();
+        $tenantId = TenantContext::requireId();
         $id = (int) $args['id'];
 
-        Db::run('DELETE FROM scheduled_reports WHERE id = ? AND (tenant_id = ? OR user_id = ?)', [$id, $tenantId, $u['id']]);
+        TenantRepository::for('scheduled_reports')->deleteForTenant($id, $tenantId);
         return Http::json($res, ['ok' => true]);
     }
 
@@ -301,15 +305,15 @@ final class AnalyticsController
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'analytics.view');
-        $tenantId = TenantContext::id();
+        $tenantId = TenantContext::requireId();
         $id = (int) $args['id'];
 
-        $sr = Db::one('SELECT * FROM scheduled_reports WHERE id = ? AND (tenant_id = ? OR user_id = ?)', [$id, $tenantId, $u['id']]);
+        $sr = TenantRepository::for('scheduled_reports')->findForTenant($id, $tenantId);
         if (!$sr) return Http::error($res, 'Scheduled report not found', 404);
 
         $title = 'All Workspace Publications';
         if (!empty($sr['flipbook_id'])) {
-            $fb = Db::one('SELECT title FROM flipbooks WHERE id = ?', [$sr['flipbook_id']]);
+            $fb = TenantRepository::for('flipbooks')->findForTenant((int) $sr['flipbook_id'], $tenantId);
             if ($fb) $title = $fb['title'];
         }
 
@@ -320,7 +324,7 @@ final class AnalyticsController
             "<h2>Nuvis Flipex Analytics Summary</h2><p>Publication Scope: <b>" . htmlspecialchars($title) . "</b></p><p>Frequency: " . strtoupper((string) $sr['frequency']) . "</p><p>Generated at: " . date('Y-m-d H:i:s') . "</p>"
         );
 
-        Db::run('UPDATE scheduled_reports SET last_sent_at = NOW() WHERE id = ?', [$id]);
+        Db::run('UPDATE scheduled_reports SET last_sent_at = NOW() WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
         return Http::json($res, ['ok' => true, 'sentAt' => date('Y-m-d H:i:s')]);
     }
 

@@ -7,6 +7,7 @@ use App\Middleware\TenantScope;
 use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\Outbox;
 use App\Support\Rbac;
 use App\Support\SecurityMonitor;
 use App\Support\Storage;
@@ -41,6 +42,8 @@ final class BillingController
             return;
         }
         self::$schemaChecked = true;
+        // Event tables (outbox_events, payment_webhook_events, ...) must exist before any billing transaction opens.
+        Outbox::ensureSchema();
         try {
             $pdo = Db::pdo();
             $pdo->exec("
@@ -107,18 +110,12 @@ final class BillingController
         }
     }
 
+    /**
+     * Strict tenant resolution. A missing tenant assignment is a hard 403 — never a default / first tenant.
+     */
     private function resolveTenantId(Request $req): int
     {
-        $tid = TenantScope::id($req);
-        if ($tid) {
-            return $tid;
-        }
-        $u = $req->getAttribute('user');
-        if (!empty($u['tenant_id'])) {
-            return (int) $u['tenant_id'];
-        }
-        $first = Db::one('SELECT id FROM tenants ORDER BY id ASC LIMIT 1');
-        return $first ? (int) $first['id'] : 1;
+        return TenantScope::requireId($req);
     }
 
     /**
@@ -1198,15 +1195,38 @@ final class BillingController
         if ($invoiceId <= 0) {
             return Http::error($res, 'Invalid webhook payload: missing invoiceId', 422);
         }
+        if ($tenantId <= 0) {
+            // Tenant-less invoice lookups are never allowed; gateway payloads must carry the tenant reference.
+            return Http::error($res, 'Invalid webhook payload: missing tenantId', 422);
+        }
 
-        $inv = $tenantId > 0
-            ? Db::one('SELECT * FROM invoices WHERE id = ? AND tenant_id = ?', [$invoiceId, $tenantId])
-            : Db::one('SELECT * FROM invoices WHERE id = ?', [$invoiceId]);
+        $inv = Db::one('SELECT * FROM invoices WHERE id = ? AND tenant_id = ?', [$invoiceId, $tenantId]);
 
         if (!$inv) {
             return Http::error($res, 'Invoice not found for webhook', 404);
         }
         $tid = (int) $inv['tenant_id'];
+
+        // Durable inbox of every verified gateway event (replay evidence + idempotency by provider/event id)
+        $webhookKey = $eventId !== '' ? $eventId : ('anon_' . hash('sha256', $rawBody));
+        $webhookRecorded = false;
+        try {
+            $webhookRecorded = Db::run(
+                "INSERT IGNORE INTO payment_webhook_events (tenant_id, provider, event_id, event_type, signature_verified, invoice_id, payload)
+                 VALUES (?, ?, ?, ?, 1, ?, ?)",
+                [$tid, $provider, substr($webhookKey, 0, 120), substr($eventType, 0, 80), $invoiceId, $rawBody !== '' ? json_encode($payload) : null]
+            ) > 0;
+        } catch (\Throwable) {
+        }
+        $markWebhook = static function (string $status, ?string $error = null) use ($provider, $webhookKey): void {
+            try {
+                Db::run(
+                    'UPDATE payment_webhook_events SET status = ?, error_message = ?, processed_at = NOW() WHERE provider = ? AND event_id = ?',
+                    [$status, $error, $provider, substr($webhookKey, 0, 120)]
+                );
+            } catch (\Throwable) {
+            }
+        };
 
         // Idempotency check for webhook event
         if ($eventId !== '') {
@@ -1228,6 +1248,7 @@ final class BillingController
         if (in_array($eventType, ['payment.reversed', 'payment.refunded', 'charge.dispute.created'], true)) {
             $reason = trim((string) ($payload['reason'] ?? "Reversed via signed {$provider} webhook"));
             $reversal = $this->executePaymentReversal($tid, $invoiceId, null, $reason, true);
+            $markWebhook('processed');
             return Http::json($res, [
                 'ok' => true,
                 'status' => 'reversed',
@@ -1248,6 +1269,7 @@ final class BillingController
             "Confirmed via signed {$provider} payment webhook",
             $eventId !== '' ? ('wh_' . $eventId) : null
         );
+        $markWebhook('processed');
 
         return Http::json($res, [
             'ok' => true,
@@ -1428,6 +1450,15 @@ final class BillingController
                 ]
             );
 
+            Outbox::enqueue($tenantId, 'invoice', $invoiceId, 'invoice.paid', [
+                'invoice_id' => $invoiceId,
+                'invoice_number' => $inv['invoice_number'] ?? null,
+                'amount' => $amount,
+                'currency' => $currency,
+                'provider' => $provider,
+                'transaction_uid' => $txUid,
+            ]);
+
             $pdo->commit();
         } catch (\Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -1593,6 +1624,15 @@ final class BillingController
                     'via_webhook' => $viaWebhook,
                 ]
             );
+
+            Outbox::enqueue($tenantId, 'invoice', $invoiceId, 'invoice.payment_reversed', [
+                'invoice_id' => $invoiceId,
+                'invoice_number' => $inv['invoice_number'] ?? null,
+                'amount' => $amount,
+                'currency' => $currency,
+                'transaction_uid' => $txUid,
+                'reason' => $reason,
+            ]);
 
             $pdo->commit();
         } catch (\Throwable $e) {

@@ -98,18 +98,12 @@ final class IntegrationController
         ],
     ];
 
+    /**
+     * Strict tenant resolution. A missing tenant assignment is a hard 403 — never a default / first tenant.
+     */
     private function resolveTenantId(Request $req): int
     {
-        $tid = TenantScope::id($req);
-        if ($tid) {
-            return $tid;
-        }
-        $u = $req->getAttribute('user');
-        if (!empty($u['tenant_id'])) {
-            return (int) $u['tenant_id'];
-        }
-        $first = Db::one('SELECT id FROM tenants ORDER BY id ASC LIMIT 1');
-        return $first ? (int) $first['id'] : 1;
+        return TenantScope::requireId($req);
     }
 
     /**

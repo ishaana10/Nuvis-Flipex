@@ -27,6 +27,10 @@ use Dotenv\Dotenv;
 
 Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
+// Ensure multi-tenant architecture (v7) is applied before verification
+(new \App\Database\TenantArchitectureMigration(Db::pdo()))->up();
+Db::run('SET @nuvis_audit_purge = 1'); // trusted CLI flag so fixture pre-clean can purge append-only tables
+
 echo "====================================================================\n";
 echo "   Nuvis Flipex — Automated Tenant Isolation & Security Test Suite  \n";
 echo "====================================================================\n\n";
@@ -76,8 +80,9 @@ echo "Setting up isolated test fixtures in database...\n";
 
 // Pre-clean any leftover fixtures from prior runs
 Db::run("DELETE FROM flipbooks WHERE slug IN ('alpha-secret-doc', 'beta-confidential-doc', 'protected-sec-test-doc', 'unpublished-draft-sec-test', 'locked-magazine-sec-test') OR slug LIKE 'unpublished-draft-sec-test-copy%' OR slug LIKE 'fiji-hardware-erp-catalogue-q4%'");
-Db::run("DELETE FROM users WHERE email IN ('user-a@alpha.test', 'user-b@beta.test', 'viewer-a@alpha.test', 'finance-a@alpha.test', 'owner-a@alpha.test', 'owner-b@beta.test', 'platadmin@alpha.test')");
+Db::run("DELETE FROM users WHERE email IN ('user-a@alpha.test', 'user-b@beta.test', 'viewer-a@alpha.test', 'finance-a@alpha.test', 'owner-a@alpha.test', 'owner-b@beta.test', 'platadmin@alpha.test', 'notenant@alpha.test')");
 Db::run("DELETE FROM tenants WHERE slug IN ('test-corp-alpha', 'test-corp-beta')");
+Db::run('SET @nuvis_audit_purge = NULL'); // append-only protection is active again for the rest of the run
 
 // 1. Setup Tenant Alpha and Tenant Beta
 $uuidA = bin2hex(random_bytes(16));
@@ -953,9 +958,187 @@ assertTest(
 echo "\n";
 
 // ============================================================================
+// TEST SUITE 11: UNIVERSAL TENANT ISOLATION, NO DEFAULT-TENANT FALLBACK & DATABASE ARCHITECTURE
+// ============================================================================
+echo "11. Universal Tenant Isolation, Tenant Repository, Session Families, Outbox & Immutable Audit:\n";
+
+// Fixtures: tenant-less user, Tenant B resources (category, collection, webhook, API key, scheduled report, job)
+Db::run("INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (NULL, 'notenant@alpha.test', ?, 'Nora NoTenant', 'user', 'owner', 'active', NOW())", [$passHash]);
+$noTenantUserId = (int) Db::pdo()->lastInsertId();
+$tokenNoTenant = Jwt::issue($noTenantUserId, 'user');
+
+Db::run("INSERT INTO categories (tenant_id, name, slug) VALUES (?, 'Beta Private Category', 'beta-private-category')", [$tenantBId]);
+$betaCategoryId = (int) Db::pdo()->lastInsertId();
+Db::run("INSERT INTO collections (tenant_id, name, slug) VALUES (?, 'Beta Private Collection', 'beta-private-collection')", [$tenantBId]);
+$betaCollectionId = (int) Db::pdo()->lastInsertId();
+Db::run("INSERT INTO webhooks (tenant_id, user_id, name, target_url, secret_token, events, is_active) VALUES (?, ?, 'Beta Hook', 'internal://beta', 'beta-secret', ?, 1)", [$tenantBId, $userBId, json_encode(['*'])]);
+$betaWebhookId = (int) Db::pdo()->lastInsertId();
+Db::run("INSERT INTO webhooks (tenant_id, user_id, name, target_url, secret_token, events, is_active) VALUES (?, ?, 'Alpha Hook', 'internal://alpha', 'alpha-secret', ?, 1)", [$tenantAId, $userAId, json_encode(['*'])]);
+$alphaWebhookId = (int) Db::pdo()->lastInsertId();
+Db::run("INSERT INTO scheduled_reports (tenant_id, user_id, flipbook_id, recipient_email) VALUES (?, ?, ?, 'beta-report@beta.test')", [$tenantBId, $userBId, $flipbookBId]);
+$betaReportId = (int) Db::pdo()->lastInsertId();
+Db::run("INSERT INTO jobs (tenant_id, flipbook_id, type, payload, status) VALUES (?, ?, 'convert_pdf', '{}', 'failed')", [$tenantBId, $flipbookBId]);
+$betaJobId = (int) Db::pdo()->lastInsertId();
+$betaKeyRaw = 'nvf_live_' . bin2hex(random_bytes(20));
+Db::run('INSERT INTO api_keys (tenant_id, user_id, name, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?)', [$tenantBId, $userBId, 'Beta Key', substr($betaKeyRaw, 0, 16) . '…', hash('sha256', $betaKeyRaw), json_encode(['flipbooks:read'])]);
+$betaKeyId = (int) Db::pdo()->lastInsertId();
+
+// 11.1 No default-tenant fallback: a tenant-less user is refused (403) on business operations
+$rNoTenantCat = httpReq('POST', "{$apiUrl}/categories", ['name' => 'Should Not Exist'], $tokenNoTenant);
+$rNoTenantList = httpReq('GET', "{$apiUrl}/categories", null, $tokenNoTenant);
+$rNoTenantBilling = httpReq('POST', "{$apiUrl}/billing/generate-invoice", [], $tokenNoTenant);
+$rNoTenantKeys = httpReq('GET', "{$apiUrl}/integrations/api-keys", null, $tokenNoTenant);
+$leakedCategory = Db::one("SELECT id FROM categories WHERE name = 'Should Not Exist'");
+assertTest(
+    "No default-tenant fallback: tenant-less user gets HTTP 403 on category, billing & integration operations and nothing is written to tenant #1",
+    $rNoTenantCat['status'] === 403 && $rNoTenantList['status'] === 403 && $rNoTenantBilling['status'] === 403 && $rNoTenantKeys['status'] === 403 && $leakedCategory === null,
+    "statuses: {$rNoTenantCat['status']}/{$rNoTenantList['status']}/{$rNoTenantBilling['status']}/{$rNoTenantKeys['status']}"
+);
+
+// 11.2 Universal object-level IDOR: Tenant A cannot touch Tenant B's category, collection, webhook, API key, report or job
+$rIdorCat = httpReq('DELETE', "{$apiUrl}/categories/{$betaCategoryId}", null, $tokenA);
+$rIdorCol = httpReq('DELETE', "{$apiUrl}/collections/{$betaCollectionId}", null, $tokenA);
+$rIdorHook = httpReq('DELETE', "{$apiUrl}/integrations/webhooks/{$betaWebhookId}", null, $tokenA);
+$rIdorKey = httpReq('DELETE', "{$apiUrl}/integrations/api-keys/{$betaKeyId}", null, $tokenA);
+$rIdorReport = httpReq('DELETE', "{$apiUrl}/analytics/scheduled-reports/{$betaReportId}", null, $tokenA);
+$rIdorJob = httpReq('POST', "{$apiUrl}/jobs/{$betaJobId}/retry", [], $tokenA);
+$stillThere = Db::one(
+    'SELECT (SELECT COUNT(*) FROM categories WHERE id = ?) c1, (SELECT COUNT(*) FROM collections WHERE id = ?) c2,
+            (SELECT COUNT(*) FROM webhooks WHERE id = ?) c3, (SELECT COUNT(*) FROM api_keys WHERE id = ? AND revoked_at IS NULL) c4,
+            (SELECT COUNT(*) FROM scheduled_reports WHERE id = ?) c5, (SELECT status FROM jobs WHERE id = ?) job_status',
+    [$betaCategoryId, $betaCollectionId, $betaWebhookId, $betaKeyId, $betaReportId, $betaJobId]
+);
+assertTest(
+    "Universal IDOR middleware: cross-tenant category, collection, webhook, API key, scheduled report & job access blocked (404) and records untouched",
+    $rIdorCat['status'] === 404 && $rIdorCol['status'] === 404 && $rIdorHook['status'] === 404 && $rIdorKey['status'] === 404
+    && $rIdorReport['status'] === 404 && $rIdorJob['status'] === 404
+    && (int) $stillThere['c1'] === 1 && (int) $stillThere['c2'] === 1 && (int) $stillThere['c3'] === 1
+    && (int) $stillThere['c4'] === 1 && (int) $stillThere['c5'] === 1 && $stillThere['job_status'] === 'failed',
+    json_encode([$rIdorCat['status'], $rIdorCol['status'], $rIdorHook['status'], $rIdorKey['status'], $rIdorReport['status'], $rIdorJob['status']])
+);
+
+// 11.3 Tenant-aware repository never returns another tenant's row
+$repoInvoices = \App\Repository\TenantRepository::for('invoices');
+$invOwnerView = $repoInvoices->findForTenant($invId, $tenantAId);
+$invForeignView = $repoInvoices->findForTenant($invId, $tenantBId);
+$repoRejectsUnknown = false;
+try { \App\Repository\TenantRepository::for('users'); } catch (\InvalidArgumentException) { $repoRejectsUnknown = true; }
+$repoRequiresTenant = false;
+try { $repoInvoices->findForTenant($invId); } catch (\App\Support\TenantContextRequiredException) { $repoRequiresTenant = true; }
+assertTest(
+    "TenantRepository::findForTenant() returns own rows only (foreign tenant → null), rejects unregistered tables and refuses to run without tenant context",
+    $invOwnerView !== null && $invForeignView === null && $repoRejectsUnknown && $repoRequiresTenant
+);
+
+// 11.4 Tenant-aware references: publications cannot reference another tenant's category
+$rCrossRef = httpReq('PATCH', "{$apiUrl}/flipbooks/{$flipbookAId}", ['categoryId' => $betaCategoryId], $tokenA);
+assertTest(
+    "Publication update cannot reference another tenant's category (HTTP 422)",
+    $rCrossRef['status'] === 422,
+    "Status: {$rCrossRef['status']}"
+);
+
+// 11.5 Session families: replaying a rotated token terminates only that session family
+$famRawA1 = bin2hex(random_bytes(32));
+$famRawB1 = bin2hex(random_bytes(32));
+\App\Support\SessionFamilies::ensureSchema();
+$famA = bin2hex(random_bytes(16));
+$famB = bin2hex(random_bytes(16));
+Db::run("INSERT INTO refresh_tokens (user_id, family_id, token_hash, user_agent, ip, expires_at) VALUES (?, ?, ?, 'SecTest-A', '127.0.0.1', DATE_ADD(NOW(), INTERVAL 30 DAY))", [$userBId, $famA, hash('sha256', $famRawA1)]);
+Db::run("INSERT INTO refresh_tokens (user_id, family_id, token_hash, user_agent, ip, expires_at) VALUES (?, ?, ?, 'SecTest-B', '127.0.0.1', DATE_ADD(NOW(), INTERVAL 30 DAY))", [$userBId, $famB, hash('sha256', $famRawB1)]);
+$doRefresh = static function (string $raw) use ($apiUrl): array {
+    $ch = curl_init("{$apiUrl}/auth/refresh");
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_COOKIE, "refresh_token={$raw}");
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['X-Requested-With: XMLHttpRequest']);
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    $res = (string) curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    preg_match('/refresh_token=([a-f0-9]+);/i', $res, $m);
+    return ['status' => $code, 'token' => $m[1] ?? ''];
+};
+$rotA = $doRefresh($famRawA1);
+$replayA = $doRefresh($famRawA1);
+$famAOpen = (int) Db::one('SELECT COUNT(*) c FROM refresh_tokens WHERE family_id = ? AND revoked_at IS NULL', [$famA])['c'];
+$famBOpen = (int) Db::one('SELECT COUNT(*) c FROM refresh_tokens WHERE family_id = ? AND revoked_at IS NULL', [$famB])['c'];
+$famRotated = Db::one('SELECT family_id FROM refresh_tokens WHERE token_hash = ?', [hash('sha256', $rotA['token'])]);
+assertTest(
+    "Session families: rotation keeps family id; replay revokes only the compromised family while the user's other device stays signed in",
+    $rotA['status'] === 200 && ($famRotated['family_id'] ?? '') === $famA && $replayA['status'] === 401 && $famAOpen === 0 && $famBOpen === 1,
+    "rotate: {$rotA['status']}, replay: {$replayA['status']}, familyA open: {$famAOpen}, familyB open: {$famBOpen}"
+);
+
+// 11.6 Transactional outbox: atomic with state change, tenant-isolated delivery, retry bookkeeping
+\App\Support\Outbox::ensureSchema();
+$rolledBack = false;
+try {
+    \App\Support\Outbox::transaction(function () use ($tenantAId, $flipbookAId): void {
+        \App\Support\Outbox::enqueue($tenantAId, 'flipbook', $flipbookAId, 'publication.test_rollback', ['x' => 1]);
+        throw new \RuntimeException('force rollback');
+    });
+} catch (\RuntimeException) {
+    $rolledBack = true;
+}
+$rollbackLeak = (int) Db::one("SELECT COUNT(*) c FROM outbox_events WHERE event_type = 'publication.test_rollback'")['c'];
+
+\App\Support\Outbox::transaction(function () use ($tenantAId, $flipbookAId): void {
+    \App\Support\Outbox::enqueue($tenantAId, 'flipbook', $flipbookAId, 'publication.test_committed', ['title' => 'Outbox Test']);
+});
+$dispatch = \App\Support\Outbox::dispatchBatch(100);
+$outboxRow = Db::one("SELECT status, attempts FROM outbox_events WHERE event_type = 'publication.test_committed' ORDER BY id DESC LIMIT 1");
+$alphaDeliveries = (int) Db::one("SELECT COUNT(*) c FROM webhook_deliveries WHERE webhook_id = ? AND event_name = 'publication.test_committed'", [$alphaWebhookId])['c'];
+$betaDeliveries = (int) Db::one("SELECT COUNT(*) c FROM webhook_deliveries WHERE webhook_id = ? AND event_name = 'publication.test_committed'", [$betaWebhookId])['c'];
+assertTest(
+    "Outbox: rolled-back transaction leaves no event; committed event is delivered once to the owning tenant's webhook only (never to another tenant)",
+    $rolledBack && $rollbackLeak === 0 && ($outboxRow['status'] ?? '') === 'delivered' && $alphaDeliveries === 1 && $betaDeliveries === 0 && $dispatch['claimed'] >= 1,
+    json_encode(['row' => $outboxRow, 'alpha' => $alphaDeliveries, 'beta' => $betaDeliveries, 'dispatch' => $dispatch])
+);
+
+// 11.7 Immutable audit records (append-only triggers)
+Db::run("INSERT INTO audit_logs (tenant_id, action, target_type) VALUES (?, 'security.test_immutable', 'test')", [$tenantAId]);
+$auditRowId = (int) Db::pdo()->lastInsertId();
+$auditUpdateBlocked = false;
+$auditDeleteBlocked = false;
+try { Db::run("UPDATE audit_logs SET action = 'tampered' WHERE id = ?", [$auditRowId]); } catch (\Throwable) { $auditUpdateBlocked = true; }
+try { Db::run('DELETE FROM audit_logs WHERE id = ?', [$auditRowId]); } catch (\Throwable) { $auditDeleteBlocked = true; }
+assertTest(
+    "Immutable audit records: UPDATE and DELETE on audit_logs are rejected by database triggers",
+    $auditUpdateBlocked && $auditDeleteBlocked
+);
+
+// 11.8 Storage metadata & checksums are tenant-confined
+$regOkRel = "tenants/{$tenantAId}/publications/{$draftFid}/page-001.jpg";
+$regOk = \App\Support\StorageRegistry::record($tenantAId, $draftFid, 'page', $regOkRel, 'image/jpeg');
+$regForeign = \App\Support\StorageRegistry::record($tenantBId, null, 'page', $regOkRel, 'image/jpeg');
+$regTraversal = \App\Support\StorageRegistry::record($tenantAId, null, 'asset', "tenants/{$tenantAId}/../{$tenantBId}/x.jpg");
+$storedHash = Db::one('SELECT sha256 FROM tenant_storage_objects WHERE tenant_id = ? AND rel_path = ?', [$tenantAId, $regOkRel]);
+assertTest(
+    "StorageRegistry records SHA-256 + size for the owning tenant's files and refuses cross-tenant / traversal paths",
+    $regOk === true && $regForeign === false && $regTraversal === false && strlen((string) ($storedHash['sha256'] ?? '')) === 64
+);
+
+echo "\n";
+// ============================================================================
 // CLEANUP TEST FIXTURES
 // ============================================================================
 echo "Cleaning up test fixtures...\n";
+// Trusted retention flag: lets this CLI session purge append-only audit tables (never settable via HTTP)
+Db::run('SET @nuvis_audit_purge = 1');
+Db::run("DELETE FROM outbox_events WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM tenant_storage_objects WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM publication_events WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM publication_approvals WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM publication_access_tokens WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM payment_webhook_events WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM api_key_usage WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM tenant_usage_daily WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM session_families WHERE user_id IN (?, ?, ?)", [$userAId, $userBId, $noTenantUserId]);
+Db::run("DELETE FROM audit_logs WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM scheduled_reports WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM webhooks WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM jobs WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Db::run("DELETE FROM dead_letter_jobs WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Db::run("DELETE FROM error_reports WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Db::run("DELETE FROM system_backups WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
@@ -968,6 +1151,8 @@ Db::run("DELETE FROM revoked_unlock_tokens WHERE flipbook_id = ?", [$lockedFid])
 Db::run("DELETE FROM hotspots WHERE flipbook_id IN (?, ?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid, $erpFid]);
 Db::run("DELETE FROM pages WHERE flipbook_id IN (?, ?, ?, ?)", [$lockedFid, $draftFid, $dupFid, $erpFid]);
 Db::run("DELETE FROM flipbooks WHERE id IN (?, ?, ?, ?, ?, ?)", [$flipbookAId, $flipbookBId, $lockedFid, $draftFid, $dupFid, $erpFid]);
+Db::run("DELETE FROM categories WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run("DELETE FROM collections WHERE tenant_id IN (?, ?)", [$tenantAId, $tenantBId]);
 Storage::rrmdir(dirname($draftPagePath));
 if ($dupFid > 0) {
     Storage::rrmdir(Storage::publicationDir($tenantAId, $dupFid));
@@ -975,9 +1160,10 @@ if ($dupFid > 0) {
 if ($erpFid > 0) {
     Storage::rrmdir(Storage::publicationDir($tenantAId, $erpFid));
 }
-Db::run("DELETE FROM refresh_tokens WHERE user_id IN (?, ?, ?, ?, ?, ?, ?)", [$userAId, $userBId, $viewerAId, $financeAId, $ownerAId, $ownerBId, $platAdminId]);
-Db::run("DELETE FROM users WHERE id IN (?, ?, ?, ?, ?, ?, ?)", [$userAId, $userBId, $viewerAId, $financeAId, $ownerAId, $ownerBId, $platAdminId]);
+Db::run("DELETE FROM refresh_tokens WHERE user_id IN (?, ?, ?, ?, ?, ?, ?, ?)", [$userAId, $userBId, $viewerAId, $financeAId, $ownerAId, $ownerBId, $platAdminId, $noTenantUserId]);
+Db::run("DELETE FROM users WHERE id IN (?, ?, ?, ?, ?, ?, ?, ?)", [$userAId, $userBId, $viewerAId, $financeAId, $ownerAId, $ownerBId, $platAdminId, $noTenantUserId]);
 Db::run("DELETE FROM tenants WHERE id IN (?, ?)", [$tenantAId, $tenantBId]);
+Db::run('SET @nuvis_audit_purge = NULL');
 Storage::rrmdir(dirname($dummyPath));
 
 echo "\n====================================================================\n";

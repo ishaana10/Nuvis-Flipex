@@ -9,6 +9,7 @@ use App\Support\Http;
 use App\Support\Jwt;
 use App\Support\Mailer;
 use App\Support\SecurityMonitor;
+use App\Support\SessionFamilies;
 use App\Support\Totp;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -194,19 +195,26 @@ final class AuthController
         }
 
         $tokenHash = hash('sha256', $raw);
+        SessionFamilies::ensureSchema();
         $row = Db::one('SELECT * FROM refresh_tokens WHERE token_hash = ?', [$tokenHash]);
 
-        // Security: Token Replay Detection
+        // Security: Token Replay Detection (scoped to the session family of the replayed token)
         if ($row && $row['revoked_at'] !== null) {
             SecurityMonitor::logEvent('token_replay_detected', 'critical', [
                 'user_id' => $row['user_id'],
                 'token_id' => $row['id'],
+                'family_id' => $row['family_id'] ?? null,
                 'revoked_at' => $row['revoked_at'],
             ], (int) $row['user_id']);
 
-            // Invalidate all refresh tokens for this user family immediately
-            Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL', [$row['user_id']]);
-            return $this->clearCookie(Http::error($res, 'Security alert: Token reuse detected. All sessions terminated.', 401));
+            if (!empty($row['family_id'])) {
+                // Terminate only the compromised session family (other devices stay signed in)
+                SessionFamilies::revoke((string) $row['family_id'], 'token_replay');
+            } else {
+                // Legacy token without family: fall back to revoking every session for the user
+                Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL', [$row['user_id']]);
+            }
+            return $this->clearCookie(Http::error($res, 'Security alert: Token reuse detected. This session was terminated.', 401));
         }
 
         if (!$row || strtotime((string) $row['expires_at']) < time()) {
@@ -216,9 +224,16 @@ final class AuthController
         $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND status = "active"', [$row['user_id']]);
         if (!$user) return $this->clearCookie(Http::error($res, 'Session expired', 401));
 
-        // Token rotation: revoke old token and issue fresh token
+        // Token rotation: revoke old token and issue fresh token within the same session family
+        $familyId = SessionFamilies::adopt(
+            $row,
+            $user,
+            substr($req->getHeaderLine('User-Agent'), 0, 255),
+            $req->getServerParams()['REMOTE_ADDR'] ?? null
+        );
         Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = ?', [$row['id']]);
-        $res = $this->startSession($req, $res, $user);
+        SessionFamilies::markRotated($familyId);
+        $res = $this->startSession($req, $res, $user, $familyId);
         return Http::json($res, $this->sessionPayload($user));
     }
 
@@ -307,16 +322,19 @@ final class AuthController
         ];
     }
 
-    private function startSession(Request $req, Response $res, array $user): Response
+    private function startSession(Request $req, Response $res, array $user, ?string $familyId = null): Response
     {
         $raw = bin2hex(random_bytes(32));
+        $userAgent = substr($req->getHeaderLine('User-Agent'), 0, 255);
+        $ip = $req->getServerParams()['REMOTE_ADDR'] ?? null;
+        $familyId ??= SessionFamilies::create($user, $userAgent, $ip);
         Db::run(
-            'INSERT INTO refresh_tokens (user_id, token_hash, user_agent, ip, expires_at)
-             VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+            'INSERT INTO refresh_tokens (user_id, family_id, token_hash, user_agent, ip, expires_at)
+             VALUES (?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
             [
-                $user['id'], hash('sha256', $raw),
-                substr($req->getHeaderLine('User-Agent'), 0, 255),
-                $req->getServerParams()['REMOTE_ADDR'] ?? null,
+                $user['id'], $familyId, hash('sha256', $raw),
+                $userAgent,
+                $ip,
                 self::REFRESH_DAYS,
             ]
         );

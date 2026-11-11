@@ -221,6 +221,17 @@ ensureColumnExists($pdo, 'webhooks', 'last_status_code', 'INT NULL');
 
 echo "Database schema & subscription tiers applied.\n";
 
+// 3c. Multi-tenant database architecture (composite tenant FKs, outbox/event tables, immutable audit triggers)
+try {
+    $tenantArch = new \App\Database\TenantArchitectureMigration($pdo);
+    $tenantArch->up();
+    foreach ($tenantArch->report() as $line) {
+        echo $line . "\n";
+    }
+} catch (\Throwable $e) {
+    fwrite(STDERR, '  ! Multi-tenant architecture migration notice: ' . $e->getMessage() . "\n");
+}
+
 // 4. Ensure Private Storage Setup
 $storageDir = __DIR__ . '/../storage';
 if (!is_dir($storageDir)) {

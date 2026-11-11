@@ -34,6 +34,10 @@ use Psr\Http\Message\ServerRequestInterface as Request;
  */
 final class DevOpsController
 {
+    /**
+     * Tenant id for tenant-level DevOps operations. Platform administrators may legitimately operate without
+     * a tenant (global operations → null); everyone else MUST have a tenant (HTTP 403 otherwise).
+     */
     private function resolveTenantId(Request $req): ?int
     {
         $tid = TenantScope::id($req);
@@ -41,7 +45,13 @@ final class DevOpsController
             return $tid;
         }
         $u = $req->getAttribute('user');
-        return !empty($u['tenant_id']) ? (int) $u['tenant_id'] : null;
+        if (!empty($u['tenant_id'])) {
+            return (int) $u['tenant_id'];
+        }
+        if ($this->isPlatformAdmin($u)) {
+            return null;
+        }
+        return TenantContext::requireId();
     }
 
     private function isPlatformAdmin(?array $user): bool

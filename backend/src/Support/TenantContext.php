@@ -35,6 +35,27 @@ final class TenantContext
         return self::$currentTenantId;
     }
 
+    /**
+     * Strict tenant resolution for business operations.
+     * Throws (HTTP 403) when no tenant is assigned — there is NO default / first-tenant fallback.
+     * Platform administrators performing global operations must use explicit platform-admin code paths instead.
+     */
+    public static function requireId(): int
+    {
+        $id = self::$currentTenantId;
+        if (!$id) {
+            try {
+                SecurityMonitor::logEvent('tenant_context_missing', 'warning', [
+                    'user_id' => self::$currentUser['id'] ?? null,
+                    'role' => self::$currentUser['role'] ?? null,
+                ]);
+            } catch (\Throwable) {
+            }
+            throw new TenantContextRequiredException('Tenant context required', 403);
+        }
+        return $id;
+    }
+
     public static function tenant(): ?array
     {
         return self::$currentTenant;

@@ -7,6 +7,7 @@ use App\Infrastructure\Logging\JsonLogger;
 use App\Support\CryptoSecrets;
 use App\Support\Db;
 use App\Support\Http;
+use App\Support\PublicationLedger;
 use App\Support\Storage;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -495,6 +496,7 @@ HTML;
                     );
                 } catch (Throwable) {
                 }
+                PublicationLedger::tokenRevoked((string) $claims['jti'], 'reader_lock');
             }
         }
 
@@ -808,6 +810,15 @@ HTML;
 
         $b64 = rtrim(strtr(base64_encode(json_encode($claims)), '+/', '-_'), '=');
         $sig = hash_hmac('sha256', $b64, CryptoSecrets::unlockTokenSecret());
+        PublicationLedger::tokenIssued(
+            (int) ($f['tenant_id'] ?? 0),
+            (int) $f['id'],
+            (string) $claims['jti'],
+            $expiresAt,
+            'unlock',
+            $req->getServerParams()['REMOTE_ADDR'] ?? null,
+            $req->getHeaderLine('User-Agent')
+        );
         return $b64 . '.' . $sig;
     }
 

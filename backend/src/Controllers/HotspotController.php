@@ -83,8 +83,8 @@ final class HotspotController
         $payload = array_key_exists('payload', $b) ? json_encode($b['payload']) : $row['payload'];
 
         Db::run(
-            'UPDATE hotspots SET type = ?, x = ?, y = ?, w = ?, h = ?, payload = ? WHERE id = ?',
-            [$type, $x, $y, $w, $h, $payload, $hid]
+            'UPDATE hotspots SET type = ?, x = ?, y = ?, w = ?, h = ?, payload = ? WHERE id = ? AND flipbook_id = ?',
+            [$type, $x, $y, $w, $h, $payload, $hid, $f['id']]
         );
         $updated = Db::one('SELECT * FROM hotspots WHERE id = ?', [$hid]);
 

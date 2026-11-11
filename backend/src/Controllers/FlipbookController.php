@@ -3,13 +3,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Repository\TenantRepository;
 use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
 use App\Support\JobRunner;
+use App\Support\Outbox;
 use App\Support\PdfRenderer;
+use App\Support\PublicationLedger;
 use App\Support\Rbac;
 use App\Support\Storage;
+use App\Support\StorageRegistry;
 use App\Support\TenantContext;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -90,7 +94,8 @@ final class FlipbookController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.create');
 
-        $tenantId = TenantContext::id();
+        // Publications always belong to a tenant: no default / first-tenant fallback.
+        $tenantId = TenantContext::requireId();
         $tenant = TenantContext::tenant();
         $plan = Db::one('SELECT * FROM plans WHERE id = ?', [$tenant['plan_id'] ?? $u['plan_id']]);
 
@@ -154,36 +159,48 @@ final class FlipbookController
         $id = (int) Db::pdo()->lastInsertId();
 
         // Save into tenant-isolated storage path
-        $effectiveTenantId = $tenantId ?? 1;
-        $rel = Storage::sourcePdfRel($effectiveTenantId, $id);
+        $rel = Storage::sourcePdfRel($tenantId, $id);
         $dest = Storage::root() . '/' . $rel;
         Storage::ensureDir(dirname($dest));
         rename($tmp, $dest);
 
-        Db::run("UPDATE flipbooks SET source_pdf_path = ?, status = 'processing' WHERE id = ?", [$rel, $id]);
+        // Atomic: publication state, version record, conversion job and the outbox event commit together.
+        $pdfPageCount = (int) ($pdfMeta['page_count'] ?? 0);
+        Outbox::transaction(function () use ($rel, $id, $tenantId, $pdfMeta, $dest, $u, $title, $slug, $pdfPageCount): void {
+            Db::run("UPDATE flipbooks SET source_pdf_path = ?, status = 'processing' WHERE id = ? AND tenant_id = ?", [$rel, $id, $tenantId]);
 
-        // Record Version 1 in flipbook_versions
-        Db::run(
-            'INSERT INTO flipbook_versions (tenant_id, flipbook_id, version_number, source_pdf_path, page_count, file_size_bytes, pdf_metadata, notes, created_by)
-             VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)',
-            [
-                $tenantId,
-                $id,
-                $rel,
-                (int) ($pdfMeta['page_count'] ?? 0),
-                (int) ($pdfMeta['file_size_bytes'] ?? filesize($dest)),
-                json_encode($pdfMeta),
-                'Initial PDF upload (v1)',
-                $u['id'],
-            ]
-        );
+            // Record Version 1 in flipbook_versions
+            Db::run(
+                'INSERT INTO flipbook_versions (tenant_id, flipbook_id, version_number, source_pdf_path, page_count, file_size_bytes, pdf_metadata, notes, created_by)
+                 VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)',
+                [
+                    $tenantId,
+                    $id,
+                    $rel,
+                    $pdfPageCount,
+                    (int) ($pdfMeta['file_size_bytes'] ?? filesize($dest)),
+                    json_encode($pdfMeta),
+                    'Initial PDF upload (v1)',
+                    $u['id'],
+                ]
+            );
 
-        // Enqueue conversion job with tenant & flipbook tracking
-        Db::run(
-            "INSERT INTO jobs (tenant_id, flipbook_id, type, payload, status, progress, current_step)
-             VALUES (?, ?, 'convert_pdf', ?, 'queued', 2, 'Queued for conversion')",
-            [$tenantId, $id, json_encode(['flipbook_id' => $id])]
-        );
+            // Enqueue conversion job with tenant & flipbook tracking
+            Db::run(
+                "INSERT INTO jobs (tenant_id, flipbook_id, type, payload, status, progress, current_step)
+                 VALUES (?, ?, 'convert_pdf', ?, 'queued', 2, 'Queued for conversion')",
+                [$tenantId, $id, json_encode(['flipbook_id' => $id])]
+            );
+
+            Outbox::enqueue($tenantId, 'flipbook', $id, 'publication.created', [
+                'id' => $id,
+                'title' => $title,
+                'slug' => $slug,
+                'pages' => $pdfPageCount,
+            ]);
+        });
+        StorageRegistry::record($tenantId, $id, 'source_pdf', $rel, 'application/pdf');
+        PublicationLedger::event($tenantId, $id, 'created', (int) $u['id'], null, 'processing', ['pages' => $pdfPageCount]);
 
         JobRunner::triggerAsyncCliWorker();
 
@@ -292,6 +309,19 @@ final class FlipbookController
         $collectionId = array_key_exists('collectionId', $b) ? ($b['collectionId'] ? (int) $b['collectionId'] : null) : $f['collection_id'];
         $folderId = array_key_exists('folderId', $b) ? ($b['folderId'] ? (int) $b['folderId'] : null) : $f['folder_id'];
 
+        // Tenant-aware reference validation: a publication may only reference its own tenant's taxonomy.
+        $refTenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
+        foreach ([
+            'categoryId' => ['categories', $categoryId, $f['category_id']],
+            'collectionId' => ['collections', $collectionId, $f['collection_id']],
+            'folderId' => ['folders', $folderId, $f['folder_id']],
+        ] as $field => [$refTable, $refId, $currentRef]) {
+            if ($refId !== null && (int) $refId !== (int) $currentRef
+                && !TenantRepository::for($refTable)->existsForTenant((int) $refId, $refTenantId)) {
+                return Http::error($res, 'Validation failed', 422, [$field => 'Referenced item not found in your workspace']);
+            }
+        }
+
         $scheduledAt = array_key_exists('scheduledAt', $b)
             ? (!empty($b['scheduledAt']) ? date('Y-m-d H:i:s', strtotime((string) $b['scheduledAt'])) : null)
             : $f['scheduled_at'];
@@ -344,12 +374,15 @@ final class FlipbookController
         $seoMeta = array_key_exists('seoMeta', $b) ? json_encode($b['seoMeta']) : $f['seo_meta'];
         $toc = array_key_exists('toc', $b) ? json_encode($b['toc']) : ($f['toc'] ?? null);
 
-        Db::run(
+        $wfBefore = (string) ($f['workflow_status'] ?? '');
+        $tenantForEvents = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
+
+        $updateFlipbook = static fn() => Db::run(
             'UPDATE flipbooks
              SET title = ?, description = ?, slug = ?, category_id = ?, collection_id = ?, folder_id = ?,
                  visibility = ?, password_hash = ?, workflow_status = ?, published_at = ?,
                  scheduled_at = ?, expires_at = ?, settings = ?, seo_meta = ?, toc = ?
-             WHERE id = ?',
+             WHERE id = ? AND tenant_id = ?',
             [
                 $title,
                 $desc,
@@ -367,8 +400,24 @@ final class FlipbookController
                 $seoMeta,
                 $toc,
                 $f['id'],
+                $tenantForEvents,
             ]
         );
+        if ($wfBefore !== $workflowStatus) {
+            // Workflow change: state + outbox event commit atomically
+            Outbox::transaction(function () use ($updateFlipbook, $tenantForEvents, $f, $wfBefore, $workflowStatus, $slug): void {
+                $updateFlipbook();
+                Outbox::enqueue($tenantForEvents, 'flipbook', (int) $f['id'], 'publication.' . $workflowStatus, [
+                    'id' => (int) $f['id'],
+                    'slug' => $slug,
+                    'from' => $wfBefore,
+                    'to' => $workflowStatus,
+                ]);
+            });
+            PublicationLedger::event($tenantForEvents, (int) $f['id'], 'workflow_transition', (int) $u['id'], $wfBefore, $workflowStatus);
+        } else {
+            $updateFlipbook();
+        }
 
         Audit::log('flipbook.update', 'flipbook', (int) $f['id'], [
             'title' => $title,
@@ -433,22 +482,45 @@ final class FlipbookController
             $reviewedAt = date('Y-m-d H:i:s');
         }
 
-        Db::run(
-            'UPDATE flipbooks
-             SET workflow_status = ?, published_at = ?, scheduled_at = ?, expires_at = ?,
-                 review_notes = ?, reviewed_by = ?, reviewed_at = ?
-             WHERE id = ?',
-            [
-                $targetStage,
-                $publishedAt,
-                $scheduledAt,
-                $expiresAt,
-                $reviewNotes,
-                $reviewedBy,
-                $reviewedAt,
-                $f['id'],
-            ]
-        );
+        $flipTenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
+        $fromStage = (string) ($f['workflow_status'] ?? '');
+        $flipVersion = (int) ($f['version'] ?? 1);
+
+        // Atomic: workflow state change + outbox event (reliable webhook delivery) commit together.
+        Outbox::transaction(function () use ($targetStage, $publishedAt, $scheduledAt, $expiresAt, $reviewNotes, $reviewedBy, $reviewedAt, $f, $flipTenantId, $fromStage): void {
+            Db::run(
+                'UPDATE flipbooks
+                 SET workflow_status = ?, published_at = ?, scheduled_at = ?, expires_at = ?,
+                     review_notes = ?, reviewed_by = ?, reviewed_at = ?
+                 WHERE id = ? AND tenant_id = ?',
+                [
+                    $targetStage,
+                    $publishedAt,
+                    $scheduledAt,
+                    $expiresAt,
+                    $reviewNotes,
+                    $reviewedBy,
+                    $reviewedAt,
+                    $f['id'],
+                    $flipTenantId,
+                ]
+            );
+            Outbox::enqueue($flipTenantId, 'flipbook', (int) $f['id'], 'publication.' . $targetStage, [
+                'id' => (int) $f['id'],
+                'slug' => $f['slug'],
+                'from' => $fromStage,
+                'to' => $targetStage,
+            ]);
+        });
+
+        PublicationLedger::event($flipTenantId, (int) $f['id'], 'workflow_transition', (int) $u['id'], $fromStage, $targetStage, ['notes' => $reviewNotes]);
+        if ($targetStage === 'in_review') {
+            PublicationLedger::approval($flipTenantId, (int) $f['id'], $flipVersion, 'requested', (int) $u['id'], $reviewNotes);
+        } elseif ($fromStage === 'in_review' && in_array($targetStage, ['published', 'scheduled'], true)) {
+            PublicationLedger::approval($flipTenantId, (int) $f['id'], $flipVersion, 'approved', (int) $u['id'], $reviewNotes);
+        } elseif ($fromStage === 'in_review' && in_array($targetStage, ['editing', 'draft'], true)) {
+            PublicationLedger::approval($flipTenantId, (int) $f['id'], $flipVersion, 'changes_requested', (int) $u['id'], $reviewNotes);
+        }
 
         Audit::log('flipbook.workflow_transition', 'flipbook', (int) $f['id'], [
             'from' => $f['workflow_status'],
@@ -472,7 +544,7 @@ final class FlipbookController
         $f = $this->owned($req, (int) $args['id']);
         if (!$f) return Http::error($res, 'Not found', 404);
 
-        $tenantId = TenantContext::id() ?? ($f['tenant_id'] ? (int) $f['tenant_id'] : null);
+        $tenantId = TenantContext::requireId();
         $b = (array) $req->getParsedBody();
         $newTitle = trim((string) ($b['title'] ?? ($f['title'] . ' (Copy)')));
         $newSlug = $this->uniqueSlug($newTitle);
@@ -501,7 +573,7 @@ final class FlipbookController
             ]
         );
         $newId = (int) Db::pdo()->lastInsertId();
-        $effTenant = $tenantId ?? 1;
+        $effTenant = $tenantId;
 
         // Copy storage directory files
         $srcDir = Storage::publicationDir($effTenant, (int) $f['id']);
@@ -603,7 +675,7 @@ final class FlipbookController
             return Http::error($res, $e->getMessage(), 422, ['file' => $e->getMessage()]);
         }
 
-        $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
+        $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
         $currentVersion = max(1, (int) ($f['version'] ?? 1));
 
         // Ensure current version is archived in flipbook_versions before incrementing
@@ -770,14 +842,14 @@ final class FlipbookController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.view');
 
-        $tenantId = TenantContext::id();
+        $tenantId = TenantContext::requireId();
         $jobs = Db::all(
             'SELECT j.*, f.title AS flipbook_title, f.slug AS flipbook_slug
              FROM jobs j
-             LEFT JOIN flipbooks f ON f.id = j.flipbook_id
-             WHERE j.tenant_id = ? OR f.tenant_id = ?
+             LEFT JOIN flipbooks f ON f.id = j.flipbook_id AND f.tenant_id = j.tenant_id
+             WHERE j.tenant_id = ?
              ORDER BY j.id DESC LIMIT 50',
-            [$tenantId, $tenantId]
+            [$tenantId]
         );
 
         return Http::json($res, array_map(static fn(array $j) => [
@@ -803,19 +875,19 @@ final class FlipbookController
         Rbac::authorize($u, 'flipbook.edit');
 
         $jobId = (int) $args['id'];
-        $tenantId = TenantContext::id();
-        $job = Db::one('SELECT * FROM jobs WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)', [$jobId, $tenantId]);
+        $tenantId = TenantContext::requireId();
+        $job = TenantRepository::for('jobs')->findForTenant($jobId, $tenantId);
         if (!$job) return Http::error($res, 'Job not found', 404);
 
         Db::run(
-            "UPDATE jobs SET status = 'queued', attempts = 0, progress = 2, current_step = 'Manual retry queued', error = NULL, locked_at = NULL, done_at = NULL, run_at = NOW() WHERE id = ?",
-            [$jobId]
+            "UPDATE jobs SET status = 'queued', attempts = 0, progress = 2, current_step = 'Manual retry queued', error = NULL, locked_at = NULL, done_at = NULL, run_at = NOW() WHERE id = ? AND tenant_id = ?",
+            [$jobId, $tenantId]
         );
 
         if (!empty($job['flipbook_id'])) {
             Db::run(
-                "UPDATE flipbooks SET status = 'processing', conversion_progress = 2, conversion_step = 'Manual retry queued', conversion_error = NULL WHERE id = ?",
-                [$job['flipbook_id']]
+                "UPDATE flipbooks SET status = 'processing', conversion_progress = 2, conversion_step = 'Manual retry queued', conversion_error = NULL WHERE id = ? AND tenant_id = ?",
+                [$job['flipbook_id'], $tenantId]
             );
         }
 
@@ -844,13 +916,13 @@ final class FlipbookController
         Rbac::authorize($u, 'flipbook.edit');
 
         $jobId = (int) $args['id'];
-        $tenantId = TenantContext::id();
-        $job = Db::one('SELECT * FROM jobs WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)', [$jobId, $tenantId]);
+        $tenantId = TenantContext::requireId();
+        $job = TenantRepository::for('jobs')->findForTenant($jobId, $tenantId);
         if (!$job) return Http::error($res, 'Job not found', 404);
 
         Db::run(
-            "UPDATE jobs SET status = 'cancelled', current_step = 'Cancelled by user', done_at = NOW() WHERE id = ?",
-            [$jobId]
+            "UPDATE jobs SET status = 'cancelled', current_step = 'Cancelled by user', done_at = NOW() WHERE id = ? AND tenant_id = ?",
+            [$jobId, $tenantId]
         );
 
         return Http::json($res, ['ok' => true]);
@@ -861,7 +933,7 @@ final class FlipbookController
      */
     public function listCategories(Request $req, Response $res): Response
     {
-        $tenantId = TenantContext::id() ?? 1;
+        $tenantId = TenantContext::requireId();
         $rows = Db::all(
             'SELECT c.*, (SELECT COUNT(*) FROM flipbooks f WHERE f.category_id = c.id) AS count
              FROM categories c WHERE c.tenant_id = ? ORDER BY c.name ASC',
@@ -874,7 +946,7 @@ final class FlipbookController
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
-        $tenantId = TenantContext::id() ?? 1;
+        $tenantId = TenantContext::requireId();
         $b = (array) $req->getParsedBody();
         $name = trim((string) ($b['name'] ?? ''));
         if ($name === '') return Http::error($res, 'Category name is required', 422);
@@ -894,7 +966,7 @@ final class FlipbookController
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
-        $tenantId = TenantContext::id() ?? 1;
+        $tenantId = TenantContext::requireId();
         $id = (int) $args['id'];
         Db::run('UPDATE flipbooks SET category_id = NULL WHERE category_id = ? AND tenant_id = ?', [$id, $tenantId]);
         Db::run('DELETE FROM categories WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
@@ -903,7 +975,7 @@ final class FlipbookController
 
     public function listCollections(Request $req, Response $res): Response
     {
-        $tenantId = TenantContext::id() ?? 1;
+        $tenantId = TenantContext::requireId();
         $rows = Db::all(
             'SELECT c.*, (SELECT COUNT(*) FROM flipbooks f WHERE f.collection_id = c.id) AS count
              FROM collections c WHERE c.tenant_id = ? ORDER BY c.name ASC',
@@ -916,7 +988,7 @@ final class FlipbookController
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
-        $tenantId = TenantContext::id() ?? 1;
+        $tenantId = TenantContext::requireId();
         $b = (array) $req->getParsedBody();
         $name = trim((string) ($b['name'] ?? ''));
         if ($name === '') return Http::error($res, 'Collection name is required', 422);
@@ -935,7 +1007,7 @@ final class FlipbookController
     {
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
-        $tenantId = TenantContext::id() ?? 1;
+        $tenantId = TenantContext::requireId();
         $id = (int) $args['id'];
         Db::run('UPDATE flipbooks SET collection_id = NULL WHERE collection_id = ? AND tenant_id = ?', [$id, $tenantId]);
         Db::run('DELETE FROM collections WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
@@ -952,8 +1024,9 @@ final class FlipbookController
 
         Db::run('DELETE FROM flipbooks WHERE id = ?', [$f['id']]);
 
-        $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
-        Storage::rrmdir(Storage::publicationDir($tenantId, (int) $f['id']));
+        if (!empty($f['tenant_id'])) {
+            Storage::rrmdir(Storage::publicationDir((int) $f['tenant_id'], (int) $f['id']));
+        }
         Storage::rrmdir(Storage::root() . '/public/flipbooks/' . $f['id']);
         if ($f['source_pdf_path']) {
             @unlink(Storage::root() . '/' . $f['source_pdf_path']);
@@ -1074,12 +1147,16 @@ final class FlipbookController
         if ($rel !== '' && file_exists($root . '/' . $rel)) {
             return $rel;
         }
-        $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
         $base = basename($rel ?: 'page-001.jpg');
-        $candidates = [
-            $isThumb
+        $candidates = [];
+        if (!empty($f['tenant_id'])) {
+            $tenantId = (int) $f['tenant_id'];
+            $candidates[] = $isThumb
                 ? "tenants/{$tenantId}/publications/{$f['id']}/thumbs/{$base}"
-                : "tenants/{$tenantId}/publications/{$f['id']}/{$base}",
+                : "tenants/{$tenantId}/publications/{$f['id']}/{$base}";
+        }
+        $candidates = [
+            ...$candidates,
             $isThumb
                 ? "public/flipbooks/{$f['id']}/thumbs/{$base}"
                 : "public/flipbooks/{$f['id']}/{$base}",
@@ -1147,10 +1224,20 @@ final class FlipbookController
         PublicController::ensureUnlockRevocationSchema();
 
         $revokedAt = date('Y-m-d H:i:s');
+        $revokeTenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
         try {
-            Db::run('UPDATE flipbooks SET unlock_revoked_at = ? WHERE id = ?', [$revokedAt, $f['id']]);
+            Outbox::transaction(function () use ($revokedAt, $f, $revokeTenantId): void {
+                Db::run('UPDATE flipbooks SET unlock_revoked_at = ? WHERE id = ? AND tenant_id = ?', [$revokedAt, $f['id'], $revokeTenantId]);
+                Outbox::enqueue($revokeTenantId, 'flipbook', (int) $f['id'], 'publication.unlock_tokens_revoked', [
+                    'id' => (int) $f['id'],
+                    'slug' => $f['slug'],
+                    'revoked_at' => $revokedAt,
+                ]);
+            });
         } catch (Throwable) {
         }
+        PublicationLedger::allTokensRevoked($revokeTenantId, (int) $f['id'], 'owner_revocation');
+        PublicationLedger::event($revokeTenantId, (int) $f['id'], 'unlock_tokens_revoked', (int) $u['id']);
 
         Audit::log('flipbook.revoke_unlock_tokens', 'flipbook', (int) $f['id'], [
             'slug' => $f['slug'],

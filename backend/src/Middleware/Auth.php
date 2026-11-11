@@ -125,6 +125,20 @@ final class Auth implements MiddlewareInterface
             $keyRow['usage_count'] = $newUsage;
             $keyRow['quota_date'] = $today;
 
+            // Per-day per-key usage ledger (tenant-scoped; best-effort until migration v7 is applied)
+            if (!empty($keyRow['tenant_id'])) {
+                try {
+                    Db::run(
+                        'INSERT INTO api_key_usage (tenant_id, api_key_id, usage_date, request_count, last_ip, last_endpoint, last_used_at)
+                         VALUES (?, ?, CURDATE(), 1, ?, ?, NOW())
+                         ON DUPLICATE KEY UPDATE request_count = request_count + 1, last_ip = VALUES(last_ip),
+                                                 last_endpoint = VALUES(last_endpoint), last_used_at = NOW()',
+                        [(int) $keyRow['tenant_id'], (int) $keyRow['id'], $ip, substr($req->getMethod() . ' ' . $req->getUri()->getPath(), 0, 160)]
+                    );
+                } catch (\Throwable) {
+                }
+            }
+
             return $next->handle(
                 $req->withAttribute('user', $user)->withAttribute('api_key', $keyRow)
             );
