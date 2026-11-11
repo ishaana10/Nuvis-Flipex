@@ -783,12 +783,12 @@ export default function FlipbookViewer({
       minHeight: 260,
       maxHeight: 1800,
       showCover: true,
-      maxShadowOpacity: isHardCoverEffect ? 0.8 : 0.6,
+      maxShadowOpacity: 0.85,
       mobileScrollSupport: false,
       usePortrait: shouldUsePortrait,
-      flippingTime: isHardCoverEffect ? 850 : 700,
+      flippingTime: isHardCoverEffect ? 1100 : 950,
       useMouseEvents: true,
-      swipeDistance: 24,
+      swipeDistance: 45,
       startPage: current,
     });
 
@@ -826,6 +826,102 @@ export default function FlipbookViewer({
       ui.resizeCanvas();
     }
 
+    const limitPointToCircle = (
+      startPoint: { x: number; y: number },
+      radius: number,
+      limitedPoint: { x: number; y: number }
+    ) => {
+      const dx = limitedPoint.x - startPoint.x;
+      const dy = limitedPoint.y - startPoint.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+        return limitedPoint;
+      }
+      const a = startPoint.x;
+      const b = startPoint.y;
+      const n = limitedPoint.x;
+      const m = limitedPoint.y;
+      let x = Math.sqrt((Math.pow(radius, 2) * Math.pow(a - n, 2)) / (Math.pow(a - n, 2) + Math.pow(b - m, 2))) + a;
+      if (limitedPoint.x < 0) x *= -1;
+      let y = ((x - a) * (b - m)) / (a - n) + b;
+      if (a - n + b === 0) y = radius;
+      return { x, y };
+    };
+
+    // Patch PageCollection pages for 100% Solid Opaque Paper rendering
+    // Eliminates any transparent/see-through curl during page flip
+    const coll = (pf as any).getPageCollection?.();
+    const pageObjs = coll?.getPages?.() || [];
+    pageObjs.forEach((p: any) => {
+      const origSimpleDraw = p.simpleDraw?.bind(p);
+      if (origSimpleDraw) {
+        p.simpleDraw = function (orient: number) {
+          const ctx = this.render?.getContext?.();
+          const rect = this.render?.getRect?.();
+          if (ctx && rect) {
+            const x = orient === 1 ? rect.left + rect.pageWidth : rect.left;
+            const y = rect.top;
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x, y, rect.pageWidth, rect.height);
+            ctx.restore();
+          }
+          origSimpleDraw(orient);
+        };
+      }
+
+      const origDraw = p.draw?.bind(p);
+      if (origDraw) {
+        p.draw = function (tempDensity?: any) {
+          const ctx = this.render?.getContext?.();
+          const rect = this.render?.getRect?.();
+          if (ctx && rect && this.state?.position && this.state?.area) {
+            const pos = this.render.convertToGlobal(this.state.position);
+            const s = rect.pageWidth;
+            const n = rect.height;
+            ctx.save();
+            ctx.translate(pos.x, pos.y);
+            ctx.beginPath();
+            for (let pt of this.state.area) {
+              if (pt !== null) {
+                pt = this.render.convertToGlobal(pt);
+                ctx.lineTo(pt.x - pos.x, pt.y - pos.y);
+              }
+            }
+            ctx.rotate(this.state.angle);
+            ctx.clip();
+
+            // 1. Solid opaque white paper sheet (100% opaque, never see-through)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, s, n);
+
+            // 2. Draw page content image
+            if (this.isLoad && this.image) {
+              ctx.drawImage(this.image, 0, 0, s, n);
+            } else if (this.drawLoader) {
+              this.drawLoader(ctx, { x: 0, y: 0 }, s, n);
+            }
+
+            // 3. Authentic 3D paper curl lighting & gradient across fold (FlippingBook style)
+            const isFlipping = this === this.render.flippingPage;
+            if (isFlipping) {
+              const foldGrad = ctx.createLinearGradient(0, 0, s, 0);
+              foldGrad.addColorStop(0, 'rgba(0, 0, 0, 0.16)');
+              foldGrad.addColorStop(0.12, 'rgba(0, 0, 0, 0.05)');
+              foldGrad.addColorStop(0.32, 'rgba(255, 255, 255, 0.22)');
+              foldGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.03)');
+              foldGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+              ctx.fillStyle = foldGrad;
+              ctx.fillRect(0, 0, s, n);
+            }
+
+            ctx.restore();
+            return;
+          }
+          origDraw(tempDensity);
+        };
+      }
+    });
+
     if (render) {
       render.clear = function () {
         if (this.ctx && this.canvas) {
@@ -835,15 +931,146 @@ export default function FlipbookViewer({
           this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
       };
-      // Wrap drawFrame with save/restore so clipping regions never accumulate across frames
-      const origDrawFrame = render.drawFrame?.bind(render);
-      if (origDrawFrame) {
-        render.drawFrame = function () {
-          if (this.ctx) this.ctx.save();
-          origDrawFrame();
-          if (this.ctx) this.ctx.restore();
+
+      // Patch drawFrame: remove destructive portrait clip so mobile page flip is 100% visible and never chopped off!
+      render.drawFrame = function () {
+        if (!this.ctx) return;
+        this.ctx.save();
+        this.clear();
+
+        if (this.orientation !== 'portrait') {
+          if (this.leftPage != null) this.leftPage.simpleDraw(0);
+        }
+
+        if (this.rightPage != null) this.rightPage.simpleDraw(1);
+
+        if (this.bottomPage != null) this.bottomPage.draw();
+
+        this.drawBookShadow();
+
+        if (this.flippingPage != null) this.flippingPage.draw();
+
+        if (this.shadow != null) {
+          this.drawOuterShadow();
+          this.drawInnerShadow();
+        }
+
+        this.ctx.restore();
+      };
+
+      // Patch animation rendering for smooth cubic-bezier easing across every flip frame
+      const origRender = render.render?.bind(render);
+      if (origRender) {
+        render.render = function (timer: number) {
+          if (this.animation !== null) {
+            const elapsed = timer - this.animation.startedAt;
+            const progress = Math.min(1, Math.max(0, elapsed / this.animation.duration));
+            // Luxurious cubic-bezier easeInOut for authentic paper physics
+            const eased = progress < 0.5
+              ? 4 * progress * progress * progress
+              : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            const frameIndex = Math.min(
+              this.animation.frames.length - 1,
+              Math.floor(eased * this.animation.frames.length)
+            );
+
+            if (progress < 1) {
+              if (this.animation.frames[frameIndex]) {
+                this.animation.frames[frameIndex]();
+              }
+            } else {
+              if (this.animation.frames[this.animation.frames.length - 1]) {
+                this.animation.frames[this.animation.frames.length - 1]();
+              }
+              this.animation.onAnimateEnd();
+              this.animation = null;
+            }
+          }
+
+          this.timer = timer;
+          this.drawFrame();
         };
       }
+
+      // Enhanced multi-stop diffuse shadows (FlippingBook style depth & penumbra)
+      render.drawOuterShadow = function () {
+        const rect = this.getRect();
+        if (!this.shadow || !this.ctx) return;
+
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(rect.left, rect.top, rect.width, rect.height);
+
+        const shadowPos = this.convertToGlobal({ x: this.shadow.pos.x, y: this.shadow.pos.y });
+        this.ctx.translate(shadowPos.x, shadowPos.y);
+        this.ctx.rotate(Math.PI + this.shadow.angle + Math.PI / 2);
+
+        const shadowWidth = this.shadow.width * 1.35;
+        const outerGradient = this.ctx.createLinearGradient(0, 0, shadowWidth, 0);
+        const op = Math.min(0.65, Math.max(0.1, this.shadow.opacity));
+
+        if (this.shadow.direction === 0) {
+          this.ctx.translate(0, -100);
+          outerGradient.addColorStop(0, `rgba(0, 0, 0, ${op * 0.95})`);
+          outerGradient.addColorStop(0.15, `rgba(0, 0, 0, ${op * 0.55})`);
+          outerGradient.addColorStop(0.4, `rgba(0, 0, 0, ${op * 0.22})`);
+          outerGradient.addColorStop(0.75, `rgba(0, 0, 0, ${op * 0.06})`);
+          outerGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        } else {
+          this.ctx.translate(-shadowWidth, -100);
+          outerGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          outerGradient.addColorStop(0.25, `rgba(0, 0, 0, ${op * 0.06})`);
+          outerGradient.addColorStop(0.6, `rgba(0, 0, 0, ${op * 0.22})`);
+          outerGradient.addColorStop(0.85, `rgba(0, 0, 0, ${op * 0.55})`);
+          outerGradient.addColorStop(1, `rgba(0, 0, 0, ${op * 0.95})`);
+        }
+
+        this.ctx.clip();
+        this.ctx.fillStyle = outerGradient;
+        this.ctx.fillRect(0, 0, shadowWidth, rect.height * 2);
+        this.ctx.restore();
+      };
+
+      render.drawInnerShadow = function () {
+        const rect = this.getRect();
+        if (!this.shadow || !this.ctx || !this.pageRect) return;
+
+        this.ctx.save();
+        this.ctx.beginPath();
+
+        const shadowPos = this.convertToGlobal({ x: this.shadow.pos.x, y: this.shadow.pos.y });
+        const pageRect = this.convertRectToGlobal(this.pageRect);
+        this.ctx.moveTo(pageRect.topLeft.x, pageRect.topLeft.y);
+        this.ctx.lineTo(pageRect.topRight.x, pageRect.topRight.y);
+        this.ctx.lineTo(pageRect.bottomRight.x, pageRect.bottomRight.y);
+        this.ctx.lineTo(pageRect.bottomLeft.x, pageRect.bottomLeft.y);
+        this.ctx.translate(shadowPos.x, shadowPos.y);
+        this.ctx.rotate(Math.PI + this.shadow.angle + Math.PI / 2);
+
+        const isw = (this.shadow.width * 3) / 4;
+        const innerGradient = this.ctx.createLinearGradient(0, 0, isw, 0);
+        const op = Math.min(0.7, Math.max(0.12, this.shadow.opacity));
+
+        if (this.shadow.direction === 0) {
+          this.ctx.translate(-isw, -100);
+          innerGradient.addColorStop(1, `rgba(0, 0, 0, ${op * 0.9})`);
+          innerGradient.addColorStop(0.88, `rgba(0, 0, 0, ${op * 0.15})`);
+          innerGradient.addColorStop(0.65, `rgba(0, 0, 0, ${op * 0.7})`);
+          innerGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        } else {
+          this.ctx.translate(0, -100);
+          innerGradient.addColorStop(0, `rgba(0, 0, 0, ${op * 0.9})`);
+          innerGradient.addColorStop(0.12, `rgba(0, 0, 0, ${op * 0.15})`);
+          innerGradient.addColorStop(0.35, `rgba(0, 0, 0, ${op * 0.7})`);
+          innerGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        }
+
+        this.ctx.clip();
+        this.ctx.fillStyle = innerGradient;
+        this.ctx.fillRect(0, 0, isw, rect.height * 2);
+        this.ctx.restore();
+      };
+
       const origDrawBookShadow = render.drawBookShadow?.bind(render);
       if (origDrawBookShadow) {
         render.drawBookShadow = function () {
@@ -893,6 +1120,90 @@ export default function FlipbookViewer({
       }
     }
 
+    // Patch FlipController for silky smooth FlippingBook-style physics:
+    // 1. Natural arched 3D cone curl trajectory (lifts corner over spine rather than flat diagonal line)
+    // 2. Minimum ~820ms animation duration so page flips are graceful and visible
+    // 3. Patches FlipCalculation to prevent premature snap and preserve continuous cursor tracking
+    const flipController = (pf as any).getFlipController?.();
+    if (flipController) {
+      flipController.getAnimationDuration = function (size: number) {
+        const defaultTime = this.app?.getSettings()?.flippingTime || 950;
+        const calculated = (size / 1000) * defaultTime;
+        return Math.max(820, Math.min(defaultTime, calculated));
+      };
+
+      const origAnimateFlippingTo = flipController.animateFlippingTo?.bind(flipController);
+      flipController.animateFlippingTo = function (
+        start: any,
+        dest: any,
+        isTurned: boolean,
+        needReset = true
+      ) {
+        if (!this.calc) {
+          return origAnimateFlippingTo?.(start, dest, isTurned, needReset);
+        }
+
+        const rect = this.getBoundsRect();
+        const numSteps = Math.max(60, Math.min(180, Math.round(Math.abs(start.x - dest.x))));
+        const isBottom = this.calc?.getCorner?.() === 'bottom';
+        const arcSign = isBottom ? -1 : 1;
+        // Natural 3D cone lift arc (FlippingBook style): corner lifts over the spine before settling
+        const arcHeight = isTurned ? arcSign * (rect.height * 0.16) : 0;
+
+        const points: any[] = [];
+        for (let i = 0; i <= numSteps; i++) {
+          const t = i / numSteps;
+          const rawX = start.x + (dest.x - start.x) * t;
+          const rawY = start.y + (dest.y - start.y) * t + arcHeight * Math.sin(Math.PI * t);
+          points.push({ x: rawX, y: rawY });
+        }
+
+        const frames = points.map((p) => () => this.do(p));
+        const duration = this.getAnimationDuration(points.length);
+
+        this.render.startAnimation(frames, duration, () => {
+          if (!this.calc) return;
+
+          if (isTurned) {
+            if (this.calc.getDirection() === 1) this.app.turnToPrevPage();
+            else this.app.turnToNextPage();
+          }
+
+          if (needReset) {
+            this.render.setBottomPage(null);
+            this.render.setFlippingPage(null);
+            this.render.clearShadow();
+
+            this.setState('read');
+            this.reset();
+          }
+        });
+      };
+
+      const origStart = flipController.start.bind(flipController);
+      flipController.start = function (globalPos: any) {
+        const res = origStart(globalPos);
+        if (this.calc) {
+          const proto = Object.getPrototypeOf(this.calc);
+          if (!proto.__smoothPatched) {
+            proto.__smoothPatched = true;
+            proto.checkPositionAtCenterLine = function (t: any, e: any) {
+              let s = t;
+              const clamped = limitPointToCircle(e, this.pageWidth, s);
+              if (s !== clamped) {
+                s = clamped;
+                this.updateAngleAndGeometry(s);
+              }
+              // Do NOT replace s with opposite corner (r/bottomPoint)!
+              // Preserves direct cursor tracking all the way across the opposite page.
+              return s;
+            };
+          }
+        }
+        return res;
+      };
+    }
+
     pf.on('changeState', (e: any) => {
       const st = e.data;
       if (st === 'flipping' || st === 'user_fold' || st === 'fold_corner') {
@@ -900,7 +1211,7 @@ export default function FlipbookViewer({
         if (flippingTimer.current) clearTimeout(flippingTimer.current);
         flippingTimer.current = setTimeout(() => {
           setIsFlipping(false);
-        }, 950);
+        }, 1250);
       } else if (st === 'read') {
         if (flippingTimer.current) clearTimeout(flippingTimer.current);
         setIsFlipping(false);
@@ -1755,7 +2066,7 @@ export default function FlipbookViewer({
                       height: `${Math.round(fitHeight > 0 ? fitHeight : (bookBounds?.height || 0))}px`,
                       display: 'flex',
                       opacity: isFlipping && zoom <= 1 ? 0 : 1,
-                      transition: isFlipping ? 'opacity 0.08s ease-out' : 'opacity 0.16s ease-in',
+                      transition: isFlipping ? 'none' : 'opacity 0.15s ease-in',
                     }}
                   >
                     {mode === 'portrait' || current === 0 || (current >= total - 1 && total % 2 === 0) ? (
