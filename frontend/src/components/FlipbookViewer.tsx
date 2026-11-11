@@ -304,9 +304,12 @@ export default function FlipbookViewer({
   useEffect(() => {
     if (!pages.length) return;
 
-    // Active reading window: current spread + 2 pages ahead + 2 pages behind
+    const BLANK_SVG =
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="100%" height="100%" fill="%23ffffff"/></svg>';
+
+    // Active reading window: current spread + 6 pages ahead + 6 pages behind
     const windowIndices: number[] = [];
-    for (let offset = -2; offset <= 3; offset++) {
+    for (let offset = -6; offset <= 7; offset++) {
       const idx = current + offset;
       if (idx >= 0 && idx < pages.length) {
         windowIndices.push(idx);
@@ -321,7 +324,7 @@ export default function FlipbookViewer({
       if (!pg) return;
       const img = new Image();
       img.decoding = 'async';
-      if (idx === current || idx === current + 1) {
+      if (idx >= current - 1 && idx <= current + 3) {
         (img as any).fetchPriority = 'high';
       }
       img.src = pg.image;
@@ -338,7 +341,12 @@ export default function FlipbookViewer({
           windowIndices.forEach((idx) => {
             const pageObj = pageObjs[idx];
             const pg = pages[idx];
-            if (pageObj && pg && pageObj.image && pageObj.image.src !== pg.image) {
+            if (
+              pageObj &&
+              pg &&
+              pageObj.image &&
+              (pageObj.image.src.startsWith('data:image/svg+xml') || !pageObj.image.src.endsWith(pg.image))
+            ) {
               const stdImg = new Image();
               stdImg.decoding = 'async';
               stdImg.onload = () => {
@@ -350,14 +358,14 @@ export default function FlipbookViewer({
             }
           });
 
-          // Memory Release: For publications with > 10 pages, downgrade distant pages (> 5 pages away) to free mobile GPU memory
-          if (pages.length > 10) {
+          // Memory Release: For large publications (> 30 pages), downgrade distant pages (> 10 pages away) to free mobile GPU memory
+          if (pages.length > 30) {
             for (let i = 0; i < pages.length; i++) {
-              if (Math.abs(i - current) > 5) {
+              if (Math.abs(i - current) > 10) {
                 const distantObj = pageObjs[i];
                 if (distantObj && distantObj.image && !distantObj.image.src.startsWith('data:image/svg+xml')) {
                   const blankImg = new Image();
-                  blankImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" fill="%23f8fafc"/>';
+                  blankImg.src = BLANK_SVG;
                   distantObj.image = blankImg;
                   preloadedSet.current.delete(i);
                 }
@@ -680,8 +688,8 @@ export default function FlipbookViewer({
       leftEdge = left;
       rightEdge = left + pageWidth;
     } else if (orientation === 'portrait') {
-      leftEdge = left;
-      rightEdge = left + pageWidth;
+      leftEdge = left + pageWidth;
+      rightEdge = left + width;
     }
 
     const spreadWidth = rightEdge - leftEdge;
@@ -696,20 +704,9 @@ export default function FlipbookViewer({
       bookFrame.style.display = 'none';
     }
 
-    if (orientation === 'landscape') {
-      spineCrease.style.display = 'block';
-      spineCrease.style.left = `${Math.round(left + pageWidth)}px`;
-      spineCrease.style.top = `${Math.round(top)}px`;
-      spineCrease.style.height = `${Math.round(height)}px`;
-      spineCrease.classList.remove('is-cover', 'is-back-cover');
-      if (pageIdx === 0) {
-        spineCrease.classList.add('is-cover');
-      } else if (isBackSingle) {
-        spineCrease.classList.add('is-back-cover');
-      }
-    } else {
-      spineCrease.style.display = 'none';
-    }
+    // Spine crease is drawn directly on the <canvas> (in render.drawBookShadow) underneath the curling page,
+    // so we hide the HTML overlay crease to prevent it from bleeding through on top of turning pages.
+    spineCrease.style.display = 'none';
 
     if (orientation === 'portrait') {
       leftStack.style.display = 'none';
@@ -788,17 +785,19 @@ export default function FlipbookViewer({
       usePortrait: shouldUsePortrait,
       flippingTime: isHardCoverEffect ? 1100 : 950,
       useMouseEvents: true,
-      swipeDistance: 45,
+      showPageCorners: false,
+      swipeDistance: 30,
       startPage: current,
     });
 
-    const BLANK_PAGE_SVG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" fill="%23f8fafc"/>';
+    const BLANK_PAGE_SVG =
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="100%" height="100%" fill="%23ffffff"/></svg>';
 
     // Truly Windowed Virtualized Page Loader:
-    // Only loads images for the current spread, 2 pages ahead, and 2 pages behind.
-    // Distant pages receive an instant zero-network data URI placeholder, eliminating mobile network starvation.
+    // Loads images for publications up to 24 pages or within +-6 pages of current spread.
+    // Distant pages receive an instant solid opaque SVG data URI placeholder.
     const initialUrls = pages.map((p, idx) => {
-      const inWindow = pages.length <= 6 || Math.abs(idx - current) <= 2;
+      const inWindow = pages.length <= 24 || Math.abs(idx - current) <= 6;
       return inWindow ? p.image : BLANK_PAGE_SVG;
     });
 
@@ -821,37 +820,36 @@ export default function FlipbookViewer({
         const ctx = this.app?.getRender()?.getContext?.();
         if (ctx) {
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
         }
       };
       ui.resizeCanvas();
     }
 
     const limitPointToCircle = (
-      startPoint: { x: number; y: number },
+      centerPoint: { x: number; y: number },
       radius: number,
-      limitedPoint: { x: number; y: number }
+      targetPoint: { x: number; y: number }
     ) => {
-      const dx = limitedPoint.x - startPoint.x;
-      const dy = limitedPoint.y - startPoint.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= radius) {
-        return limitedPoint;
+      const dx = targetPoint.x - centerPoint.x;
+      const dy = targetPoint.y - centerPoint.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist <= radius || dist === 0) {
+        return targetPoint;
       }
-      const a = startPoint.x;
-      const b = startPoint.y;
-      const n = limitedPoint.x;
-      const m = limitedPoint.y;
-      let x = Math.sqrt((Math.pow(radius, 2) * Math.pow(a - n, 2)) / (Math.pow(a - n, 2) + Math.pow(b - m, 2))) + a;
-      if (limitedPoint.x < 0) x *= -1;
-      let y = ((x - a) * (b - m)) / (a - n) + b;
-      if (a - n + b === 0) y = radius;
-      return { x, y };
+      return {
+        x: centerPoint.x + (dx / dist) * radius,
+        y: centerPoint.y + (dy / dist) * radius,
+      };
     };
 
     // Patch PageCollection pages for 100% Solid Opaque Paper rendering
     // Eliminates any transparent/see-through curl during page flip
     const coll = (pf as any).getPageCollection?.();
     const pageObjs = coll?.getPages?.() || [];
-    pageObjs.forEach((p: any) => {
+    pageObjs.forEach((p: any, idx: number) => {
+      p.__pageIdx = idx;
       const origSimpleDraw = p.simpleDraw?.bind(p);
       if (origSimpleDraw) {
         p.simpleDraw = function (orient: number) {
@@ -861,6 +859,8 @@ export default function FlipbookViewer({
             const x = orient === 1 ? rect.left + rect.pageWidth : rect.left;
             const y = rect.top;
             ctx.save();
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(x, y, rect.pageWidth, rect.height);
             ctx.restore();
@@ -879,32 +879,58 @@ export default function FlipbookViewer({
             const s = rect.pageWidth;
             const n = rect.height;
             ctx.save();
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
             ctx.translate(pos.x, pos.y);
             ctx.beginPath();
+            let firstPt = true;
             for (let pt of this.state.area) {
               if (pt !== null) {
                 pt = this.render.convertToGlobal(pt);
-                ctx.lineTo(pt.x - pos.x, pt.y - pos.y);
+                if (firstPt) {
+                  ctx.moveTo(pt.x - pos.x, pt.y - pos.y);
+                  firstPt = false;
+                } else {
+                  ctx.lineTo(pt.x - pos.x, pt.y - pos.y);
+                }
               }
             }
+            ctx.closePath();
             ctx.rotate(this.state.angle);
             ctx.clip();
 
-            // 1. Solid opaque white paper sheet (100% opaque, never see-through)
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, s, n);
+            const isFlipping = this === this.render.flippingPage;
+            const isPortraitBackside =
+              isFlipping && this.render.orientation === 'portrait' && this.render.direction === 0;
+
+            // 1. Solid opaque white paper sheet (100% opaque across entire clipped area, never see-through)
+            ctx.fillStyle = isPortraitBackside ? '#fafaf9' : '#ffffff';
+            ctx.fillRect(-s, -n, s * 3, n * 3);
 
             // 2. Draw page content image
-            if (this.isLoad && this.image) {
+            if (isPortraitBackside) {
+              // In single-page portrait mode, the underside of the forward-curling page is the reverse side of the paper sheet
+              if (this.isLoad && this.image) {
+                ctx.save();
+                ctx.globalAlpha = 0.06;
+                ctx.translate(s, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(this.image, 0, 0, s, n);
+                ctx.restore();
+              }
+            } else if (this.isLoad && this.image) {
               ctx.drawImage(this.image, 0, 0, s, n);
             } else if (this.drawLoader) {
               this.drawLoader(ctx, { x: 0, y: 0 }, s, n);
             }
 
             // 3. Authentic 3D paper curl lighting & gradient across fold (FlippingBook style)
-            const isFlipping = this === this.render.flippingPage;
             if (isFlipping) {
-              const foldGrad = ctx.createLinearGradient(0, 0, s, 0);
+              const dir = this.render.direction;
+              const foldGrad =
+                dir === 1
+                  ? ctx.createLinearGradient(s, 0, 0, 0)
+                  : ctx.createLinearGradient(0, 0, s, 0);
               foldGrad.addColorStop(0, 'rgba(0, 0, 0, 0.16)');
               foldGrad.addColorStop(0.12, 'rgba(0, 0, 0, 0.05)');
               foldGrad.addColorStop(0.32, 'rgba(255, 255, 255, 0.22)');
@@ -929,10 +955,14 @@ export default function FlipbookViewer({
           this.ctx.setTransform(1, 0, 0, 1, 0, 0);
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
           this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          this.ctx.imageSmoothingEnabled = true;
+          this.ctx.imageSmoothingQuality = 'high';
         }
       };
 
-      // Patch drawFrame: remove destructive portrait clip so mobile page flip is 100% visible and never chopped off!
+      // Patch drawFrame:
+      // 1. Remove destructive portrait clip so mobile page flip is 100% visible and never chopped off.
+      // 2. Properly handle single-page spreads (Front/Back cover & Portrait mode) where bottomPage === flippingPage.
       render.drawFrame = function () {
         if (!this.ctx) return;
         this.ctx.save();
@@ -944,11 +974,50 @@ export default function FlipbookViewer({
 
         if (this.rightPage != null) this.rightPage.simpleDraw(1);
 
-        if (this.bottomPage != null) this.bottomPage.draw();
+        const flipCalc = (pf as any).getFlipController?.()?.calc;
+
+        if (this.bottomPage != null) {
+          if (this.bottomPage === this.flippingPage && flipCalc) {
+            if (this.orientation === 'landscape') {
+              // Closing to Front Cover or Back Cover: clear the lifted corner area so the old page underneath is not visible
+              const botArea = flipCalc.getBottomClipArea?.() || [];
+              const validPts = botArea.filter(Boolean);
+              if (validPts.length >= 3) {
+                const rect = this.getRect();
+                this.ctx.save();
+                this.ctx.beginPath();
+                validPts.forEach((pt: any, i: number) => {
+                  const g = this.convertToGlobal(pt);
+                  if (i === 0) this.ctx.moveTo(g.x, g.y);
+                  else this.ctx.lineTo(g.x, g.y);
+                });
+                this.ctx.closePath();
+                this.ctx.clip();
+                this.ctx.clearRect(rect.left - 10, rect.top - 10, rect.width + 20, rect.height + 20);
+                this.ctx.restore();
+              }
+            } else {
+              // Portrait mode turning back: bottomPage and flippingPage share the same Page instance
+              this.bottomPage.setArea(flipCalc.getBottomClipArea());
+              this.bottomPage.setPosition(flipCalc.getBottomPagePosition());
+              this.bottomPage.setAngle(0);
+              this.bottomPage.draw();
+            }
+          } else {
+            this.bottomPage.draw();
+          }
+        }
 
         this.drawBookShadow();
 
-        if (this.flippingPage != null) this.flippingPage.draw();
+        if (this.flippingPage != null) {
+          if (this.bottomPage === this.flippingPage && flipCalc) {
+            this.flippingPage.setArea(flipCalc.getFlippingClipArea());
+            this.flippingPage.setPosition(flipCalc.getActiveCorner());
+            this.flippingPage.setAngle(flipCalc.getAngle());
+          }
+          this.flippingPage.draw();
+        }
 
         if (this.shadow != null) {
           this.drawOuterShadow();
@@ -1180,23 +1249,82 @@ export default function FlipbookViewer({
         });
       };
 
+      const origFold = flipController.fold?.bind(flipController);
+      if (origFold) {
+        flipController.fold = function (globalPos: any) {
+          // If an animation was running (e.g., from corner hover or interrupted return), cancel it without resetting calc
+          if (this.render && this.render.animation) {
+            this.render.animation = null;
+          }
+          return origFold(globalPos);
+        };
+      }
+
       const origStart = flipController.start.bind(flipController);
       flipController.start = function (globalPos: any) {
         const res = origStart(globalPos);
+
+        // Ensure flippingPage and bottomPage immediately have their real page images loaded if they were distant
+        [this.flippingPage, this.bottomPage].forEach((pgObj: any) => {
+          if (pgObj && typeof pgObj.__pageIdx === 'number') {
+            const pData = pages[pgObj.__pageIdx];
+            if (pData && pgObj.image && pgObj.image.src.startsWith('data:image/svg+xml')) {
+              const realImg = new Image();
+              realImg.decoding = 'async';
+              realImg.onload = () => {
+                pgObj.image = realImg;
+                pgObj.isLoad = true;
+                this.render?.update?.();
+              };
+              realImg.src = pData.image;
+            }
+          }
+        });
+
         if (this.calc) {
           const proto = Object.getPrototypeOf(this.calc);
           if (!proto.__smoothPatched) {
             proto.__smoothPatched = true;
-            proto.checkPositionAtCenterLine = function (t: any, e: any) {
-              let s = t;
-              const clamped = limitPointToCircle(e, this.pageWidth, s);
-              if (s !== clamped) {
-                s = clamped;
-                this.updateAngleAndGeometry(s);
+            proto.checkPositionAtCenterLine = function (
+              checkedPos: { x: number; y: number },
+              centerOne: { x: number; y: number },
+              centerTwo: { x: number; y: number }
+            ) {
+              const W = this.pageWidth;
+              const H = this.pageHeight;
+              const clampedX = Math.max(-W + 1.5, Math.min(W - 1.5, checkedPos.x));
+
+              // Smoothly guide y toward target corner as x approaches the far end of the opposite page (-W)
+              // so the user can hold and drag the page all the way across the opposite page from any grab height y
+              const u = Math.max(0, Math.min(1, (-clampedX - W * 0.15) / (W * 0.82)));
+              const ease = 1 - u * u;
+              let rawY = checkedPos.y;
+              if (this.corner === 'bottom') {
+                rawY = Math.min(H - 2, rawY);
+                rawY = H - Math.max(2, (H - rawY) * ease);
+              } else {
+                rawY = Math.max(2, rawY);
+                rawY = Math.max(2, rawY * ease);
               }
-              // Do NOT replace s with opposite corner (r/bottomPoint)!
-              // Preserves direct cursor tracking all the way across the opposite page.
-              return s;
+
+              let result = { x: clampedX, y: rawY };
+              this.updateAngleAndGeometry(result);
+
+              const tmp = limitPointToCircle(centerOne, W - 0.5, result);
+              if (tmp !== result) {
+                result = tmp;
+                this.updateAngleAndGeometry(result);
+              }
+
+              const rad = Math.hypot(W, H) - 0.5;
+              const checkPointTwo = this.corner === 'bottom' ? this.rect.bottomLeft : this.rect.topLeft;
+              const bottomPoint = limitPointToCircle(centerTwo, rad, checkPointTwo);
+              if (bottomPoint !== checkPointTwo) {
+                result = bottomPoint;
+                this.updateAngleAndGeometry(result);
+              }
+
+              return result;
             };
           }
         }
@@ -1206,12 +1334,16 @@ export default function FlipbookViewer({
 
     pf.on('changeState', (e: any) => {
       const st = e.data;
-      if (st === 'flipping' || st === 'user_fold' || st === 'fold_corner') {
-        setIsFlipping(true);
+      if (st === 'user_fold' || st === 'fold_corner') {
+        // User is actively holding/folding the page with mouse or touch: never time out!
         if (flippingTimer.current) clearTimeout(flippingTimer.current);
+        setIsFlipping(true);
+      } else if (st === 'flipping') {
+        if (flippingTimer.current) clearTimeout(flippingTimer.current);
+        setIsFlipping(true);
         flippingTimer.current = setTimeout(() => {
           setIsFlipping(false);
-        }, 1250);
+        }, 1400);
       } else if (st === 'read') {
         if (flippingTimer.current) clearTimeout(flippingTimer.current);
         setIsFlipping(false);
@@ -2045,8 +2177,8 @@ export default function FlipbookViewer({
                   }}
                 />
 
-                {/* Razor-Sharp Native Image Overlay (Active for stationary reading & zoom/pan) */}
-                {ready && (
+                {/* Razor-Sharp Native Image Overlay (Active only when zoomed > 1x; at 1x the Retina-scaled <canvas> renders directly with zero overlay interference) */}
+                {ready && zoom > 1 && !isFlipping && (
                   <div
                     className="hz-crisp-page-overlay pointer-events-none absolute z-10 overflow-hidden"
                     style={{
@@ -2065,8 +2197,7 @@ export default function FlipbookViewer({
                       )}px`,
                       height: `${Math.round(fitHeight > 0 ? fitHeight : (bookBounds?.height || 0))}px`,
                       display: 'flex',
-                      opacity: isFlipping && zoom <= 1 ? 0 : 1,
-                      transition: isFlipping ? 'none' : 'opacity 0.15s ease-in',
+                      opacity: 1,
                     }}
                   >
                     {mode === 'portrait' || current === 0 || (current >= total - 1 && total % 2 === 0) ? (

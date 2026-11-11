@@ -248,7 +248,7 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
 .stf-book-frame {
   position: absolute;
   pointer-events: none;
-  z-index: 9;
+  z-index: 1;
   border-radius: 3px;
   box-shadow:
     0 22px 48px -8px rgba(0, 0, 0, 0.36),
@@ -363,8 +363,8 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
 .stf__parent canvas,
 .hz-canvas-wrap canvas,
 .hz-flip-host canvas {
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  position: relative;
+  z-index: 5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -718,7 +718,7 @@ textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; fon
 .stf-page-stack {
   position: absolute;
   cursor: pointer;
-  z-index: 12;
+  z-index: 2;
   pointer-events: auto;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, filter 0.15s ease;
   background-color: #f8fafc;
