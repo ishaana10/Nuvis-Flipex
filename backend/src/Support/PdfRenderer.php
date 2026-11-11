@@ -66,14 +66,18 @@ final class PdfRenderer
         $tail = fread($fh, 4096) ?: '';
         fclose($fh);
 
-        if (!str_contains($tail, '%%EOF') && !str_contains($head, '%PDF-')) {
-            throw new RuntimeException('PDF validation failed: Truncated or incomplete PDF file (missing %%EOF trailer).');
+        if (!str_contains($tail, '%%EOF')) {
+            throw new RuntimeException('PDF validation failed: PDF is incomplete or corrupted (missing %%EOF trailer).');
         }
 
         $meta = self::extractMetadata($pdfPath);
         if (!empty($meta['encrypted'])) {
             throw new RuntimeException('PDF validation failed: Password-protected or encrypted PDFs cannot be converted. Please remove encryption first.');
         }
+
+        // When metadata extraction cannot determine the page count the limit is NOT skipped:
+        // it is flagged here and enforced against the real rendered page count (see JobRunner::convertPdf).
+        $meta['page_count_verified'] = !empty($meta['page_count']) && (int) $meta['page_count'] > 0;
 
         if ($maxPages > 0 && !empty($meta['page_count']) && (int) $meta['page_count'] > $maxPages) {
             throw new RuntimeException("PDF validation failed: Document has {$meta['page_count']} pages, exceeding your plan limit of {$maxPages} pages.");
@@ -702,6 +706,37 @@ final class PdfRenderer
         if (!file_exists($pdfPath) || $pageNumber < 1) {
             return null;
         }
+
+        Storage::ensureDir("{$outDir}/high");
+        $baseName = sprintf('page-%03d', $pageNumber);
+        foreach (["{$outDir}/high/{$baseName}.webp", "{$outDir}/high/{$baseName}.jpg"] as $cached) {
+            if (is_file($cached) && filesize($cached) > 0) {
+                return $cached;
+            }
+        }
+
+        // Per-publication/page generation lock: only ONE request renders a given page; concurrent readers get
+        // null immediately and are served the standard-resolution page instead of duplicating CPU-heavy work.
+        $lock = @fopen("{$outDir}/high/.lock-{$baseName}", 'c');
+        if (!$lock) {
+            return null;
+        }
+        try {
+            if (!flock($lock, LOCK_EX | LOCK_NB)) {
+                return null;
+            }
+            try {
+                return self::renderSinglePageHighResLocked($pdfPath, $outDir, $pageNumber);
+            } finally {
+                flock($lock, LOCK_UN);
+            }
+        } finally {
+            fclose($lock);
+        }
+    }
+
+    private static function renderSinglePageHighResLocked(string $pdfPath, string $outDir, int $pageNumber): ?string
+    {
 
         Storage::ensureDir("{$outDir}/high");
         $baseName = sprintf('page-%03d', $pageNumber);

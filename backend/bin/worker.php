@@ -17,7 +17,19 @@ echo "   Nuvis Flipex — Enterprise Document Processing Service       \n";
 echo "   Active PDF Render Engine: {$activeDriver}\n";
 echo "===============================================================\n";
 
+// Graceful shutdown: finish the current job, then exit (SIGTERM / SIGINT, where pcntl is available).
+if (function_exists('pcntl_async_signals') && function_exists('pcntl_signal')) {
+    pcntl_async_signals(true);
+    pcntl_signal(SIGTERM, static fn() => JobRunner::requestShutdown());
+    pcntl_signal(SIGINT, static fn() => JobRunner::requestShutdown());
+}
+echo "Worker ID: " . JobRunner::workerId() . "\n";
+
 do {
+    if (JobRunner::shouldShutdown()) {
+        echo "Shutdown requested; worker exiting cleanly.\n";
+        break;
+    }
     $result = JobRunner::processNextJob();
     if (!$result['processed']) {
         if ($once) {

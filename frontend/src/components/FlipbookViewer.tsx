@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { PageFlip } from 'page-flip';
 import { playPageFlipSound, unlockAudio } from '../utils/sound';
+import { getCanvasDpr, getReaderProfile, pagesToLoad } from './viewer/adaptiveLoading';
 
 export interface PageInfo {
   n: number;
@@ -809,13 +810,46 @@ export default function FlipbookViewer({
     const BLANK_PAGE_SVG =
       'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="100%" height="100%" fill="%23ffffff"/></svg>';
 
-    // Truly Windowed Virtualized Page Loader:
-    // Loads images for publications up to 24 pages or within +-6 pages of current spread.
-    // Distant pages receive an instant solid opaque SVG data URI placeholder.
-    const initialUrls = pages.map((p, idx) => {
-      const inWindow = pages.length <= 24 || Math.abs(idx - startPageIdx) <= 6;
-      return inWindow ? p.image : BLANK_PAGE_SVG;
-    });
+    // Adaptive sliding image window (device memory / network / viewport aware):
+    // cover + current spread + a few pages ahead/behind only; everything else is a cheap placeholder
+    // that is swapped for the real image on demand (see syncImageWindow on 'flip').
+    const readerProfile = getReaderProfile();
+    const initialWindow = pagesToLoad(startPageIdx, pages.length, readerProfile);
+    const initialUrls = pages.map((p, idx) => (initialWindow.has(idx) ? p.image : BLANK_PAGE_SVG));
+
+    const syncImageWindow = (centerIdx: number) => {
+      const stPages = (pf as any).getPageCollection?.()?.getPages?.() as any[] | undefined;
+      if (!stPages) return;
+      const wanted = pagesToLoad(centerIdx, pages.length, readerProfile);
+      stPages.forEach((sp, idx) => {
+        const img: HTMLImageElement | undefined = sp?.image;
+        if (!img || !pages[idx]) return;
+        if (wanted.has(idx)) {
+          if (img.dataset.nvLoaded !== '1' && img.dataset.nvLoading !== '1') {
+            img.dataset.nvLoading = '1';
+            img.onload = () => {
+              img.dataset.nvLoaded = '1';
+              img.dataset.nvLoading = '';
+              sp.isLoad = true;
+              try { pf.update(); } catch { /* ignore */ }
+            };
+            img.src = pages[idx].image;
+          }
+        } else if (img.dataset.nvLoaded === '1' && Math.abs(idx - centerIdx) > readerProfile.ahead + readerProfile.behind + 4) {
+          // Release decoded bitmaps far from the reader on constrained devices / large publications.
+          img.dataset.nvLoaded = '';
+          img.src = BLANK_PAGE_SVG;
+        }
+      });
+    };
+    (pf as any).__nvSyncImageWindow = syncImageWindow;
+    // Mark the pages loaded up-front as loaded so they are not re-fetched or released prematurely.
+    window.setTimeout(() => {
+      const stPages = (pf as any).getPageCollection?.()?.getPages?.() as any[] | undefined;
+      stPages?.forEach((sp, idx) => {
+        if (sp?.image && initialWindow.has(idx)) sp.image.dataset.nvLoaded = '1';
+      });
+    }, 0);
 
     pf.loadFromImages(initialUrls);
 
@@ -851,7 +885,7 @@ export default function FlipbookViewer({
 
       if (ui.canvas) {
         ui.resizeCanvas = function () {
-          const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+          const dpr = getCanvasDpr();
           const cssW =
             this.canvas.offsetWidth ||
             this.canvas.clientWidth ||
@@ -1015,7 +1049,7 @@ export default function FlipbookViewer({
     if (render) {
       render.clear = function () {
         if (this.ctx && this.canvas) {
-          const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+          const dpr = getCanvasDpr();
           this.ctx.setTransform(1, 0, 0, 1, 0, 0);
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
           this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1501,6 +1535,7 @@ export default function FlipbookViewer({
       const pageIdx = e.data as number;
       setCurrent(pageIdx);
       setResumedBanner(null);
+      (pf as any).__nvSyncImageWindow?.(pageIdx);
       if (isSoundActiveRef.current) {
         playPageFlipSound();
       }

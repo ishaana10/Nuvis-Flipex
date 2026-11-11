@@ -130,25 +130,53 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     loadJobs();
   }, [loadTaxonomy, loadJobs]);
 
-  // Poll while anything is converting so progress bars update in real time,
-  // and automatically drain queued jobs via HTTP for shared hosting (A2 Hosting).
+  // Poll while anything is converting so progress bars update. Polling uses exponential back-off
+  // (2s → 15s, reset when the set of processing items changes), pauses while the tab is hidden, and
+  // only drains the queue from the browser when VITE_BROWSER_QUEUE_DRAIN !== 'false' (disable it when a
+  // dedicated `php bin/worker.php` is running). Claiming is lock-safe server-side, so sessions cannot double-process.
+  const processingKey = items
+    .filter((i) => i.status === 'processing' || i.status === 'uploading')
+    .map((i) => i.id)
+    .join(',');
   useEffect(() => {
-    const hasProcessing = items.some((i) => i.status === 'processing' || i.status === 'uploading');
+    const hasProcessing = processingKey !== '';
     if (!hasProcessing && !showJobsModal) return;
+    const drainInBrowser = import.meta.env.VITE_BROWSER_QUEUE_DRAIN !== 'false';
 
-    if (hasProcessing) {
-      triggerQueueDrain();
-    }
+    let delay = 2000;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
 
-    const t = setInterval(() => {
-      load();
-      if (showJobsModal) loadJobs();
-      if (hasProcessing) {
-        triggerQueueDrain();
+    const tick = async () => {
+      if (cancelled) return;
+      if (document.hidden) return; // resumed by visibilitychange
+      if (hasProcessing && drainInBrowser) {
+        await triggerQueueDrain();
+      } else {
+        await load().catch(() => {});
       }
-    }, 2000);
-    return () => clearInterval(t);
-  }, [items, showJobsModal, load, loadJobs, triggerQueueDrain]);
+      if (showJobsModal) loadJobs();
+      if (cancelled) return;
+      delay = Math.min(15000, Math.round(delay * 1.5));
+      timer = setTimeout(tick, delay);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) {
+        if (timer) clearTimeout(timer);
+        delay = 2000;
+        void tick();
+      }
+    };
+
+    void tick();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [processingKey, showJobsModal, load, loadJobs, triggerQueueDrain]);
 
   const upload = async (file: File) => {
     setError('');

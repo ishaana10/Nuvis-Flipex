@@ -79,8 +79,8 @@ final class JobRunner
             };
 
             Db::run(
-                "UPDATE jobs SET status = 'completed', progress = 100, current_step = 'Completed', done_at = NOW(), error = NULL WHERE id = ?",
-                [$jobId]
+                "UPDATE jobs SET status = 'completed', progress = 100, current_step = 'Completed', done_at = NOW(), error = NULL, locked_at = NULL, worker_id = NULL, lease_expires_at = NULL WHERE id = ? AND (worker_id IS NULL OR worker_id = ?)",
+                [$jobId, self::workerId()]
             );
 
             return [
@@ -92,13 +92,18 @@ final class JobRunner
         } catch (Throwable $e) {
             $errMsg = $e->getMessage();
 
-            $attempts = (int) $job['attempts'];
+            // Lease lost / cancelled: another worker (or the user) owns the job now — never touch its state.
+            if (str_starts_with($errMsg, 'Job lease lost')) {
+                return ['processed' => true, 'jobId' => $jobId, 'flipbookId' => $flipbookId, 'status' => 'aborted', 'error' => $errMsg];
+            }
+
+            $attempts = (int) $job['attempts'] + 1;
             $maxAttempts = max(1, (int) ($job['max_attempts'] ?? 3));
             $retry = $attempts < $maxAttempts;
             $backoffMinutes = (int) pow(2, max(0, $attempts - 1));
 
             Db::run(
-                "UPDATE jobs SET status = ?, current_step = ?, error = ?, locked_at = NULL, done_at = ?, run_at = DATE_ADD(NOW(), INTERVAL {$backoffMinutes} MINUTE) WHERE id = ?",
+                "UPDATE jobs SET status = ?, current_step = ?, error = ?, locked_at = NULL, worker_id = NULL, lease_expires_at = NULL, done_at = ?, run_at = DATE_ADD(NOW(), INTERVAL {$backoffMinutes} MINUTE) WHERE id = ?",
                 [
                     $retry ? 'queued' : 'failed',
                     $retry ? "Retry scheduled ({$attempts}/{$maxAttempts})" : 'Failed',
@@ -132,40 +137,109 @@ final class JobRunner
         }
     }
 
+    private static ?string $workerId = null;
+    private static bool $schemaEnsured = false;
+    private static bool $shutdown = false;
+
+    /** Lease length for a running job; renewed by heartbeat() on every progress update. */
+    private const LEASE_SECONDS = 300;
+
+    public static function workerId(): string
+    {
+        return self::$workerId ??= (gethostname() ?: 'host') . ':' . getmypid() . ':' . bin2hex(random_bytes(3));
+    }
+
+    /** Ask the worker loop to stop after the current job finishes (SIGTERM/SIGINT). */
+    public static function requestShutdown(): void
+    {
+        self::$shutdown = true;
+    }
+
+    public static function shouldShutdown(): bool
+    {
+        return self::$shutdown;
+    }
+
+    /** Add lease/ownership/priority columns on demand (no manual migration; DDL runs outside transactions). */
+    public static function ensureSchema(): void
+    {
+        if (self::$schemaEnsured) {
+            return;
+        }
+        self::$schemaEnsured = true;
+        try {
+            $have = array_column(Db::all(
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'jobs'"
+            ), 'COLUMN_NAME');
+            $pdo = Db::pdo();
+            if (!in_array('worker_id', $have, true)) {
+                $pdo->exec('ALTER TABLE jobs ADD COLUMN worker_id VARCHAR(80) NULL');
+            }
+            if (!in_array('lease_expires_at', $have, true)) {
+                $pdo->exec('ALTER TABLE jobs ADD COLUMN lease_expires_at DATETIME NULL');
+            }
+            if (!in_array('priority', $have, true)) {
+                $pdo->exec('ALTER TABLE jobs ADD COLUMN priority TINYINT NOT NULL DEFAULT 0');
+            }
+        } catch (Throwable $e) {
+            error_log('JobRunner schema ensure failed: ' . $e->getMessage());
+        }
+    }
+
+    /** Renew this worker's lease. Throws if another worker now owns the job so duplicate conversion is aborted. */
+    public static function heartbeat(int $jobId): void
+    {
+        try {
+            Db::run(
+                'UPDATE jobs SET locked_at = NOW(), lease_expires_at = DATE_ADD(NOW(), INTERVAL ' . self::LEASE_SECONDS . ' SECOND)
+                 WHERE id = ? AND worker_id = ?',
+                [$jobId, self::workerId()]
+            );
+            $row = Db::one('SELECT worker_id, status FROM jobs WHERE id = ?', [$jobId]);
+        } catch (Throwable) {
+            return; // transient DB problem: do not kill a healthy conversion
+        }
+        if ($row && ($row['status'] === 'cancelled' || ($row['worker_id'] !== null && $row['worker_id'] !== self::workerId()))) {
+            throw new RuntimeException('Job lease lost or job cancelled; aborting this worker.');
+        }
+    }
+
     /**
      * Claim the next available queued job atomically.
      * Supports MySQL 8 SKIP LOCKED with automatic fallback for older MariaDB/MySQL engines on shared hosting.
+     * Ordering: priority first, then tenant fairness (tenants with fewer running jobs first), then FIFO.
+     * A tenant already running JOB_MAX_PER_TENANT jobs (default 2) is skipped so it cannot monopolise workers.
      */
     public static function claim(): ?array
     {
+        self::ensureSchema();
+        $perTenant = max(1, (int) ($_ENV['JOB_MAX_PER_TENANT'] ?? 2));
+        $running = "(SELECT COUNT(*) FROM jobs r WHERE r.tenant_id = jobs.tenant_id AND r.status = 'running' AND r.id <> jobs.id
+                      AND r.locked_at IS NOT NULL AND COALESCE(r.lease_expires_at, DATE_ADD(r.locked_at, INTERVAL 5 MINUTE)) >= NOW())";
+        $sql = "SELECT * FROM jobs
+                WHERE done_at IS NULL
+                  AND status IN ('queued', 'running')
+                  AND run_at <= NOW()
+                  AND (locked_at IS NULL OR COALESCE(lease_expires_at, DATE_ADD(locked_at, INTERVAL 5 MINUTE)) < NOW())
+                  AND (tenant_id IS NULL OR {$running} < {$perTenant})
+                ORDER BY priority DESC, (CASE WHEN tenant_id IS NULL THEN 0 ELSE {$running} END) ASC, id ASC
+                LIMIT 1";
         $pdo = Db::pdo();
         $pdo->beginTransaction();
         try {
             try {
-                $job = Db::one(
-                    "SELECT * FROM jobs
-                     WHERE done_at IS NULL
-                       AND status IN ('queued', 'running')
-                       AND run_at <= NOW()
-                       AND (locked_at IS NULL OR locked_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE))
-                     ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED"
-                );
+                $job = Db::one($sql . ' FOR UPDATE SKIP LOCKED');
             } catch (Throwable) {
                 // Fallback for MariaDB / MySQL versions that do not support SKIP LOCKED
-                $job = Db::one(
-                    "SELECT * FROM jobs
-                     WHERE done_at IS NULL
-                       AND status IN ('queued', 'running')
-                       AND run_at <= NOW()
-                       AND (locked_at IS NULL OR locked_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE))
-                     ORDER BY id LIMIT 1 FOR UPDATE"
-                );
+                $job = Db::one($sql . ' FOR UPDATE');
             }
 
             if ($job) {
                 Db::run(
-                    "UPDATE jobs SET status = 'running', started_at = COALESCE(started_at, NOW()), locked_at = NOW(), attempts = attempts + 1 WHERE id = ?",
-                    [$job['id']]
+                    "UPDATE jobs SET status = 'running', started_at = COALESCE(started_at, NOW()), locked_at = NOW(),
+                            worker_id = ?, lease_expires_at = DATE_ADD(NOW(), INTERVAL " . self::LEASE_SECONDS . " SECOND),
+                            attempts = attempts + 1 WHERE id = ?",
+                    [self::workerId(), $job['id']]
                 );
             }
             $pdo->commit();
@@ -210,21 +284,27 @@ final class JobRunner
      */
     public static function convertPdf(int $flipbookId, int $jobId, int $timeoutSeconds = 300): void
     {
+        // Effective plan = the TENANT's subscription (same source as the upload controller); the owning user's
+        // plan is only the explicit fallback for personal accounts that have no tenant plan.
         $f = Db::one(
             'SELECT f.*, p.max_pages, p.max_upload_mb
              FROM flipbooks f
              JOIN users u ON u.id = f.user_id
-             JOIN plans p ON p.id = u.plan_id
+             LEFT JOIN tenants t ON t.id = f.tenant_id
+             JOIN plans p ON p.id = COALESCE(t.plan_id, u.plan_id)
              WHERE f.id = ?',
             [$flipbookId]
         );
         if (!$f) {
             return;
         }
+        if (empty($f['tenant_id'])) {
+            throw new RuntimeException('Tenant context required for PDF conversion');
+        }
 
         $root = Storage::root();
         $pdf = $root . '/' . $f['source_pdf_path'];
-        $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : 1;
+        $tenantId = (int) $f['tenant_id'];
         $outRel = "tenants/{$tenantId}/publications/{$flipbookId}";
         $out = "{$root}/{$outRel}";
 
@@ -238,6 +318,8 @@ final class JobRunner
                     'UPDATE jobs SET progress = ?, current_step = ? WHERE id = ?',
                     [$pct, $step, $jobId]
                 );
+                // Heartbeat: renew the lease; aborts this worker if another worker has taken ownership.
+                self::heartbeat($jobId);
             }
         };
 
@@ -248,7 +330,11 @@ final class JobRunner
 
         try {
             $metadata = PdfRenderer::validatePdf($pdf, $maxBytes, $maxPages);
-            $renderedPages = PdfRenderer::renderMultiResolution($pdf, $out, $maxPages, $onProgress, $timeoutSeconds);
+            // Render one page beyond the limit so an unreadable page-count can never silently truncate/bypass it.
+            $renderedPages = PdfRenderer::renderMultiResolution($pdf, $out, $maxPages > 0 ? $maxPages + 1 : $maxPages, $onProgress, $timeoutSeconds);
+            if ($maxPages > 0 && $renderedPages && count($renderedPages) > $maxPages) {
+                throw new RuntimeException('PDF validation failed: Document has more than ' . $maxPages . ' pages, exceeding your plan limit.');
+            }
         } catch (Throwable $e) {
             PdfRenderer::cleanupPartialFiles($out);
             throw $e;
