@@ -92,4 +92,41 @@ export const Trash2 = (p: SVGProps<SVGSVGElement>) => (
 export const Check = (p: SVGProps<SVGSVGElement>) => (
   <IconBase {...p}><polyline points="20 6 9 17 4 12" /></IconBase>
 );
+export const Palette = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" /><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C21.438 6.324 17.176 2 12 2z" /></IconBase>
+);
+export const Share2 = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></IconBase>
+);
+export const Eye = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></IconBase>
+);
+export const Sliders = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="1" x2="7" y1="14" y2="14" /><line x1="9" x2="15" y1="8" y2="8" /><line x1="17" x2="23" y1="16" y2="16" /></IconBase>
+);
+export const Layers = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></IconBase>
+);
+export const User = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></IconBase>
+);
+export const ChevronDown = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><polyline points="6 9 12 15 18 9" /></IconBase>
+);
+export const ChevronRight = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><polyline points="9 18 15 12 9 6" /></IconBase>
+);
+export const Lock = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></IconBase>
+);
+export const QrCode = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><rect width="5" height="5" x="3" y="3" rx="1" /><rect width="5" height="5" x="16" y="3" rx="1" /><rect width="5" height="5" x="3" y="16" rx="1" /><path d="M21 16h-3a2 2 0 0 0-2 2v3" /><path d="M21 21v.01" /><path d="M12 7v3a2 2 0 0 1-2 2H7" /><path d="M3 12h.01" /><path d="M12 3h.01" /><path d="M12 16v.01" /><path d="M16 12h1" /><path d="M21 12v.01" /><path d="M12 21v-1" /></IconBase>
+);
+export const Code = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></IconBase>
+);
+export const MessageSquare = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></IconBase>
+);
+
 

@@ -221,11 +221,15 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     const clean = editingTitle.trim();
     if (!clean) return;
     try {
-      await api(`/flipbooks/${id}`, 'PATCH', { title: clean });
+      setItems((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, title: clean } : item))
+      );
       setEditingId(null);
+      await api(`/flipbooks/${id}`, 'PATCH', { title: clean });
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to rename publication');
+      await load();
     }
   };
 

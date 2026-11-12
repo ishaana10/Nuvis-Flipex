@@ -99,7 +99,9 @@ export default function HotspotEditor() {
         <Link to="/dashboard" className="btn-back">← Back to Flipbooks</Link>
         <span className="preview-title">Hotspots: {details.title}</span>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <Link to={`/dashboard/preview/${details.id}`} className="btn-pub">Preview 👁️</Link>
+          <Link to={`/dashboard/preview/${details.id}`} className="btn-pub-primary">
+            <span>Preview</span> <span>👁️</span>
+          </Link>
         </div>
       </div>
 

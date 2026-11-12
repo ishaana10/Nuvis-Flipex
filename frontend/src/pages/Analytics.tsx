@@ -316,9 +316,9 @@ export default function Analytics() {
             href={`/v/${data.flipbook.slug}`}
             target="_blank"
             rel="noreferrer"
-            className="btn-pub inline-flex items-center gap-1"
+            className="btn-pub-outline inline-flex items-center gap-1.5"
           >
-            Open Reader <ExternalLink className="h-3.5 w-3.5" />
+            <span>Open Reader</span> <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
       </div>

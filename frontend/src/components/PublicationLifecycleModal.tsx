@@ -209,6 +209,9 @@ export default function PublicationLifecycleModal({
           noindex,
         },
       });
+      book.title = title;
+      book.description = description;
+      book.slug = slug;
       setMsg({ type: 'ok', text: 'Publication URL, taxonomy & SEO metadata saved.' });
       onUpdated();
     } catch (e: any) {

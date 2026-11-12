@@ -60,17 +60,20 @@ export default function Preview() {
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             type="button"
-            className="btn-pub"
+            className="btn-pub-primary"
             onClick={() => setShowCustomize(true)}
             title="Open Flipbook Style & Customization Settings"
           >
-            Customize Style 🎨
+            <span>Customize Style</span>
+            <span>🎨</span>
           </button>
-          <Link to={`/dashboard/editor/${data.id}`} className="btn-pub">
-            Edit Hotspots ✏️
+          <Link to={`/dashboard/editor/${data.id}`} className="btn-pub-outline">
+            <span>Edit Hotspots</span>
+            <span>✏️</span>
           </Link>
-          <a href={`/v/${data.slug}`} target="_blank" rel="noreferrer" className="btn-pub">
-            Open Reader Link ↗
+          <a href={`/v/${data.slug}`} target="_blank" rel="noreferrer" className="btn-pub-outline">
+            <span>Open Reader Link</span>
+            <span>↗</span>
           </a>
         </div>
       </div>

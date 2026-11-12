@@ -1,1 +1,0 @@
-import{j as m}from"./index-DlVivQtG.js";function a({variant:t="primary",size:e="md",className:r="",children:o,...n}){const i=t==="primary"?"btn-primary":t==="outline"?"btn-secondary":t==="danger"?"action-pill delete":"link";return m.jsx("button",{type:n.type??"button",className:`${i} boardui-btn-${e} ${r}`.trim(),...n,children:o})}export{a as B};

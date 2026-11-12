@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { PageFlip } from 'page-flip';
 import { playPageFlipSound, unlockAudio } from '../utils/sound';
 import { getCanvasDpr, getReaderProfile, pagesToLoad } from './viewer/adaptiveLoading';
+import type { FlipbookSettings } from './CustomizationDialog';
 
 export interface PageInfo {
   n: number;
@@ -34,35 +35,7 @@ export interface ViewerHotspot {
   payload: { url?: string; title?: string };
 }
 
-export interface ViewerSettings {
-  background?: string;
-  backgroundType?: 'image' | 'color' | 'style';
-  backgroundImage?: string;
-  backgroundStyle?: string;
-  themePreset?: string;
-  defaultReadingMode?: 'flip' | 'scroll' | 'reader';
-  pageEffect?: 'magazine' | 'book' | 'album' | 'notebook' | 'slider' | 'cards' | 'coverflow' | 'one_page';
-  soundEnabled?: boolean;
-  horizontalTurn?: boolean;
-  rightToLeft?: boolean;
-  allowDownload?: boolean;
-  brandText?: string;
-  customLogoUrl?: string;
-  companyName?: string;
-  catalogueSubtitle?: string;
-  disclaimerTitle?: string;
-  disclaimerText?: string;
-  showDisclaimer?: boolean;
-  showPoweredBy?: boolean;
-  showToolbar?: boolean;
-  showThumbnailsButton?: boolean;
-  showSearchButton?: boolean;
-  showShareButton?: boolean;
-  showFullscreenButton?: boolean;
-  bgAudioUrl?: string;
-  bgAudioAutoplay?: boolean;
-  bgAudioLoop?: boolean;
-}
+export type ViewerSettings = FlipbookSettings;
 
 interface ViewerProps {
   pages: PageInfo[];
@@ -164,6 +137,45 @@ export default function FlipbookViewer({
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [pageToast, setPageToast] = useState<string | null>(null);
+
+  // Favicon customization (Image 1)
+  useEffect(() => {
+    if (settings.faviconUrl) {
+      let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'shortcut icon';
+        document.head.appendChild(link);
+      }
+      link.href = settings.faviconUrl;
+    }
+  }, [settings.faviconUrl]);
+
+  // Initial navigation panel (Image 2)
+  useEffect(() => {
+    if (settings.initialNavPanel === 'thumbnails') setShowThumbs(true);
+    else if (settings.initialNavPanel === 'toc') setShowToc(true);
+    else if (settings.initialNavPanel === 'bookmarks') setShowBookmarks(true);
+  }, [settings.initialNavPanel]);
+
+  // First / Last page prompt toast
+  const toastTimerRef = useRef<any>(null);
+  const showToast = useCallback((msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setPageToast(msg);
+    toastTimerRef.current = setTimeout(() => {
+      setPageToast(null);
+    }, 2800);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -1066,18 +1078,41 @@ export default function FlipbookViewer({
       // Patch drawFrame:
       // 1. Remove destructive portrait clip so mobile page flip is 100% visible and never chopped off.
       // 2. Properly handle single-page spreads (Front/Back cover & Portrait mode) where bottomPage === flippingPage.
+      // 3. Fix: Prevent rightPage from bleeding through on the right when closing back to Front Cover.
       render.drawFrame = function () {
         if (!this.ctx) return;
         this.ctx.save();
         this.clear();
 
+        const flipCalc = (pf as any).getFlipController?.()?.calc;
+        const dir = flipCalc ? flipCalc.getDirection() : this.direction;
+        // FlipDirection.FORWARD is 0, FlipDirection.BACK is 1
+        const isClosingToFrontCover =
+          dir === 1 &&
+          ((this.bottomPage != null && (this.bottomPage as any).__pageIdx === 0) ||
+           (this.flippingPage != null && (this.flippingPage as any).__pageIdx === 0));
+
+        const isClosingToBackCover =
+          dir === 0 &&
+          pageObjs.length > 1 &&
+          ((this.bottomPage != null && (this.bottomPage as any).__pageIdx === pageObjs.length - 1) ||
+           (this.flippingPage != null && (this.flippingPage as any).__pageIdx === pageObjs.length - 1));
+
         if (this.orientation !== 'portrait') {
-          if (this.leftPage != null) this.leftPage.simpleDraw(0);
+          if (this.leftPage != null && !isClosingToBackCover) this.leftPage.simpleDraw(0);
         }
 
-        if (this.rightPage != null) this.rightPage.simpleDraw(1);
+        // When closing to the front cover, do NOT draw rightPage so its edge never bleeds through before disappearing
+        if (this.rightPage != null && !isClosingToFrontCover) this.rightPage.simpleDraw(1);
 
-        const flipCalc = (pf as any).getFlipController?.()?.calc;
+        // Ensure right half is completely clean when folding back onto front cover
+        if (isClosingToFrontCover) {
+          const rect = this.getRect();
+          this.ctx.clearRect(rect.left + rect.pageWidth - 2, rect.top - 2, rect.pageWidth + 4, rect.height + 4);
+        } else if (isClosingToBackCover) {
+          const rect = this.getRect();
+          this.ctx.clearRect(rect.left - 2, rect.top - 2, rect.pageWidth + 4, rect.height + 4);
+        }
 
         if (this.bottomPage != null) {
           if (this.bottomPage === this.flippingPage && flipCalc) {
@@ -1552,6 +1587,15 @@ export default function FlipbookViewer({
         playPageFlipSound();
       }
 
+      // Prompt message when arriving at last page or first page
+      if (isInitializedRef.current && isActualPageChange) {
+        if (pageIdx >= pages.length - 1) {
+          showToast('This is the last page.');
+        } else if (pageIdx === 0) {
+          showToast('This is the first page.');
+        }
+      }
+
       setPan({ x: 0, y: 0 });
       if (flippingTimer.current) clearTimeout(flippingTimer.current);
       flippingTimer.current = setTimeout(() => {
@@ -1692,6 +1736,11 @@ export default function FlipbookViewer({
       const target = Math.max(0, Math.min(pages.length - 1, i));
       setCurrent(target);
       setResumedBanner(null);
+      if (target >= pages.length - 1 && isInitializedRef.current) {
+        showToast('This is the last page.');
+      } else if (target === 0 && isInitializedRef.current) {
+        showToast('This is the first page.');
+      }
       if (readingMode === 'flip' && flip.current) {
         try {
           flip.current.flip(target);
@@ -1703,28 +1752,36 @@ export default function FlipbookViewer({
         el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     },
-    [pages.length, readingMode]
+    [pages.length, readingMode, showToast]
   );
 
   const next = useCallback(() => {
     unlockAudio();
+    if (current >= pages.length - 1) {
+      showToast('This is the last page.');
+      return;
+    }
     if (readingMode === 'flip' && flip.current) {
       userTriggeredFlipRef.current = true;
       flip.current.flipNext();
     } else {
       goto(current + 1);
     }
-  }, [readingMode, goto, current]);
+  }, [readingMode, goto, current, pages.length, showToast]);
 
   const prev = useCallback(() => {
     unlockAudio();
+    if (current === 0) {
+      showToast('This is the first page.');
+      return;
+    }
     if (readingMode === 'flip' && flip.current) {
       userTriggeredFlipRef.current = true;
       flip.current.flipPrev();
     } else {
       goto(current - 1);
     }
-  }, [readingMode, goto, current]);
+  }, [readingMode, goto, current, showToast]);
 
   const toggleBookmark = useCallback(
     (pageNum = current + 1) => {
@@ -1928,6 +1985,11 @@ export default function FlipbookViewer({
         backgroundPosition: 'center center',
         ['--spread-aspect' as any]: `${spreadAspect}`,
       }}
+      onContextMenu={(e) => {
+        if (settings.rightClickMenu === false) {
+          e.preventDefault();
+        }
+      }}
     >
       {settings.bgAudioUrl && (
         <audio
@@ -1937,13 +1999,99 @@ export default function FlipbookViewer({
           style={{ display: 'none' }}
         />
       )}
-      {/* Top Floating Header Bar (Minimalist Heyzine-Style Overlay) */}
-      <div className="hz-header">
-        <div className="hz-title-wrap">
-          {title && <span className="hz-book-title">{title}</span>}
+      {/* Top Floating Header Bar (Minimalist Heyzine-Style Overlay with Full Customization) */}
+      <div
+        className="hz-header"
+        style={{
+          background: settings.toolbarColor
+            ? (settings.toolbarOpacity !== undefined
+                ? `${settings.toolbarColor}${Math.round(Math.min(1, Math.max(0, settings.toolbarOpacity)) * 255).toString(16).padStart(2, '0')}`
+                : settings.toolbarColor)
+            : undefined,
+          color: settings.toolbarFontColor,
+        }}
+      >
+        <div className="hz-title-wrap" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {settings.customLogoUrl ? (
+            settings.openLogoIn !== 'none' && settings.logoTargetUrl ? (
+              <a
+                href={settings.logoTargetUrl}
+                target={settings.openLogoIn === 'current_window' ? '_self' : '_blank'}
+                rel="noopener noreferrer"
+                className="hz-custom-header-logo"
+                style={{
+                  paddingLeft: settings.logoLeftPadding ? `${settings.logoLeftPadding}px` : undefined,
+                  paddingTop: settings.logoTopPadding ? `${settings.logoTopPadding}px` : undefined,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <img
+                  src={settings.customLogoUrl}
+                  alt={settings.companyName || 'Logo'}
+                  style={{ height: `${settings.logoHeight || 36}px`, objectFit: 'contain' }}
+                />
+              </a>
+            ) : (
+              <div
+                className="hz-custom-header-logo"
+                style={{
+                  paddingLeft: settings.logoLeftPadding ? `${settings.logoLeftPadding}px` : undefined,
+                  paddingTop: settings.logoTopPadding ? `${settings.logoTopPadding}px` : undefined,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <img
+                  src={settings.customLogoUrl}
+                  alt={settings.companyName || 'Logo'}
+                  style={{ height: `${settings.logoHeight || 36}px`, objectFit: 'contain' }}
+                />
+              </div>
+            )
+          ) : null}
+          {title && (
+            <span className="hz-book-title" style={{ color: settings.toolbarFontColor }}>
+              {title}
+            </span>
+          )}
         </div>
 
         <div className="hz-top-actions">
+          {/* Author / Publisher Profile Button (Image 5) */}
+          {settings.showProfileButton && (
+            <button
+              type="button"
+              className={`hz-icon-btn ${showProfileModal ? 'ring-2 ring-amber-400' : ''}`}
+              onClick={() => {
+                setShowProfileModal(!showProfileModal);
+                setShowQrModal(false);
+              }}
+              title={`Publisher Profile: ${settings.profileAuthor || 'Publisher'}`}
+              aria-label="Publisher Profile"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+            >
+              👤
+            </button>
+          )}
+
+          {/* Quick Mobile QR Code Button (Image 2 & 6) */}
+          {settings.showQrCode && (
+            <button
+              type="button"
+              className={`hz-icon-btn ${showQrModal ? 'ring-2 ring-amber-400' : ''}`}
+              onClick={() => {
+                setShowQrModal(!showQrModal);
+                setShowProfileModal(false);
+              }}
+              title="QR Code for Mobile Reading"
+              aria-label="QR Code"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+            >
+              📱
+            </button>
+          )}
+
           {/* One-Tap Mobile Landscape Fullscreen Button */}
           {!isFullscreen && (
             <button
@@ -1951,6 +2099,7 @@ export default function FlipbookViewer({
               className="hz-mobile-landscape-btn"
               onClick={toggleFullscreen}
               title="Open in Landscape Full Mode"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               🔄 Landscape Full
             </button>
@@ -1967,6 +2116,7 @@ export default function FlipbookViewer({
               }}
               title="Search Inside Publication (Shortcut: /)"
               aria-label="Search Inside Publication"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               🔍
             </button>
@@ -1982,6 +2132,7 @@ export default function FlipbookViewer({
             }}
             title="Table of Contents (Shortcut: T)"
             aria-label="Table of Contents"
+            style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
             ☰
           </button>
@@ -2000,6 +2151,7 @@ export default function FlipbookViewer({
                 : `Bookmark Page ${current + 1} (Shortcut: B)`
             }
             aria-label="Bookmark current page"
+            style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
             {isCurrentBookmarked ? '🔖' : '🏷️'}
           </button>
@@ -2014,6 +2166,7 @@ export default function FlipbookViewer({
               }}
               title={`Share Page ${current + 1} or Publication`}
               aria-label="Share Page"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               🔗
             </button>
@@ -2031,6 +2184,7 @@ export default function FlipbookViewer({
                   : 'Save Publication for Offline Reading'
             }
             aria-label="Save for Offline Reading"
+            style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
             {offlineSaved ? '✅' : cachingOffline ? '⏳' : '💾'}
           </button>
@@ -2040,6 +2194,7 @@ export default function FlipbookViewer({
               className="hz-icon-btn"
               onClick={() => setSoundMuted(!soundMuted)}
               title={soundMuted ? 'Turn Sound On' : 'Mute Sound'}
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               {soundMuted ? '🔇' : '🔊'}
             </button>
@@ -2052,6 +2207,7 @@ export default function FlipbookViewer({
               rel="noreferrer"
               className="hz-icon-btn"
               title="Download PDF"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               📥
             </a>
@@ -2062,6 +2218,7 @@ export default function FlipbookViewer({
               className={`hz-icon-btn ${showThumbs ? 'ring-2 ring-amber-400' : ''}`}
               onClick={() => setShowThumbs(!showThumbs)}
               title="Toggle Page Thumbnails"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               📑
             </button>
@@ -2071,6 +2228,7 @@ export default function FlipbookViewer({
             className="hz-icon-btn hz-desktop-only"
             onClick={() => setShowShortcutsModal(true)}
             title="Keyboard Shortcuts & Theme Settings (Shortcut: ?)"
+            style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
             ⌨️
           </button>
@@ -2080,6 +2238,7 @@ export default function FlipbookViewer({
               className="hz-icon-btn"
               onClick={toggleFullscreen}
               title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               {isFullscreen ? '✕' : '⛶'}
             </button>
@@ -2324,28 +2483,59 @@ export default function FlipbookViewer({
             );
           })()}
 
-          <button
-            className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''}`}
-            onClick={prev}
-            title="Previous Page (←)"
-            disabled={current === 0}
-          >
-            ‹
-          </button>
+          {settings.prevNextShortcut !== false && (
+            <>
+              <button
+                className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
+                onClick={prev}
+                title="Previous Page (←)"
+                disabled={current === 0}
+                style={{
+                  color: settings.prevNextColor,
+                  backgroundColor: settings.prevNextBg,
+                }}
+              >
+                ‹
+              </button>
 
-          <button
-            className={`hz-side-arrow right ${current >= total - 1 ? 'disabled' : ''}`}
-            onClick={next}
-            title="Next Page (→)"
-            disabled={current >= total - 1}
-          >
-            ›
-          </button>
+              <button
+                className={`hz-side-arrow right ${current >= total - 1 ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
+                onClick={next}
+                title="Next Page (→)"
+                disabled={current >= total - 1}
+                style={{
+                  color: settings.prevNextColor,
+                  backgroundColor: settings.prevNextBg,
+                }}
+              >
+                ›
+              </button>
+            </>
+          )}
 
           {!ready && (
-            <div className="hz-loading-pill">
-              <div className="hz-spinner" />
-              <span>Loading publication…</span>
+            <div
+              className="hz-loading-pill"
+              style={{
+                backgroundColor: settings.loadingBgColor || undefined,
+                color: settings.loadingFontColor || undefined,
+              }}
+            >
+              {settings.loadingImageUrl && (
+                <img
+                  src={settings.loadingImageUrl}
+                  alt="Loading"
+                  style={{
+                    maxHeight: `${settings.loadingImageHeight || 44}px`,
+                    marginBottom: '6px',
+                    objectFit: 'contain',
+                  }}
+                />
+              )}
+              {settings.showLoadingAnimation !== false && <div className="hz-spinner" />}
+              <span style={{ fontSize: settings.loadingFontSize ? `${settings.loadingFontSize}px` : undefined }}>
+                {settings.loadingText || 'Loading publication…'}
+              </span>
             </div>
           )}
 
@@ -2506,6 +2696,27 @@ export default function FlipbookViewer({
                         {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Watermark Overlay Layer */}
+                {settings.watermarkEnabled && settings.watermarkText && (
+                  <div
+                    className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center overflow-hidden select-none"
+                    style={{ opacity: (settings.watermarkOpacity ?? 15) / 100 }}
+                  >
+                    <div
+                      className="whitespace-nowrap font-black tracking-widest text-slate-800 dark:text-white"
+                      style={{
+                        fontSize: '44px',
+                        transform: `rotate(${settings.watermarkAngle ?? -30}deg)`,
+                        userSelect: 'none',
+                        letterSpacing: '0.25em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {settings.watermarkText}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2685,12 +2896,38 @@ export default function FlipbookViewer({
       {/* Bottom Floating Navigation Pill */}
       {settings.showToolbar !== false && (
         <div className="hz-bottom-bar">
-          <div className="hz-nav-pill">
-            <button className="hz-pill-btn" onClick={prev} disabled={current === 0} title="Previous Page (←)">
+          <div
+            className="hz-nav-pill"
+            style={{
+              background: settings.toolbarColor
+                ? (settings.toolbarOpacity !== undefined
+                    ? `${settings.toolbarColor}${Math.round(Math.min(1, Math.max(0, settings.toolbarOpacity)) * 255).toString(16).padStart(2, '0')}`
+                    : settings.toolbarColor)
+                : undefined,
+            }}
+          >
+            <button
+              className="hz-pill-btn"
+              onClick={prev}
+              disabled={current === 0}
+              title="Previous Page (←)"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+            >
               ‹
             </button>
-            <span className="hz-pill-counter">{pageDisplay}</span>
-            <button className="hz-pill-btn" onClick={next} disabled={current >= total - 1} title="Next Page (→)">
+            <span
+              className="hz-pill-counter"
+              style={{ color: settings.pageNumberFontColor || settings.toolbarFontColor }}
+            >
+              {pageDisplay}
+            </span>
+            <button
+              className="hz-pill-btn"
+              onClick={next}
+              disabled={current >= total - 1}
+              title="Next Page (→)"
+              style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+            >
               ›
             </button>
 
@@ -2702,6 +2939,7 @@ export default function FlipbookViewer({
                   onClick={() => handleZoomChange(zoom - 0.25)}
                   disabled={zoom <= 1}
                   title="Zoom Out (-)"
+                  style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
                 >
                   −
                 </button>
@@ -2720,6 +2958,7 @@ export default function FlipbookViewer({
                   onClick={() => handleZoomChange(zoom + 0.25)}
                   disabled={zoom >= 3.5}
                   title="Zoom In (+)"
+                  style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
                 >
                   +
                 </button>
@@ -2727,6 +2966,7 @@ export default function FlipbookViewer({
                   className="hz-pill-btn hz-zoom-label"
                   onClick={() => handleZoomChange(1)}
                   title="Reset zoom to 100% (0)"
+                  style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
                 >
                   {Math.round(zoom * 100)}%{zoom > 1.25 ? ' HD' : ''}
                 </button>
@@ -2738,6 +2978,7 @@ export default function FlipbookViewer({
                 className="hz-pill-btn fs"
                 onClick={toggleFullscreen}
                 title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
+                style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
               >
                 {isFullscreen ? '✕ Exit' : '⛶ Fullscreen'}
               </button>
@@ -2960,6 +3201,171 @@ export default function FlipbookViewer({
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Author / Publisher Profile Modal (Image 5) */}
+      {showProfileModal && (
+        <div className="modal" onClick={() => setShowProfileModal(false)}>
+          <div
+            className="card max-w-md w-full space-y-4 p-6"
+            style={{
+              background: settings.panelBgColor || undefined,
+              color: settings.panelFontColor || undefined,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Author Profile</h3>
+              <button className="link" onClick={() => setShowProfileModal(false)}>
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {settings.profileAvatarUrl ? (
+                <img
+                  src={settings.profileAvatarUrl}
+                  alt={settings.profileAuthor || 'Author'}
+                  className="h-16 w-16 rounded-full object-cover border-2 border-amber-400 shadow-md"
+                />
+              ) : (
+                <div className="h-16 w-16 rounded-full bg-amber-400/20 text-amber-500 font-bold flex items-center justify-center text-xl">
+                  {settings.profileAuthor ? settings.profileAuthor.charAt(0).toUpperCase() : '👤'}
+                </div>
+              )}
+              <div>
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  {settings.profileAuthor || 'Publisher'}
+                </h4>
+                {settings.companyName && (
+                  <p className="text-xs text-amber-500 font-medium">{settings.companyName}</p>
+                )}
+              </div>
+            </div>
+
+            {settings.profileDescription && (
+              <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                {settings.profileDescription}
+              </p>
+            )}
+
+            <div className="space-y-2 text-xs">
+              {settings.profileEmail && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-500">Email:</span>
+                  <a
+                    href={`mailto:${settings.profileEmail}`}
+                    className="text-amber-500 hover:underline"
+                  >
+                    {settings.profileEmail}
+                  </a>
+                </div>
+              )}
+              {settings.profileUrl && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-500">Website:</span>
+                  <a
+                    href={settings.profileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-amber-500 hover:underline"
+                  >
+                    {settings.profileUrl}
+                  </a>
+                </div>
+              )}
+              {settings.profilePhone && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-500">Phone:</span>
+                  <a
+                    href={`tel:${settings.profilePhone}`}
+                    className="text-amber-500 hover:underline"
+                  >
+                    {settings.profilePhone}
+                  </a>
+                </div>
+              )}
+              {settings.profileAddress && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-500">Address:</span>
+                  <span className="text-slate-700 dark:text-slate-300">{settings.profileAddress}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Quick Modal (Image 2 & 6) */}
+      {showQrModal && (
+        <div className="modal" onClick={() => setShowQrModal(false)}>
+          <div
+            className="card max-w-sm w-full space-y-4 p-6 text-center"
+            style={{
+              background: settings.panelBgColor || undefined,
+              color: settings.panelFontColor || undefined,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Scan to Read on Mobile</h3>
+              <button className="link" onClick={() => setShowQrModal(false)}>
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-2xl bg-white p-3 shadow-inner border border-slate-200">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(computedShareUrl)}`}
+                alt="QR Code"
+                className="h-full w-full object-contain"
+              />
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Point your smartphone camera at this QR code to open the flipbook instantly on your mobile device.
+            </p>
+
+            <button
+              type="button"
+              className="btn btn-outline w-full py-2 text-xs"
+              onClick={() => {
+                if (navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(computedShareUrl);
+                  setCopiedShareLink(true);
+                  setTimeout(() => setCopiedShareLink(false), 2000);
+                }
+              }}
+            >
+              {copiedShareLink ? '✓ Copied Link!' : '📋 Copy Mobile Link'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* First / Last Page Toast Popup */}
+      {pageToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-16 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-400/50 bg-slate-950/95 px-5 py-2.5 text-xs font-semibold text-white shadow-2xl backdrop-blur-md transition-all animate-fade-in"
+          style={{
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(245, 197, 66, 0.25)',
+          }}
+        >
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20 text-amber-400 text-xs">
+            📖
+          </span>
+          <span className="tracking-wide text-amber-200">{pageToast}</span>
+          <button
+            type="button"
+            onClick={() => setPageToast(null)}
+            className="ml-1 rounded-full p-0.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            title="Close"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>
