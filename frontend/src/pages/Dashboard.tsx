@@ -16,6 +16,10 @@ import {
   Plus,
   X,
   Clock,
+  Pencil,
+  Copy,
+  Trash2,
+  Check,
 } from '../components/ui/icons';
 
 export interface Flipbook {
@@ -85,6 +89,11 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
   const [showTaxonomyModal, setShowTaxonomyModal] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newColName, setNewColName] = useState('');
+
+  // Inline rename & quick link copy state
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   const input = useRef<HTMLInputElement>(null);
   const workerBusyRef = useRef<boolean>(false);
@@ -203,10 +212,41 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     load();
   };
 
-  const duplicateBook = async (f: Flipbook) => {
+  const startRename = (f: Flipbook) => {
+    setEditingId(f.id);
+    setEditingTitle(f.title);
+  };
+
+  const handleSaveTitle = async (id: number) => {
+    const clean = editingTitle.trim();
+    if (!clean) return;
     try {
-      await api(`/flipbooks/${f.id}/duplicate`, 'POST', { title: `${f.title} (Copy)` });
-      load();
+      await api(`/flipbooks/${id}`, 'PATCH', { title: clean });
+      setEditingId(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to rename publication');
+    }
+  };
+
+  const copyPublicLink = (slug: string) => {
+    const url = `${window.location.origin}/v/${slug}`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedSlug(slug);
+        setTimeout(() => setCopiedSlug(null), 2500);
+      }).catch(() => {});
+    }
+  };
+
+  const duplicateBook = async (f: Flipbook) => {
+    const cleanTitle = f.title.replace(/^Copy of\s+/i, '').replace(/\s*\(Copy\)$/i, '');
+    const proposed = window.prompt('Enter name for the duplicated publication:', `${cleanTitle} (Copy)`);
+    if (proposed === null) return;
+    const finalTitle = proposed.trim() || `${f.title} (Copy)`;
+    try {
+      await api(`/flipbooks/${f.id}/duplicate`, 'POST', { title: finalTitle });
+      await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to duplicate publication');
     }
@@ -505,14 +545,21 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
           {items.map((f) => {
             const wf = f.workflowStatus || (f.published ? 'published' : f.status === 'ready' ? 'editing' : 'processing');
             const pct = f.conversionProgress ?? (f.status === 'ready' ? 100 : 10);
+            const isEditing = editingId === f.id;
 
             return (
               <div className="card fb" key={f.id}>
-                <div className="cover relative">
+                <div className="fb-cover-wrap">
                   {f.cover ? (
-                    <img src={f.cover} alt={f.title} loading="lazy" decoding="async" />
+                    <img
+                      src={f.cover}
+                      alt={f.title}
+                      className="fb-cover-img"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : (
-                    <div className="flex flex-col items-center justify-center p-4 text-center">
+                    <div className="flex flex-col items-center justify-center p-4 text-center w-full">
                       {f.status === 'failed' ? (
                         <>
                           <span className="text-red-500 font-bold text-xs mb-1">⚠️ Conversion Failed</span>
@@ -549,91 +596,178 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                     </div>
                   )}
 
-                  {/* Top-Right Version & Workflow Badges on Cover */}
-                  <div className="absolute top-2 right-2 flex items-center gap-1">
-                    <Badge variant="golden" className="shadow-sm backdrop-blur-md">
+                  {/* Top Badges on Cover */}
+                  <div className="fb-badge-overlay">
+                    <span className="fb-badge-chip version">
                       v{f.version || 1}
-                    </Badge>
-                    <Badge variant={getWorkflowBadgeVariant(wf)} className="uppercase shadow-sm backdrop-blur-md">
-                      {wf.replace('_', ' ')}
-                    </Badge>
+                    </span>
+                    <span className={`fb-badge-chip ${wf}`}>
+                      {wf.replace('_', ' ').toUpperCase()}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2">
-                  <b className="fb-title" title={f.title}>
-                    {f.title}
-                  </b>
+                {/* Title & Inline Edit */}
+                <div className="fb-title-wrap">
+                  {isEditing ? (
+                    <div className="fb-rename-box">
+                      <input
+                        type="text"
+                        className="fb-rename-input"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveTitle(f.id);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="fb-rename-save-btn"
+                        title="Save title"
+                        onClick={() => handleSaveTitle(f.id)}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        className="fb-rename-cancel-btn"
+                        title="Cancel"
+                        onClick={() => setEditingId(null)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <h3
+                        className="fb-title-text"
+                        title="Click to rename"
+                        onClick={() => startRename(f)}
+                      >
+                        {f.title}
+                      </h3>
+                      <button
+                        type="button"
+                        className="fb-rename-btn"
+                        title="Rename publication"
+                        onClick={() => startRename(f)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                {/* Meta Row: Page count, Slug Pill, Category */}
+                <div className="fb-meta-row">
                   <span>{f.pageCount} pages</span>
                   <span>·</span>
-                  <span>/v/{f.slug}</span>
+                  <button
+                    type="button"
+                    className="fb-slug-pill"
+                    title="Click to copy public link"
+                    onClick={() => copyPublicLink(f.slug)}
+                  >
+                    <span>/v/{f.slug}</span>
+                    {copiedSlug === f.slug ? (
+                      <span className="text-emerald-500 font-semibold text-[10px]">Copied!</span>
+                    ) : (
+                      <Copy className="h-3 w-3 opacity-60" />
+                    )}
+                  </button>
                   {f.categoryName && (
                     <>
                       <span>·</span>
-                      <span className="font-semibold text-amber-500">{f.categoryName}</span>
+                      <span className="font-semibold text-amber-500 text-[11px]">{f.categoryName}</span>
                     </>
                   )}
                 </div>
 
                 {f.scheduledAt && wf === 'scheduled' && (
-                  <div className="mt-1 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <div className="mb-2 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
                     <Clock className="h-3 w-3" />
                     <span>Scheduled: {new Date(f.scheduledAt).toLocaleString()}</span>
                   </div>
                 )}
 
-                <div className="actions">
+                {/* Primary Action Button */}
+                {f.status === 'ready' && (
+                  <Link to={`/dashboard/preview/${f.id}`} className="fb-primary-btn">
+                    <span>Preview Flipbook</span>
+                    <span>👁️</span>
+                  </Link>
+                )}
+                {f.status === 'failed' && (
+                  <button
+                    className="fb-primary-btn bg-red-500 hover:bg-red-600 text-white"
+                    onClick={() => retryBookConversion(f)}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Retry Conversion
+                  </button>
+                )}
+
+                {/* Studio Tools Grid */}
+                <div className="fb-tools-grid">
                   {f.status === 'ready' && (
-                    <Link to={`/dashboard/preview/${f.id}`} className="action-pill preview">
-                      Preview 👁️
+                    <Link to={`/dashboard/editor/${f.id}`} className="fb-tool-btn">
+                      <span>🔗</span> Hotspots
+                    </Link>
+                  )}
+                  {f.status === 'ready' && (
+                    <button type="button" className="fb-tool-btn" onClick={() => setCustomize(f)}>
+                      <span>🎨</span> Customize
+                    </button>
+                  )}
+                  {f.status === 'ready' && (
+                    <Link to={`/dashboard/analytics/${f.id}`} className="fb-tool-btn">
+                      <span>📊</span> Analytics
                     </Link>
                   )}
                   <button
-                    className="action-pill custom"
+                    type="button"
+                    className="fb-tool-btn"
                     onClick={() => setLifecycleBook({ book: f, tab: 'workflow' })}
                     title="Workflow, Approval, Schedule, Versions & SEO"
                   >
-                    Lifecycle & v{f.version || 1} 🔄
+                    <span>🔄</span> Lifecycle
                   </button>
-                  {f.status === 'ready' && (
-                    <Link to={`/dashboard/editor/${f.id}`} className="action-pill editor">
-                      Hotspots 🔗
-                    </Link>
-                  )}
-                  {f.status === 'ready' && (
-                    <Link to={`/dashboard/analytics/${f.id}`} className="action-pill analytics">
-                      Analytics 📊
-                    </Link>
-                  )}
-                  {f.status === 'ready' && (
-                    <button className="action-pill custom" onClick={() => setCustomize(f)}>
-                      Customize 🎨
-                    </button>
-                  )}
-                  {f.status === 'ready' && (
-                    <button className="action-pill share" onClick={() => setShare(f)}>
-                      Share 🚀
-                    </button>
-                  )}
-                  {f.status === 'ready' && (
-                    <button
-                      className="action-pill rename"
-                      onClick={() => duplicateBook(f)}
-                      title="Duplicate publication, pages & hotspots"
-                    >
-                      Duplicate 📋
-                    </button>
-                  )}
-                  {f.status === 'failed' && (
-                    <button className="action-pill preview" onClick={() => retryBookConversion(f)}>
-                      Retry Conversion 🔁
-                    </button>
-                  )}
-                  <button className="action-pill delete" onClick={() => remove(f)}>
-                    Delete
+                </div>
+
+                {/* Bottom Bar: Share, Duplicate, Delete */}
+                <div className="fb-bottom-bar">
+                  <div className="fb-bottom-actions">
+                    {f.status === 'ready' && (
+                      <button
+                        type="button"
+                        className="fb-icon-action"
+                        onClick={() => setShare(f)}
+                        title="Share publication"
+                      >
+                        <span>🚀 Share</span>
+                      </button>
+                    )}
+                    {f.status === 'ready' && (
+                      <button
+                        type="button"
+                        className="fb-icon-action"
+                        onClick={() => duplicateBook(f)}
+                        title="Duplicate publication"
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span>Duplicate</span>
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="fb-icon-action danger"
+                    onClick={() => remove(f)}
+                    title="Delete publication"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>

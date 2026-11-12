@@ -592,6 +592,8 @@ export default function FlipbookViewer({
   const isSoundActive = soundConfigEnabled && !soundMuted;
   const isSoundActiveRef = useRef(isSoundActive);
   isSoundActiveRef.current = isSoundActive;
+  const userTriggeredFlipRef = useRef(false);
+  const isInitializedRef = useRef(false);
 
   const first = pages[0];
   const singleWidth = first?.width || first?.w || 600;
@@ -769,6 +771,9 @@ export default function FlipbookViewer({
   // Initialize 3D PageFlip when in 'flip' mode
   const initFlip = useCallback(() => {
     if (readingMode !== 'flip' || !host.current || pages.length === 0) return;
+
+    isInitializedRef.current = false;
+    userTriggeredFlipRef.current = false;
 
     host.current.innerHTML = '';
     const container = document.createElement('div');
@@ -1516,7 +1521,8 @@ export default function FlipbookViewer({
     pf.on('changeState', (e: any) => {
       const st = e.data;
       if (st === 'user_fold' || st === 'fold_corner') {
-        // User is actively holding/folding the page with mouse or touch: never time out!
+        // User is actively folding or holding the page corner with mouse or touch
+        userTriggeredFlipRef.current = true;
         if (flippingTimer.current) clearTimeout(flippingTimer.current);
         setIsFlipping(true);
       } else if (st === 'flipping') {
@@ -1533,12 +1539,19 @@ export default function FlipbookViewer({
 
     pf.on('flip', (e) => {
       const pageIdx = e.data as number;
+      const isActualPageChange = pageIdx !== currentRef.current;
+      const isUserAction = userTriggeredFlipRef.current;
+      userTriggeredFlipRef.current = false;
+
       setCurrent(pageIdx);
       setResumedBanner(null);
       (pf as any).__nvSyncImageWindow?.(pageIdx);
-      if (isSoundActiveRef.current) {
+
+      // Play sound strictly when flipping the page (never on initial load, resize, thumbnails, search, or zoom)
+      if (isUserAction && isActualPageChange && isSoundActiveRef.current && isInitializedRef.current) {
         playPageFlipSound();
       }
+
       setPan({ x: 0, y: 0 });
       if (flippingTimer.current) clearTimeout(flippingTimer.current);
       flippingTimer.current = setTimeout(() => {
@@ -1555,6 +1568,7 @@ export default function FlipbookViewer({
     pf.on('changeOrientation', (e) => {
       const o = e.data as 'portrait' | 'landscape';
       const actualIdx = pf.getCurrentPageIndex();
+      userTriggeredFlipRef.current = false;
       setMode(o);
       setCurrent(actualIdx);
       setTimeout(() => {
@@ -1566,11 +1580,15 @@ export default function FlipbookViewer({
     pf.on('init', () => {
       setReady(true);
       setIsFlipping(false);
+      userTriggeredFlipRef.current = false;
       pf.update();
       const o = pf.getOrientation();
       const actualIdx = pf.getCurrentPageIndex();
       setMode(o);
       setCurrent(actualIdx);
+      setTimeout(() => {
+        isInitializedRef.current = true;
+      }, 400);
       setTimeout(() => {
         pf.update();
         updateBookPageStacks(pf.getCurrentPageIndex(), pages.length, o);
@@ -1669,7 +1687,8 @@ export default function FlipbookViewer({
 
   const goto = useCallback(
     (i: number) => {
-      unlockAudio();
+      // Non-flip navigation (jumping via thumbnails, TOC, bookmarks, search) must not play flip sound
+      userTriggeredFlipRef.current = false;
       const target = Math.max(0, Math.min(pages.length - 1, i));
       setCurrent(target);
       setResumedBanner(null);
@@ -1690,6 +1709,7 @@ export default function FlipbookViewer({
   const next = useCallback(() => {
     unlockAudio();
     if (readingMode === 'flip' && flip.current) {
+      userTriggeredFlipRef.current = true;
       flip.current.flipNext();
     } else {
       goto(current + 1);
@@ -1699,6 +1719,7 @@ export default function FlipbookViewer({
   const prev = useCallback(() => {
     unlockAudio();
     if (readingMode === 'flip' && flip.current) {
+      userTriggeredFlipRef.current = true;
       flip.current.flipPrev();
     } else {
       goto(current - 1);

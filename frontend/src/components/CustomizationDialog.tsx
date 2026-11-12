@@ -180,10 +180,12 @@ export default function CustomizationDialog({
     setSaving(true);
     setMsg('');
     try {
+      const cleanTitle = companyName.trim() || flipbook.title || 'Untitled Flipbook';
       await api(`/flipbooks/${flipbook.id}`, 'PATCH', {
+        title: cleanTitle,
         settings: {
           ...current,
-          companyName,
+          companyName: cleanTitle,
           catalogueSubtitle,
           disclaimerTitle,
           disclaimerText,
@@ -212,6 +214,7 @@ export default function CustomizationDialog({
           bgAudioLoop,
         },
       });
+      flipbook.title = cleanTitle;
       setMsg('Saved successfully!');
       setTimeout(() => {
         onSaved();

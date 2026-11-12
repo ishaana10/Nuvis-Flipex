@@ -9,44 +9,28 @@ function getAudioContext(): AudioContext | null {
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
+      try {
+        audioCtx = new AudioContextClass();
+      } catch {
+        return null;
+      }
     }
   }
   return audioCtx;
 }
 
 /**
- * Proactively unlocks and resumes the AudioContext within a user interaction gesture
- * to comply with mobile Safari and Chrome autoplay policies.
+ * Resumes existing AudioContext within a user interaction gesture if already instantiated.
+ * Does NOT eagerly instantiate AudioContext to avoid browser autoplay warnings.
  */
 export function unlockAudio(): void {
   try {
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
     }
   } catch {
     // Autoplay or unsupported environment
   }
-}
-
-// Automatically attach one-time user interaction listeners to unlock AudioContext
-if (typeof window !== 'undefined') {
-  const handleUserGesture = () => {
-    unlockAudio();
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === 'running') {
-      window.removeEventListener('pointerdown', handleUserGesture);
-      window.removeEventListener('touchstart', handleUserGesture);
-      window.removeEventListener('click', handleUserGesture);
-      window.removeEventListener('keydown', handleUserGesture);
-    }
-  };
-
-  window.addEventListener('pointerdown', handleUserGesture, { passive: true, capture: true });
-  window.addEventListener('touchstart', handleUserGesture, { passive: true, capture: true });
-  window.addEventListener('click', handleUserGesture, { passive: true, capture: true });
-  window.addEventListener('keydown', handleUserGesture, { passive: true, capture: true });
 }
 
 function synthesizePageFlip(ctx: AudioContext): void {

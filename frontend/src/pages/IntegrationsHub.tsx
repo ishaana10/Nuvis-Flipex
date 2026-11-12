@@ -279,10 +279,17 @@ export default function IntegrationsHub() {
   };
 
   const handleTestConnector = async (type: string) => {
-    const res = await api<{ message: string }>(`/integrations/connectors/${type}/test`, 'POST');
-    setConnectorMsg(res.message);
-    loadConnectors();
-    setTimeout(() => setConnectorMsg(''), 5000);
+    try {
+      setConnectorMsg(`Testing live connection to ${type.toUpperCase()}…`);
+      const res = await api<{ message: string; status?: string }>(`/integrations/connectors/${type}/test`, 'POST');
+      setConnectorMsg(`[${(res.status || 'verified').toUpperCase()}] ${res.message}`);
+      loadConnectors();
+      setTimeout(() => setConnectorMsg(''), 7000);
+    } catch (err: any) {
+      setConnectorMsg(`[ERROR] ${err.message || 'Connection test failed. Verify network endpoint and credentials.'}`);
+      loadConnectors();
+      setTimeout(() => setConnectorMsg(''), 7000);
+    }
   };
 
   const handleDownloadWpPlugin = async () => {
@@ -760,52 +767,66 @@ export default function IntegrationsHub() {
           {connectorMsg && <div className="pw-alert pw-alert-ok">✅ {connectorMsg}</div>}
 
           <div className="module-hub-grid">
-            {Object.values(connectors).map((conn) => (
-              <div key={conn.connectorType} className={`card space-y-3 ${conn.isEnabled ? 'border-amber-400' : ''}`}>
-                <div className="flex items-center justify-between">
-                  <Badge variant={conn.isEnabled ? 'success' : 'default'}>
-                    {conn.connectorType.toUpperCase()}
-                  </Badge>
-                  <span className="text-xs text-slate-500">
-                    {conn.isEnabled ? '● Active' : '○ Disabled'}
-                  </span>
-                </div>
+            {Object.values(connectors).map((conn) => {
+              const status = conn.syncStatus || 'configured';
+              const statusVariant =
+                status === 'operational' ? 'success' :
+                status === 'connected' ? 'info' :
+                status === 'error' ? 'destructive' : 'default';
 
-                <h3 style={{ margin: 0, fontSize: '15px' }}>{conn.providerName}</h3>
-
-                <div className="text-xs text-slate-500 space-y-1 bg-slate-50/60 p-2.5 rounded-lg border">
-                  {Object.entries(conn.config || {}).map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-2">
-                      <span className="font-semibold">{k}:</span>
-                      <span className="truncate">{String(v)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {conn.lastSyncAt && (
-                  <div className="text-[11px] text-slate-400">
-                    Last Verified: {conn.lastSyncAt}
+              return (
+                <div key={conn.connectorType} className={`card space-y-3 ${conn.isEnabled ? 'border-amber-400' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <Badge variant={conn.isEnabled ? 'success' : 'default'}>
+                      {conn.connectorType.toUpperCase()}
+                    </Badge>
+                    <span className="text-xs font-medium">
+                      {status === 'operational' && <span className="text-emerald-500 font-semibold">✓ Operational</span>}
+                      {status === 'connected' && <span className="text-sky-500 font-semibold">● Connected</span>}
+                      {status === 'configured' && <span className="text-amber-500 font-medium">○ Configured</span>}
+                      {status === 'error' && <span className="text-rose-500 font-semibold">✕ Disconnected</span>}
+                      {!['operational', 'connected', 'configured', 'error'].includes(status) && (
+                        <span className="text-slate-500">{status}</span>
+                      )}
+                    </span>
                   </div>
-                )}
 
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    size="sm"
-                    variant={conn.isEnabled ? 'outline' : 'primary'}
-                    onClick={() => handleToggleConnector(conn.connectorType, conn)}
-                  >
-                    {conn.isEnabled ? 'Disable' : 'Enable Connector'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleTestConnector(conn.connectorType)}
-                  >
-                    ⚡ Verify Handshake
-                  </Button>
+                  <h3 style={{ margin: 0, fontSize: '15px' }}>{conn.providerName}</h3>
+
+                  <div className="text-xs text-slate-500 space-y-1 bg-slate-50/60 p-2.5 rounded-lg border">
+                    {Object.entries(conn.config || {}).map(([k, v]) => (
+                      <div key={k} className="flex justify-between gap-2">
+                        <span className="font-semibold">{k}:</span>
+                        <span className="truncate">{String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {conn.lastSyncAt && (
+                    <div className="text-[11px] text-slate-400">
+                      Last Tested: {conn.lastSyncAt}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant={conn.isEnabled ? 'outline' : 'primary'}
+                      onClick={() => handleToggleConnector(conn.connectorType, conn)}
+                    >
+                      {conn.isEnabled ? 'Disable' : 'Enable Connector'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTestConnector(conn.connectorType)}
+                    >
+                      ⚡ Test Handshake
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

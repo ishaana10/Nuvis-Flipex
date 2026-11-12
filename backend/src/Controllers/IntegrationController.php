@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Integrations\ConnectorRegistry;
+use App\Integrations\ERP\CatalogueSyncManager;
 use App\Middleware\TenantScope;
 use App\Support\Audit;
 use App\Support\Db;
@@ -529,7 +531,7 @@ final class IntegrationController
                config_json = VALUES(config_json),
                last_sync_at = NOW(),
                sync_status = VALUES(sync_status)',
-            [$tid, $type, $providerName, $isEnabled, json_encode($config), $isEnabled ? 'active' : 'disabled']
+            [$tid, $type, $providerName, $isEnabled, json_encode($config), $isEnabled ? 'configured' : 'disabled']
         );
 
         Audit::log('integration.connector_update', 'integration', $tid, ['type' => $type, 'enabled' => (bool) $isEnabled]);
@@ -538,12 +540,14 @@ final class IntegrationController
             'ok' => true,
             'connectorType' => $type,
             'isEnabled' => (bool) $isEnabled,
+            'syncStatus' => $isEnabled ? 'configured' : 'disabled',
             'lastSyncAt' => date('Y-m-d H:i:s'),
         ]);
     }
 
     /**
      * POST /api/v1/integrations/connectors/{type}/test
+     * Executes real network test via dedicated Connector adapter.
      */
     public function testConnector(Request $req, Response $res, array $args): Response
     {
@@ -556,34 +560,46 @@ final class IntegrationController
             return Http::error($res, 'Unsupported connector type', 422);
         }
 
+        $existing = Db::one('SELECT * FROM tenant_integrations WHERE tenant_id = ? AND connector_type = ?', [$tid, $type]);
+        $config = $existing
+            ? (json_decode((string) ($existing['config_json'] ?? '[]'), true) ?: self::DEFAULT_CONNECTORS[$type]['config'])
+            : self::DEFAULT_CONNECTORS[$type]['config'];
+
+        $connector = ConnectorRegistry::resolve($type, $config);
+        if (!$connector) {
+            return Http::error($res, "No active adapter configured for connector type '{$type}'", 422);
+        }
+
+        $testResult = $connector->testConnection($config, $tid);
+        $syncStatus = $testResult['status']; // 'configured' | 'connected' | 'operational' | 'error'
+
         Db::run(
-            'UPDATE tenant_integrations SET last_sync_at = NOW(), sync_status = "verified" WHERE tenant_id = ? AND connector_type = ?',
-            [$tid, $type]
+            'UPDATE tenant_integrations SET last_sync_at = NOW(), sync_status = ? WHERE tenant_id = ? AND connector_type = ?',
+            [$syncStatus, $tid, $type]
         );
 
-        $messages = [
-            'sso' => 'SAML 2.0 / OIDC Identity Provider metadata & X.509 certificate handshake verified.',
-            'ldap' => 'LDAP / Active Directory bind verified. Synchronized enterprise directory groups & roles.',
-            'wordpress' => 'WordPress Shortcode & oEmbed discovery endpoint verified and active.',
-            'erp' => 'ERP Product Catalogue API endpoint & automated SKU hotspot mapping verified.',
-            'crm' => 'CRM webhook & UTM lead attribution pipeline verified.',
-            'cloud_storage' => "Isolated tenant storage path (/storage/tenants/{$tid}/) & HMAC signed URLs verified.",
-            'smtp' => 'Transactional SMTP dispatch channel verified.',
-        ];
+        Audit::log('integration.connector_test', 'integration', $tid, [
+            'type' => $type,
+            'status' => $syncStatus,
+            'success' => $testResult['success'],
+            'latency_ms' => $testResult['latencyMs'],
+        ]);
 
         return Http::json($res, [
-            'ok' => true,
-            'status' => 'verified',
+            'ok' => $testResult['success'],
+            'status' => $syncStatus,
             'timestamp' => date('Y-m-d H:i:s'),
-            'message' => $messages[$type] ?? 'Integration verified.',
-        ]);
+            'message' => $testResult['message'],
+            'latencyMs' => $testResult['latencyMs'],
+            'details' => $testResult['details'] ?? [],
+        ], $testResult['success'] ? 200 : 422);
     }
 
     /**
      * POST /api/v1/integrations/erp/publish-catalogue
      * Allows an ERP system (SAP, Odoo, NetSuite, etc.) to automatically publish or update
      * a product catalogue flipbook and inject interactive SKU product hotspots via API!
-     * Strictly requires BOTH user permission AND API key 'erp:publish' scope (when called via API key).
+     * Performs idempotency checks: updates existing catalogue hotspots & price history instead of duplicating publications.
      */
     public function publishErpCatalogue(Request $req, Response $res): Response
     {
@@ -593,101 +609,45 @@ final class IntegrationController
         $tid = $this->resolveTenantId($req);
         $b = (array) $req->getParsedBody();
 
-        $title = trim((string) ($b['title'] ?? 'ERP Automated Product Catalogue'));
-        $description = trim((string) ($b['description'] ?? 'Published automatically via Nuvis Flipex ERP REST API'));
-        $autoPublish = !isset($b['autoPublish']) || !empty($b['autoPublish']);
-        $products = isset($b['products']) && is_array($b['products']) ? $b['products'] : [];
+        $result = CatalogueSyncManager::sync($tid, (int) $u['id'], $b);
+        return Http::json($res, $result, $result['isUpdate'] ? 200 : 201);
+    }
 
-        $sourceBookId = isset($b['sourceBookId']) ? (int) $b['sourceBookId'] : (isset($b['sourceFlipbookId']) ? (int) $b['sourceFlipbookId'] : 0);
-        $sourceBook = $sourceBookId > 0
-            ? Db::one('SELECT * FROM flipbooks WHERE id = ? AND tenant_id = ?', [$sourceBookId, $tid])
-            : Db::one("SELECT * FROM flipbooks WHERE tenant_id = ? AND status = 'ready' ORDER BY id DESC LIMIT 1", [$tid]);
+    /**
+     * GET /api/v1/integrations/erp/sync-logs
+     */
+    public function listErpSyncLogs(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'erp.publish');
 
-        $baseSlug = strtolower(trim((string) preg_replace('/[^a-zA-Z0-9]+/', '-', $title), '-')) ?: 'erp-catalogue';
-        $slug = $baseSlug . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
-        $pageCount = $sourceBook ? max(1, (int) $sourceBook['page_count']) : 4;
-        $pdfPath = $sourceBook ? $sourceBook['source_pdf_path'] : null;
-        $wfStatus = $autoPublish ? 'published' : 'editing';
-        $publishedAt = $autoPublish ? date('Y-m-d H:i:s') : null;
+        $tid = $this->resolveTenantId($req);
+        CatalogueSyncManager::ensureSchema();
 
-        $newBookId = Db::insert(
-            "INSERT INTO flipbooks (user_id, tenant_id, title, description, slug, status, workflow_status, version, visibility, page_count, published_at, source_pdf_path, conversion_progress, conversion_step)
-             VALUES (?, ?, ?, ?, ?, 'ready', ?, 1, 'public', ?, ?, ?, 100, 'Synced via ERP Catalogue API')",
-            [$u['id'], $tid, $title, $description, $slug, $wfStatus, $pageCount, $publishedAt, $pdfPath]
+        $logs = Db::all(
+            'SELECT l.*, f.title AS flipbook_title, f.slug AS flipbook_slug
+             FROM erp_sync_logs l
+             JOIN flipbooks f ON f.id = l.flipbook_id
+             WHERE l.tenant_id = ?
+             ORDER BY l.id DESC LIMIT 50',
+            [$tid]
         );
 
-        if ($sourceBook) {
-            $pages = Db::all('SELECT * FROM pages WHERE flipbook_id = ? ORDER BY page_number ASC', [$sourceBook['id']]);
-            foreach ($pages as $pg) {
-                Db::run(
-                    'INSERT INTO pages (flipbook_id, page_number, image_path, thumb_path, high_res_path, webp_path, avif_path, width, height, text_content)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [
-                        $newBookId,
-                        $pg['page_number'],
-                        $pg['image_path'],
-                        $pg['thumb_path'],
-                        $pg['high_res_path'] ?? null,
-                        $pg['webp_path'] ?? null,
-                        $pg['avif_path'] ?? null,
-                        $pg['width'],
-                        $pg['height'],
-                        $pg['text_content'] ?? null,
-                    ]
-                );
-            }
-        }
-
-        $hotspotsCreated = 0;
-        foreach ($products as $idx => $prod) {
-            if (!is_array($prod)) continue;
-            $sku = trim((string) ($prod['sku'] ?? 'SKU-' . ($idx + 1)));
-            $prodName = trim((string) ($prod['name'] ?? 'Catalogue Item'));
-            $price = trim((string) ($prod['price'] ?? ''));
-            $page = max(1, min($pageCount, (int) ($prod['page'] ?? 1)));
-            $x = (float) ($prod['x'] ?? (12 + (($idx % 3) * 28)));
-            $y = (float) ($prod['y'] ?? (20 + (floor($idx / 3) * 24)));
-            $w = (float) ($prod['w'] ?? 24);
-            $h = (float) ($prod['h'] ?? 12);
-            $url = trim((string) ($prod['url'] ?? "https://shop.example.com/products/{$sku}"));
-            $label = $price !== '' ? "{$prodName} ({$sku}) — {$price}" : "{$prodName} ({$sku})";
-
-            Db::run(
-                "INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
-                 VALUES (?, ?, 'link', ?, ?, ?, ?, ?)",
-                [$newBookId, $page, $x, $y, $w, $h, json_encode(['url' => $url, 'title' => $label, 'sku' => $sku, 'price' => $price])]
-            );
-            $hotspotsCreated++;
-        }
-
-        $appUrl = rtrim($_ENV['APP_URL'] ?? 'http://localhost:5173', '/');
-        $publicUrl = "{$appUrl}/v/{$slug}";
-
-        WebhookDispatcher::dispatch($tid, 'erp.catalogue_published', [
-            'flipbookId' => $newBookId,
-            'title' => $title,
-            'slug' => $slug,
-            'publicUrl' => $publicUrl,
-            'hotspotsCreated' => $hotspotsCreated,
-        ]);
-
-        Audit::log('erp.catalogue_publish', 'flipbook', $newBookId, [
-            'title' => $title,
-            'sku_hotspots' => $hotspotsCreated,
-        ]);
-
-        return Http::json($res, [
-            'ok' => true,
-            'flipbookId' => $newBookId,
-            'title' => $title,
-            'slug' => $slug,
-            'workflowStatus' => $wfStatus,
-            'pageCount' => $pageCount,
-            'hotspotsCreated' => $hotspotsCreated,
-            'skuHotspotsCreated' => $hotspotsCreated,
-            'publicUrl' => $publicUrl,
-            'wordpressShortcode' => sprintf('[nuvis_flipex slug="%s" width="100%%" height="680px"]', $slug),
-        ], 201);
+        return Http::json($res, array_map(fn($r) => [
+            'id' => (int) $r['id'],
+            'flipbookId' => (int) $r['flipbook_id'],
+            'flipbookTitle' => $r['flipbook_title'],
+            'flipbookSlug' => $r['flipbook_slug'],
+            'erpSource' => $r['erp_source'],
+            'erpCatalogueId' => $r['erp_catalogue_id'],
+            'action' => $r['action'],
+            'productsCount' => (int) $r['products_count'],
+            'hotspotsCreated' => (int) $r['hotspots_created'],
+            'hotspotsUpdated' => (int) $r['hotspots_updated'],
+            'priceChanges' => json_decode((string) ($r['price_changes_json'] ?? '[]'), true) ?: [],
+            'status' => $r['status'],
+            'createdAt' => $r['created_at'],
+        ], $logs));
     }
 
     /**

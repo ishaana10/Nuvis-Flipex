@@ -170,6 +170,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $int->post('/connectors/{type}/test', [IntegrationController::class, 'testConnector']);
 
         $int->post('/erp/publish-catalogue', [IntegrationController::class, 'publishErpCatalogue']);
+        $int->get('/erp/sync-logs', [IntegrationController::class, 'listErpSyncLogs']);
         $int->get('/wordpress-plugin', [IntegrationController::class, 'downloadWordpressPlugin']);
     })->add(new TenantScope())->add(new Auth());
 
