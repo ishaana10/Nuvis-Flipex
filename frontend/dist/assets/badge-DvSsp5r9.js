@@ -1,1 +1,0 @@
-import{j as t}from"./index-D_kO3V53.js";function d({variant:a="default",className:r="",children:e,...s}){return t.jsx("span",{className:`boardui-badge boardui-badge-${a} ${r}`.trim(),...s,children:e})}export{d as B};

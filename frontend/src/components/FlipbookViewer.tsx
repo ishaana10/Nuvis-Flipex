@@ -225,6 +225,12 @@ export default function FlipbookViewer({
   const [hdLoadedPages, setHdLoadedPages] = useState<Record<number, string>>({});
   const [bookBounds, setBookBounds] = useState<{ left: number; top: number; width: number; height: number; pageWidth: number } | null>(null);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [flippingToCover, setFlippingToCover] = useState(false);
+  const flippingToCoverRef = useRef(false);
+  const [flippingToBackCover, setFlippingToBackCover] = useState(false);
+  const flippingToBackCoverRef = useRef(false);
+  const [openingFromCover, setOpeningFromCover] = useState(false);
+  const openingFromCoverRef = useRef(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const flippingTimer = useRef<any>(null);
@@ -701,15 +707,20 @@ export default function FlipbookViewer({
 
     const { left, top, width, height, pageWidth } = bounds;
     setBookBounds({ left, top, width, height, pageWidth });
-    const hasLeftPages = pageIdx > 0;
-    const hasRightPages = pageIdx < totalPages - 1;
+    const isClosingFront = orientation === 'landscape' && (pageIdx === 0 || flippingToCoverRef.current);
+    const isBackSingle =
+      orientation === 'landscape' &&
+      totalPages > 1 &&
+      (pageIdx >= totalPages - 1 || flippingToBackCoverRef.current) &&
+      totalPages % 2 === 0;
+
+    const hasLeftPages = pageIdx > 0 && !isClosingFront;
+    const hasRightPages = pageIdx < totalPages - 1 && !isBackSingle;
 
     let leftEdge = left;
     let rightEdge = left + width;
 
-    const isBackSingle = orientation === 'landscape' && totalPages > 1 && pageIdx >= totalPages - 1 && totalPages % 2 === 0;
-
-    if (orientation === 'landscape' && pageIdx === 0) {
+    if (isClosingFront) {
       leftEdge = left + pageWidth;
       rightEdge = left + width;
     } else if (isBackSingle) {
@@ -1086,32 +1097,43 @@ export default function FlipbookViewer({
 
         const flipCalc = (pf as any).getFlipController?.()?.calc;
         const dir = flipCalc ? flipCalc.getDirection() : this.direction;
+        const currentSpread = (pf as any).getPageCollection?.()?.getCurrentSpreadIndex?.();
         // FlipDirection.FORWARD is 0, FlipDirection.BACK is 1
         const isClosingToFrontCover =
-          dir === 1 &&
-          ((this.bottomPage != null && (this.bottomPage as any).__pageIdx === 0) ||
-           (this.flippingPage != null && (this.flippingPage as any).__pageIdx === 0));
+          (dir === 1 && (
+            currentSpread === 1 ||
+            flippingToCoverRef.current ||
+            (this.bottomPage != null && (this.bottomPage as any).__pageIdx === 0) ||
+            (this.flippingPage != null && (this.flippingPage as any).__pageIdx === 0)
+          )) || (currentSpread === 0 && dir === 1);
 
         const isClosingToBackCover =
           dir === 0 &&
           pageObjs.length > 1 &&
-          ((this.bottomPage != null && (this.bottomPage as any).__pageIdx === pageObjs.length - 1) ||
+          (flippingToBackCoverRef.current ||
+           (this.bottomPage != null && (this.bottomPage as any).__pageIdx === pageObjs.length - 1) ||
            (this.flippingPage != null && (this.flippingPage as any).__pageIdx === pageObjs.length - 1));
 
         if (this.orientation !== 'portrait') {
-          if (this.leftPage != null && !isClosingToBackCover) this.leftPage.simpleDraw(0);
+          if (this.leftPage != null && !isClosingToBackCover && !isClosingToFrontCover) {
+            this.leftPage.simpleDraw(0);
+          }
         }
 
-        // When closing to the front cover, do NOT draw rightPage so its edge never bleeds through before disappearing
-        if (this.rightPage != null && !isClosingToFrontCover) this.rightPage.simpleDraw(1);
+        // When closing to the front cover or back cover, do NOT draw rightPage so its edge never bleeds through
+        if (this.rightPage != null && !isClosingToFrontCover && !isClosingToBackCover) {
+          this.rightPage.simpleDraw(1);
+        }
 
-        // Ensure right half is completely clean when folding back onto front cover
+        // Ensure canvas areas are completely clean
         if (isClosingToFrontCover) {
           const rect = this.getRect();
-          this.ctx.clearRect(rect.left + rect.pageWidth - 2, rect.top - 2, rect.pageWidth + 4, rect.height + 4);
+          this.ctx.clearRect(rect.left - 6, rect.top - 6, rect.pageWidth + 12, rect.height + 12);
+          this.ctx.clearRect(rect.left + rect.pageWidth - 4, rect.top - 4, rect.pageWidth + 8, rect.height + 8);
         } else if (isClosingToBackCover) {
           const rect = this.getRect();
-          this.ctx.clearRect(rect.left - 2, rect.top - 2, rect.pageWidth + 4, rect.height + 4);
+          this.ctx.clearRect(rect.left - 6, rect.top - 6, rect.pageWidth + 12, rect.height + 12);
+          this.ctx.clearRect(rect.left + rect.pageWidth - 4, rect.top - 4, rect.pageWidth + 8, rect.height + 8);
         }
 
         if (this.bottomPage != null) {
@@ -1160,6 +1182,16 @@ export default function FlipbookViewer({
         if (this.shadow != null) {
           this.drawOuterShadow();
           this.drawInnerShadow();
+        }
+
+        if (isClosingToFrontCover) {
+          const rect = this.getRect();
+          // Ensure left half has absolutely zero paint, line, or shadow artifact on it
+          this.ctx.clearRect(rect.left - 10, rect.top - 10, rect.pageWidth + 15, rect.height + 20);
+        } else if (isClosingToBackCover) {
+          const rect = this.getRect();
+          // Ensure right half has absolutely zero paint, line, or shadow artifact on it
+          this.ctx.clearRect(rect.left + rect.pageWidth - 5, rect.top - 10, rect.pageWidth + 15, rect.height + 20);
         }
 
         this.ctx.restore();
@@ -1281,6 +1313,39 @@ export default function FlipbookViewer({
       const origDrawBookShadow = render.drawBookShadow?.bind(render);
       if (origDrawBookShadow) {
         render.drawBookShadow = function () {
+          const flipCalc = (pf as any).getFlipController?.()?.calc;
+          const dir = flipCalc ? flipCalc.getDirection() : this.direction;
+          const currentSpread = (pf as any).getPageCollection?.()?.getCurrentSpreadIndex?.();
+          const isClosingToFrontCover =
+            (dir === 1 && (
+              currentSpread === 1 ||
+              flippingToCoverRef.current ||
+              (this.bottomPage != null && (this.bottomPage as any).__pageIdx === 0) ||
+              (this.flippingPage != null && (this.flippingPage as any).__pageIdx === 0)
+            )) || (currentSpread === 0 && dir === 1);
+
+          if (isClosingToFrontCover) {
+            // Closed Front Cover: draw realistic magazine binding hinge & spine groove along the left edge of the cover
+            const t = this.getRect();
+            const spineW = Math.max(18, t.pageWidth / 22);
+            const startX = t.left + t.pageWidth;
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.rect(startX, t.top, spineW, t.height);
+            this.ctx.clip();
+            const grad = this.ctx.createLinearGradient(startX, 0, startX + spineW, 0);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0.34)');
+            grad.addColorStop(0.14, 'rgba(0, 0, 0, 0.14)');
+            grad.addColorStop(0.26, 'rgba(255, 255, 255, 0.32)');
+            grad.addColorStop(0.42, 'rgba(0, 0, 0, 0.11)');
+            grad.addColorStop(0.65, 'rgba(0, 0, 0, 0.03)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            this.ctx.fillStyle = grad;
+            this.ctx.fillRect(startX, t.top, spineW, t.height);
+            this.ctx.restore();
+            return;
+          }
+
           if ((this.leftPage && this.rightPage) || this.flippingPage) {
             origDrawBookShadow();
           } else if (this.rightPage && !this.leftPage && this.ctx) {
@@ -1563,12 +1628,28 @@ export default function FlipbookViewer({
       } else if (st === 'flipping') {
         if (flippingTimer.current) clearTimeout(flippingTimer.current);
         setIsFlipping(true);
+        const spreadIdx = (pf as any).getPageCollection?.()?.getCurrentSpreadIndex?.();
+        const flipCalc = (pf as any).getFlipController?.()?.calc;
+        const dir = flipCalc ? flipCalc.getDirection() : (pf as any).getRender?.()?.getDirection?.();
+        if (spreadIdx === 1 && dir === 1) {
+          setFlippingToCover(true);
+          flippingToCoverRef.current = true;
+          updateBookPageStacks(0, pages.length, pf.getOrientation());
+        } else if (spreadIdx === 0 && dir === 0) {
+          setOpeningFromCover(true);
+          openingFromCoverRef.current = true;
+        }
         flippingTimer.current = setTimeout(() => {
           setIsFlipping(false);
         }, 1400);
       } else if (st === 'read') {
         if (flippingTimer.current) clearTimeout(flippingTimer.current);
         setIsFlipping(false);
+        const actualSpread = (pf as any).getPageCollection?.()?.getCurrentSpreadIndex?.();
+        if (actualSpread !== 0) {
+          setFlippingToCover(false);
+          flippingToCoverRef.current = false;
+        }
       }
     });
 
@@ -1577,6 +1658,13 @@ export default function FlipbookViewer({
       const isActualPageChange = pageIdx !== currentRef.current;
       const isUserAction = userTriggeredFlipRef.current;
       userTriggeredFlipRef.current = false;
+
+      setFlippingToCover(false);
+      flippingToCoverRef.current = false;
+      setFlippingToBackCover(false);
+      flippingToBackCoverRef.current = false;
+      setOpeningFromCover(false);
+      openingFromCoverRef.current = false;
 
       setCurrent(pageIdx);
       setResumedBanner(null);
@@ -1601,6 +1689,7 @@ export default function FlipbookViewer({
       flippingTimer.current = setTimeout(() => {
         setIsFlipping(false);
       }, 70);
+      updateBookPageStacks(pageIdx, pages.length, pf.getOrientation());
       setTimeout(() => {
         updateBookPageStacks(pageIdx, pages.length, pf.getOrientation());
       }, 50);
@@ -1734,6 +1823,18 @@ export default function FlipbookViewer({
       // Non-flip navigation (jumping via thumbnails, TOC, bookmarks, search) must not play flip sound
       userTriggeredFlipRef.current = false;
       const target = Math.max(0, Math.min(pages.length - 1, i));
+      if (target === 0) {
+        setFlippingToCover(true);
+        flippingToCoverRef.current = true;
+        setOpeningFromCover(false);
+        openingFromCoverRef.current = false;
+        if (host.current && flip.current) {
+          updateBookPageStacks(0, pages.length, flip.current.getOrientation());
+        }
+      } else {
+        setFlippingToCover(false);
+        flippingToCoverRef.current = false;
+      }
       setCurrent(target);
       setResumedBanner(null);
       if (target >= pages.length - 1 && isInitializedRef.current) {
@@ -1752,7 +1853,7 @@ export default function FlipbookViewer({
         el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     },
-    [pages.length, readingMode, showToast]
+    [pages.length, readingMode, showToast, updateBookPageStacks]
   );
 
   const next = useCallback(() => {
@@ -1760,6 +1861,14 @@ export default function FlipbookViewer({
     if (current >= pages.length - 1) {
       showToast('This is the last page.');
       return;
+    }
+    if (current === 0) {
+      setOpeningFromCover(true);
+      openingFromCoverRef.current = true;
+    }
+    if (pages.length > 1 && current >= pages.length - 3 && pages.length % 2 === 0) {
+      setFlippingToBackCover(true);
+      flippingToBackCoverRef.current = true;
     }
     if (readingMode === 'flip' && flip.current) {
       userTriggeredFlipRef.current = true;
@@ -1775,13 +1884,20 @@ export default function FlipbookViewer({
       showToast('This is the first page.');
       return;
     }
+    if (current <= 2) {
+      setFlippingToCover(true);
+      flippingToCoverRef.current = true;
+      if (host.current && flip.current) {
+        updateBookPageStacks(0, pages.length, flip.current.getOrientation());
+      }
+    }
     if (readingMode === 'flip' && flip.current) {
       userTriggeredFlipRef.current = true;
       flip.current.flipPrev();
     } else {
       goto(current - 1);
     }
-  }, [readingMode, goto, current, showToast]);
+  }, [readingMode, goto, current, pages.length, showToast, updateBookPageStacks]);
 
   const toggleBookmark = useCallback(
     (pageNum = current + 1) => {
@@ -2550,9 +2666,9 @@ export default function FlipbookViewer({
             const pageW = fitWidth > 0 ? (mode === 'landscape' ? fitWidth / 2 : fitWidth) : (bookBounds?.pageWidth || 0);
             let coverCenterOffsetX = 0;
             if (mode === 'landscape' && pageW > 0) {
-              if (current === 0) {
+              if ((current === 0 && !openingFromCover) || flippingToCover) {
                 coverCenterOffsetX = -Math.round(pageW / 2);
-              } else if (total > 1 && current >= total - 1 && total % 2 === 0) {
+              } else if (total > 1 && (current >= total - 1 || flippingToBackCover) && total % 2 === 0) {
                 coverCenterOffsetX = Math.round(pageW / 2);
               }
             }

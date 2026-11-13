@@ -1,0 +1,1 @@
+import{j as r}from"./index-BXQZVdMT.js";function s({className:t="",...a}){return r.jsx("input",{className:`boardui-input ${t}`.trim(),...a})}function i({className:t="",...a}){return r.jsx("textarea",{className:`boardui-textarea ${t}`.trim(),...a})}export{s as I,i as T};
