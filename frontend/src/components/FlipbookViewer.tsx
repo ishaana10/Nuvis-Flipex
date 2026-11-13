@@ -708,11 +708,18 @@ export default function FlipbookViewer({
     const { left, top, width, height, pageWidth } = bounds;
     setBookBounds({ left, top, width, height, pageWidth });
     const isClosingFront = orientation === 'landscape' && (pageIdx === 0 || flippingToCoverRef.current);
+    const pageColl = flip.current ? (flip.current as any).getPageCollection?.() : null;
+    const spreads: number[][] = pageColl?.getSpread?.() || [];
+    const hasSingleBackCover =
+      spreads.length > 0
+        ? spreads[spreads.length - 1]?.length === 1
+        : totalPages % 2 === 0;
+
     const isBackSingle =
       orientation === 'landscape' &&
       totalPages > 1 &&
       (pageIdx >= totalPages - 1 || flippingToBackCoverRef.current) &&
-      totalPages % 2 === 0;
+      hasSingleBackCover;
 
     const hasLeftPages = pageIdx > 0 && !isClosingFront;
     const hasRightPages = pageIdx < totalPages - 1 && !isBackSingle;
@@ -1086,10 +1093,80 @@ export default function FlipbookViewer({
         }
       };
 
+      // 3D Perspective Folding Leaf Helper for realistic Hard Cover opening & closing
+      const draw3DFoldingLeaf = (
+        targetCtx: CanvasRenderingContext2D,
+        img: HTMLImageElement | null,
+        spineX: number,
+        topY: number,
+        pageWidth: number,
+        height: number,
+        projWidth: number,
+        deltaY: number,
+        side: 'left' | 'right',
+        lighting: number
+      ) => {
+        if (projWidth <= 0.5) return;
+
+        const xStart = side === 'left' ? spineX - projWidth : spineX;
+        const xEnd = side === 'left' ? spineX : spineX + projWidth;
+        const numSlices = 20;
+        const sliceW = projWidth / numSlices;
+
+        targetCtx.save();
+        for (let i = 0; i < numSlices; i++) {
+          const x0 = xStart + i * sliceW;
+          const x1 = xStart + (i + 1) * sliceW;
+          const curW = Math.max(0.5, x1 - x0 + 0.6);
+
+          const uOuter = side === 'left' ? (numSlices - (i + 0.5)) / numSlices : (i + 0.5) / numSlices;
+          const curDeltaY = deltaY * uOuter;
+          const curTop = topY - curDeltaY;
+          const curHeight = height + 2 * curDeltaY;
+
+          // 1. Solid opaque white paper sheet
+          targetCtx.fillStyle = '#ffffff';
+          targetCtx.fillRect(x0, curTop, curW, curHeight);
+
+          // 2. Texture slice if image available
+          if (img && img.naturalWidth > 0) {
+            const sx0 = (i / numSlices) * img.naturalWidth;
+            const sx1 = ((i + 1) / numSlices) * img.naturalWidth;
+            const sW = Math.max(1, sx1 - sx0);
+            targetCtx.drawImage(img, sx0, 0, sW, img.naturalHeight, x0, curTop, curW, curHeight);
+          }
+        }
+
+        // 3. Subtle 3D lighting gradient across the fold
+        const grad = targetCtx.createLinearGradient(xStart, topY, xEnd, topY);
+        if (side === 'left') {
+          grad.addColorStop(0, `rgba(0, 0, 0, ${0.2 * (1 - lighting)})`);
+          grad.addColorStop(0.7, 'rgba(0, 0, 0, 0)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0.08)');
+        } else {
+          grad.addColorStop(0, 'rgba(0, 0, 0, 0.08)');
+          grad.addColorStop(0.3, 'rgba(0, 0, 0, 0)');
+          grad.addColorStop(1, `rgba(0, 0, 0, ${0.2 * (1 - lighting)})`);
+        }
+        targetCtx.fillStyle = grad;
+        targetCtx.fillRect(xStart, topY - deltaY, projWidth, height + 2 * deltaY);
+
+        // 4. Subtle outer edge definition stroke
+        targetCtx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        targetCtx.lineWidth = 1;
+        targetCtx.beginPath();
+        const outerX = side === 'left' ? xStart : xEnd;
+        targetCtx.moveTo(outerX, topY - deltaY);
+        targetCtx.lineTo(outerX, topY + height + deltaY);
+        targetCtx.stroke();
+
+        targetCtx.restore();
+      };
+
       // Patch drawFrame:
       // 1. Remove destructive portrait clip so mobile page flip is 100% visible and never chopped off.
-      // 2. Properly handle single-page spreads (Front/Back cover & Portrait mode) where bottomPage === flippingPage.
-      // 3. Fix: Prevent rightPage from bleeding through on the right when closing back to Front Cover.
+      // 2. Beautiful 3D Perspective fold when closing back to Front Cover or turning to Back Cover (eliminates blank page on left & under-cut curl).
+      // 3. Properly handle single-page spreads (Front/Back cover & Portrait mode) where bottomPage === flippingPage.
       render.drawFrame = function () {
         if (!this.ctx) return;
         this.ctx.save();
@@ -1112,9 +1189,13 @@ export default function FlipbookViewer({
 
         const flipCalc = (pf as any).getFlipController?.()?.calc;
         const dir = flipCalc ? flipCalc.getDirection() : this.direction;
-        const currentSpread = (pf as any).getPageCollection?.()?.getCurrentSpreadIndex?.();
+        const pageColl = (pf as any).getPageCollection?.();
+        const spreads: number[][] = pageColl?.getSpread?.() || [];
+        const currentSpread: number = pageColl?.getCurrentSpreadIndex?.() ?? -1;
+        const isLandscape = this.orientation !== 'portrait';
 
         const isClosingToFrontCover =
+          isLandscape &&
           dir === 1 && (
             currentSpread === 1 ||
             (this.bottomPage != null && (this.bottomPage as any).__pageIdx === 0) ||
@@ -1122,33 +1203,169 @@ export default function FlipbookViewer({
           );
 
         const isClosingToBackCover =
+          isLandscape &&
           dir === 0 &&
-          pageObjs.length > 1 &&
+          spreads.length > 1 &&
+          spreads[spreads.length - 1]?.length === 1 &&
           ((this.bottomPage != null && (this.bottomPage as any).__pageIdx === pageObjs.length - 1) ||
-           (this.flippingPage != null && (this.flippingPage as any).__pageIdx === pageObjs.length - 1));
+           (this.flippingPage != null && (this.flippingPage as any).__pageIdx === pageObjs.length - 1) ||
+           currentSpread === spreads.length - 2);
+
+        let progress = 0;
+        if (typeof (this as any).__nvProgress === 'number') {
+          progress = (this as any).__nvProgress;
+        } else if (flipCalc?.getFlippingProgress) {
+          progress = Math.min(1, Math.max(0, flipCalc.getFlippingProgress() / 100));
+        }
+
+        // =========================================================================
+        // CASE A: CLOSING TO FRONT COVER (Spread 1 -> Spread 0)
+        // Authentic 3D perspective fold: Left page lifts off outer edge, turns over spine,
+        // and lands as Front Cover on the right. Zero blank page on the left, zero spine cut-off!
+        // =========================================================================
+        if (isClosingToFrontCover) {
+          const rect = this.getRect();
+          const spineX = rect.left + rect.pageWidth;
+          const topY = rect.top;
+          const pageWidth = rect.pageWidth;
+          const height = rect.height;
+
+          // 1. Draw static right page underneath (Page 2, e.g. "FOOD PRODUCTS")
+          if (this.rightPage != null) {
+            this.rightPage.simpleDraw(1);
+          }
+
+          // 2. Clear left half completely (ensure zero paint, zero blank page outline)
+          this.ctx.clearRect(rect.left - 20, topY - 20, pageWidth + 20, height + 40);
+
+          // 3. Draw 3D folding leaf based on turn progress
+          if (progress < 0.5) {
+            const t = progress / 0.5; // 0 -> 1
+            const theta = t * (Math.PI / 2);
+            const projWidth = Math.max(0, pageWidth * Math.cos(theta));
+            const deltaY = height * 0.04 * Math.sin(theta);
+            const lighting = Math.cos(theta * 0.7);
+
+            // Phase 1: Inside front cover (page index 1) lifts off left edge toward spine
+            const insideImg = pageObjs[1]?.image || null;
+            draw3DFoldingLeaf(this.ctx, insideImg, spineX, topY, pageWidth, height, projWidth, deltaY, 'left', lighting);
+          } else {
+            const t = (progress - 0.5) / 0.5; // 0 -> 1
+            const theta = (1 - t) * (Math.PI / 2);
+            const projWidth = Math.max(0, pageWidth * Math.cos(theta));
+            const deltaY = height * 0.04 * Math.sin(theta);
+            const lighting = Math.cos(theta * 0.7);
+
+            // Cast realistic soft drop shadow on the static right page
+            if (projWidth < pageWidth - 2) {
+              const outerX = spineX + projWidth;
+              const shadowDist = Math.min(35, (pageWidth - projWidth) * 0.4);
+              const shadowGrad = this.ctx.createLinearGradient(outerX, topY, outerX + shadowDist, topY);
+              shadowGrad.addColorStop(0, `rgba(0, 0, 0, ${0.25 * Math.sin(theta)})`);
+              shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+              this.ctx.fillStyle = shadowGrad;
+              this.ctx.fillRect(outerX, topY, shadowDist, height);
+            }
+
+            // Phase 2: Outside front cover (page index 0) swings down from spine onto right page
+            const coverImg = pageObjs[0]?.image || null;
+            draw3DFoldingLeaf(this.ctx, coverImg, spineX, topY, pageWidth, height, projWidth, deltaY, 'right', lighting);
+          }
+
+          // Spine crease shadow
+          const spineW = 12;
+          const spineGrad = this.ctx.createLinearGradient(spineX - spineW / 2, topY, spineX + spineW / 2, topY);
+          spineGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          spineGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.16)');
+          spineGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          this.ctx.fillStyle = spineGrad;
+          this.ctx.fillRect(spineX - spineW / 2, topY, spineW, height);
+
+          this.ctx.restore();
+          return;
+        }
+
+        // =========================================================================
+        // CASE B: CLOSING TO BACK COVER (Spread N-2 -> Spread N-1)
+        // Authentic 3D perspective fold: Right page lifts off outer edge, turns over spine,
+        // and lands as Back Cover on the left. Zero blank page on the right, zero spine cut-off!
+        // =========================================================================
+        if (isClosingToBackCover) {
+          const rect = this.getRect();
+          const spineX = rect.left + rect.pageWidth;
+          const topY = rect.top;
+          const pageWidth = rect.pageWidth;
+          const height = rect.height;
+          const lastIdx = pageObjs.length - 1;
+
+          // 1. Draw static left page underneath
+          if (this.leftPage != null) {
+            this.leftPage.simpleDraw(0);
+          }
+
+          // 2. Clear right half completely (ensure zero paint, zero blank page outline)
+          this.ctx.clearRect(spineX - 1, topY - 20, pageWidth + 25, height + 40);
+
+          // 3. Draw 3D folding back cover leaf based on turn progress
+          if (progress < 0.5) {
+            const t = progress / 0.5; // 0 -> 1
+            const theta = t * (Math.PI / 2);
+            const projWidth = Math.max(0, pageWidth * Math.cos(theta));
+            const deltaY = height * 0.04 * Math.sin(theta);
+            const lighting = Math.cos(theta * 0.7);
+
+            // Phase 1: Inside back cover lifts off right edge toward spine
+            const insideImg = pageObjs[lastIdx - 1]?.image || null;
+            draw3DFoldingLeaf(this.ctx, insideImg, spineX, topY, pageWidth, height, projWidth, deltaY, 'right', lighting);
+          } else {
+            const t = (progress - 0.5) / 0.5; // 0 -> 1
+            const theta = (1 - t) * (Math.PI / 2);
+            const projWidth = Math.max(0, pageWidth * Math.cos(theta));
+            const deltaY = height * 0.04 * Math.sin(theta);
+            const lighting = Math.cos(theta * 0.7);
+
+            // Cast realistic soft drop shadow on static left page
+            if (projWidth < pageWidth - 2) {
+              const outerX = spineX - projWidth;
+              const shadowDist = Math.min(35, (pageWidth - projWidth) * 0.4);
+              const shadowGrad = this.ctx.createLinearGradient(outerX, topY, outerX - shadowDist, topY);
+              shadowGrad.addColorStop(0, `rgba(0, 0, 0, ${0.25 * Math.sin(theta)})`);
+              shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+              this.ctx.fillStyle = shadowGrad;
+              this.ctx.fillRect(outerX - shadowDist, topY, shadowDist, height);
+            }
+
+            // Phase 2: Outside back cover swings down from spine onto left page
+            const backCoverImg = pageObjs[lastIdx]?.image || null;
+            draw3DFoldingLeaf(this.ctx, backCoverImg, spineX, topY, pageWidth, height, projWidth, deltaY, 'left', lighting);
+          }
+
+          // Spine crease shadow
+          const spineW = 12;
+          const spineGrad = this.ctx.createLinearGradient(spineX - spineW / 2, topY, spineX + spineW / 2, topY);
+          spineGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          spineGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.16)');
+          spineGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          this.ctx.fillStyle = spineGrad;
+          this.ctx.fillRect(spineX - spineW / 2, topY, spineW, height);
+
+          this.ctx.restore();
+          return;
+        }
 
         if (this.orientation !== 'portrait') {
-          if (this.leftPage != null && !isClosingToBackCover && !isClosingToFrontCover) {
+          if (this.leftPage != null) {
             this.leftPage.simpleDraw(0);
           }
         }
 
-        if (this.rightPage != null && !isClosingToBackCover) {
+        if (this.rightPage != null) {
           this.rightPage.simpleDraw(1);
-        }
-
-        if (isClosingToFrontCover) {
-          const rect = this.getRect();
-          this.ctx.clearRect(rect.left - 6, rect.top - 6, rect.pageWidth + 12, rect.height + 12);
-        } else if (isClosingToBackCover) {
-          const rect = this.getRect();
-          this.ctx.clearRect(rect.left + rect.pageWidth - 4, rect.top - 6, rect.pageWidth + 12, rect.height + 12);
         }
 
         if (this.bottomPage != null) {
           if (this.bottomPage === this.flippingPage && flipCalc) {
             if (this.orientation === 'landscape') {
-              // Closing to Front Cover or Back Cover: clear the lifted corner area so the old page underneath is not visible
               const botArea = flipCalc.getBottomClipArea?.() || [];
               const validPts = botArea.filter(Boolean);
               if (validPts.length >= 3) {
@@ -1193,16 +1410,6 @@ export default function FlipbookViewer({
           this.drawInnerShadow();
         }
 
-        if (isClosingToFrontCover) {
-          const rect = this.getRect();
-          // Ensure left half has absolutely zero paint, line, or shadow artifact on it
-          this.ctx.clearRect(rect.left - 10, rect.top - 10, rect.pageWidth + 15, rect.height + 20);
-        } else if (isClosingToBackCover) {
-          const rect = this.getRect();
-          // Ensure right half has absolutely zero paint, line, or shadow artifact on it
-          this.ctx.clearRect(rect.left + rect.pageWidth - 2, rect.top - 10, rect.pageWidth + 15, rect.height + 20);
-        }
-
         this.ctx.restore();
       };
 
@@ -1217,6 +1424,7 @@ export default function FlipbookViewer({
             const eased = progress < 0.5
               ? 4 * progress * progress * progress
               : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            (this as any).__nvProgress = eased;
             const frameIndex = Math.min(
               this.animation.frames.length - 1,
               Math.floor(eased * this.animation.frames.length)
@@ -1232,7 +1440,10 @@ export default function FlipbookViewer({
               }
               this.animation.onAnimateEnd();
               this.animation = null;
+              (this as any).__nvProgress = null;
             }
+          } else {
+            (this as any).__nvProgress = null;
           }
 
           this.timer = timer;
@@ -1842,7 +2053,14 @@ export default function FlipbookViewer({
       setOpeningFromCover(true);
       openingFromCoverRef.current = true;
     }
-    if (pages.length > 1 && current >= pages.length - 3 && pages.length % 2 === 0) {
+    const pageColl = flip.current ? (flip.current as any).getPageCollection?.() : null;
+    const spreads: number[][] = pageColl?.getSpread?.() || [];
+    const hasSingleBackCover =
+      spreads.length > 0
+        ? spreads[spreads.length - 1]?.length === 1
+        : pages.length % 2 === 0;
+
+    if (pages.length > 1 && current >= pages.length - 3 && hasSingleBackCover) {
       setFlippingToBackCover(true);
       flippingToBackCoverRef.current = true;
     }
@@ -2642,9 +2860,15 @@ export default function FlipbookViewer({
             const pageW = fitWidth > 0 ? (mode === 'landscape' ? fitWidth / 2 : fitWidth) : (bookBounds?.pageWidth || 0);
             let coverCenterOffsetX = 0;
             if (mode === 'landscape' && pageW > 0) {
+              const spreads: number[][] = (flip.current as any)?.getPageCollection?.()?.getSpread?.() || [];
+              const hasSingleBackCover =
+                spreads.length > 0
+                  ? spreads[spreads.length - 1]?.length === 1
+                  : total % 2 === 0;
+
               if ((current === 0 && !openingFromCover) || flippingToCover) {
                 coverCenterOffsetX = -Math.round(pageW / 2);
-              } else if (total > 1 && (current >= total - 1 || flippingToBackCover) && total % 2 === 0) {
+              } else if (total > 1 && (current >= total - 1 || flippingToBackCover) && hasSingleBackCover) {
                 coverCenterOffsetX = Math.round(pageW / 2);
               }
             }

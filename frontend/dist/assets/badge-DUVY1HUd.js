@@ -1,0 +1,1 @@
+import{j as t}from"./index-DCBHONgY.js";function d({variant:a="default",className:r="",children:e,...s}){return t.jsx("span",{className:`boardui-badge boardui-badge-${a} ${r}`.trim(),...s,children:e})}export{d as B};
