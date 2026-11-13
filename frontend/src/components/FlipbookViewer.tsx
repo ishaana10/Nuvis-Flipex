@@ -863,8 +863,8 @@ export default function FlipbookViewer({
             };
             img.src = pages[idx].image;
           }
-        } else if (img.dataset.nvLoaded === '1' && Math.abs(idx - centerIdx) > readerProfile.ahead + readerProfile.behind + 4) {
-          // Release decoded bitmaps far from the reader on constrained devices / large publications.
+        } else if (img.dataset.nvLoaded === '1' && idx !== 0 && Math.abs(idx - centerIdx) > readerProfile.ahead + readerProfile.behind + 4) {
+          // Release decoded bitmaps far from the reader on constrained devices / large publications (never release cover).
           img.dataset.nvLoaded = '';
           img.src = BLANK_PAGE_SVG;
         }
@@ -1095,23 +1095,36 @@ export default function FlipbookViewer({
         this.ctx.save();
         this.clear();
 
+        const isActivelyFlipping = this.flippingPage != null;
+
+        // When NOT actively flipping, the book is in static reading state.
+        // On front cover (spread 0): leftPage is null, rightPage is Page 0.
+        // On normal spreads: leftPage is Page N, rightPage is Page N+1.
+        if (!isActivelyFlipping) {
+          if (this.orientation !== 'portrait') {
+            if (this.leftPage != null) this.leftPage.simpleDraw(0);
+          }
+          if (this.rightPage != null) this.rightPage.simpleDraw(1);
+          this.drawBookShadow();
+          this.ctx.restore();
+          return;
+        }
+
         const flipCalc = (pf as any).getFlipController?.()?.calc;
         const dir = flipCalc ? flipCalc.getDirection() : this.direction;
         const currentSpread = (pf as any).getPageCollection?.()?.getCurrentSpreadIndex?.();
-        // FlipDirection.FORWARD is 0, FlipDirection.BACK is 1
+
         const isClosingToFrontCover =
-          (dir === 1 && (
+          dir === 1 && (
             currentSpread === 1 ||
-            flippingToCoverRef.current ||
             (this.bottomPage != null && (this.bottomPage as any).__pageIdx === 0) ||
             (this.flippingPage != null && (this.flippingPage as any).__pageIdx === 0)
-          )) || (currentSpread === 0 && dir === 1);
+          );
 
         const isClosingToBackCover =
           dir === 0 &&
           pageObjs.length > 1 &&
-          (flippingToBackCoverRef.current ||
-           (this.bottomPage != null && (this.bottomPage as any).__pageIdx === pageObjs.length - 1) ||
+          ((this.bottomPage != null && (this.bottomPage as any).__pageIdx === pageObjs.length - 1) ||
            (this.flippingPage != null && (this.flippingPage as any).__pageIdx === pageObjs.length - 1));
 
         if (this.orientation !== 'portrait') {
@@ -1120,20 +1133,16 @@ export default function FlipbookViewer({
           }
         }
 
-        // When closing to the front cover or back cover, do NOT draw rightPage so its edge never bleeds through
-        if (this.rightPage != null && !isClosingToFrontCover && !isClosingToBackCover) {
+        if (this.rightPage != null && !isClosingToBackCover) {
           this.rightPage.simpleDraw(1);
         }
 
-        // Ensure canvas areas are completely clean
         if (isClosingToFrontCover) {
           const rect = this.getRect();
           this.ctx.clearRect(rect.left - 6, rect.top - 6, rect.pageWidth + 12, rect.height + 12);
-          this.ctx.clearRect(rect.left + rect.pageWidth - 4, rect.top - 4, rect.pageWidth + 8, rect.height + 8);
         } else if (isClosingToBackCover) {
           const rect = this.getRect();
-          this.ctx.clearRect(rect.left - 6, rect.top - 6, rect.pageWidth + 12, rect.height + 12);
-          this.ctx.clearRect(rect.left + rect.pageWidth - 4, rect.top - 4, rect.pageWidth + 8, rect.height + 8);
+          this.ctx.clearRect(rect.left + rect.pageWidth - 4, rect.top - 6, rect.pageWidth + 12, rect.height + 12);
         }
 
         if (this.bottomPage != null) {
@@ -1191,7 +1200,7 @@ export default function FlipbookViewer({
         } else if (isClosingToBackCover) {
           const rect = this.getRect();
           // Ensure right half has absolutely zero paint, line, or shadow artifact on it
-          this.ctx.clearRect(rect.left + rect.pageWidth - 5, rect.top - 10, rect.pageWidth + 15, rect.height + 20);
+          this.ctx.clearRect(rect.left + rect.pageWidth - 2, rect.top - 10, rect.pageWidth + 15, rect.height + 20);
         }
 
         this.ctx.restore();
@@ -1313,40 +1322,7 @@ export default function FlipbookViewer({
       const origDrawBookShadow = render.drawBookShadow?.bind(render);
       if (origDrawBookShadow) {
         render.drawBookShadow = function () {
-          const flipCalc = (pf as any).getFlipController?.()?.calc;
-          const dir = flipCalc ? flipCalc.getDirection() : this.direction;
-          const currentSpread = (pf as any).getPageCollection?.()?.getCurrentSpreadIndex?.();
-          const isClosingToFrontCover =
-            (dir === 1 && (
-              currentSpread === 1 ||
-              flippingToCoverRef.current ||
-              (this.bottomPage != null && (this.bottomPage as any).__pageIdx === 0) ||
-              (this.flippingPage != null && (this.flippingPage as any).__pageIdx === 0)
-            )) || (currentSpread === 0 && dir === 1);
-
-          if (isClosingToFrontCover) {
-            // Closed Front Cover: draw realistic magazine binding hinge & spine groove along the left edge of the cover
-            const t = this.getRect();
-            const spineW = Math.max(18, t.pageWidth / 22);
-            const startX = t.left + t.pageWidth;
-            this.ctx.save();
-            this.ctx.beginPath();
-            this.ctx.rect(startX, t.top, spineW, t.height);
-            this.ctx.clip();
-            const grad = this.ctx.createLinearGradient(startX, 0, startX + spineW, 0);
-            grad.addColorStop(0, 'rgba(0, 0, 0, 0.34)');
-            grad.addColorStop(0.14, 'rgba(0, 0, 0, 0.14)');
-            grad.addColorStop(0.26, 'rgba(255, 255, 255, 0.32)');
-            grad.addColorStop(0.42, 'rgba(0, 0, 0, 0.11)');
-            grad.addColorStop(0.65, 'rgba(0, 0, 0, 0.03)');
-            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            this.ctx.fillStyle = grad;
-            this.ctx.fillRect(startX, t.top, spineW, t.height);
-            this.ctx.restore();
-            return;
-          }
-
-          if ((this.leftPage && this.rightPage) || this.flippingPage) {
+          if (this.leftPage && this.rightPage) {
             origDrawBookShadow();
           } else if (this.rightPage && !this.leftPage && this.ctx) {
             // Closed Front Cover: draw realistic magazine binding hinge & spine groove along the left edge of the cover
