@@ -27,12 +27,23 @@ export interface TocItem {
 
 export interface ViewerHotspot {
   id: number;
-  type: 'link' | 'video';
+  type: 'link' | 'video' | 'product' | 'page' | 'image' | 'audio';
   x: number;
   y: number;
   w: number;
   h: number;
-  payload: { url?: string; title?: string };
+  pageNumber?: number;
+  payload: {
+    url?: string;
+    title?: string;
+    price?: string;
+    sku?: string;
+    description?: string;
+    imageUrl?: string;
+    ctaText?: string;
+    whatsappPhone?: string;
+    targetPage?: number;
+  };
 }
 
 export type ViewerSettings = FlipbookSettings;
@@ -217,6 +228,9 @@ export default function FlipbookViewer({
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
+  const [activeProduct, setActiveProduct] = useState<ViewerHotspot | null>(null);
+  const [activeLightboxImage, setActiveLightboxImage] = useState<{ url: string; title: string } | null>(null);
+  const [scrubPreviewPage, setScrubPreviewPage] = useState<number | null>(null);
 
   // Zoom & Pan state
   const [zoom, setZoom] = useState(1);
@@ -241,6 +255,7 @@ export default function FlipbookViewer({
   const pinchMidpoint = useRef<{ x: number; y: number; startPanX: number; startPanY: number } | null>(null);
   const lastTouchTap = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
   const pageEnterTimestamp = useRef<number>(Date.now());
+  const prevLoggedPageRef = useRef<number>(current);
 
   // Dynamically observe stage dimensions to compute aspect-constrained page fitting with zero mobile side/bottom cutoff
   useEffect(() => {
@@ -265,27 +280,40 @@ export default function FlipbookViewer({
     };
   }, [readingMode]);
 
-  // Send telemetry helper
+  // Send telemetry helper (supports standard fetch + keepalive / sendBeacon for unload flush)
   const sendTelemetry = useCallback(
-    (eventType: string, payload: Record<string, any> = {}) => {
+    (eventType: string, payload: Record<string, any> = {}, useBeacon = false) => {
       if (!enableTelemetry || !slug) return;
-      fetch(`/api/v1/public/${slug}/telemetry`, {
+      const endpoint = `/api/v1/public/${slug}/telemetry`;
+      const bodyStr = JSON.stringify({
+        sessionId,
+        eventType,
+        utmSource: utmParams.utm_source || undefined,
+        utmMedium: utmParams.utm_medium || undefined,
+        utmCampaign: utmParams.utm_campaign || undefined,
+        ...payload,
+      });
+
+      if (useBeacon && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        try {
+          const blob = new Blob([bodyStr], { type: 'application/json' });
+          if (navigator.sendBeacon(endpoint, blob)) return;
+        } catch {
+          // fallback to fetch keepalive below
+        }
+      }
+
+      fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          eventType,
-          utmSource: utmParams.utm_source || undefined,
-          utmMedium: utmParams.utm_medium || undefined,
-          utmCampaign: utmParams.utm_campaign || undefined,
-          ...payload,
-        }),
+        body: bodyStr,
+        keepalive: useBeacon,
       }).catch(() => {});
     },
     [enableTelemetry, slug, sessionId, utmParams]
   );
 
-  // Persist last-read page and send dwell-time telemetry on page change
+  // Persist last-read page and send accurate dwell-time telemetry on page change
   useEffect(() => {
     try {
       localStorage.setItem(lastPageStorageKey, String(current));
@@ -294,16 +322,54 @@ export default function FlipbookViewer({
     }
 
     const now = Date.now();
+    const dwelledPage = prevLoggedPageRef.current;
     const dwellMs = now - pageEnterTimestamp.current;
     pageEnterTimestamp.current = now;
+    prevLoggedPageRef.current = current;
 
     if (dwellMs >= 800) {
       sendTelemetry('page_view', {
-        pageNumber: current + 1,
+        pageNumber: dwelledPage + 1,
         durationMs: Math.min(dwellMs, 300000),
       });
     }
   }, [current, lastPageStorageKey, sendTelemetry]);
+
+  // Flush final-page dwell time when the reader hides the tab or closes the browser window
+  useEffect(() => {
+    if (!enableTelemetry || !slug) return;
+
+    const flushFinalDwell = () => {
+      const now = Date.now();
+      const dwellMs = now - pageEnterTimestamp.current;
+      pageEnterTimestamp.current = now;
+      if (dwellMs >= 800) {
+        sendTelemetry(
+          'page_view',
+          {
+            pageNumber: currentRef.current + 1,
+            durationMs: Math.min(dwellMs, 300000),
+          },
+          true
+        );
+      }
+    };
+
+    const onVisChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushFinalDwell();
+      } else {
+        pageEnterTimestamp.current = Date.now();
+      }
+    };
+
+    window.addEventListener('pagehide', flushFinalDwell);
+    document.addEventListener('visibilitychange', onVisChange);
+    return () => {
+      window.removeEventListener('pagehide', flushFinalDwell);
+      document.removeEventListener('visibilitychange', onVisChange);
+    };
+  }, [enableTelemetry, slug, sendTelemetry]);
 
   const getMaxPan = useCallback((targetZoom: number) => {
     if (targetZoom <= 1) return { maxPanX: 0, maxPanY: 0 };
@@ -328,70 +394,85 @@ export default function FlipbookViewer({
     }
   }, []);
 
-  // Progressive & Lazy Multi-Resolution Page Preloader with Sliding Window Virtualization
+  // Tiered Priority Multi-Resolution Page Preloader (Wave 0 -> Wave 1 -> Wave 2)
+  // Ensures the active spread loads at maximum network priority without 14-page bandwidth contention
   useEffect(() => {
     if (!pages.length) return;
 
     const BLANK_SVG =
       'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="100%" height="100%" fill="%23ffffff"/></svg>';
 
-    // Active reading window: current spread + 6 pages ahead + 6 pages behind
-    const windowIndices: number[] = [];
-    for (let offset = -6; offset <= 7; offset++) {
-      const idx = current + offset;
-      if (idx >= 0 && idx < pages.length) {
-        windowIndices.push(idx);
-      }
-    }
+    const profile = getReaderProfile();
+    const targetWindow = pagesToLoad(current, pages.length, profile);
 
-    // 1. Browser background decoding for near pages
-    windowIndices.forEach((idx) => {
-      if (preloadedSet.current.has(idx)) return;
-      preloadedSet.current.add(idx);
+    const promotePageIndex = (idx: number, priority: 'high' | 'auto') => {
+      if (idx < 0 || idx >= pages.length) return;
       const pg = pages[idx];
       if (!pg) return;
-      const img = new Image();
-      img.decoding = 'async';
-      if (idx >= current - 1 && idx <= current + 3) {
-        (img as any).fetchPriority = 'high';
+
+      if (!preloadedSet.current.has(idx)) {
+        preloadedSet.current.add(idx);
+        const img = new Image();
+        img.decoding = 'async';
+        if (priority === 'high') {
+          (img as any).fetchPriority = 'high';
+        }
+        img.src = pg.image;
       }
-      img.src = pg.image;
-    });
 
-    // 2. Sliding window promotion & distant page virtualization
-    try {
-      const pf = flip.current;
-      if (pf) {
-        const coll = (pf as any).getPageCollection?.();
-        const pageObjs = coll?.getPages?.();
-        if (pageObjs && pageObjs.length) {
-          // Promote pages in active window to standard crisp resolution
-          windowIndices.forEach((idx) => {
-            const pageObj = pageObjs[idx];
-            const pg = pages[idx];
-            if (
-              pageObj &&
-              pg &&
-              pageObj.image &&
-              (pageObj.image.src.startsWith('data:image/svg+xml') || !pageObj.image.src.endsWith(pg.image))
-            ) {
-              const stdImg = new Image();
-              stdImg.decoding = 'async';
-              stdImg.onload = () => {
-                pageObj.image = stdImg;
-                pageObj.isLoad = true;
-                (pf as any).getRender?.()?.update?.();
-              };
-              stdImg.src = pg.image;
-            }
-          });
+      try {
+        const pf = flip.current;
+        const pageObjs = (pf as any)?.getPageCollection?.()?.getPages?.();
+        const pageObj = pageObjs?.[idx];
+        if (
+          pageObj &&
+          pageObj.image &&
+          (pageObj.image.src.startsWith('data:image/svg+xml') || !pageObj.image.src.endsWith(pg.image))
+        ) {
+          const stdImg = new Image();
+          stdImg.decoding = 'async';
+          if (priority === 'high') {
+            (stdImg as any).fetchPriority = 'high';
+          }
+          stdImg.onload = () => {
+            stdImg.dataset.nvLoaded = '1';
+            pageObj.image = stdImg;
+            pageObj.isLoad = true;
+            (pf as any)?.getRender?.()?.update?.();
+          };
+          stdImg.src = pg.image;
+        }
+      } catch {
+        // Non-fatal
+      }
+    };
 
-          // Memory Release: For large publications (> 30 pages), downgrade distant pages (> 10 pages away) to free mobile GPU memory
-          if (pages.length > 30) {
-            for (let i = 0; i < pages.length; i++) {
-              if (Math.abs(i - current) > 10) {
+    // Wave 0 (Immediate): Cover + Active visible spread
+    const wave0 = [0, current, current + 1].filter((i) => i >= 0 && i < pages.length);
+    wave0.forEach((idx) => promotePageIndex(idx, 'high'));
+
+    // Wave 1 (65ms): Immediate next & previous turn pages
+    const wave1Timer = window.setTimeout(() => {
+      const wave1 = [current + 2, current + 3, current - 1].filter(
+        (i) => i >= 0 && i < pages.length && targetWindow.has(i)
+      );
+      wave1.forEach((idx) => promotePageIndex(idx, 'auto'));
+    }, 65);
+
+    // Wave 2 (200ms): Remaining adaptive lookahead window + distant memory release
+    const wave2Timer = window.setTimeout(() => {
+      targetWindow.forEach((idx) => promotePageIndex(idx, 'auto'));
+
+      if (pages.length > 24) {
+        try {
+          const pf = flip.current;
+          const pageObjs = (pf as any)?.getPageCollection?.()?.getPages?.();
+          if (pageObjs && pageObjs.length) {
+            const releaseDistance = profile.ahead + profile.behind + 5;
+            for (let i = 1; i < pages.length; i++) {
+              if (Math.abs(i - current) > releaseDistance) {
                 const distantObj = pageObjs[i];
-                if (distantObj && distantObj.image && !distantObj.image.src.startsWith('data:image/svg+xml')) {
+                if (distantObj?.image && !distantObj.image.src.startsWith('data:image/svg+xml')) {
                   const blankImg = new Image();
                   blankImg.src = BLANK_SVG;
                   distantObj.image = blankImg;
@@ -400,11 +481,16 @@ export default function FlipbookViewer({
               }
             }
           }
+        } catch {
+          // ignore
         }
       }
-    } catch {
-      // Non-fatal optimization
-    }
+    }, 200);
+
+    return () => {
+      window.clearTimeout(wave1Timer);
+      window.clearTimeout(wave2Timer);
+    };
   }, [current, pages]);
 
   // On-Demand High-Resolution Zoom Loader (loads 180 DPI assets only when zoom > 1.25)
@@ -2244,12 +2330,43 @@ export default function FlipbookViewer({
   };
 
   const handleHotspotClick = (h: ViewerHotspot, pageNum?: number) => {
+    const pNum = pageNum || h.pageNumber || current + 1;
     if (h.type === 'video' && h.payload.url) {
-      sendTelemetry('video_play', { pageNumber: pageNum || current + 1, targetUrl: h.payload.url });
+      sendTelemetry('video_play', { pageNumber: pNum, targetUrl: h.payload.url });
       setActiveVideo({ url: h.payload.url, title: h.payload.title || 'Video' });
+    } else if (h.type === 'product') {
+      sendTelemetry('product_click', {
+        pageNumber: pNum,
+        targetUrl: h.payload.url || h.payload.title || 'product',
+        meta: { title: h.payload.title, price: h.payload.price, sku: h.payload.sku },
+      });
+      setActiveProduct({ ...h, pageNumber: pNum });
+    } else if (h.type === 'page' && h.payload.targetPage) {
+      const targetIdx = Math.max(0, Math.min(pages.length - 1, Number(h.payload.targetPage) - 1));
+      sendTelemetry('link_click', { pageNumber: pNum, targetUrl: `page:${targetIdx + 1}` });
+      goto(targetIdx);
+    } else if (h.type === 'image' && (h.payload.imageUrl || h.payload.url)) {
+      const imgUrl = (h.payload.imageUrl || h.payload.url)!;
+      sendTelemetry('link_click', { pageNumber: pNum, targetUrl: imgUrl });
+      setActiveLightboxImage({ url: imgUrl, title: h.payload.title || 'Image Preview' });
     } else if (h.payload.url) {
-      sendTelemetry('link_click', { pageNumber: pageNum || current + 1, targetUrl: h.payload.url });
+      sendTelemetry('link_click', { pageNumber: pNum, targetUrl: h.payload.url });
       window.open(h.payload.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const getHotspotIcon = (type: ViewerHotspot['type']) => {
+    switch (type) {
+      case 'video':
+        return '▶';
+      case 'product':
+        return '🛍️';
+      case 'page':
+        return '↪';
+      case 'image':
+        return '🖼️';
+      default:
+        return '🔗';
     }
   };
 
@@ -2274,10 +2391,25 @@ export default function FlipbookViewer({
   }
 
   const leftPageNum = current + 1;
-  const rightPageNum = readingMode === 'flip' && mode === 'landscape' && current > 0 ? current + 2 : null;
+  const rightPageNum = readingMode === 'flip' && mode === 'landscape' && current > 0 && current + 1 < total ? current + 2 : null;
+  const isLandscapeSpread = readingMode === 'flip' && mode === 'landscape';
   const activeHotspots = [
-    ...(hotspots[leftPageNum] || []),
-    ...(rightPageNum ? (hotspots[rightPageNum] || []) : []),
+    ...(hotspots[leftPageNum] || []).map((h) => ({
+      ...h,
+      pageNumber: leftPageNum,
+      __side: !isLandscapeSpread
+        ? ('single' as const)
+        : current === 0
+          ? ('right' as const)
+          : ('left' as const),
+    })),
+    ...(rightPageNum
+      ? (hotspots[rightPageNum] || []).map((h) => ({
+          ...h,
+          pageNumber: rightPageNum,
+          __side: 'right' as const,
+        }))
+      : []),
   ];
 
   const isCurrentBookmarked = bookmarks.includes(current + 1);
@@ -2992,26 +3124,49 @@ export default function FlipbookViewer({
                   </div>
                 )}
 
-                {/* Interactive Hotspots Layer */}
+                {/* Interactive Hotspots Layer (Spread-Aware Coordinate Mapping) */}
                 {ready && activeHotspots.length > 0 && (
                   <div className="hz-hotspots-layer">
-                    {activeHotspots.map((h) => (
-                      <div
-                        key={h.id}
-                        className={`reader-hotspot ${h.type}`}
-                        style={{
-                          left: `${h.x}%`,
-                          top: `${h.y}%`,
-                          width: `${h.w}%`,
-                          height: `${h.h}%`,
-                        }}
-                        onClick={() => handleHotspotClick(h, current + 1)}
-                        title={h.payload.title || (h.type === 'video' ? 'Watch Video' : 'Open Link')}
-                      >
-                        <span className="hotspot-icon">{h.type === 'video' ? '▶' : '🔗'}</span>
-                        {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
-                      </div>
-                    ))}
+                    {activeHotspots.map((h) => {
+                      const effLeft =
+                        h.__side === 'left'
+                          ? h.x / 2
+                          : h.__side === 'right'
+                            ? 50 + h.x / 2
+                            : h.x;
+                      const effWidth = h.__side === 'single' ? h.w : h.w / 2;
+                      return (
+                        <div
+                          key={h.id}
+                          className={`reader-hotspot ${h.type}`}
+                          style={{
+                            left: `${effLeft}%`,
+                            top: `${h.y}%`,
+                            width: `${effWidth}%`,
+                            height: `${h.h}%`,
+                          }}
+                          onClick={() => handleHotspotClick(h, h.pageNumber || current + 1)}
+                          title={
+                            h.payload.title ||
+                            (h.type === 'video'
+                              ? 'Watch Video'
+                              : h.type === 'product'
+                                ? 'View Product Details'
+                                : h.type === 'page'
+                                  ? `Jump to Page ${h.payload.targetPage || 1}`
+                                  : 'Open Link')
+                          }
+                        >
+                          <span className="hotspot-icon">{getHotspotIcon(h.type)}</span>
+                          {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
+                          {h.type === 'product' && h.payload.price && (
+                            <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-extrabold text-slate-950 shadow">
+                              {h.payload.price}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -3116,8 +3271,13 @@ export default function FlipbookViewer({
                       onClick={() => handleHotspotClick(h, p.n)}
                       title={h.payload.title || (h.type === 'video' ? 'Watch Video' : 'Open Link')}
                     >
-                      <span className="hotspot-icon">{h.type === 'video' ? '▶' : '🔗'}</span>
+                      <span className="hotspot-icon">{getHotspotIcon(h.type)}</span>
                       {h.payload.title && <span className="hotspot-text">{h.payload.title}</span>}
+                      {h.type === 'product' && h.payload.price && (
+                        <span className="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-extrabold text-slate-950 shadow">
+                          {h.payload.price}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -3246,6 +3406,59 @@ export default function FlipbookViewer({
             >
               ›
             </button>
+
+            {/* Interactive Timeline Scrubber with Floating Thumbnail & Chapter Preview Bubble */}
+            {total > 1 && (
+              <div className="relative flex items-center px-2 hz-desktop-only">
+                {scrubPreviewPage !== null && pages[scrubPreviewPage] && (
+                  <div
+                    className="pointer-events-none absolute bottom-12 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center rounded-xl border border-amber-400/50 bg-slate-950/95 p-2 text-white shadow-2xl backdrop-blur-md"
+                    style={{ width: '132px' }}
+                  >
+                    <img
+                      src={pages[scrubPreviewPage].thumb}
+                      alt={`Page ${scrubPreviewPage + 1}`}
+                      className="h-28 w-20 rounded border border-white/15 object-cover bg-white"
+                    />
+                    <span className="mt-1.5 text-[11px] font-extrabold text-amber-400">
+                      Page {scrubPreviewPage + 1} of {total}
+                    </span>
+                    {(() => {
+                      const chap = [...effectiveToc]
+                        .reverse()
+                        .find((t) => t.page <= scrubPreviewPage + 1);
+                      return chap ? (
+                        <span className="mt-0.5 max-w-full truncate text-[10px] text-slate-300">
+                          {chap.title.replace(/^Page \d+:\s*/i, '')}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, total - 1)}
+                  step={1}
+                  value={scrubPreviewPage !== null ? scrubPreviewPage : current}
+                  onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+                    setScrubPreviewPage(Math.round(ratio * (total - 1)));
+                  }}
+                  onMouseLeave={() => setScrubPreviewPage(null)}
+                  onChange={(e) => {
+                    const idx = Number(e.target.value);
+                    setScrubPreviewPage(idx);
+                    goto(idx);
+                  }}
+                  onMouseUp={() => setScrubPreviewPage(null)}
+                  aria-label="Scrub pages"
+                  title="Drag or hover to preview and jump to any page"
+                  className="h-1.5 w-24 cursor-pointer accent-amber-400"
+                />
+              </div>
+            )}
 
             {/* Zoom Controls (Available in 3D Flip & Scroll Modes with On-Demand HD Zoom) */}
             {readingMode !== 'reader' && (
@@ -3516,6 +3729,136 @@ export default function FlipbookViewer({
                 allowFullScreen
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commercial Product / Price Spotlight Modal (BoardUI Standard) */}
+      {activeProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          onClick={() => setActiveProduct(null)}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-400/40 bg-slate-900 text-slate-100 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {activeProduct.payload.imageUrl && (
+              <div className="relative h-56 w-full bg-slate-950">
+                <img
+                  src={activeProduct.payload.imageUrl}
+                  alt={activeProduct.payload.title || 'Product'}
+                  className="h-full w-full object-contain p-3"
+                />
+                {activeProduct.payload.price && (
+                  <span className="absolute top-3 right-3 rounded-full bg-amber-400 px-3 py-1 text-sm font-extrabold text-slate-950 shadow-lg">
+                    {activeProduct.payload.price}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="p-6 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="inline-block rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                    🛍️ Featured Item {activeProduct.payload.sku ? `· SKU: ${activeProduct.payload.sku}` : ''}
+                  </span>
+                  <h3 className="mt-1 text-lg font-bold text-white">
+                    {activeProduct.payload.title || 'Featured Catalogue Product'}
+                  </h3>
+                </div>
+                {!activeProduct.payload.imageUrl && activeProduct.payload.price && (
+                  <span className="shrink-0 rounded-full bg-amber-400 px-3 py-1 text-sm font-extrabold text-slate-950 shadow">
+                    {activeProduct.payload.price}
+                  </span>
+                )}
+              </div>
+
+              {activeProduct.payload.description && (
+                <p className="text-xs leading-relaxed text-slate-300 whitespace-pre-line">
+                  {activeProduct.payload.description}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-2">
+                {activeProduct.payload.url && (
+                  <a
+                    href={activeProduct.payload.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() =>
+                      sendTelemetry('link_click', {
+                        pageNumber: activeProduct.pageNumber || current + 1,
+                        targetUrl: activeProduct.payload.url,
+                      })
+                    }
+                    className="flex-1 rounded-xl bg-amber-400 px-4 py-2.5 text-center text-xs font-extrabold text-slate-950 shadow hover:bg-amber-300 transition"
+                  >
+                    {activeProduct.payload.ctaText || 'Buy / View Online →'}
+                  </a>
+                )}
+                {(activeProduct.payload.whatsappPhone || settings.profilePhone) && (
+                  <a
+                    href={`https://wa.me/${(activeProduct.payload.whatsappPhone || settings.profilePhone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                      `Hi! I'm interested in "${activeProduct.payload.title || 'Product'}"${
+                        activeProduct.payload.price ? ` (${activeProduct.payload.price})` : ''
+                      }${activeProduct.payload.sku ? ` [SKU: ${activeProduct.payload.sku}]` : ''} on Page ${
+                        activeProduct.pageNumber || current + 1
+                      } of ${title || 'your catalogue'} (${baseShareUrl}?page=${
+                        activeProduct.pageNumber || current + 1
+                      }).`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() =>
+                      sendTelemetry('link_click', {
+                        pageNumber: activeProduct.pageNumber || current + 1,
+                        targetUrl: 'whatsapp_order',
+                      })
+                    }
+                    className="flex-1 rounded-xl border border-emerald-500/50 bg-emerald-500/20 px-4 py-2.5 text-center text-xs font-bold text-emerald-300 hover:bg-emerald-500/30 transition"
+                  >
+                    💬 Inquire on WhatsApp
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveProduct(null)}
+                  className="rounded-xl border border-slate-700 px-3.5 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* High-Res Image Lightbox Modal */}
+      {activeLightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
+          onClick={() => setActiveLightboxImage(null)}
+        >
+          <div
+            className="max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-slate-900 p-4 text-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-amber-400">{activeLightboxImage.title}</h3>
+              <button
+                type="button"
+                onClick={() => setActiveLightboxImage(null)}
+                className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:bg-white/10 hover:text-white"
+              >
+                ✕ Close
+              </button>
+            </div>
+            <img
+              src={activeLightboxImage.url}
+              alt={activeLightboxImage.title}
+              className="max-h-[78vh] w-auto mx-auto rounded-lg object-contain"
+            />
           </div>
         </div>
       )}
