@@ -20,6 +20,8 @@ import {
   Copy,
   Trash2,
   Check,
+  Upload,
+  Share2,
 } from '../components/ui/icons';
 
 export interface Flipbook {
@@ -81,6 +83,15 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
   const [collectionFilter, setCollectionFilter] = useState<string>('');
 
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    fileName: string;
+    fileIndex: number;
+    totalFiles: number;
+    pct: number;
+    loadedBytes: number;
+    totalBytes: number;
+  } | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [error, setError] = useState('');
   const [share, setShare] = useState<Flipbook | null>(null);
   const [customize, setCustomize] = useState<Flipbook | null>(null);
@@ -187,21 +198,50 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     };
   }, [processingKey, showJobsModal, load, loadJobs, triggerQueueDrain]);
 
-  const upload = async (file: File) => {
+  const uploadFiles = async (fileList: FileList | File[]) => {
+    const pdfs = Array.from(fileList).filter(
+      (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+    );
+    if (pdfs.length === 0) {
+      setError('Please select or drop valid PDF files (.pdf).');
+      return;
+    }
     setError('');
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      if (categoryFilter) fd.append('categoryId', categoryFilter);
-      if (collectionFilter) fd.append('collectionId', collectionFilter);
-      await uploadForm('/flipbooks', fd);
+      for (let idx = 0; idx < pdfs.length; idx++) {
+        const file = pdfs[idx];
+        setUploadProgress({
+          fileName: file.name,
+          fileIndex: idx + 1,
+          totalFiles: pdfs.length,
+          pct: 0,
+          loadedBytes: 0,
+          totalBytes: file.size,
+        });
+        const fd = new FormData();
+        fd.append('file', file);
+        if (categoryFilter) fd.append('categoryId', categoryFilter);
+        if (collectionFilter) fd.append('collectionId', collectionFilter);
+        await uploadForm('/flipbooks', fd, (pct, loadedBytes, totalBytes) => {
+          setUploadProgress({
+            fileName: file.name,
+            fileIndex: idx + 1,
+            totalFiles: pdfs.length,
+            pct,
+            loadedBytes,
+            totalBytes,
+          });
+        });
+      }
       await load();
       loadJobs();
+      void triggerQueueDrain();
     } catch (e) {
       setError(e instanceof ApiError ? (e.fields.file ?? e.message) : 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
       if (input.current) input.current.value = '';
     }
   };
@@ -304,7 +344,38 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
   };
 
   return (
-    <div>
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!isDraggingOver) setIsDraggingOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setIsDraggingOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDraggingOver(false);
+        if (e.dataTransfer?.files?.length) {
+          void uploadFiles(e.dataTransfer.files);
+        }
+      }}
+    >
+      {/* Full-Window Drag-and-Drop Overlay */}
+      {isDraggingOver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-6 pointer-events-none">
+          <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-amber-400 bg-slate-900/95 px-12 py-14 text-center shadow-2xl max-w-lg">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/20 text-amber-400">
+              <Upload className="h-8 w-8" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-1">Drop PDF Publications Here</h3>
+            <p className="text-sm text-slate-300">
+              Release to upload &amp; automatically apply your Workspace Default Brand Kit
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="row head" style={{ flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ margin: '0 0 4px 0' }}>
@@ -351,15 +422,55 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
           <input
             type="file"
             accept="application/pdf"
+            multiple
             hidden
             ref={input}
-            onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+            onChange={(e) => e.target.files?.length && uploadFiles(e.target.files)}
           />
           <button disabled={uploading} onClick={() => input.current?.click()} className="btn-primary">
-            {uploading ? 'Validating & Uploading PDF…' : '+ Upload PDF'}
+            {uploading ? 'Uploading PDF…' : '+ Upload PDF'}
           </button>
         </div>
       </div>
+
+      {/* Live Byte-Level Upload Progress Banner */}
+      {uploading && uploadProgress && (
+        <div className="mb-4 rounded-2xl border border-amber-400/40 bg-amber-50/90 dark:bg-slate-900/95 p-4 shadow-md">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950 font-bold text-xs">
+                {uploadProgress.pct}%
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                  Uploading {uploadProgress.fileName}{' '}
+                  {uploadProgress.totalFiles > 1 && (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      ({uploadProgress.fileIndex} of {uploadProgress.totalFiles})
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {(uploadProgress.loadedBytes / 1048576).toFixed(2)} MB /{' '}
+                  {Math.max(0.01, uploadProgress.totalBytes / 1048576).toFixed(2)} MB transferred ·{' '}
+                  {uploadProgress.pct >= 100
+                    ? 'Validating PDF structure & queuing instant cover render…'
+                    : 'Streaming high-speed upload…'}
+                </div>
+              </div>
+            </div>
+            <Badge variant="golden">
+              {uploadProgress.pct >= 100 ? 'Processing' : `${uploadProgress.pct}%`}
+            </Badge>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+            <div
+              className="h-full bg-amber-400 transition-all duration-150"
+              style={{ width: `${Math.max(4, uploadProgress.pct)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {user && !user.emailVerified && (
         <div className="banner">
@@ -541,8 +652,19 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
       </div>
 
       {items.length === 0 ? (
-        <div className="card empty">
-          <p>No publications match your current filter. Upload a PDF or clear filters to get started.</p>
+        <div
+          onClick={() => !uploading && input.current?.click()}
+          className="card empty cursor-pointer border-2 border-dashed border-slate-300 hover:border-amber-400 dark:border-slate-800 dark:hover:border-amber-400 transition-all p-10 text-center"
+        >
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-500">
+            <Upload className="h-6 w-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+            Drag &amp; drop PDF files here, or click to browse
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+            Supports single or batch PDF uploads. Your Workspace Default Brand Kit and multi-resolution WebP/AVIF engine will be applied automatically.
+          </p>
         </div>
       ) : (
         <div className="grid">
@@ -739,7 +861,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   </button>
                 </div>
 
-                {/* Bottom Bar: Share, Duplicate, Delete */}
+                {/* Bottom Bar: Share, Replace PDF, Duplicate, Delete */}
                 <div className="fb-bottom-bar">
                   <div className="fb-bottom-actions">
                     {f.status === 'ready' && (
@@ -747,9 +869,21 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                         type="button"
                         className="fb-icon-action"
                         onClick={() => setShare(f)}
-                        title="Share publication"
+                        title="Share publication, QR Code & Embed"
                       >
-                        <span>🚀 Share</span>
+                        <Share2 className="h-3 w-3 text-amber-500" />
+                        <span>Share &amp; QR</span>
+                      </button>
+                    )}
+                    {f.status === 'ready' && (
+                      <button
+                        type="button"
+                        className="fb-icon-action"
+                        onClick={() => setLifecycleBook({ book: f, tab: 'versions' })}
+                        title="Upload a new PDF revision while keeping the same public URL and QR code"
+                      >
+                        <Upload className="h-3 w-3" />
+                        <span>Replace PDF</span>
                       </button>
                     )}
                     {f.status === 'ready' && (
