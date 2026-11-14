@@ -13,6 +13,22 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 final class HotspotController
 {
+    private const ALLOWED_TYPES = ['link', 'video', 'audio', 'image', 'product', 'page'];
+    private static bool $schemaEnsured = false;
+
+    private static function ensureSchema(): void
+    {
+        if (self::$schemaEnsured) {
+            return;
+        }
+        self::$schemaEnsured = true;
+        try {
+            Db::pdo()->exec("ALTER TABLE hotspots MODIFY COLUMN type VARCHAR(32) NOT NULL DEFAULT 'link'");
+        } catch (\Throwable) {
+            // Safe fallback: subType is also persisted inside JSON payload
+        }
+    }
+
     public function index(Request $req, Response $res, array $args): Response
     {
         $u = $req->getAttribute('user');
@@ -36,24 +52,37 @@ final class HotspotController
         $f = $this->owned($req, (int) $args['id']);
         if (!$f) return Http::error($res, 'Not found', 404);
 
+        self::ensureSchema();
+
         $b = (array) $req->getParsedBody();
-        $page = (int) ($b['pageNumber'] ?? 1);
+        $page = max(1, (int) ($b['pageNumber'] ?? 1));
         $type = (string) ($b['type'] ?? 'link');
-        $x = (float) ($b['x'] ?? 10);
-        $y = (float) ($b['y'] ?? 10);
-        $w = (float) ($b['w'] ?? 20);
-        $h = (float) ($b['h'] ?? 10);
+        $x = max(0.0, min(98.0, (float) ($b['x'] ?? 10)));
+        $y = max(0.0, min(98.0, (float) ($b['y'] ?? 10)));
+        $w = max(2.0, min(100.0, (float) ($b['w'] ?? 20)));
+        $h = max(2.0, min(100.0, (float) ($b['h'] ?? 10)));
         $payload = is_array($b['payload'] ?? null) ? $b['payload'] : ['url' => (string)($b['payload'] ?? '')];
 
-        if (!in_array($type, ['link', 'video', 'audio', 'image'], true)) {
+        if (!in_array($type, self::ALLOWED_TYPES, true)) {
             return Http::error($res, 'Invalid hotspot type', 422);
         }
 
-        Db::run(
-            'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [$f['id'], $page, $type, $x, $y, $w, $h, json_encode($payload)]
-        );
+        $payload['subType'] = $type;
+        $dbType = in_array($type, ['link', 'video', 'audio', 'image'], true) ? $type : 'link';
+
+        try {
+            Db::run(
+                'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [$f['id'], $page, $type, $x, $y, $w, $h, json_encode($payload)]
+            );
+        } catch (\Throwable) {
+            Db::run(
+                'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [$f['id'], $page, $dbType, $x, $y, $w, $h, json_encode($payload)]
+            );
+        }
         $hid = (int) Db::pdo()->lastInsertId();
         $row = Db::one('SELECT * FROM hotspots WHERE id = ?', [$hid]);
 
@@ -70,22 +99,41 @@ final class HotspotController
         $f = $this->owned($req, (int) $args['id']);
         if (!$f) return Http::error($res, 'Not found', 404);
 
+        self::ensureSchema();
+
         $hid = (int) $args['hid'];
         $row = Db::one('SELECT * FROM hotspots WHERE id = ? AND flipbook_id = ?', [$hid, $f['id']]);
         if (!$row) return Http::error($res, 'Hotspot not found', 404);
 
         $b = (array) $req->getParsedBody();
-        $type = array_key_exists('type', $b) ? (string) $b['type'] : $row['type'];
-        $x = array_key_exists('x', $b) ? (float) $b['x'] : (float) $row['x'];
-        $y = array_key_exists('y', $b) ? (float) $b['y'] : (float) $row['y'];
-        $w = array_key_exists('w', $b) ? (float) $b['w'] : (float) $row['w'];
-        $h = array_key_exists('h', $b) ? (float) $b['h'] : (float) $row['h'];
-        $payload = array_key_exists('payload', $b) ? json_encode($b['payload']) : $row['payload'];
+        $existingPayload = json_decode($row['payload'] ?: '{}', true) ?: [];
+        $type = array_key_exists('type', $b) ? (string) $b['type'] : ($existingPayload['subType'] ?? $row['type']);
+        if (!in_array($type, self::ALLOWED_TYPES, true)) {
+            return Http::error($res, 'Invalid hotspot type', 422);
+        }
 
-        Db::run(
-            'UPDATE hotspots SET type = ?, x = ?, y = ?, w = ?, h = ?, payload = ? WHERE id = ? AND flipbook_id = ?',
-            [$type, $x, $y, $w, $h, $payload, $hid, $f['id']]
-        );
+        $x = array_key_exists('x', $b) ? max(0.0, min(98.0, (float) $b['x'])) : (float) $row['x'];
+        $y = array_key_exists('y', $b) ? max(0.0, min(98.0, (float) $b['y'])) : (float) $row['y'];
+        $w = array_key_exists('w', $b) ? max(2.0, min(100.0, (float) $b['w'])) : (float) $row['w'];
+        $h = array_key_exists('h', $b) ? max(2.0, min(100.0, (float) $b['h'])) : (float) $row['h'];
+        $page = array_key_exists('pageNumber', $b) ? max(1, (int) $b['pageNumber']) : (int) $row['page_number'];
+
+        $payloadArr = array_key_exists('payload', $b) && is_array($b['payload']) ? $b['payload'] : $existingPayload;
+        $payloadArr['subType'] = $type;
+        $payloadJson = json_encode($payloadArr);
+        $dbType = in_array($type, ['link', 'video', 'audio', 'image'], true) ? $type : 'link';
+
+        try {
+            Db::run(
+                'UPDATE hotspots SET page_number = ?, type = ?, x = ?, y = ?, w = ?, h = ?, payload = ? WHERE id = ? AND flipbook_id = ?',
+                [$page, $type, $x, $y, $w, $h, $payloadJson, $hid, $f['id']]
+            );
+        } catch (\Throwable) {
+            Db::run(
+                'UPDATE hotspots SET page_number = ?, type = ?, x = ?, y = ?, w = ?, h = ?, payload = ? WHERE id = ? AND flipbook_id = ?',
+                [$page, $dbType, $x, $y, $w, $h, $payloadJson, $hid, $f['id']]
+            );
+        }
         $updated = Db::one('SELECT * FROM hotspots WHERE id = ?', [$hid]);
 
         Audit::log('hotspot.update', 'hotspot', $hid, ['flipbook_id' => $f['id'], 'type' => $type]);
@@ -120,16 +168,18 @@ final class HotspotController
 
     private function present(array $h): array
     {
+        $payload = json_decode($h['payload'] ?: '{}', true) ?: [];
+        $effectiveType = !empty($payload['subType']) ? (string) $payload['subType'] : (string) $h['type'];
         return [
             'id' => (int) $h['id'],
             'flipbookId' => (int) $h['flipbook_id'],
             'pageNumber' => (int) $h['page_number'],
-            'type' => $h['type'],
-            'x' => (float) $h['x'],
-            'y' => (float) $h['y'],
-            'w' => (float) $h['w'],
-            'h' => (float) $h['h'],
-            'payload' => json_decode($h['payload'] ?: '{}', true),
+            'type' => $effectiveType,
+            'x' => round((float) $h['x'], 2),
+            'y' => round((float) $h['y'], 2),
+            'w' => round((float) $h['w'], 2),
+            'h' => round((float) $h['h'], 2),
+            'payload' => $payload,
         ];
     }
 }
