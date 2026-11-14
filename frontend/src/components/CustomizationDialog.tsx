@@ -412,6 +412,7 @@ export default function CustomizationDialog({
   const [bgAudioLoop, setBgAudioLoop] = useState<boolean>(current.bgAudioLoop ?? true);
 
   const [saving, setSaving] = useState(false);
+  const [saveAsBrandKit, setSaveAsBrandKit] = useState(true);
   const [msg, setMsg] = useState('');
 
   const publicUrl = `${window.location.origin}/v/${flipbook.slug}`;
@@ -585,10 +586,15 @@ export default function CustomizationDialog({
       await api(`/flipbooks/${flipbook.id}`, 'PATCH', {
         title: cleanTitle,
         settings: updatedSettings,
+        saveAsBrandKit,
       });
 
       flipbook.title = cleanTitle;
-      setMsg('Customizations saved successfully!');
+      setMsg(
+        saveAsBrandKit
+          ? 'Customizations & Workspace Default Brand Kit saved!'
+          : 'Customizations saved successfully!'
+      );
       setTimeout(() => {
         onSaved();
         onClose();
@@ -2181,10 +2187,22 @@ export default function CustomizationDialog({
 
           {/* Modal Footer (Save & Close) */}
           <div className="hz-studio-footer">
+            <label
+              className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300 cursor-pointer mr-auto select-none"
+              title="Automatically apply your logo, theme skin, toolbar colors, and profile to all future PDF uploads in your workspace"
+            >
+              <input
+                type="checkbox"
+                checked={saveAsBrandKit}
+                onChange={(e) => setSaveAsBrandKit(e.target.checked)}
+                className="rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+              />
+              <span>Save as Workspace Default Brand Kit</span>
+            </label>
             {msg && (
               <span
-                className={`text-xs font-semibold mr-auto ${
-                  msg.includes('success') ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
+                className={`text-xs font-semibold mr-3 ${
+                  msg.includes('saved') || msg.includes('success') ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
                 }`}
               >
                 {msg}
