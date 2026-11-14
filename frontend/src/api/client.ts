@@ -44,7 +44,51 @@ export async function api<T = any>(path: string, method = 'GET', body?: unknown)
   return data as T;
 }
 
-export async function uploadForm<T = any>(path: string, fd: FormData): Promise<T> {
+export async function uploadForm<T = any>(
+  path: string,
+  fd: FormData,
+  onProgress?: (pct: number, loadedBytes: number, totalBytes: number) => void
+): Promise<T> {
+  if (onProgress && typeof XMLHttpRequest !== 'undefined') {
+    const sendXhr = (): Promise<{ ok: boolean; status: number; data: any }> =>
+      new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `/api/v1${path}`, true);
+        xhr.withCredentials = true;
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        if (getAccessToken()) {
+          xhr.setRequestHeader('Authorization', `Bearer ${getAccessToken()}`);
+        }
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable && ev.total > 0) {
+            const pct = Math.min(99, Math.round((ev.loaded / ev.total) * 100));
+            onProgress(pct, ev.loaded, ev.total);
+          }
+        };
+        xhr.onload = () => {
+          let data: any = {};
+          try {
+            data = JSON.parse(xhr.responseText || '{}');
+          } catch {
+            // ignore
+          }
+          resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+        };
+        xhr.onerror = () => reject(new ApiError('Network error during upload', 0));
+        xhr.send(fd);
+      });
+
+    let res = await sendXhr();
+    if (res.status === 401 && (await refreshSession())) {
+      res = await sendXhr();
+    }
+    if (!res.ok) {
+      throw new ApiError(res.data?.error ?? 'Upload failed', res.status, res.data?.fields ?? {});
+    }
+    onProgress(100, 0, 0);
+    return res.data as T;
+  }
+
   const send = () =>
     fetch(`/api/v1${path}`, {
       method: 'POST',

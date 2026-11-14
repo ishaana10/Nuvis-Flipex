@@ -141,10 +141,41 @@ final class FlipbookController
         $collectionId = !empty($body['collectionId']) ? (int) $body['collectionId'] : null;
         $slug = $this->uniqueSlug(!empty($body['slug']) ? (string) $body['slug'] : $title);
 
+        // Seed with Tenant Default Brand Kit if configured (or inherit brand defaults from latest workspace flipbook)
+        $defaultSettingsJson = null;
+        try {
+            $brandRow = Db::one(
+                'SELECT setting_value FROM system_settings WHERE setting_key = ?',
+                ["tenant_brand_kit_{$tenantId}"]
+            );
+            if ($brandRow && !empty($brandRow['setting_value'])) {
+                $decodedBrand = json_decode((string) $brandRow['setting_value'], true);
+                if (is_array($decodedBrand)) {
+                    $decodedBrand['companyName'] = mb_substr($title, 0, 200);
+                    $defaultSettingsJson = json_encode($decodedBrand);
+                }
+            } else {
+                $latestBook = Db::one(
+                    'SELECT settings FROM flipbooks WHERE tenant_id = ? AND settings IS NOT NULL ORDER BY id DESC LIMIT 1',
+                    [$tenantId]
+                );
+                if ($latestBook && !empty($latestBook['settings'])) {
+                    $inherited = json_decode((string) $latestBook['settings'], true);
+                    if (is_array($inherited)) {
+                        unset($inherited['catalogueSubtitle'], $inherited['disclaimerText'], $inherited['privateNotes']);
+                        $inherited['companyName'] = mb_substr($title, 0, 200);
+                        $defaultSettingsJson = json_encode($inherited);
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // Safe fallback if system_settings is unavailable
+        }
+
         Db::run(
             "INSERT INTO flipbooks
-             (user_id, tenant_id, category_id, collection_id, title, description, slug, status, workflow_status, version, pdf_metadata, conversion_progress, conversion_step)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'uploading', 'processing', 1, ?, 2, 'Queued for conversion')",
+             (user_id, tenant_id, category_id, collection_id, title, description, slug, status, workflow_status, version, settings, pdf_metadata, conversion_progress, conversion_step)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'uploading', 'processing', 1, ?, ?, 2, 'Queued for conversion')",
             [
                 $u['id'],
                 $tenantId,
@@ -153,6 +184,7 @@ final class FlipbookController
                 mb_substr($title, 0, 200),
                 $description,
                 $slug,
+                $defaultSettingsJson,
                 json_encode($pdfMeta),
             ]
         );
@@ -376,6 +408,20 @@ final class FlipbookController
 
         $wfBefore = (string) ($f['workflow_status'] ?? '');
         $tenantForEvents = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
+
+        // Persist Workspace Default Brand Kit when requested by publisher
+        if (!empty($b['saveAsBrandKit']) && is_array($b['settings'] ?? null)) {
+            try {
+                $brandKit = (array) $b['settings'];
+                unset($brandKit['companyName'], $brandKit['catalogueSubtitle'], $brandKit['disclaimerText'], $brandKit['privateNotes']);
+                Db::run(
+                    'INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
+                     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)',
+                    ["tenant_brand_kit_{$tenantForEvents}", json_encode($brandKit)]
+                );
+            } catch (Throwable) {
+            }
+        }
 
         $updateFlipbook = static fn() => Db::run(
             'UPDATE flipbooks
@@ -1080,9 +1126,6 @@ final class FlipbookController
             return Http::error($res, 'File not found', 404);
         }
 
-        $fh = fopen($fullPath, 'rb');
-        $stream = new Stream($fh);
-
         $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
         $mime = match ($ext) {
             'pdf' => 'application/pdf',
@@ -1092,11 +1135,30 @@ final class FlipbookController
             default => 'image/jpeg',
         };
 
+        $mtime = @filemtime($fullPath) ?: time();
+        $fsize = @filesize($fullPath) ?: 0;
+        $etag = 'W/"' . substr(sha1($fullPath . ':' . $mtime . ':' . $fsize), 0, 24) . '"';
+        $lastMod = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+
+        $ifNoneMatch = trim($req->getHeaderLine('If-None-Match'));
+        if ($ifNoneMatch !== '' && ($ifNoneMatch === $etag || str_contains($ifNoneMatch, $etag))) {
+            return $res
+                ->withStatus(304)
+                ->withHeader('ETag', $etag)
+                ->withHeader('Last-Modified', $lastMod)
+                ->withHeader('Cache-Control', 'private, max-age=3600');
+        }
+
+        $fh = fopen($fullPath, 'rb');
+        $stream = new Stream($fh);
+
         return $res
             ->withHeader('Content-Type', $mime)
             ->withHeader('Cache-Control', 'private, max-age=3600')
+            ->withHeader('ETag', $etag)
+            ->withHeader('Last-Modified', $lastMod)
             ->withHeader('X-Content-Type-Options', 'nosniff')
-            ->withHeader('Content-Length', (string) filesize($fullPath))
+            ->withHeader('Content-Length', (string) $fsize)
             ->withBody($stream);
     }
 
@@ -1114,14 +1176,30 @@ final class FlipbookController
             return Http::error($res, 'File not found', 404);
         }
 
+        $mtime = @filemtime($path) ?: time();
+        $fsize = @filesize($path) ?: 0;
+        $etag = 'W/"' . substr(sha1($path . ':' . $mtime . ':' . $fsize), 0, 24) . '"';
+        $lastMod = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+
+        $ifNoneMatch = trim($req->getHeaderLine('If-None-Match'));
+        if ($ifNoneMatch !== '' && ($ifNoneMatch === $etag || str_contains($ifNoneMatch, $etag))) {
+            return $res
+                ->withStatus(304)
+                ->withHeader('ETag', $etag)
+                ->withHeader('Last-Modified', $lastMod)
+                ->withHeader('Cache-Control', 'private, max-age=3600');
+        }
+
         $fh = fopen($path, 'rb');
         $stream = new Stream($fh);
 
         return $res
             ->withHeader('Content-Type', 'image/jpeg')
             ->withHeader('Cache-Control', 'private, max-age=3600')
+            ->withHeader('ETag', $etag)
+            ->withHeader('Last-Modified', $lastMod)
             ->withHeader('X-Content-Type-Options', 'nosniff')
-            ->withHeader('Content-Length', (string) filesize($path))
+            ->withHeader('Content-Length', (string) $fsize)
             ->withBody($stream);
     }
 
@@ -1271,7 +1349,7 @@ final class FlipbookController
     private function present(array $f): array
     {
         $coverRel = $f['cover_rel'] ?? null;
-        if (!$coverRel && (int) $f['page_count'] > 0) {
+        if (!$coverRel) {
             $p1 = Db::one('SELECT thumb_path FROM pages WHERE flipbook_id = ? AND page_number = 1', [$f['id']]);
             $coverRel = $p1['thumb_path'] ?? null;
         }

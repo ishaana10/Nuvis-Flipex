@@ -124,14 +124,16 @@ final class PublicController
         $hotspotsByPage = [];
         foreach ($hotspots as $h) {
             $pNum = (int) $h['page_number'];
+            $decodedPayload = json_decode($h['payload'] ?: '{}', true) ?: [];
+            $effectiveType = !empty($decodedPayload['subType']) ? (string) $decodedPayload['subType'] : (string) $h['type'];
             $hotspotsByPage[$pNum][] = [
                 'id' => (int) $h['id'],
-                'type' => $h['type'],
+                'type' => $effectiveType,
                 'x' => (float) $h['x'],
                 'y' => (float) $h['y'],
                 'w' => (float) $h['w'],
                 'h' => (float) $h['h'],
-                'payload' => json_decode($h['payload'] ?: '{}', true),
+                'payload' => $decodedPayload,
             ];
         }
 
@@ -416,9 +418,6 @@ HTML;
             }
         }
 
-        $fh = fopen($path, 'rb');
-        $stream = new Stream($fh);
-
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $mime = match ($ext) {
             'webp' => 'image/webp',
@@ -427,16 +426,35 @@ HTML;
             default => 'image/jpeg',
         };
 
+        $mtime = @filemtime($path) ?: time();
+        $fsize = @filesize($path) ?: 0;
+        $etag = 'W/"' . substr(sha1($path . ':' . $mtime . ':' . $fsize), 0, 24) . '"';
+        $lastMod = gmdate('D, d M Y H:i:s', $mtime) . ' GMT';
+
         $isProtected = $isPreview || ($f['visibility'] ?? 'public') === 'password';
         $cacheControl = $isProtected
             ? 'private, no-cache'
             : 'public, max-age=31536000, immutable';
 
+        $ifNoneMatch = trim($req->getHeaderLine('If-None-Match'));
+        if ($ifNoneMatch !== '' && ($ifNoneMatch === $etag || str_contains($ifNoneMatch, $etag))) {
+            return $res
+                ->withStatus(304)
+                ->withHeader('ETag', $etag)
+                ->withHeader('Last-Modified', $lastMod)
+                ->withHeader('Cache-Control', $cacheControl);
+        }
+
+        $fh = fopen($path, 'rb');
+        $stream = new Stream($fh);
+
         return $res
             ->withHeader('Content-Type', $mime)
             ->withHeader('Cache-Control', $cacheControl)
+            ->withHeader('ETag', $etag)
+            ->withHeader('Last-Modified', $lastMod)
             ->withHeader('X-Content-Type-Options', 'nosniff')
-            ->withHeader('Content-Length', (string) filesize($path))
+            ->withHeader('Content-Length', (string) $fsize)
             ->withBody($stream);
     }
 
@@ -570,6 +588,15 @@ HTML;
         if (!$f) return Http::error($res, 'Not found', 404);
 
         $b = (array) ($req->getParsedBody() ?: []);
+        if (empty($b)) {
+            $rawBody = (string) $req->getBody();
+            if ($rawBody !== '') {
+                $decoded = json_decode($rawBody, true);
+                if (is_array($decoded)) {
+                    $b = $decoded;
+                }
+            }
+        }
         $server = $req->getServerParams();
         $ip = $server['REMOTE_ADDR'] ?? '127.0.0.1';
         $ua = $req->getHeaderLine('User-Agent');
@@ -577,7 +604,7 @@ HTML;
         $sessionId = substr(trim((string) ($b['sessionId'] ?? $visitorHash)), 0, 64);
 
         $eventType = (string) ($b['eventType'] ?? 'page_view');
-        $allowedTypes = ['page_view', 'link_click', 'video_play', 'download', 'share', 'search'];
+        $allowedTypes = ['page_view', 'link_click', 'video_play', 'product_click', 'download', 'share', 'search'];
         if (!in_array($eventType, $allowedTypes, true)) {
             $eventType = 'page_view';
         }

@@ -330,6 +330,31 @@ final class JobRunner
 
         try {
             $metadata = PdfRenderer::validatePdf($pdf, $maxBytes, $maxPages);
+
+            // Instant Cover Preview (< 1s): Rasterize Page 1 immediately and commit to `pages` so the
+            // publisher's Dashboard card shows the live cover thumbnail while pages 2..N finish converting.
+            $onProgress(8, 'Rendering instant cover preview (Page 1)');
+            $coverPreview = PdfRenderer::renderSinglePagePreview($pdf, $out, 1);
+            if ($coverPreview !== null) {
+                $covStd = basename($coverPreview['standard']);
+                $covWebp = $coverPreview['webp'] ? basename($coverPreview['webp']) : null;
+                $covThumb = basename($coverPreview['thumb']);
+                Db::run(
+                    'INSERT INTO pages (flipbook_id, page_number, image_path, high_res_path, webp_path, avif_path, thumb_path, width, height)
+                     VALUES (?, 1, ?, ?, ?, NULL, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE image_path = VALUES(image_path), webp_path = VALUES(webp_path), thumb_path = VALUES(thumb_path)',
+                    [
+                        $flipbookId,
+                        "{$outRel}/{$covStd}",
+                        "{$outRel}/{$covStd}",
+                        $covWebp ? "{$outRel}/{$covWebp}" : null,
+                        "{$outRel}/thumbs/{$covThumb}",
+                        (int) $coverPreview['width'],
+                        (int) $coverPreview['height'],
+                    ]
+                );
+            }
+
             // Render one page beyond the limit so an unreadable page-count can never silently truncate/bypass it.
             $renderedPages = PdfRenderer::renderMultiResolution($pdf, $out, $maxPages > 0 ? $maxPages + 1 : $maxPages, $onProgress, $timeoutSeconds);
             if ($maxPages > 0 && $renderedPages && count($renderedPages) > $maxPages) {
@@ -346,10 +371,36 @@ final class JobRunner
         }
 
         $metadata['page_count'] = count($renderedPages);
-        $onProgress(92, 'Extracting searchable page text & Table of Contents');
+        $onProgress(92, 'Extracting searchable page text, TOC & embedded PDF links');
         $textAndToc = PdfRenderer::extractPageTextAndToc($pdf, count($renderedPages));
         $pagesText = $textAndToc['pages_text'] ?? [];
         $autoToc = $textAndToc['toc'] ?? [];
+
+        // Auto-extract embedded PDF hyperlink annotations into interactive hotspots if none exist yet
+        try {
+            $existingHotspots = (int) (Db::one('SELECT COUNT(*) AS c FROM hotspots WHERE flipbook_id = ?', [$flipbookId])['c'] ?? 0);
+            if ($existingHotspots === 0) {
+                $autoLinks = PdfRenderer::extractPdfLinks($pdf, count($renderedPages));
+                foreach ($autoLinks as $al) {
+                    Db::run(
+                        'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [
+                            $flipbookId,
+                            (int) $al['page_number'],
+                            in_array($al['type'], ['link', 'video'], true) ? $al['type'] : 'link',
+                            (float) $al['x'],
+                            (float) $al['y'],
+                            (float) $al['w'],
+                            (float) $al['h'],
+                            json_encode($al['payload']),
+                        ]
+                    );
+                }
+            }
+        } catch (Throwable) {
+            // Non-fatal if auto link extraction fails
+        }
 
         Db::run('DELETE FROM pages WHERE flipbook_id = ?', [$flipbookId]);
         foreach ($renderedPages as $pg) {

@@ -220,7 +220,7 @@ CREATE TABLE IF NOT EXISTS hotspots (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   flipbook_id BIGINT UNSIGNED NOT NULL,
   page_number INT NOT NULL,
-  type ENUM('link','video','audio','image') NOT NULL,
+  type VARCHAR(32) NOT NULL DEFAULT 'link',
   x FLOAT NOT NULL, y FLOAT NOT NULL, w FLOAT NOT NULL, h FLOAT NOT NULL,
   payload JSON NOT NULL,
   FOREIGN KEY (flipbook_id) REFERENCES flipbooks(id) ON DELETE CASCADE
@@ -255,7 +255,7 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   flipbook_id BIGINT UNSIGNED NOT NULL,
   visitor_hash CHAR(64) NOT NULL,
   session_id VARCHAR(64) NULL,
-  event_type ENUM('page_view','link_click','video_play','download','share','search') NOT NULL,
+  event_type VARCHAR(32) NOT NULL DEFAULT 'page_view',
   page_number INT UNSIGNED NULL,
   duration_ms INT UNSIGNED NOT NULL DEFAULT 0,
   target_url VARCHAR(500) NULL,

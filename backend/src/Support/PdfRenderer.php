@@ -571,10 +571,13 @@ final class PdfRenderer
         $mainCmd = array_merge($base, ['-sDEVICE=png16m', '-r165', "-sOutputFile={$outDir}/master-%03d.png", $pdfPath]);
         self::runProcess($mainCmd, 'Ghostscript (Standard Pages)', $timeoutSeconds);
 
-        // Level 1: Navigation thumbnail (~350–500px wide, 50 DPI fast preview)
-        if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
-        $thumbCmd = array_merge($base, ['-sDEVICE=jpeg', '-dJPEGQ=82', '-r50', "-sOutputFile={$outDir}/thumbs/page-%03d.jpg", $pdfPath]);
-        self::runProcess($thumbCmd, 'Ghostscript (Thumbnails)', $timeoutSeconds);
+        // Single-Pass Optimization: When PHP GD is loaded, renderMultiResolution() scales both .jpg and .webp
+        // thumbnails directly from the in-memory 165 DPI PNG master, eliminating a redundant second full-PDF Ghostscript pass.
+        if (!extension_loaded('gd') || !function_exists('imagescale')) {
+            if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
+            $thumbCmd = array_merge($base, ['-sDEVICE=jpeg', '-dJPEGQ=82', '-r50', "-sOutputFile={$outDir}/thumbs/page-%03d.jpg", $pdfPath]);
+            self::runProcess($thumbCmd, 'Ghostscript (Thumbnails)', $timeoutSeconds);
+        }
 
         $files = glob("{$outDir}/master-*.png") ?: glob("{$outDir}/page-*.jpg") ?: [];
         natsort($files);
@@ -664,18 +667,20 @@ final class PdfRenderer
         if ($report) $report(20, 'Rendering standard resolution pages (165 DPI lossless PNG master)');
         self::runProcess([$ppm, '-png', '-r', '165', '-l', (string) $maxPages, $pdfPath, "{$outDir}/master"], 'Poppler (Standard Pages)', $timeoutSeconds);
 
-        // Level 1: Navigation thumbnails (~350–500px wide, 50 DPI)
-        if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
-        self::runProcess([$ppm, '-jpeg', '-r', '50', '-l', (string) $maxPages, $pdfPath, "{$outDir}/thumbs/pg"], 'Poppler (Thumbnails)', $timeoutSeconds);
+        // Single-Pass Optimization: Skip redundant second Poppler pass when PHP GD scales thumbnails in memory
+        if (!extension_loaded('gd') || !function_exists('imagescale')) {
+            if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
+            self::runProcess([$ppm, '-jpeg', '-r', '50', '-l', (string) $maxPages, $pdfPath, "{$outDir}/thumbs/pg"], 'Poppler (Thumbnails)', $timeoutSeconds);
 
-        // Normalize thumbnail filenames
-        $thumbList = glob("{$outDir}/thumbs/pg-*.jpg") ?: [];
-        if ($thumbList) {
-            natsort($thumbList);
-            foreach (array_values($thumbList) as $i => $src) {
-                $target = sprintf('%s/thumbs/page-%03d.jpg', $outDir, $i + 1);
-                if ($src !== $target) {
-                    @rename($src, $target);
+            // Normalize thumbnail filenames
+            $thumbList = glob("{$outDir}/thumbs/pg-*.jpg") ?: [];
+            if ($thumbList) {
+                natsort($thumbList);
+                foreach (array_values($thumbList) as $i => $src) {
+                    $target = sprintf('%s/thumbs/page-%03d.jpg', $outDir, $i + 1);
+                    if ($src !== $target) {
+                        @rename($src, $target);
+                    }
                 }
             }
         }
@@ -695,6 +700,209 @@ final class PdfRenderer
         $files = glob("{$outDir}/master-*.png") ?: glob("{$outDir}/page-*.jpg") ?: [];
         natsort($files);
         return array_values($files);
+    }
+
+    /**
+     * Instant Page-1 Cover Renderer (< 1 second).
+     * Rasterizes only Page 1 immediately upon job start so the publisher Dashboard card
+     * displays the live cover thumbnail at ~8% conversion progress while pages 2..N render.
+     *
+     * @return array{page_number:int, standard:string, webp:?string, thumb:string, width:int, height:int}|null
+     */
+    public static function renderSinglePagePreview(string $pdfPath, string $outDir, int $pageNumber = 1): ?array
+    {
+        if (!file_exists($pdfPath) || $pageNumber < 1) {
+            return null;
+        }
+
+        Storage::ensureDir($outDir);
+        Storage::ensureDir("{$outDir}/thumbs");
+        Storage::ensureDir("{$outDir}/high");
+
+        $baseName = sprintf('page-%03d', $pageNumber);
+        $masterPng = sprintf('%s/master-%03d.png', $outDir, $pageNumber);
+        $stdJpg = "{$outDir}/{$baseName}.jpg";
+        $webpFile = "{$outDir}/{$baseName}.webp";
+        $thumbJpg = "{$outDir}/thumbs/{$baseName}.jpg";
+        $thumbWebp = "{$outDir}/thumbs/{$baseName}.webp";
+
+        try {
+            $gs = self::getGhostscriptBinary();
+            $ppm = self::getPdftoppmBinary();
+
+            if ($gs !== null) {
+                self::runProcess(
+                    [
+                        $gs,
+                        '-q',
+                        '-dNOPAUSE',
+                        '-dBATCH',
+                        '-dSAFER',
+                        '-sDEVICE=png16m',
+                        '-dTextAlphaBits=4',
+                        '-dGraphicsAlphaBits=4',
+                        "-dFirstPage={$pageNumber}",
+                        "-dLastPage={$pageNumber}",
+                        '-r165',
+                        "-sOutputFile={$masterPng}",
+                        $pdfPath,
+                    ],
+                    'Ghostscript (Instant Cover Preview)',
+                    25
+                );
+            } elseif ($ppm !== null) {
+                $tmpPrefix = "{$outDir}/cov_tmp";
+                self::runProcess(
+                    [$ppm, '-png', '-f', (string) $pageNumber, '-l', (string) $pageNumber, '-r', '165', $pdfPath, $tmpPrefix],
+                    'Poppler (Instant Cover Preview)',
+                    25
+                );
+                $matches = glob("{$tmpPrefix}*.png") ?: [];
+                if (!empty($matches)) {
+                    @rename($matches[0], $masterPng);
+                }
+            }
+
+            if (!file_exists($masterPng)) {
+                return null;
+            }
+
+            $dims = @getimagesize($masterPng);
+            $w = $dims ? (int) $dims[0] : 1400;
+            $h = $dims ? (int) $dims[1] : 1900;
+
+            if (extension_loaded('gd') && function_exists('imagecreatefrompng')) {
+                $im = @imagecreatefrompng($masterPng);
+                if ($im !== false) {
+                    @imagejpeg($im, $stdJpg, 90);
+                    if (function_exists('imagewebp')) {
+                        @imagewebp($im, $webpFile, 92);
+                    }
+                    $thumbW = 420;
+                    $thumbH = max(1, (int) round($h * ($thumbW / max(1, $w))));
+                    $thumbIm = imagescale($im, $thumbW, $thumbH);
+                    if ($thumbIm !== false) {
+                        @imagejpeg($thumbIm, $thumbJpg, 82);
+                        if (function_exists('imagewebp')) {
+                            @imagewebp($thumbIm, $thumbWebp, 80);
+                        }
+                        imagedestroy($thumbIm);
+                    }
+                    imagedestroy($im);
+                }
+            }
+
+            if (!file_exists($stdJpg)) {
+                return null;
+            }
+
+            return [
+                'page_number' => $pageNumber,
+                'standard' => $stdJpg,
+                'webp' => file_exists($webpFile) ? $webpFile : null,
+                'thumb' => file_exists($thumbJpg) ? $thumbJpg : $stdJpg,
+                'width' => $w,
+                'height' => $h,
+            ];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Extract embedded PDF hyperlink annotations (/Subtype /Link with /URI + /Rect)
+     * and convert PDF bottom-left point coordinates into top-left CSS percentages (0..100%).
+     *
+     * @return array<int, array{page_number:int, type:string, x:float, y:float, w:float, h:float, payload:array<string,mixed>}>
+     */
+    public static function extractPdfLinks(string $pdfPath, int $pageCount): array
+    {
+        if (!file_exists($pdfPath) || $pageCount <= 0) {
+            return [];
+        }
+        $size = @filesize($pdfPath) ?: 0;
+        if ($size <= 0 || $size > 40 * 1024 * 1024) {
+            return [];
+        }
+
+        $raw = @file_get_contents($pdfPath);
+        if (!$raw || !str_contains($raw, '/URI')) {
+            return [];
+        }
+
+        // Detect default MediaBox dimensions (default US Letter 612 x 792 pt)
+        $pageW = 612.0;
+        $pageH = 792.0;
+        if (preg_match('/\/MediaBox\s*\[\s*([0-9.\-]+)\s+([0-9.\-]+)\s+([0-9.\-]+)\s+([0-9.\-]+)\s*\]/', $raw, $mb)) {
+            $wPt = abs((float) $mb[3] - (float) $mb[1]);
+            $hPt = abs((float) $mb[4] - (float) $mb[2]);
+            if ($wPt > 50 && $hPt > 50) {
+                $pageW = $wPt;
+                $pageH = $hPt;
+            }
+        }
+
+        // Match PDF Link annotation dictionaries containing both /Rect [...] and /URI (...)
+        $extracted = [];
+        $seen = [];
+        $pattern = '/<<(?:(?!>>).){0,1200}?\/Subtype\s*\/Link(?:(?!>>).){0,1200}?>>/s';
+        if (preg_match_all($pattern, $raw, $blocks)) {
+            foreach ($blocks[0] as $idx => $block) {
+                if (!preg_match('/\/Rect\s*\[\s*([0-9.\-]+)\s+([0-9.\-]+)\s+([0-9.\-]+)\s+([0-9.\-]+)\s*\]/', $block, $rm)) {
+                    continue;
+                }
+                if (!preg_match('/\/URI\s*\(([^\)\\\\]*(?:\\\\.[^\)\\\\]*)*)\)/', $block, $um)) {
+                    continue;
+                }
+                $uri = trim(stripcslashes($um[1]));
+                if ($uri === '' || (!str_starts_with($uri, 'http://') && !str_starts_with($uri, 'https://') && !str_starts_with($uri, 'mailto:'))) {
+                    continue;
+                }
+
+                $x1 = min((float) $rm[1], (float) $rm[3]);
+                $y1 = min((float) $rm[2], (float) $rm[4]);
+                $x2 = max((float) $rm[1], (float) $rm[3]);
+                $y2 = max((float) $rm[2], (float) $rm[4]);
+
+                $xPct = max(0.0, min(96.0, round(($x1 / $pageW) * 100, 1)));
+                // PDF Y-origin is bottom-left; flip to top-left CSS percentage
+                $yPct = max(0.0, min(96.0, round((1.0 - ($y2 / $pageH)) * 100, 1)));
+                $wPct = max(3.0, min(100.0 - $xPct, round((($x2 - $x1) / $pageW) * 100, 1)));
+                $hPct = max(2.5, min(100.0 - $yPct, round((($y2 - $y1) / $pageH) * 100, 1)));
+
+                $estimatedPage = min($pageCount, max(1, (int) ceil((($idx + 1) / max(1, count($blocks[0]))) * $pageCount)));
+                $dedupeKey = "{$estimatedPage}:{$uri}:{$xPct}:{$yPct}";
+                if (isset($seen[$dedupeKey])) {
+                    continue;
+                }
+                $seen[$dedupeKey] = true;
+
+                $hostLabel = parse_url($uri, PHP_URL_HOST) ?: 'Open Link';
+                $isVideo = (bool) preg_match('/(youtube\.com|youtu\.be|vimeo\.com|\.mp4$)/i', $uri);
+                $type = $isVideo ? 'video' : 'link';
+
+                $extracted[] = [
+                    'page_number' => $estimatedPage,
+                    'type' => $type,
+                    'x' => $xPct,
+                    'y' => $yPct,
+                    'w' => $wPct,
+                    'h' => $hPct,
+                    'payload' => [
+                        'title' => $isVideo ? 'Watch Video' : $hostLabel,
+                        'url' => $uri,
+                        'subType' => $type,
+                        'autoExtracted' => true,
+                    ],
+                ];
+
+                if (count($extracted) >= 120) {
+                    break;
+                }
+            }
+        }
+
+        return $extracted;
     }
 
     /**
