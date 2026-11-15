@@ -48,6 +48,15 @@ export interface ViewerHotspot {
 
 export type ViewerSettings = FlipbookSettings;
 
+export interface PageToastData {
+  type: 'first' | 'last' | 'info';
+  title: string;
+  message: string;
+  badge?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
 interface ViewerProps {
   pages: PageInfo[];
   title?: string;
@@ -150,7 +159,7 @@ export default function FlipbookViewer({
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
-  const [pageToast, setPageToast] = useState<string | null>(null);
+  const [pageToast, setPageToast] = useState<PageToastData | null>(null);
 
   // Favicon customization (Image 1)
   useEffect(() => {
@@ -174,13 +183,18 @@ export default function FlipbookViewer({
 
   // First / Last page prompt toast
   const toastTimerRef = useRef<any>(null);
-  const showToast = useCallback((msg: string) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setPageToast(msg);
-    toastTimerRef.current = setTimeout(() => {
-      setPageToast(null);
-    }, 2800);
-  }, []);
+  const gotoRef = useRef<(i: number) => void>(() => {});
+  const showToast = useCallback(
+    (data: PageToastData) => {
+      if (settings.firstLastPagePrompt === false) return;
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      setPageToast(data);
+      toastTimerRef.current = setTimeout(() => {
+        setPageToast(null);
+      }, 3800);
+    },
+    [settings.firstLastPagePrompt]
+  );
 
   useEffect(() => {
     return () => {
@@ -1974,10 +1988,24 @@ export default function FlipbookViewer({
 
       // Prompt message when arriving at last page or first page
       if (isInitializedRef.current && isActualPageChange) {
-        if (pageIdx >= pages.length - 1) {
-          showToast('This is the last page.');
+        const o = pf.getOrientation();
+        const isEnd = pageIdx >= pages.length - 1 || (o === 'landscape' && pageIdx + 2 >= pages.length);
+        if (isEnd) {
+          showToast({
+            type: 'last',
+            badge: 'Final Page',
+            title: 'End of Publication',
+            message: "You have reached the last page of this flipbook.",
+            actionLabel: 'Read from start ↺',
+            onAction: () => gotoRef.current(0),
+          });
         } else if (pageIdx === 0) {
-          showToast('This is the first page.');
+          showToast({
+            type: 'first',
+            badge: 'First Page',
+            title: 'Front Cover',
+            message: 'You are viewing the beginning of this publication.',
+          });
         }
       }
 
@@ -2134,10 +2162,25 @@ export default function FlipbookViewer({
       }
       setCurrent(target);
       setResumedBanner(null);
-      if (target >= pages.length - 1 && isInitializedRef.current) {
-        showToast('This is the last page.');
+      const isEnd =
+        target >= pages.length - 1 ||
+        (mode === 'landscape' && readingMode === 'flip' && target + 2 >= pages.length);
+      if (isEnd && isInitializedRef.current) {
+        showToast({
+          type: 'last',
+          badge: 'Final Page',
+          title: 'End of Publication',
+          message: "You have reached the last page of this flipbook.",
+          actionLabel: 'Read from start ↺',
+          onAction: () => gotoRef.current(0),
+        });
       } else if (target === 0 && isInitializedRef.current) {
-        showToast('This is the first page.');
+        showToast({
+          type: 'first',
+          badge: 'First Page',
+          title: 'Front Cover',
+          message: 'You are viewing the beginning of this publication.',
+        });
       }
       if (readingMode === 'flip' && flip.current) {
         try {
@@ -2151,13 +2194,24 @@ export default function FlipbookViewer({
         el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     },
-    [pages.length, readingMode, showToast, updateBookPageStacks]
+    [pages.length, readingMode, mode, showToast, updateBookPageStacks]
   );
+  gotoRef.current = goto;
 
   const next = useCallback(() => {
     unlockAudio();
-    if (current >= pages.length - 1) {
-      showToast('This is the last page.');
+    const isAtEnd =
+      current >= pages.length - 1 ||
+      (readingMode === 'flip' && mode === 'landscape' && current + 2 >= pages.length);
+    if (isAtEnd) {
+      showToast({
+        type: 'last',
+        badge: 'Last Page',
+        title: 'Publication Complete',
+        message: 'This is the final page. Click below to start over from the beginning.',
+        actionLabel: 'Read from start ↺',
+        onAction: () => goto(0),
+      });
       return;
     }
     if (current === 0) {
@@ -2182,12 +2236,17 @@ export default function FlipbookViewer({
     } else {
       goto(current + 1);
     }
-  }, [readingMode, goto, current, pages.length, showToast]);
+  }, [readingMode, mode, goto, current, pages.length, showToast]);
 
   const prev = useCallback(() => {
     unlockAudio();
     if (current === 0) {
-      showToast('This is the first page.');
+      showToast({
+        type: 'first',
+        badge: 'First Page',
+        title: 'Front Cover Reached',
+        message: 'You are already at the beginning of this publication.',
+      });
       return;
     }
     if (current <= 2) {
@@ -2959,35 +3018,40 @@ export default function FlipbookViewer({
             );
           })()}
 
-          {settings.prevNextShortcut !== false && (
-            <>
-              <button
-                className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
-                onClick={prev}
-                title="Previous Page (←)"
-                disabled={current === 0}
-                style={{
-                  color: settings.prevNextColor,
-                  backgroundColor: settings.prevNextBg,
-                }}
-              >
-                ‹
-              </button>
+          {settings.prevNextShortcut !== false && (() => {
+            const isAtEnd =
+              current >= total - 1 ||
+              (readingMode === 'flip' && mode === 'landscape' && current + 2 >= total);
+            return (
+              <>
+                <button
+                  type="button"
+                  className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
+                  onClick={prev}
+                  title={current === 0 ? 'First Page Reached' : 'Previous Page (←)'}
+                  style={{
+                    color: settings.prevNextColor,
+                    backgroundColor: settings.prevNextBg,
+                  }}
+                >
+                  ‹
+                </button>
 
-              <button
-                className={`hz-side-arrow right ${current >= total - 1 ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
-                onClick={next}
-                title="Next Page (→)"
-                disabled={current >= total - 1}
-                style={{
-                  color: settings.prevNextColor,
-                  backgroundColor: settings.prevNextBg,
-                }}
-              >
-                ›
-              </button>
-            </>
-          )}
+                <button
+                  type="button"
+                  className={`hz-side-arrow right ${isAtEnd ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
+                  onClick={next}
+                  title={isAtEnd ? 'Last Page Reached' : 'Next Page (→)'}
+                  style={{
+                    color: settings.prevNextColor,
+                    backgroundColor: settings.prevNextBg,
+                  }}
+                >
+                  ›
+                </button>
+              </>
+            );
+          })()}
 
           {!ready && (
             <div
@@ -3418,10 +3482,10 @@ export default function FlipbookViewer({
             }}
           >
             <button
-              className="hz-pill-btn"
+              type="button"
+              className={`hz-pill-btn ${current === 0 ? 'opacity-40' : ''}`}
               onClick={prev}
-              disabled={current === 0}
-              title="Previous Page (←)"
+              title={current === 0 ? 'First Page Reached' : 'Previous Page (←)'}
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               ‹
@@ -3433,10 +3497,10 @@ export default function FlipbookViewer({
               {pageDisplay}
             </span>
             <button
-              className="hz-pill-btn"
+              type="button"
+              className={`hz-pill-btn ${current >= total - 1 || (readingMode === 'flip' && mode === 'landscape' && current + 2 >= total) ? 'opacity-40' : ''}`}
               onClick={next}
-              disabled={current >= total - 1}
-              title="Next Page (→)"
+              title={current >= total - 1 || (readingMode === 'flip' && mode === 'landscape' && current + 2 >= total) ? 'Last Page Reached' : 'Next Page (→)'}
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
               ›
@@ -3527,12 +3591,13 @@ export default function FlipbookViewer({
                   +
                 </button>
                 <button
+                  type="button"
                   className="hz-pill-btn hz-zoom-label"
                   onClick={() => handleZoomChange(1)}
-                  title="Reset zoom to 100% (0)"
-                  style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+                  title="Reset zoom to 100% (Press 0)"
+                  aria-label="Reset zoom to 100%"
                 >
-                  {Math.round(zoom * 100)}%{zoom > 1.25 ? ' HD' : ''}
+                  {zoom > 1 ? `↺ ${Math.round(zoom * 100)}%` : '100%'}
                 </button>
               </div>
             )}
@@ -4038,28 +4103,61 @@ export default function FlipbookViewer({
         </div>
       )}
 
-      {/* First / Last Page Toast Popup */}
+      {/* First / Last Page Professional Notification Card */}
       {pageToast && (
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-16 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-400/50 bg-slate-950/95 px-5 py-2.5 text-xs font-semibold text-white shadow-2xl backdrop-blur-md transition-all animate-fade-in"
-          style={{
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(245, 197, 66, 0.25)',
-          }}
+          className="hz-page-toast-wrapper"
         >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20 text-amber-400 text-xs">
-            📖
-          </span>
-          <span className="tracking-wide text-amber-200">{pageToast}</span>
-          <button
-            type="button"
-            onClick={() => setPageToast(null)}
-            className="ml-1 rounded-full p-0.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Close"
-          >
-            ✕
-          </button>
+          <div className={`hz-page-toast-card hz-toast-${pageToast.type}`}>
+            <div className="hz-toast-icon-wrap">
+              {pageToast.type === 'first' ? (
+                <svg className="hz-toast-icon text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                </svg>
+              ) : (
+                <svg className="hz-toast-icon text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
+                </svg>
+              )}
+            </div>
+
+            <div className="hz-toast-body">
+              <div className="hz-toast-header">
+                {pageToast.badge && (
+                  <span className={`hz-toast-badge hz-badge-${pageToast.type}`}>{pageToast.badge}</span>
+                )}
+                <span className="hz-toast-title">{pageToast.title}</span>
+              </div>
+              <p className="hz-toast-msg">{pageToast.message}</p>
+            </div>
+
+            {pageToast.actionLabel && pageToast.onAction && (
+              <button
+                type="button"
+                className="hz-toast-action-btn"
+                onClick={() => {
+                  pageToast.onAction?.();
+                  setPageToast(null);
+                }}
+              >
+                {pageToast.actionLabel}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setPageToast(null)}
+              className="hz-toast-close-btn"
+              title="Close"
+              aria-label="Close notification"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
     </div>

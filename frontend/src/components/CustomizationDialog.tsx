@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Flipbook } from '../pages/Dashboard';
@@ -606,8 +607,10 @@ export default function CustomizationDialog({
     }
   };
 
-  return (
-    <div className="modal" onClick={onClose}>
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="modal hz-studio-modal-overlay" onClick={onClose}>
       <div className="flipex-studio-modal" onClick={(e) => e.stopPropagation()}>
         {/* ====================================================================
             LEFT SLATE SIDEBAR (MATCHING FLIPHTML5 SCREENSHOTS 1, 6, 7)
@@ -2222,6 +2225,7 @@ export default function CustomizationDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
