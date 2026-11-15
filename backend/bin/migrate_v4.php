@@ -174,8 +174,8 @@ $tenants = Db::all('SELECT * FROM tenants');
 if (empty($tenants)) {
     $proPlan = Db::one("SELECT id, price FROM plans WHERE name = 'Pro' OR id = 2 LIMIT 1") ?: ['id' => 1, 'price' => 49.00];
     $tid = Db::insert(
-        "INSERT INTO tenants (name, slug, plan_id, max_flipbooks, max_storage_mb, is_active, billing_name, billing_email, billing_address, tax_id, payment_method, payment_status, billing_cycle, amount, currency, last_payment_date, next_billing_date, payment_reference, auto_renew, grace_period_days, tax_rate)
-         VALUES ('Nuvis Technologies Pte Ltd', 'nuvis-tech', ?, 100, 5120, 1, 'Nuvis Technologies Pte Ltd', 'billing@nuvistechnologies.com.fj', 'Suva, Fiji', 'TIN-50-12345-0-0', 'bank_transfer_fiji', 'paid', 'monthly', ?, 'FJD', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'BSP-TXN-202611', 1, 7, 15.00)",
+        "INSERT INTO tenants (uuid, name, slug, plan_id, max_flipbooks, max_storage_mb, is_active, billing_name, billing_email, billing_address, tax_id, payment_method, payment_status, billing_cycle, amount, currency, last_payment_date, next_billing_date, payment_reference, auto_renew, grace_period_days, tax_rate)
+         VALUES (UUID(), 'Nuvis Technologies Pte Ltd', 'nuvis-tech', ?, 100, 5120, 1, 'Nuvis Technologies Pte Ltd', 'billing@nuvistechnologies.com.fj', 'Suva, Fiji', 'TIN-50-12345-0-0', 'bank_transfer_fiji', 'paid', 'monthly', ?, 'FJD', CURDATE(), DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'BSP-TXN-202611', 1, 7, 15.00)",
         [$proPlan['id'], $proPlan['price']]
     );
     Db::run('UPDATE users SET tenant_id = ?, tenant_role = "owner" WHERE tenant_id IS NULL', [$tid]);
