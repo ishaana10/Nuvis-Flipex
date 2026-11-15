@@ -409,6 +409,7 @@ export default function FlipbookViewer({
       if (idx < 0 || idx >= pages.length) return;
       const pg = pages[idx];
       if (!pg) return;
+      const bestUrl = pg.imageHigh || pg.image;
 
       if (!preloadedSet.current.has(idx)) {
         preloadedSet.current.add(idx);
@@ -417,7 +418,10 @@ export default function FlipbookViewer({
         if (priority === 'high') {
           (img as any).fetchPriority = 'high';
         }
-        img.src = pg.image;
+        img.onload = () => {
+          setHdLoadedPages((prev) => (prev[pg.n] === bestUrl ? prev : { ...prev, [pg.n]: bestUrl }));
+        };
+        img.src = bestUrl;
       }
 
       try {
@@ -427,7 +431,7 @@ export default function FlipbookViewer({
         if (
           pageObj &&
           pageObj.image &&
-          (pageObj.image.src.startsWith('data:image/svg+xml') || !pageObj.image.src.endsWith(pg.image))
+          (pageObj.image.src.startsWith('data:image/svg+xml') || !pageObj.image.src.endsWith(bestUrl))
         ) {
           const stdImg = new Image();
           stdImg.decoding = 'async';
@@ -438,9 +442,10 @@ export default function FlipbookViewer({
             stdImg.dataset.nvLoaded = '1';
             pageObj.image = stdImg;
             pageObj.isLoad = true;
+            setHdLoadedPages((prev) => (prev[pg.n] === bestUrl ? prev : { ...prev, [pg.n]: bestUrl }));
             (pf as any)?.getRender?.()?.update?.();
           };
-          stdImg.src = pg.image;
+          stdImg.src = bestUrl;
         }
       } catch {
         // Non-fatal
@@ -493,9 +498,9 @@ export default function FlipbookViewer({
     };
   }, [current, pages]);
 
-  // On-Demand High-Resolution Zoom Loader (loads 180 DPI assets only when zoom > 1.25)
+  // High-Resolution Spread Loader (loads 180-200 DPI assets for the active spread at 1x Full Mode as well as Zoom)
   useEffect(() => {
-    if (zoom <= 1.25 || !pages.length) return;
+    if (!pages.length) return;
     const visibleIndices = [current];
     if (mode === 'landscape' && current > 0 && current + 1 < pages.length) {
       visibleIndices.push(current + 1);
@@ -503,11 +508,25 @@ export default function FlipbookViewer({
     visibleIndices.forEach((idx) => {
       const pg = pages[idx];
       const hdUrl = pg?.imageHigh || pg?.image;
-      if (!pg || !hdUrl || hdLoadedPages[pg.n]) return;
+      if (!pg || !hdUrl || hdLoadedPages[pg.n] === hdUrl) return;
       const img = new Image();
       img.decoding = 'async';
+      (img as any).fetchPriority = 'high';
       img.onload = () => {
         setHdLoadedPages((prev) => ({ ...prev, [pg.n]: hdUrl }));
+        try {
+          const pf = flip.current;
+          const pageObjs = (pf as any)?.getPageCollection?.()?.getPages?.();
+          const pageObj = pageObjs?.[idx];
+          if (pageObj) {
+            img.dataset.nvLoaded = '1';
+            pageObj.image = img;
+            pageObj.isLoad = true;
+            (pf as any)?.getRender?.()?.drawFrame?.();
+          }
+        } catch {
+          // ignore
+        }
       };
       img.src = hdUrl;
     });
@@ -936,7 +955,9 @@ export default function FlipbookViewer({
     // that is swapped for the real image on demand (see syncImageWindow on 'flip').
     const readerProfile = getReaderProfile();
     const initialWindow = pagesToLoad(startPageIdx, pages.length, readerProfile);
-    const initialUrls = pages.map((p, idx) => (initialWindow.has(idx) ? p.image : BLANK_PAGE_SVG));
+    const initialUrls = pages.map((p, idx) =>
+      initialWindow.has(idx) ? (p.imageHigh || p.image) : BLANK_PAGE_SVG
+    );
 
     const syncImageWindow = (centerIdx: number) => {
       const stPages = (pf as any).getPageCollection?.()?.getPages?.() as any[] | undefined;
@@ -946,6 +967,7 @@ export default function FlipbookViewer({
         const img: HTMLImageElement | undefined = sp?.image;
         if (!img || !pages[idx]) return;
         if (wanted.has(idx)) {
+          const targetSrc = pages[idx].imageHigh || pages[idx].image;
           if (img.dataset.nvLoaded !== '1' && img.dataset.nvLoading !== '1') {
             img.dataset.nvLoading = '1';
             img.onload = () => {
@@ -954,7 +976,7 @@ export default function FlipbookViewer({
               sp.isLoad = true;
               try { pf.update(); } catch { /* ignore */ }
             };
-            img.src = pages[idx].image;
+            img.src = targetSrc;
           }
         } else if (img.dataset.nvLoaded === '1' && idx !== 0 && Math.abs(idx - centerIdx) > readerProfile.ahead + readerProfile.behind + 4) {
           // Release decoded bitmaps far from the reader on constrained devices / large publications (never release cover).
@@ -1044,6 +1066,7 @@ export default function FlipbookViewer({
       ui?.resizeCanvas?.();
       origPfUpdate();
       ui?.resizeCanvas?.();
+      render?.drawFrame?.();
     };
 
     const limitPointToCircle = (
@@ -1870,6 +1893,7 @@ export default function FlipbookViewer({
             }
           }
           this.isUserMove = true;
+          setIsFlipping(true);
           this.flipController.fold(pos);
         }
       }
@@ -2117,9 +2141,10 @@ export default function FlipbookViewer({
       }
       if (readingMode === 'flip' && flip.current) {
         try {
+          setIsFlipping(true);
           flip.current.flip(target);
         } catch {
-          // fallback
+          setIsFlipping(false);
         }
       } else if (readingMode === 'scroll' || readingMode === 'reader') {
         const el = document.getElementById(`flipex-scroll-page-${target + 1}`);
@@ -2152,6 +2177,7 @@ export default function FlipbookViewer({
     }
     if (readingMode === 'flip' && flip.current) {
       userTriggeredFlipRef.current = true;
+      setIsFlipping(true);
       flip.current.flipNext();
     } else {
       goto(current + 1);
@@ -2173,6 +2199,7 @@ export default function FlipbookViewer({
     }
     if (readingMode === 'flip' && flip.current) {
       userTriggeredFlipRef.current = true;
+      setIsFlipping(true);
       flip.current.flipPrev();
     } else {
       goto(current - 1);
@@ -2445,15 +2472,22 @@ export default function FlipbookViewer({
       <div
         className="hz-header"
         style={{
-          background: settings.toolbarColor
-            ? (settings.toolbarOpacity !== undefined
-                ? `${settings.toolbarColor}${Math.round(Math.min(1, Math.max(0, settings.toolbarOpacity)) * 255).toString(16).padStart(2, '0')}`
-                : settings.toolbarColor)
-            : undefined,
           color: settings.toolbarFontColor,
         }}
       >
-        <div className="hz-title-wrap" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div
+          className="hz-title-wrap"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: settings.toolbarColor
+              ? (settings.toolbarOpacity !== undefined
+                  ? `${settings.toolbarColor}${Math.round(Math.min(1, Math.max(0, settings.toolbarOpacity)) * 255).toString(16).padStart(2, '0')}`
+                  : settings.toolbarColor)
+              : undefined,
+          }}
+        >
           {settings.customLogoUrl ? (
             settings.openLogoIn !== 'none' && settings.logoTargetUrl ? (
               <a
@@ -2990,20 +3024,27 @@ export default function FlipbookViewer({
             //   so we shift right by +pageWidth/2 to place the single back cover dead-center!
             // - Only shift when `current` actually changes (not on hover/fold_corner), preventing any hover jitter!
             const pageW = fitWidth > 0 ? (mode === 'landscape' ? fitWidth / 2 : fitWidth) : (bookBounds?.pageWidth || 0);
+            const spreads: number[][] = (flip.current as any)?.getPageCollection?.()?.getSpread?.() || [];
+            const hasSingleBackCover =
+              spreads.length > 0
+                ? spreads[spreads.length - 1]?.length === 1
+                : total % 2 === 0;
+            const isSingleBackCoverActive =
+              mode === 'landscape' && total > 1 && current >= total - 1 && hasSingleBackCover;
+
             let coverCenterOffsetX = 0;
             if (mode === 'landscape' && pageW > 0) {
-              const spreads: number[][] = (flip.current as any)?.getPageCollection?.()?.getSpread?.() || [];
-              const hasSingleBackCover =
-                spreads.length > 0
-                  ? spreads[spreads.length - 1]?.length === 1
-                  : total % 2 === 0;
-
               if ((current === 0 && !openingFromCover) || flippingToCover) {
                 coverCenterOffsetX = -Math.round(pageW / 2);
               } else if (total > 1 && (current >= total - 1 || flippingToBackCover) && hasSingleBackCover) {
                 coverCenterOffsetX = Math.round(pageW / 2);
               }
             }
+
+            const crispImgStyle: React.CSSProperties = {
+              imageRendering: zoom > 1.35 ? '-webkit-optimize-contrast' : 'auto',
+              filter: settings.sharpenPages !== false ? 'contrast(1.045)' : undefined,
+            };
 
             return (
               <div
@@ -3027,8 +3068,8 @@ export default function FlipbookViewer({
                   }}
                 />
 
-                {/* Razor-Sharp Native Image Overlay (Active only when zoomed > 1x; at 1x the Retina-scaled <canvas> renders directly with zero overlay interference) */}
-                {ready && zoom > 1 && !isFlipping && (
+                {/* Razor-Sharp Native Image Overlay (Active in static reading state at 1x Full Mode and when zoomed in; yields to 3D curling canvas during page flips) */}
+                {ready && !isFlipping && (
                   <div
                     className="hz-crisp-page-overlay pointer-events-none absolute z-10 overflow-hidden"
                     style={{
@@ -3041,7 +3082,7 @@ export default function FlipbookViewer({
                       width: `${Math.round(
                         mode === 'portrait'
                           ? (fitWidth > 0 ? fitWidth : (bookBounds?.pageWidth || 0))
-                          : mode === 'landscape' && (current === 0 || (current >= total - 1 && total % 2 === 0))
+                          : mode === 'landscape' && (current === 0 || isSingleBackCoverActive)
                           ? (fitWidth > 0 ? fitWidth / 2 : (bookBounds?.pageWidth || 0))
                           : (fitWidth > 0 ? fitWidth : (bookBounds?.width || 0))
                       )}px`,
@@ -3050,17 +3091,15 @@ export default function FlipbookViewer({
                       opacity: 1,
                     }}
                   >
-                    {mode === 'portrait' || current === 0 || (current >= total - 1 && total % 2 === 0) ? (
+                    {mode === 'portrait' || current === 0 || isSingleBackCoverActive ? (
                       pages[current] ? (
-                        <div className="relative h-full w-full">
+                        <div className="relative h-full w-full bg-white">
                           <img
-                            src={hdLoadedPages[pages[current].n] || pages[current].image}
+                            src={hdLoadedPages[pages[current].n] || pages[current].imageHigh || pages[current].image}
                             alt={`Page ${pages[current].n}`}
-                            className="h-full w-full object-contain select-none"
+                            className="h-full w-full object-fill select-none"
                             draggable={false}
-                            style={{
-                              imageRendering: '-webkit-optimize-contrast',
-                            }}
+                            style={crispImgStyle}
                           />
                           {/* Realistic Magazine Spine Shadow/Crease */}
                           {mode === 'landscape' && current === 0 && (
@@ -3072,7 +3111,7 @@ export default function FlipbookViewer({
                               }}
                             />
                           )}
-                          {mode === 'landscape' && current >= total - 1 && total % 2 === 0 && (
+                          {isSingleBackCoverActive && (
                             <div
                               className="pointer-events-none absolute inset-y-0 right-0 w-5 z-20"
                               style={{
@@ -3085,29 +3124,25 @@ export default function FlipbookViewer({
                       ) : null
                     ) : (
                       <>
-                        <div className="relative h-full w-1/2 overflow-hidden">
+                        <div className="relative h-full w-1/2 overflow-hidden bg-white">
                           {pages[current] && (
                             <img
-                              src={hdLoadedPages[pages[current].n] || pages[current].image}
+                              src={hdLoadedPages[pages[current].n] || pages[current].imageHigh || pages[current].image}
                               alt={`Page ${pages[current].n}`}
-                              className="h-full w-full object-contain select-none"
+                              className="h-full w-full object-fill select-none"
                               draggable={false}
-                              style={{
-                                imageRendering: '-webkit-optimize-contrast',
-                              }}
+                              style={crispImgStyle}
                             />
                           )}
                         </div>
-                        <div className="relative h-full w-1/2 overflow-hidden">
+                        <div className="relative h-full w-1/2 overflow-hidden bg-white">
                           {pages[current + 1] && (
                             <img
-                              src={hdLoadedPages[pages[current + 1].n] || pages[current + 1].image}
+                              src={hdLoadedPages[pages[current + 1].n] || pages[current + 1].imageHigh || pages[current + 1].image}
                               alt={`Page ${pages[current + 1].n}`}
-                              className="h-full w-full object-contain select-none"
+                              className="h-full w-full object-fill select-none"
                               draggable={false}
-                              style={{
-                                imageRendering: '-webkit-optimize-contrast',
-                              }}
+                              style={crispImgStyle}
                             />
                           )}
                         </div>
@@ -3246,7 +3281,7 @@ export default function FlipbookViewer({
                   }}
                 >
                   <img
-                    src={zoom > 1.25 && p.imageHigh ? p.imageHigh : p.image}
+                    src={isVisibleOrNear && p.imageHigh ? p.imageHigh : p.image}
                     alt={`Page ${p.n}`}
                     loading={isVisibleOrNear ? 'eager' : 'lazy'}
                     decoding="async"
