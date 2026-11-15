@@ -686,7 +686,7 @@ export default function HotspotEditor() {
               )}
               <Button
                 size="sm"
-                variant="default"
+                variant="primary"
                 onClick={() => void createHotspot(activeDrawTool)}
                 title="Drop a new hotspot on the page"
               >

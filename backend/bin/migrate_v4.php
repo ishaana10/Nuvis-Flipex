@@ -11,12 +11,14 @@ $pdo = Db::pdo();
 
 echo "Running Nuvis Flipex v4 Enterprise Integrations & Commercial Billing Migration...\n";
 
-function addColumnIfNotExistsV4(\PDO $pdo, string $table, string $column, string $definition): void {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
-    $stmt->execute([$table, $column]);
-    if ((int) $stmt->fetchColumn() === 0) {
-        $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
-        echo "  + Added {$table}.{$column}\n";
+if (!function_exists('addColumnIfNotExistsV4')) {
+    function addColumnIfNotExistsV4(\PDO $pdo, string $table, string $column, string $definition): void {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $stmt->execute([$table, $column]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+            echo "  + Added {$table}.{$column}\n";
+        }
     }
 }
 

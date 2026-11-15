@@ -3863,6 +3863,8 @@ html[data-theme="dark"] .text-slate-500 {
   overflow: hidden;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
   border: 1px solid var(--border-color);
+  position: relative;
+  z-index: 1001;
 }
 
 @media (max-width: 820px) {

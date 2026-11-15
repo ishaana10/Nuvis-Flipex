@@ -58,12 +58,14 @@ CREATE TABLE IF NOT EXISTS flipbook_versions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ");
 
-function addColumnIfNotExists(\PDO $pdo, string $table, string $column, string $definition): void {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
-    $stmt->execute([$table, $column]);
-    if ((int) $stmt->fetchColumn() === 0) {
-        $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
-        echo "  + Added {$table}.{$column}\n";
+if (!function_exists('addColumnIfNotExists')) {
+    function addColumnIfNotExists(\PDO $pdo, string $table, string $column, string $definition): void {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $stmt->execute([$table, $column]);
+        if ((int) $stmt->fetchColumn() === 0) {
+            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+            echo "  + Added {$table}.{$column}\n";
+        }
     }
 }
 
