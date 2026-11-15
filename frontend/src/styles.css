@@ -409,7 +409,7 @@ html[data-theme="dark"] .fb-icon-action {
 .cover { aspect-ratio:3/4; background:#eef; border-radius:8px; display:grid; place-items:center; overflow:hidden; }
 .cover img { width:100%; height:100%; object-fit:contain; }
 .actions { display:flex; gap:10px; flex-wrap:wrap; font-size:14px; }
-.modal { position:fixed; inset:0; background:#0006; display:grid; place-items:center; z-index:10; padding:16px; }
+.modal { position:fixed; inset:0; background:rgba(15, 23, 42, 0.65); backdrop-filter:blur(4px); display:grid; place-items:center; z-index:1000; padding:16px; }
 .modal .card { max-width:480px; display:grid; gap:10px; }
 textarea, select { padding:8px; border:1px solid #d1d5db; border-radius:8px; font:inherit; }
 .viewer { background:#1f2937; min-height:100vh; display:grid; grid-template-rows:1fr auto auto; }
@@ -663,6 +663,8 @@ html.dark .preview-topbar .btn-pub:hover {
 
 .heyzine-viewer {
   position: relative;
+  isolation: isolate;
+  z-index: 1;
   width: 100%;
   height: min(85vh, calc((100vw - 120px) / var(--spread-aspect, 1.545) + 95px));
   min-height: 480px;
@@ -830,8 +832,8 @@ html.dark .preview-topbar .btn-pub:hover {
 }
 
 .hz-crisp-page-overlay {
-  image-rendering: -webkit-optimize-contrast;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transform: translateZ(0);
   backface-visibility: hidden;
   will-change: transform, opacity;
@@ -1075,8 +1077,8 @@ html.dark .preview-topbar .btn-pub:hover {
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
-  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 1px solid rgba(148, 163, 184, 0.3);
+  border-right: 1px solid rgba(148, 163, 184, 0.3);
 }
 
 .hz-zoom-btn {
@@ -1095,16 +1097,17 @@ html.dark .preview-topbar .btn-pub:hover {
   -webkit-appearance: none;
   appearance: none;
   width: 90px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.25);
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   outline: none;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .hz-zoom-slider:hover {
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(100, 116, 139, 0.62);
 }
 
 .hz-zoom-slider::-webkit-slider-thumb {
@@ -1113,9 +1116,10 @@ html.dark .preview-topbar .btn-pub:hover {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #fff;
+  background: #0284c7;
+  border: 2px solid #ffffff;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   transition: transform 0.12s, background-color 0.12s;
 }
 
@@ -1127,11 +1131,11 @@ html.dark .preview-topbar .btn-pub:hover {
 .hz-zoom-slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
-  border: none;
+  border: 2px solid #ffffff;
   border-radius: 50%;
-  background: #fff;
+  background: #0284c7;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   transition: transform 0.12s, background-color 0.12s;
 }
 
@@ -1142,20 +1146,21 @@ html.dark .preview-topbar .btn-pub:hover {
 
 .hz-zoom-label {
   font-size: 11px !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
   min-width: 44px;
   text-align: center;
-  color: #bae6fd !important;
-  background: rgba(2, 132, 199, 0.25) !important;
-  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  color: #ffffff !important;
+  background: #0284c7 !important;
+  border: 1px solid #0369a1 !important;
   border-radius: 10px !important;
-  padding: 2px 6px !important;
+  padding: 2px 7px !important;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
 }
 
 .hz-zoom-label:hover {
-  background: rgba(2, 132, 199, 0.5) !important;
-  color: #fff !important;
+  background: #0369a1 !important;
+  color: #ffffff !important;
 }
 
 /* Slide-up Collapsible Thumbnails Drawer */
@@ -4330,5 +4335,3 @@ html[data-theme="dark"] .flipex-accordion-card.open .flipex-accordion-header {
   color: var(--text-main);
   cursor: pointer;
 }
-
-
