@@ -37,18 +37,23 @@ export function getReaderProfile(): ReaderProfile {
 
   switch (tier) {
     case 'low':
-      return { ahead: 2, behind: 1, maxDpr: 1, tier };
+      return { ahead: 2, behind: 1, maxDpr: 1.5, tier };
     case 'mid':
-      return { ahead: 2, behind: 1, maxDpr: isMobile && mem >= 6 ? 2 : 1.5, tier };
+      return { ahead: 2, behind: 1, maxDpr: isMobile && mem >= 6 ? 2.5 : 2, tier };
     default:
-      return { ahead: 3, behind: 2, maxDpr: 2, tier };
+      return { ahead: 3, behind: 2, maxDpr: 3, tier };
   }
 }
 
-/** Canvas DPR: real device ratio clamped by the adaptive cap (never above 2, never below 1). */
+/**
+ * Canvas DPR: supersampled to at least 2x on desktop ('high' tier) and 1.5x on 'mid' tier
+ * so 1x/1.25x monitors render page textures at full 180-200 DPI sharpness without downscale blur.
+ */
 export function getCanvasDpr(): number {
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-  return Math.min(getReaderProfile().maxDpr, Math.max(1, dpr));
+  const profile = getReaderProfile();
+  const minDpr = profile.tier === 'high' ? 2 : profile.tier === 'mid' ? 1.5 : 1;
+  return Math.min(profile.maxDpr, Math.max(minDpr, dpr));
 }
 
 /**

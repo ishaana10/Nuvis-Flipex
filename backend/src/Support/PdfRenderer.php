@@ -325,14 +325,18 @@ final class PdfRenderer
                     : (function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($stdFile) : false);
 
                 if ($im !== false) {
-                    // Level 2: Generate crisp WebP directly from master (~92 quality for sharp text)
+                    // Level 2 & 3: Generate crisp WebP & High-Res derivatives directly from 200 DPI lossless master
                     if (function_exists('imagewebp')) {
-                        @imagewebp($im, $webpFile, 92);
+                        @imagewebp($im, $webpFile, 93);
+                        @imagewebp($im, $highWebpFile, 95);
                     }
 
-                    // Level 2: Generate standard JPEG fallback if master was PNG
+                    // Level 2 & 3: Generate standard & high-res JPEG fallback if master was PNG
                     if ($isPngMaster || !file_exists($stdJpgFile)) {
-                        @imagejpeg($im, $stdJpgFile, 90);
+                        @imagejpeg($im, $stdJpgFile, 92);
+                    }
+                    if (!file_exists($highFile)) {
+                        @imagejpeg($im, $highFile, 95);
                     }
 
                     // Level 1: Generate missing thumbnail (350–500px wide, target ~420px for rapid grid & preview)
@@ -566,9 +570,9 @@ final class PdfRenderer
             "-dLastPage={$maxPages}",
         ];
 
-        // Level 2: Standard reading (~1,200–1,600px wide, 165 DPI) rendered directly to lossless PNG master
-        if ($report) $report(20, 'Rendering standard resolution pages (165 DPI lossless PNG master)');
-        $mainCmd = array_merge($base, ['-sDEVICE=png16m', '-r165', "-sOutputFile={$outDir}/master-%03d.png", $pdfPath]);
+        // Level 2 & 3: Crisp reading (~1,650–2,200px wide, 200 DPI) rendered directly to lossless PNG master
+        if ($report) $report(20, 'Rendering high-clarity pages (200 DPI lossless PNG master)');
+        $mainCmd = array_merge($base, ['-sDEVICE=png16m', '-r200', "-sOutputFile={$outDir}/master-%03d.png", $pdfPath]);
         self::runProcess($mainCmd, 'Ghostscript (Standard Pages)', $timeoutSeconds);
 
         // Single-Pass Optimization: When PHP GD is loaded, renderMultiResolution() scales both .jpg and .webp
@@ -601,7 +605,7 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/high");
 
         $im = new \Imagick();
-        $im->setResolution(165, 165);
+        $im->setResolution(200, 200);
         $im->readImage($pdfPath);
 
         $total = $im->getNumberImages();
@@ -663,9 +667,9 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/thumbs");
         Storage::ensureDir("{$outDir}/high");
 
-        // Level 2: Standard reading (~1,200–1,600px wide, 165 DPI lossless PNG master)
-        if ($report) $report(20, 'Rendering standard resolution pages (165 DPI lossless PNG master)');
-        self::runProcess([$ppm, '-png', '-r', '165', '-l', (string) $maxPages, $pdfPath, "{$outDir}/master"], 'Poppler (Standard Pages)', $timeoutSeconds);
+        // Level 2 & 3: Crisp reading (~1,650–2,200px wide, 200 DPI lossless PNG master)
+        if ($report) $report(20, 'Rendering high-clarity pages (200 DPI lossless PNG master)');
+        self::runProcess([$ppm, '-png', '-r', '200', '-l', (string) $maxPages, $pdfPath, "{$outDir}/master"], 'Poppler (Standard Pages)', $timeoutSeconds);
 
         // Single-Pass Optimization: Skip redundant second Poppler pass when PHP GD scales thumbnails in memory
         if (!extension_loaded('gd') || !function_exists('imagescale')) {
