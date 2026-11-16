@@ -71,7 +71,7 @@ interface JobQueueItem {
 }
 
 export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 'flipbooks' }) {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const [items, setItems] = useState<Flipbook[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
@@ -419,17 +419,25 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
               </Badge>
             )}
           </Button>
-          <input
-            type="file"
-            accept="application/pdf"
-            multiple
-            hidden
-            ref={input}
-            onChange={(e) => e.target.files?.length && uploadFiles(e.target.files)}
-          />
-          <button disabled={uploading} onClick={() => input.current?.click()} className="btn-primary">
-            {uploading ? 'Uploading PDF…' : '+ Upload PDF'}
-          </button>
+          {can('flipbook.create') ? (
+            <>
+              <input
+                type="file"
+                accept="application/pdf"
+                multiple
+                hidden
+                ref={input}
+                onChange={(e) => e.target.files?.length && uploadFiles(e.target.files)}
+              />
+              <button disabled={uploading} onClick={() => input.current?.click()} className="btn-primary">
+                {uploading ? 'Uploading PDF…' : '+ Upload PDF'}
+              </button>
+            </>
+          ) : (
+            <span className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-500">
+              👁️ View Only Mode
+            </span>
+          )}
         </div>
       </div>
 
@@ -836,29 +844,31 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
 
                 {/* Studio Tools Grid */}
                 <div className="fb-tools-grid">
-                  {f.status === 'ready' && (
+                  {f.status === 'ready' && can('hotspot.manage') && (
                     <Link to={`/dashboard/editor/${f.id}`} className="fb-tool-btn">
                       <span>🔗</span> Hotspots
                     </Link>
                   )}
-                  {f.status === 'ready' && (
+                  {f.status === 'ready' && can('flipbook.edit') && (
                     <button type="button" className="fb-tool-btn" onClick={() => setCustomize(f)}>
                       <span>🎨</span> Customize
                     </button>
                   )}
-                  {f.status === 'ready' && (
+                  {f.status === 'ready' && can('analytics.view') && (
                     <Link to={`/dashboard/analytics/${f.id}`} className="fb-tool-btn">
                       <span>📊</span> Analytics
                     </Link>
                   )}
-                  <button
-                    type="button"
-                    className="fb-tool-btn"
-                    onClick={() => setLifecycleBook({ book: f, tab: 'workflow' })}
-                    title="Workflow, Approval, Schedule, Versions & SEO"
-                  >
-                    <span>🔄</span> Lifecycle
-                  </button>
+                  {(can('flipbook.edit') || can('flipbook.publish')) && (
+                    <button
+                      type="button"
+                      className="fb-tool-btn"
+                      onClick={() => setLifecycleBook({ book: f, tab: 'workflow' })}
+                      title="Workflow, Approval, Schedule, Versions & SEO"
+                    >
+                      <span>🔄</span> Lifecycle
+                    </button>
+                  )}
                 </div>
 
                 {/* Bottom Bar: Share, Replace PDF, Duplicate, Delete */}
@@ -875,7 +885,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                         <span>Share &amp; QR</span>
                       </button>
                     )}
-                    {f.status === 'ready' && (
+                    {f.status === 'ready' && can('flipbook.edit') && (
                       <button
                         type="button"
                         className="fb-icon-action"
@@ -886,7 +896,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                         <span>Replace PDF</span>
                       </button>
                     )}
-                    {f.status === 'ready' && (
+                    {f.status === 'ready' && can('flipbook.create') && (
                       <button
                         type="button"
                         className="fb-icon-action"
@@ -898,15 +908,17 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                       </button>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    className="fb-icon-action danger"
-                    onClick={() => remove(f)}
-                    title="Delete publication"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    <span>Delete</span>
-                  </button>
+                  {can('flipbook.delete') && (
+                    <button
+                      type="button"
+                      className="fb-icon-action danger"
+                      onClick={() => remove(f)}
+                      title="Delete publication"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      <span>Delete</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );

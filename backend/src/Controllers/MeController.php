@@ -27,6 +27,7 @@ final class MeController
             'name' => $u['name'],
             'role' => $u['role'],
             'tenantRole' => $u['tenant_role'] ?? 'editor',
+            'permissions' => \App\Support\Rbac::getPermissionsForUser($fullUser ?: $u),
             'avatarPath' => $u['avatar_path'],
             'emailVerified' => $u['email_verified_at'] !== null,
             'twoFactorEnabled' => !empty($fullUser['two_factor_enabled']),

@@ -21,12 +21,40 @@ interface Stats {
   };
 }
 
+export interface RoleItem {
+  id: number;
+  tenantId?: number | null;
+  name: string;
+  slug: string;
+  description: string;
+  isSystem: boolean;
+  permissions: string[];
+  memberCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PermissionItem {
+  key: string;
+  action: 'read' | 'write' | 'delete' | 'admin';
+  label: string;
+  desc: string;
+}
+
+export interface PermissionModuleGroup {
+  module: string;
+  label: string;
+  permissions: PermissionItem[];
+}
+
 interface AdminUser {
   id: number;
   email: string;
   name: string;
   role: 'admin' | 'user';
-  tenantRole?: 'owner' | 'admin' | 'editor' | 'viewer';
+  tenantRole?: string;
+  customPermissions?: string[] | null;
+  resolvedPermissions?: string[];
   status: 'active' | 'suspended';
   planId: number;
   planName: string;
@@ -139,7 +167,14 @@ interface EmailLog {
 
 export default function AdminPanel() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'overview' | 'users' | 'companies' | 'subscriptions' | 'email' | 'security'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'roles' | 'companies' | 'subscriptions' | 'email' | 'security'>('overview');
+
+  const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [permissionMatrix, setPermissionMatrix] = useState<PermissionModuleGroup[]>([]);
+  const [selectedRole, setSelectedRole] = useState<RoleItem | null>(null);
+  const [roleFormPerms, setRoleFormPerms] = useState<string[]>([]);
+  const [roleSaving, setRoleSaving] = useState(false);
+  const [roleModal, setRoleModal] = useState<{ open: boolean; role: RoleItem | null }>({ open: false, role: null });
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -181,6 +216,28 @@ export default function AdminPanel() {
 
   const loadStats = useCallback(() => api<Stats>('/admin/stats').then(setStats), []);
   const loadUsers = useCallback(() => api<AdminUser[]>(`/admin/users?q=${encodeURIComponent(userQuery)}`).then(setUsers), [userQuery]);
+  const loadRoles = useCallback(() => {
+    return api<{ roles: RoleItem[]; permissionsMatrix: PermissionModuleGroup[] }>('/admin/roles')
+      .then((res) => {
+        setRoles(res.roles);
+        setPermissionMatrix(res.permissionsMatrix);
+        setSelectedRole((prev) => {
+          if (!prev && res.roles.length > 0) {
+            setRoleFormPerms(res.roles[0].permissions || []);
+            return res.roles[0];
+          }
+          if (prev) {
+            const updated = res.roles.find((r) => r.id === prev.id);
+            if (updated) {
+              setRoleFormPerms(updated.permissions || []);
+              return updated;
+            }
+          }
+          return prev;
+        });
+      })
+      .catch(() => {});
+  }, []);
   const loadCompanies = useCallback(() => api<Company[]>(`/admin/companies?q=${encodeURIComponent(companyQuery)}`).then(setCompanies), [companyQuery]);
   const loadPlans = useCallback(() => api<Plan[]>('/admin/plans').then(setPlans), []);
   const loadSettings = useCallback(() => api<SystemSettings>('/admin/settings').then(setSettings), []);
@@ -196,6 +253,7 @@ export default function AdminPanel() {
     Promise.all([
       loadStats(),
       loadUsers(),
+      loadRoles(),
       loadCompanies(),
       loadPlans(),
       loadSettings(),
@@ -203,7 +261,68 @@ export default function AdminPanel() {
       loadSecurityEvents(),
       loadAuditLogs(),
     ]).finally(() => setLoading(false));
-  }, [loadStats, loadUsers, loadCompanies, loadPlans, loadSettings, loadEmailLogs, loadSecurityEvents, loadAuditLogs]);
+  }, [loadStats, loadUsers, loadRoles, loadCompanies, loadPlans, loadSettings, loadEmailLogs, loadSecurityEvents, loadAuditLogs]);
+
+  const applyPreset = (preset: 'readonly' | 'editor' | 'full' | 'clear') => {
+    if (preset === 'clear') {
+      setRoleFormPerms([]);
+    } else if (preset === 'full') {
+      const allKeys = permissionMatrix.flatMap((g) => g.permissions.map((p) => p.key));
+      setRoleFormPerms(allKeys);
+    } else if (preset === 'readonly') {
+      const readKeys = permissionMatrix.flatMap((g) => g.permissions.filter((p) => p.action === 'read').map((p) => p.key));
+      setRoleFormPerms(readKeys);
+    } else if (preset === 'editor') {
+      setRoleFormPerms([
+        'flipbook.view',
+        'flipbook.create',
+        'flipbook.edit',
+        'flipbook.publish',
+        'hotspot.view',
+        'hotspot.manage',
+        'analytics.view',
+      ]);
+    }
+  };
+
+  const toggleRolePermission = (permKey: string) => {
+    setRoleFormPerms((prev) =>
+      prev.includes(permKey) ? prev.filter((k) => k !== permKey) : [...prev, permKey]
+    );
+  };
+
+  const saveRolePermissions = async () => {
+    if (!selectedRole) return;
+    setRoleSaving(true);
+    try {
+      await api(`/admin/roles/${selectedRole.id}`, 'PUT', {
+        permissions: roleFormPerms,
+        description: selectedRole.description,
+      });
+      showMsg(`Permissions updated for role "${selectedRole.name}"`);
+      await loadRoles();
+    } catch (err: any) {
+      showMsg(err.message || 'Failed to update role', 'error');
+    } finally {
+      setRoleSaving(false);
+    }
+  };
+
+  const deleteRole = async (role: RoleItem) => {
+    if (role.isSystem) return;
+    if (!window.confirm(`Are you sure you want to delete custom role "${role.name}"? Active members will be reassigned to viewer.`)) {
+      return;
+    }
+    try {
+      await api(`/admin/roles/${role.id}`, 'DELETE');
+      showMsg(`Role "${role.name}" removed successfully.`);
+      setSelectedRole(null);
+      await loadRoles();
+      await loadUsers();
+    } catch (err: any) {
+      showMsg(err.message || 'Failed to delete role', 'error');
+    }
+  };
 
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -328,6 +447,18 @@ export default function AdminPanel() {
           onClick={() => setTab('users')}
         >
           👥 User Management ({users.length})
+        </button>
+        <button
+          className={`admin-tab-btn ${tab === 'roles' ? 'active' : ''}`}
+          onClick={() => {
+            setTab('roles');
+            if (roles.length > 0 && !selectedRole) {
+              setSelectedRole(roles[0]);
+              setRoleFormPerms(roles[0].permissions || []);
+            }
+          }}
+        >
+          🎭 Role Manager & RBAC ({roles.length})
         </button>
         <button
           className={`admin-tab-btn ${tab === 'companies' ? 'active' : ''}`}
@@ -529,6 +660,15 @@ export default function AdminPanel() {
                         }`}>
                           {(u.tenantRole || 'editor').toUpperCase()}
                         </span>
+                        {u.customPermissions && u.customPermissions.length > 0 && (
+                          <span
+                            className="badge badge-warning"
+                            title={`Custom Permission Overrides: ${u.customPermissions.join(', ')}`}
+                            style={{ marginLeft: 6, fontSize: '0.72rem' }}
+                          >
+                            ⚡ {u.customPermissions.length} overrides
+                          </span>
+                        )}
                       </td>
                       <td>
                         <span className={`badge ${u.role === 'admin' ? 'badge-golden' : 'badge-neutral'}`}>
@@ -589,7 +729,222 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Tab 3: Company Management */}
+      {/* Tab: Role Manager & Granular RBAC */}
+      {tab === 'roles' && (
+        <div className="admin-tab-content">
+          <div className="role-manager-layout">
+            {/* Left Column: Roles Roster */}
+            <div className="role-roster-column">
+              <div className="roster-header">
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Roles & Access Profiles</h3>
+                  <small className="muted">Standard and custom tenant workspace roles</small>
+                </div>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                  onClick={() => setRoleModal({ open: true, role: null })}
+                >
+                  + Create Role
+                </button>
+              </div>
+
+              <div className="role-cards-list">
+                {roles.length === 0 ? (
+                  <div className="card muted center" style={{ padding: 24 }}>
+                    No roles loaded.
+                  </div>
+                ) : (
+                  roles.map((r) => {
+                    const isSelected = selectedRole?.id === r.id;
+                    return (
+                      <div
+                        key={r.id}
+                        className={`role-item-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => {
+                          setSelectedRole(r);
+                          setRoleFormPerms([...r.permissions]);
+                        }}
+                      >
+                        <div className="role-card-top">
+                          <b className="role-card-name">{r.name}</b>
+                          <div className="role-card-badges">
+                            {r.isSystem ? (
+                              <span className="badge badge-neutral">SYSTEM</span>
+                            ) : (
+                              <span className="badge badge-golden">CUSTOM</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="role-card-slug">
+                          <code>{r.slug}</code>
+                        </div>
+                        <p className="role-card-desc">{r.description}</p>
+                        <div className="role-card-meta">
+                          <span>👥 <b>{r.memberCount}</b> members</span>
+                          <span>🔑 <b>{r.permissions.length}</b> permissions</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Permission Matrix Editor */}
+            <div className="role-editor-column">
+              {selectedRole ? (
+                <div className="card role-details-card">
+                  <div className="role-editor-header">
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <h2 style={{ margin: 0, fontSize: '1.35rem' }}>{selectedRole.name}</h2>
+                        <span className={`badge ${selectedRole.isSystem ? 'badge-neutral' : 'badge-golden'}`}>
+                          {selectedRole.isSystem ? 'SYSTEM DEFAULT' : 'CUSTOM ROLE'}
+                        </span>
+                        <code style={{ fontSize: '0.85rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
+                          {selectedRole.slug}
+                        </code>
+                      </div>
+                      <p className="muted" style={{ margin: '6px 0 0', fontSize: '0.9rem' }}>
+                        {selectedRole.description}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {!selectedRole.isSystem && (
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+                          onClick={() => deleteRole(selectedRole)}
+                        >
+                          Delete Role
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={roleSaving}
+                        onClick={saveRolePermissions}
+                        style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                      >
+                        {roleSaving ? 'Saving…' : 'Save Permissions'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Toolbar */}
+                  <div className="role-presets-bar">
+                    <span className="presets-label">⚡ Presets:</span>
+                    <button type="button" className="btn-preset" onClick={() => applyPreset('readonly')}>
+                      Read Only
+                    </button>
+                    <button type="button" className="btn-preset" onClick={() => applyPreset('editor')}>
+                      Editor Scope (Publications & Enrichments)
+                    </button>
+                    <button type="button" className="btn-preset" onClick={() => applyPreset('full')}>
+                      Full Authority (All Permissions)
+                    </button>
+                    <button type="button" className="btn-preset btn-preset-danger" onClick={() => applyPreset('clear')}>
+                      Clear All
+                    </button>
+                    <span className="perm-counter-pill">
+                      Active: <b>{roleFormPerms.length}</b> / {permissionMatrix.flatMap((g) => g.permissions).length}
+                    </span>
+                  </div>
+
+                  {/* Modules & Granular Permission Matrix */}
+                  <div className="role-matrix-container">
+                    {permissionMatrix.map((grp) => {
+                      const grpKeys = grp.permissions.map((p) => p.key);
+                      const allGrpChecked = grpKeys.length > 0 && grpKeys.every((k) => roleFormPerms.includes(k));
+                      const someGrpChecked = grpKeys.some((k) => roleFormPerms.includes(k));
+
+                      const toggleGroup = () => {
+                        if (allGrpChecked) {
+                          setRoleFormPerms((prev) => prev.filter((k) => !grpKeys.includes(k)));
+                        } else {
+                          setRoleFormPerms((prev) => Array.from(new Set([...prev, ...grpKeys])));
+                        }
+                      };
+
+                      return (
+                        <div key={grp.module} className="matrix-module-card">
+                          <div className="matrix-module-header" onClick={toggleGroup}>
+                            <div className="module-header-title">
+                              <input
+                                type="checkbox"
+                                checked={allGrpChecked}
+                                ref={(el) => {
+                                  if (el) el.indeterminate = someGrpChecked && !allGrpChecked;
+                                }}
+                                onChange={toggleGroup}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <h4 style={{ margin: 0, fontSize: '0.98rem' }}>{grp.label}</h4>
+                              <code className="module-slug-tag">{grp.module}</code>
+                            </div>
+                            <span className="module-group-count">
+                              {grpKeys.filter((k) => roleFormPerms.includes(k)).length} / {grpKeys.length} enabled
+                            </span>
+                          </div>
+
+                          <div className="matrix-permissions-grid">
+                            {grp.permissions.map((p) => {
+                              const isChecked = roleFormPerms.includes(p.key);
+                              return (
+                                <div
+                                  key={p.key}
+                                  className={`matrix-perm-row ${isChecked ? 'active' : ''}`}
+                                  onClick={() => toggleRolePermission(p.key)}
+                                >
+                                  <div className="perm-row-left">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleRolePermission(p.key)}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <span className={`perm-action-badge action-${p.action}`}>
+                                      {p.action.toUpperCase()}
+                                    </span>
+                                    <div className="perm-labels">
+                                      <b className="perm-title">{p.label}</b>
+                                      <code className="perm-key-code">{p.key}</code>
+                                    </div>
+                                  </div>
+                                  <div className="perm-row-desc">{p.desc}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="role-editor-footer">
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={roleSaving}
+                      onClick={saveRolePermissions}
+                      style={{ minWidth: 220, padding: '10px 24px' }}
+                    >
+                      {roleSaving ? 'Saving Changes…' : '✓ Save Role Permissions'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="card center muted" style={{ padding: 48 }}>
+                  Select a role from the left roster to view and configure its permission matrix.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {tab === 'companies' && (
         <div className="admin-tab-content">
           <div className="table-controls">
@@ -1313,12 +1668,29 @@ export default function AdminPanel() {
           user={userModal.user}
           companies={companies}
           plans={plans}
+          roles={roles}
+          permissionMatrix={permissionMatrix}
           onClose={() => setUserModal({ open: false, user: null })}
           onSaved={() => {
             setUserModal({ open: false, user: null });
             loadUsers();
             loadStats();
             showMsg(userModal.user ? 'User updated successfully' : 'User created successfully');
+          }}
+        />
+      )}
+
+      {/* Role Create/Edit Modal */}
+      {roleModal.open && (
+        <RoleModal
+          role={roleModal.role}
+          roles={roles}
+          permissionMatrix={permissionMatrix}
+          onClose={() => setRoleModal({ open: false, role: null })}
+          onSaved={() => {
+            setRoleModal({ open: false, role: null });
+            loadRoles();
+            showMsg(roleModal.role ? 'Role updated' : 'Role created successfully');
           }}
         />
       )}
@@ -1384,12 +1756,16 @@ function UserModal({
   user,
   companies,
   plans,
+  roles,
+  permissionMatrix,
   onClose,
   onSaved,
 }: {
   user: AdminUser | null;
   companies: Company[];
   plans: Plan[];
+  roles: RoleItem[];
+  permissionMatrix: PermissionModuleGroup[];
   onClose(): void;
   onSaved(): void;
 }) {
@@ -1397,42 +1773,62 @@ function UserModal({
   const [email, setEmail] = useState(user?.email ?? '');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'admin' | 'user'>(user?.role ?? 'user');
-  const [tenantRole, setTenantRole] = useState<'owner' | 'admin' | 'editor' | 'viewer'>(user?.tenantRole ?? 'editor');
+  const [tenantRole, setTenantRole] = useState<string>(user?.tenantRole ?? 'editor');
   const [status, setStatus] = useState<'active' | 'suspended'>(user?.status ?? 'active');
   const [tenantId, setTenantId] = useState<number | string>(user?.tenantId ?? (companies[0]?.id || ''));
   const [planId, setPlanId] = useState<number>(user?.planId ?? 1);
+  const [hasCustomPerms, setHasCustomPerms] = useState<boolean>(
+    Boolean(user?.customPermissions && user.customPermissions.length > 0)
+  );
+  const [customPerms, setCustomPerms] = useState<string[]>(
+    user?.customPermissions || []
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  const handleRoleChange = (newRole: string) => {
+    setTenantRole(newRole);
+    if (!hasCustomPerms) {
+      const matchRole = roles.find((r) => r.slug === newRole);
+      if (matchRole) {
+        setCustomPerms([...matchRole.permissions]);
+      }
+    }
+  };
+
+  const toggleCustomPerm = (permKey: string) => {
+    setCustomPerms((prev) =>
+      prev.includes(permKey) ? prev.filter((k) => k !== permKey) : [...prev, permKey]
+    );
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
+      const payload: any = {
+        name,
+        role,
+        tenantRole,
+        customPermissions: hasCustomPerms ? customPerms : null,
+        status,
+        tenantId: tenantId ? Number(tenantId) : null,
+        planId,
+      };
+
       if (user) {
-        await api(`/admin/users/${user.id}`, 'PATCH', {
-          name,
-          role,
-          tenantRole,
-          status,
-          tenantId: tenantId ? Number(tenantId) : null,
-          planId,
-        });
+        await api(`/admin/users/${user.id}`, 'PATCH', payload);
       } else {
         await api('/admin/users', 'POST', {
-          name,
+          ...payload,
           email,
           password,
-          role,
-          tenantRole,
-          status,
-          tenantId: tenantId ? Number(tenantId) : null,
-          planId,
         });
       }
       onSaved();
     } catch (err: any) {
-      setError(err instanceof ApiError ? (err.fields.email || err.fields.password || err.message) : err.message);
+      setError(err instanceof ApiError ? (err.fields?.email || err.fields?.password || err.message) : err.message);
     } finally {
       setBusy(false);
     }
@@ -1440,7 +1836,7 @@ function UserModal({
 
   return (
     <div className="modal" onClick={onClose}>
-      <div className="card admin-modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="card admin-modal-card admin-user-modal-card" onClick={(e) => e.stopPropagation()}>
         <h2>{user ? `Edit User: ${user.name}` : 'Add New User'}</h2>
         {error && <p className="err">{error}</p>}
         <form onSubmit={submit} className="stack">
@@ -1470,11 +1866,22 @@ function UserModal({
             </label>
             <label className="field">
               <span>Tenant RBAC Role</span>
-              <select value={tenantRole} onChange={(e) => setTenantRole(e.target.value as any)}>
-                <option value="owner">Owner (Full tenant & billing)</option>
-                <option value="admin">Admin (Manage members & books)</option>
-                <option value="editor">Editor (Create & edit publications)</option>
-                <option value="viewer">Viewer (Read-only)</option>
+              <select value={tenantRole} onChange={(e) => handleRoleChange(e.target.value)}>
+                {roles.length > 0 ? (
+                  roles.map((r) => (
+                    <option key={r.slug} value={r.slug}>
+                      {r.name} ({r.slug}) {r.isSystem ? '• System' : '• Custom'}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="owner">Owner (Full tenant & billing)</option>
+                    <option value="admin">Admin (Manage members & books)</option>
+                    <option value="editor">Editor (Create & edit publications)</option>
+                    <option value="viewer">Viewer (Read-only)</option>
+                    <option value="finance">Finance (Billing & Invoices)</option>
+                  </>
+                )}
               </select>
             </label>
           </div>
@@ -1506,10 +1913,227 @@ function UserModal({
               </select>
             </label>
           </div>
+
+          {/* Granular Custom Permission Overrides (Specify Each Access) */}
+          <div className="user-custom-perms-wrapper">
+            <div className="custom-perms-header-bar">
+              <label className="custom-toggle-wrap">
+                <input
+                  type="checkbox"
+                  checked={hasCustomPerms}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setHasCustomPerms(checked);
+                    if (checked && customPerms.length === 0) {
+                      const matchRole = roles.find((r) => r.slug === tenantRole);
+                      if (matchRole) {
+                        setCustomPerms([...matchRole.permissions]);
+                      }
+                    }
+                  }}
+                />
+                <span className="toggle-headline">⚡ Specify Granular Custom Permissions for this User</span>
+              </label>
+              <small className="muted" style={{ display: 'block', marginTop: 4 }}>
+                {hasCustomPerms
+                  ? 'Active: Overrides the role template with individual granular capabilities.'
+                  : 'Inactive: User strictly inherits all capabilities from the selected Tenant RBAC Role.'}
+              </small>
+            </div>
+
+            {hasCustomPerms && (
+              <div className="user-perms-editor-box">
+                <div className="user-perms-toolbar">
+                  <button
+                    type="button"
+                    className="btn-preset"
+                    onClick={() => {
+                      const allKeys = permissionMatrix.flatMap((g) => g.permissions.map((p) => p.key));
+                      setCustomPerms(allKeys);
+                    }}
+                  >
+                    Grant All
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-preset"
+                    onClick={() => {
+                      const matchRole = roles.find((r) => r.slug === tenantRole);
+                      if (matchRole) setCustomPerms([...matchRole.permissions]);
+                    }}
+                  >
+                    Reset to Role Default ({tenantRole})
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-preset btn-preset-danger"
+                    onClick={() => setCustomPerms([])}
+                  >
+                    Clear All
+                  </button>
+                  <span className="perm-counter-pill" style={{ marginLeft: 'auto' }}>
+                    Granted: <b>{customPerms.length}</b> permissions
+                  </span>
+                </div>
+
+                <div className="user-perms-scroll-area">
+                  {permissionMatrix.map((grp) => (
+                    <div key={grp.module} className="user-perm-group">
+                      <div className="user-perm-group-header">
+                        <b>{grp.label}</b>
+                        <code style={{ fontSize: '0.75rem' }}>{grp.module}</code>
+                      </div>
+                      <div className="user-perm-items-grid">
+                        {grp.permissions.map((p) => {
+                          const isChecked = customPerms.includes(p.key);
+                          return (
+                            <label
+                              key={p.key}
+                              className={`user-perm-checkbox-item ${isChecked ? 'selected' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleCustomPerm(p.key)}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span className={`perm-action-badge action-${p.action}`}>
+                                    {p.action.toUpperCase()}
+                                  </span>
+                                  <span className="perm-item-label">{p.label}</span>
+                                </div>
+                                <div className="muted" style={{ fontSize: '0.75rem', marginTop: 2 }}>
+                                  {p.desc}
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={busy}>
               {busy ? 'Saving…' : (user ? 'Save Changes' : 'Create User')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Custom Role Creation/Edit Modal Component
+function RoleModal({
+  role,
+  roles,
+  permissionMatrix,
+  onClose,
+  onSaved,
+}: {
+  role: RoleItem | null;
+  roles: RoleItem[];
+  permissionMatrix: PermissionModuleGroup[];
+  onClose(): void;
+  onSaved(): void;
+}) {
+  const [name, setName] = useState(role?.name ?? '');
+  const [slug, setSlug] = useState(role?.slug ?? '');
+  const [description, setDescription] = useState(role?.description ?? '');
+  const [copyFrom, setCopyFrom] = useState(roles[0]?.slug ?? 'editor');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleNameChange = (val: string) => {
+    setName(val);
+    if (!role) {
+      setSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+    }
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      if (role) {
+        await api(`/admin/roles/${role.id}`, 'PUT', { name, description });
+      } else {
+        const sourceRole = roles.find((r) => r.slug === copyFrom);
+        const initialPerms = sourceRole ? sourceRole.permissions : [];
+        await api('/admin/roles', 'POST', {
+          name,
+          slug,
+          description,
+          permissions: initialPerms,
+        });
+      }
+      onSaved();
+    } catch (err: any) {
+      setError(err instanceof ApiError ? (err.fields?.name || err.fields?.slug || err.message) : err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal" onClick={onClose}>
+      <div className="card admin-modal-card" onClick={(e) => e.stopPropagation()}>
+        <h2>{role ? `Edit Role: ${role.name}` : 'Create Custom Workspace Role'}</h2>
+        {error && <p className="err">{error}</p>}
+        <form onSubmit={submit} className="stack">
+          <label className="field">
+            <span>Role Display Name</span>
+            <input
+              required
+              placeholder="e.g. Content Reviewer, Regional Marketer"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Role Identifier (Slug)</span>
+            <input
+              required
+              disabled={Boolean(role)}
+              placeholder="e.g. content-reviewer"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+            />
+            <small className="muted">Used in API tokens, RBAC assertions, and user assignments.</small>
+          </label>
+          <label className="field">
+            <span>Description</span>
+            <textarea
+              rows={2}
+              placeholder="Brief summary of duties and permissions granted to members of this role"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </label>
+          {!role && (
+            <label className="field">
+              <span>Clone Initial Permissions From Template</span>
+              <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
+                {roles.map((r) => (
+                  <option key={r.slug} value={r.slug}>
+                    {r.name} ({r.permissions.length} permissions)
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="modal-actions">
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Saving…' : (role ? 'Save Changes' : 'Create Role')}
             </button>
           </div>
         </form>

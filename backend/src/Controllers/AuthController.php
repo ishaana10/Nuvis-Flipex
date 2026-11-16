@@ -337,6 +337,7 @@ final class AuthController
                 'emailVerified' => $user['email_verified_at'] !== null,
                 'twoFactorEnabled' => !empty($user['two_factor_enabled']),
                 'twoFactorMethod' => $user['two_factor_method'] ?? 'email',
+                'permissions' => \App\Support\Rbac::getPermissionsForUser($user),
             ],
         ];
     }

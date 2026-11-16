@@ -7,6 +7,8 @@ export interface User {
   name: string;
   role: string;
   tenantRole?: string;
+  permissions?: string[];
+  customPermissions?: string[] | null;
   emailVerified: boolean;
   tenantId?: number | null;
   companyName?: string | null;
@@ -24,6 +26,7 @@ export interface LoginResult {
 interface AuthCtx {
   user: User | null;
   loading: boolean;
+  can(permission: string): boolean;
   login(email: string, password: string): Promise<LoginResult | void>;
   verify2fa(twoFactorToken: string, code: string): Promise<void>;
   resend2fa(twoFactorToken: string): Promise<void>;
@@ -43,8 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSession().then((s: any) => { if (s) setUser(s.user); }).finally(() => setLoading(false));
   }, []);
 
+  const can = (permission: string): boolean => {
+    if (!user) return false;
+    if (user.role === 'admin') return true; // Platform Developer
+    return (user.permissions || []).includes(permission);
+  };
+
   const value: AuthCtx = {
-    user, loading, setUser,
+    user, loading, setUser, can,
     async login(email, password) {
       const d = await api<any>('/auth/login', 'POST', { email, password });
       if (d.twoFactorRequired) {

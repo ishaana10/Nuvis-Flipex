@@ -54,6 +54,12 @@ final class MigrationRunner
             'downSql' => 'DROP TABLE IF EXISTS payment_audit_logs; DROP TABLE IF EXISTS payment_transactions;',
             'reversible' => true,
         ],
+        '2026_11_16_000008_tenant_roles_and_granular_rbac' => [
+            'description' => 'Dynamic tenant_roles, custom_permissions on users, and granular RBAC role manager',
+            'upSql' => 'SELECT 1',
+            'downSql' => 'DROP TABLE IF EXISTS tenant_roles;',
+            'reversible' => true,
+        ],
     ];
 
     public static function status(): array

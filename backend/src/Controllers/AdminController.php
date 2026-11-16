@@ -42,7 +42,7 @@ final class AdminController
     {
         $q = trim((string) ($req->getQueryParams()['q'] ?? ''));
         $params = [];
-        $sql = "SELECT u.id, u.email, u.name, u.role, u.tenant_role, u.status, u.plan_id, u.tenant_id,
+        $sql = "SELECT u.id, u.email, u.name, u.role, u.tenant_role, u.custom_permissions, u.status, u.plan_id, u.tenant_id,
                        u.email_verified_at, u.created_at, u.last_login_at,
                        t.name AS company_name, p.name AS plan_name,
                        (SELECT COUNT(*) FROM flipbooks f WHERE f.user_id = u.id) AS flipbooks_count
@@ -65,6 +65,8 @@ final class AdminController
             'name' => $r['name'],
             'role' => $r['role'],
             'tenantRole' => $r['tenant_role'] ?? 'editor',
+            'customPermissions' => !empty($r['custom_permissions']) ? (is_array($r['custom_permissions']) ? $r['custom_permissions'] : json_decode((string) $r['custom_permissions'], true)) : null,
+            'resolvedPermissions' => \App\Support\Rbac::getPermissionsForUser($r),
             'status' => $r['status'],
             'planId' => (int) $r['plan_id'],
             'planName' => $r['plan_name'] ?? 'Free',
@@ -85,10 +87,13 @@ final class AdminController
         $name = trim((string) ($b['name'] ?? ''));
         $password = (string) ($b['password'] ?? '');
         $role = ($b['role'] ?? 'user') === 'admin' ? 'admin' : 'user';
-        $tenantRole = in_array($b['tenantRole'] ?? '', ['owner', 'admin', 'editor', 'viewer'], true) ? $b['tenantRole'] : 'editor';
+        $tenantRole = trim((string) ($b['tenantRole'] ?? 'editor')) ?: 'editor';
         $status = ($b['status'] ?? 'active') === 'suspended' ? 'suspended' : 'active';
         $tenantId = !empty($b['tenantId']) ? (int) $b['tenantId'] : null;
         $planId = !empty($b['planId']) ? (int) $b['planId'] : 1;
+        $customPerms = isset($b['customPermissions']) && is_array($b['customPermissions'])
+            ? json_encode(array_values(array_intersect($b['customPermissions'], array_keys(\App\Support\Rbac::ALL_PERMISSIONS))))
+            : null;
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return Http::error($res, 'Validation failed', 422, ['email' => 'Valid email is required']);
@@ -105,9 +110,9 @@ final class AdminController
 
         $hash = password_hash($password, PASSWORD_ARGON2ID);
         Db::run(
-            'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, plan_id, email_verified_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-            [$tenantId, $email, $hash, $name, $role, $tenantRole, $status, $planId]
+            'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, custom_permissions, status, plan_id, email_verified_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+            [$tenantId, $email, $hash, $name, $role, $tenantRole, $customPerms, $status, $planId]
         );
 
         $id = (int) Db::pdo()->lastInsertId();
@@ -128,18 +133,25 @@ final class AdminController
         $b = (array) $req->getParsedBody();
         $name = isset($b['name']) ? trim((string) $b['name']) : $u['name'];
         $role = isset($b['role']) && $b['role'] === 'admin' ? 'admin' : ($b['role'] ?? $u['role']);
-        $tenantRole = isset($b['tenantRole']) && in_array($b['tenantRole'], ['owner', 'admin', 'editor', 'viewer'], true) ? $b['tenantRole'] : ($u['tenant_role'] ?? 'editor');
+        $tenantRole = isset($b['tenantRole']) ? (trim((string) $b['tenantRole']) ?: 'editor') : ($u['tenant_role'] ?? 'editor');
         $status = isset($b['status']) && $b['status'] === 'suspended' ? 'suspended' : ($b['status'] ?? $u['status']);
         $tenantId = array_key_exists('tenantId', $b) ? ($b['tenantId'] ? (int) $b['tenantId'] : null) : $u['tenant_id'];
         $planId = isset($b['planId']) ? (int) $b['planId'] : (int) $u['plan_id'];
+
+        $customPerms = $u['custom_permissions'];
+        if (array_key_exists('customPermissions', $b)) {
+            $customPerms = is_array($b['customPermissions'])
+                ? json_encode(array_values(array_intersect($b['customPermissions'], array_keys(\App\Support\Rbac::ALL_PERMISSIONS))))
+                : null;
+        }
 
         if ($name === '') {
             return Http::error($res, 'Validation failed', 422, ['name' => 'Name cannot be empty']);
         }
 
         Db::run(
-            'UPDATE users SET name = ?, role = ?, tenant_role = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
-            [$name, $role, $tenantRole, $status, $tenantId, $planId, $id]
+            'UPDATE users SET name = ?, role = ?, tenant_role = ?, custom_permissions = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
+            [$name, $role, $tenantRole, $customPerms, $status, $tenantId, $planId, $id]
         );
 
         // If user was suspended, revoke all active sessions immediately

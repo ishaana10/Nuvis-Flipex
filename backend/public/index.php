@@ -13,6 +13,7 @@ use App\Controllers\HotspotController;
 use App\Controllers\IntegrationController;
 use App\Controllers\MeController;
 use App\Controllers\PublicController;
+use App\Controllers\RoleController;
 use App\Infrastructure\Logging\CentralExceptionReporter;
 use App\Middleware\Auth;
 use App\Middleware\Cors;
@@ -140,6 +141,15 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $j->delete('/{id:[0-9]+}', [FlipbookController::class, 'cancelJob']);
     })->add(new TenantScope())->add(new Auth());
 
+    // Role Manager & Granular RBAC Permissions
+    $g->group('/roles', function (RouteCollectorProxy $r) {
+        $r->get('', [RoleController::class, 'index']);
+        $r->get('/permissions-matrix', [RoleController::class, 'permissionsMatrix']);
+        $r->post('', [RoleController::class, 'create']);
+        $r->put('/{id:[0-9]+}', [RoleController::class, 'update']);
+        $r->delete('/{id:[0-9]+}', [RoleController::class, 'delete']);
+    })->add(new TenantScope())->add(new Auth());
+
     $g->get('/public/{slug}', [PublicController::class, 'show']);
     $g->get('/public/{slug}/cover', [PublicController::class, 'cover']);
     $g->get('/public/{slug}/pages/{page:[0-9]+}', [PublicController::class, 'page']);
@@ -250,6 +260,13 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         // Security Monitoring & Audit Trail
         $adm->get('/security-events', [AdminController::class, 'securityEvents']);
         $adm->get('/audit-logs', [AdminController::class, 'auditLogs']);
+
+        // Role Management & Permissions Matrix (Super Admin)
+        $adm->get('/roles', [RoleController::class, 'index']);
+        $adm->get('/roles/permissions-matrix', [RoleController::class, 'permissionsMatrix']);
+        $adm->post('/roles', [RoleController::class, 'create']);
+        $adm->put('/roles/{id:[0-9]+}', [RoleController::class, 'update']);
+        $adm->delete('/roles/{id:[0-9]+}', [RoleController::class, 'delete']);
     })->add(new Auth('admin'));
 });
 

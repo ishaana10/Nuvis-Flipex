@@ -102,7 +102,7 @@ const UPCOMING_MODULES = [
 ];
 
 export function ProtectedRoute() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, can } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -216,6 +216,13 @@ export function ProtectedRoute() {
   const isSettings = location.pathname.startsWith('/settings');
   const isAdmin = location.pathname.startsWith('/admin');
 
+  // Enforce RBAC route access
+  const isUnauthorized =
+    (isBilling && !can('billing.view') && !can('billing.manage')) ||
+    (isDevOps && !can('devops.overview') && user.role !== 'admin') ||
+    (isIntegrations && !can('settings.manage') && !can('api_keys.manage') && !can('webhooks.manage')) ||
+    (isAdmin && user.role !== 'admin');
+
   const registeredTenantDisplay =
     tenantName ||
     user.companyName ||
@@ -321,48 +328,54 @@ export function ProtectedRoute() {
           </button>
 
           {/* 6. Enterprise Integrations Hub */}
-          <Link
-            to="/integrations"
-            className={`sidebar-item ${isIntegrations && !activeModuleHub ? 'active' : ''}`}
-            onClick={() => setActiveModuleHub(null)}
-            title="Enterprise Integrations (REST API, ERP, Webhooks, SSO, LDAP, WordPress, CRM)"
-          >
-            <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            <span className="sidebar-label">Integrations</span>
-          </Link>
+          {(can('settings.manage') || can('api_keys.manage') || can('webhooks.manage')) && (
+            <Link
+              to="/integrations"
+              className={`sidebar-item ${isIntegrations && !activeModuleHub ? 'active' : ''}`}
+              onClick={() => setActiveModuleHub(null)}
+              title="Enterprise Integrations (REST API, ERP, Webhooks, SSO, LDAP, WordPress, CRM)"
+            >
+              <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              <span className="sidebar-label">Integrations</span>
+            </Link>
+          )}
 
           {/* 7. Commercial Billing & Subscriptions */}
-          <Link
-            to="/billing"
-            className={`sidebar-item ${isBilling && !activeModuleHub ? 'active' : ''}`}
-            onClick={() => setActiveModuleHub(null)}
-            title="Billing, Tax Invoices, Metering & Fiji Bank Reconciliation"
-          >
-            <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="2" y="5" width="20" height="14" rx="2" />
-              <line x1="2" y1="10" x2="22" y2="10" />
-            </svg>
-            <span className="sidebar-label">Billing</span>
-          </Link>
+          {(can('billing.view') || can('billing.manage')) && (
+            <Link
+              to="/billing"
+              className={`sidebar-item ${isBilling && !activeModuleHub ? 'active' : ''}`}
+              onClick={() => setActiveModuleHub(null)}
+              title="Billing, Tax Invoices, Metering & Fiji Bank Reconciliation"
+            >
+              <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <line x1="2" y1="10" x2="22" y2="10" />
+              </svg>
+              <span className="sidebar-label">Billing</span>
+            </Link>
+          )}
 
           {/* 8. Modular Architecture & DevOps Production Readiness */}
-          <Link
-            to="/devops"
-            className={`sidebar-item ${isDevOps && !activeModuleHub ? 'active' : ''}`}
-            onClick={() => setActiveModuleHub(null)}
-            title="Modular Architecture, CPU/Memory/Storage Telemetry, DLQ, JSONL Logs & Backups"
-          >
-            <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="2" y="3" width="20" height="6" rx="1.5" />
-              <rect x="2" y="15" width="20" height="6" rx="1.5" />
-              <circle cx="6" cy="6" r="1" />
-              <circle cx="6" cy="18" r="1" />
-            </svg>
-            <span className="sidebar-label">DevOps</span>
-          </Link>
+          {(can('devops.overview') || user.role === 'admin') && (
+            <Link
+              to="/devops"
+              className={`sidebar-item ${isDevOps && !activeModuleHub ? 'active' : ''}`}
+              onClick={() => setActiveModuleHub(null)}
+              title="Modular Architecture, CPU/Memory/Storage Telemetry, DLQ, JSONL Logs & Backups"
+            >
+              <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="2" y="3" width="20" height="6" rx="1.5" />
+                <rect x="2" y="15" width="20" height="6" rx="1.5" />
+                <circle cx="6" cy="6" r="1" />
+                <circle cx="6" cy="18" r="1" />
+              </svg>
+              <span className="sidebar-label">DevOps</span>
+            </Link>
+          )}
 
           {/* 9. Admin Console (if admin) */}
           {user.role === 'admin' && (
@@ -422,9 +435,11 @@ export function ProtectedRoute() {
             <div className="topbar-quick-actions">
               {firstBookId && (
                 <>
-                  <Link to={`/dashboard/editor/${firstBookId}`} className="topbar-action-btn outline">
-                    Edit enrichments
-                  </Link>
+                  {can('flipbook.edit') && (
+                    <Link to={`/dashboard/editor/${firstBookId}`} className="topbar-action-btn outline">
+                      Edit enrichments
+                    </Link>
+                  )}
                   <Link to={`/dashboard/preview/${firstBookId}`} className="topbar-action-btn solid">
                     View flipbook
                   </Link>
@@ -760,7 +775,24 @@ export function ProtectedRoute() {
 
         {/* PAGE CONTENT */}
         <main className="container app-main">
-          <Outlet />
+          {isUnauthorized ? (
+            <div className="flex flex-col items-center justify-center p-8 my-12 text-center max-w-xl mx-auto">
+              <div className="w-full card p-8 border border-amber-400/40 bg-white/95 dark:bg-slate-900/95 rounded-2xl shadow-2xl backdrop-blur-md">
+                <div className="text-4xl mb-3">🛡️</div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Access Restricted</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
+                  Your active workspace role <span className="font-bold text-amber-600 dark:text-amber-400 uppercase">({user.tenantRole || 'Editor'})</span> does not have permission to view or manage this module.
+                </p>
+                <div className="flex justify-center gap-3">
+                  <Link to="/dashboard" className="btn-pub-primary text-xs font-bold py-2 px-5 rounded-xl shadow">
+                    Return to Dashboard
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
 
         {/* CHANGE PASSWORD MODAL (Triggered from Top-Right Profile Menu) */}

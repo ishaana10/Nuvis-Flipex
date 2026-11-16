@@ -5,14 +5,12 @@ namespace App\Support;
 
 /**
  * Granular Role-Based Access Control (RBAC) & API Key Scope Enforcement.
- * Supports System Roles (superadmin, support), Tenant Roles (owner, admin, finance, editor, viewer),
- * and explicit API Key Scopes (flipbooks:read, flipbooks:write, erp:publish, analytics:read, webhooks:manage, billing:manage).
- *
- * Security invariant:
- * Every operation checks BOTH:
- *   1. The user's RBAC permission.
- *   2. The API key's explicit scope (when authenticated via API key).
- * API keys NEVER inherit unrestricted permissions from their creator.
+ * Supports:
+ *   1. System-wide Platform Administrator / Developer (user.role = 'admin') with unrestricted access.
+ *   2. Dynamic Database-backed Tenant Roles (tenant_roles table) with customizable permissions per role.
+ *   3. Granular User-level Custom Permissions Overrides (users.custom_permissions JSON array).
+ *   4. Standard Role Defaults (owner, admin, editor, viewer, finance).
+ *   5. Explicit API Key Scopes (flipbooks:read, flipbooks:write, erp:publish, analytics:read, webhooks:manage, billing:manage).
  */
 final class Rbac
 {
@@ -25,72 +23,194 @@ final class Rbac
         'billing:manage',
     ];
 
-    private const PERMISSIONS = [
-        // Publication permissions
-        'flipbook.view'     => ['owner', 'admin', 'finance', 'editor', 'viewer'],
-        'flipbook.create'   => ['owner', 'admin', 'editor'],
-        'flipbook.edit'     => ['owner', 'admin', 'editor'],
-        'flipbook.publish'  => ['owner', 'admin', 'editor'],
-        'flipbook.delete'   => ['owner', 'admin'],
-        'hotspot.manage'    => ['owner', 'admin', 'editor'],
-        'erp.publish'       => ['owner', 'admin', 'editor'],
-        'analytics.view'    => ['owner', 'admin', 'finance', 'editor', 'viewer'],
+    /**
+     * Dictionary of all defined permissions with human-readable metadata, modules, and action types.
+     */
+    public const ALL_PERMISSIONS = [
+        // Publications & Hotspots
+        'flipbook.view'          => ['module' => 'publications', 'action' => 'read',   'label' => 'View Publications',         'desc' => 'Read and preview flipbooks and catalogs'],
+        'flipbook.create'        => ['module' => 'publications', 'action' => 'write',  'label' => 'Upload Publications',       'desc' => 'Upload and create new flipbooks from PDF'],
+        'flipbook.edit'          => ['module' => 'publications', 'action' => 'write',  'label' => 'Edit Publications',         'desc' => 'Edit flipbook settings, style, branding, and pages'],
+        'flipbook.publish'       => ['module' => 'publications', 'action' => 'write',  'label' => 'Publish & Schedule',        'desc' => 'Publish, unpublish, and schedule publications'],
+        'flipbook.delete'        => ['module' => 'publications', 'action' => 'delete', 'label' => 'Delete Publications',       'desc' => 'Permanently delete publications from workspace'],
+        'hotspot.manage'         => ['module' => 'publications', 'action' => 'write',  'label' => 'Manage Hotspots',           'desc' => 'Add, reposition, and edit interactive links, videos, and products'],
+        'erp.publish'            => ['module' => 'publications', 'action' => 'write',  'label' => 'ERP & API Sync',            'desc' => 'Sync publication updates via automated ERP pipeline'],
 
-        // Tenant & integration management permissions
-        'users.view'        => ['owner', 'admin', 'finance', 'editor'],
-        'users.invite'      => ['owner', 'admin'],
-        'users.manage'      => ['owner', 'admin'],
-        'settings.manage'   => ['owner', 'admin', 'editor'],
-        'api_keys.manage'   => ['owner', 'admin', 'editor'],
-        'webhooks.manage'   => ['owner', 'admin', 'editor'],
+        // Analytics & Reporting
+        'analytics.view'         => ['module' => 'analytics',    'action' => 'read',   'label' => 'View Analytics',            'desc' => 'View publication views, heatmaps, and export engagement reports'],
 
-        // Commercial billing & finance permissions
-        'billing.view'      => ['owner', 'admin', 'finance', 'editor'],
-        'billing.manage'    => ['owner', 'admin', 'finance', 'editor'],
-        // Strict Finance / Owner / Platform Admin permission for invoice reconciliation & reversals
-        'billing.reconcile' => ['owner', 'finance'],
+        // Team & Users
+        'users.view'             => ['module' => 'team',         'action' => 'read',   'label' => 'View Team Members',         'desc' => 'View users and staff within the tenant workspace'],
+        'users.invite'           => ['module' => 'team',         'action' => 'write',  'label' => 'Invite Team Members',       'desc' => 'Invite new users to the tenant workspace'],
+        'users.manage'           => ['module' => 'team',         'action' => 'write',  'label' => 'Manage Users & Roles',      'desc' => 'Edit member roles, status, and custom permissions'],
+        'roles.manage'           => ['module' => 'team',         'action' => 'admin',  'label' => 'Configure Role Manager',   'desc' => 'Customize role permissions and create custom roles'],
 
-        // DevOps & Infrastructure Control Areas (Split into Tenant vs Platform Operations)
-        'devops.overview'        => ['owner', 'admin'],           // Tenant usage overview -> Tenant admin/owner or Platform admin
-        'devops.jobs'            => ['owner', 'admin', 'editor'], // Tenant publication job status & DLQ retry -> Tenant editor/admin/owner
-        'devops.backup_request'  => ['owner'],                    // Tenant backup requests -> Tenant owner or Platform admin
-        'devops.backup_recovery' => ['owner'],                    // Backup verification/recovery -> Operations/Platform admin or Tenant owner (own tenant only)
-        'devops.platform_admin'  => [],                           // Global migrations, error management & infrastructure -> Platform administrator ONLY
+        // Workspace Settings & Integrations
+        'settings.view'          => ['module' => 'settings',     'action' => 'read',   'label' => 'View Workspace Settings',   'desc' => 'View brand kits, tenant info, and general configuration'],
+        'settings.manage'        => ['module' => 'settings',     'action' => 'write',  'label' => 'Manage Workspace Settings', 'desc' => 'Configure custom domain, brand kit, and connectors'],
+        'api_keys.manage'        => ['module' => 'integrations', 'action' => 'write',  'label' => 'Manage API Keys',           'desc' => 'Generate, inspect, and revoke REST API keys'],
+        'webhooks.manage'        => ['module' => 'integrations', 'action' => 'write',  'label' => 'Manage Webhooks',           'desc' => 'Configure webhook endpoints and test deliveries'],
 
-        // Danger zone
-        'tenant.delete'     => ['owner'],
+        // Commercial Billing & Finance
+        'billing.view'           => ['module' => 'billing',      'action' => 'read',   'label' => 'View Billing & Invoices',   'desc' => 'View subscription plans, payment receipts, and invoices'],
+        'billing.manage'         => ['module' => 'billing',      'action' => 'write',  'label' => 'Manage Subscription',       'desc' => 'Upgrade, downgrade, cancel, or pay invoices'],
+        'billing.reconcile'      => ['module' => 'billing',      'action' => 'admin',  'label' => 'Bank Reconciliation',       'desc' => 'Confirm Fiji bank transfers, manual reconciliation, and reversals'],
+
+        // DevOps & Infrastructure
+        'devops.overview'        => ['module' => 'devops',       'action' => 'read',   'label' => 'DevOps Overview',           'desc' => 'View tenant worker queues, processing metrics, and DLQ'],
+        'devops.jobs'            => ['module' => 'devops',       'action' => 'write',  'label' => 'Retry Processing Jobs',     'desc' => 'Re-queue failed document conversion jobs'],
+        'devops.backup_request'  => ['module' => 'devops',       'action' => 'write',  'label' => 'Request Workspace Backup',  'desc' => 'Generate complete workspace data and media backups'],
+        'devops.backup_recovery' => ['module' => 'devops',       'action' => 'write',  'label' => 'Restore from Backup',       'desc' => 'Restore workspace data from backup snapshot'],
+        'devops.platform_admin'  => ['module' => 'devops',       'action' => 'admin',  'label' => 'Platform Administration',   'desc' => 'Global infrastructure, migrations, and system telemetry'],
+
+        // Danger Zone
+        'tenant.delete'          => ['module' => 'settings',     'action' => 'delete', 'label' => 'Delete Tenant Workspace',   'desc' => 'Permanently delete tenant workspace and all contents'],
+    ];
+
+    /**
+     * Secure fallback permissions matrix for standard roles.
+     */
+    public const DEFAULT_ROLE_PERMISSIONS = [
+        'owner' => [
+            'flipbook.view', 'flipbook.create', 'flipbook.edit', 'flipbook.publish', 'flipbook.delete', 'hotspot.manage', 'erp.publish',
+            'analytics.view',
+            'users.view', 'users.invite', 'users.manage', 'roles.manage',
+            'settings.view', 'settings.manage',
+            'api_keys.manage', 'webhooks.manage',
+            'billing.view', 'billing.manage', 'billing.reconcile',
+            'devops.overview', 'devops.jobs', 'devops.backup_request', 'devops.backup_recovery',
+            'tenant.delete',
+        ],
+        'admin' => [
+            'flipbook.view', 'flipbook.create', 'flipbook.edit', 'flipbook.publish', 'flipbook.delete', 'hotspot.manage', 'erp.publish',
+            'analytics.view',
+            'users.view', 'users.invite', 'users.manage', 'roles.manage',
+            'settings.view', 'settings.manage',
+            'api_keys.manage', 'webhooks.manage',
+            'billing.view',
+            'devops.overview', 'devops.jobs',
+        ],
+        'editor' => [
+            'flipbook.view', 'flipbook.create', 'flipbook.edit', 'flipbook.publish', 'hotspot.manage',
+            'analytics.view',
+        ],
+        'viewer' => [
+            'flipbook.view',
+            'analytics.view',
+        ],
+        'finance' => [
+            'billing.view', 'billing.manage', 'billing.reconcile',
+            'flipbook.view',
+            'analytics.view',
+        ],
     ];
 
     /**
      * Explicit mapping from internal RBAC permission to required API key scope(s).
-     * Empty array means the operation is strictly prohibited via API key authentication.
      */
     private const PERMISSION_SCOPES = [
-        'flipbook.view'     => ['flipbooks:read', 'flipbooks:write'],
-        'flipbook.create'   => ['flipbooks:write'],
-        'flipbook.edit'     => ['flipbooks:write'],
-        'flipbook.publish'  => ['flipbooks:write', 'erp:publish'],
-        'flipbook.delete'   => ['flipbooks:write'],
-        'hotspot.manage'    => ['flipbooks:write', 'erp:publish'],
-        'erp.publish'       => ['erp:publish'],
-        'analytics.view'    => ['analytics:read'],
-        'webhooks.manage'   => ['webhooks:manage'],
-        'billing.view'      => ['billing:manage'],
-        'billing.manage'    => ['billing:manage'],
-        // Sensitive administrative / financial reconciliation actions are never allowed via API keys
-        'billing.reconcile' => [],
-        'api_keys.manage'   => [],
-        'users.view'        => [],
-        'users.invite'      => [],
-        'users.manage'      => [],
-        'settings.manage'   => [],
+        'flipbook.view'          => ['flipbooks:read', 'flipbooks:write'],
+        'flipbook.create'        => ['flipbooks:write'],
+        'flipbook.edit'          => ['flipbooks:write'],
+        'flipbook.publish'       => ['flipbooks:write', 'erp:publish'],
+        'flipbook.delete'        => ['flipbooks:write'],
+        'hotspot.manage'         => ['flipbooks:write', 'erp:publish'],
+        'erp.publish'            => ['erp:publish'],
+        'analytics.view'         => ['analytics:read'],
+        'webhooks.manage'        => ['webhooks:manage'],
+        'billing.view'           => ['billing:manage'],
+        'billing.manage'         => ['billing:manage'],
+        'billing.reconcile'      => [],
+        'api_keys.manage'        => [],
+        'users.view'             => [],
+        'users.invite'           => [],
+        'users.manage'           => [],
+        'roles.manage'           => [],
+        'settings.view'          => [],
+        'settings.manage'        => [],
         'devops.overview'        => [],
         'devops.jobs'            => [],
         'devops.backup_request'  => [],
         'devops.backup_recovery' => [],
         'devops.platform_admin'  => [],
-        'tenant.delete'     => [],
+        'tenant.delete'          => [],
     ];
+
+    /** In-memory role permission cache per request lifecycle */
+    private static array $roleCache = [];
+
+    /**
+     * Get the full list of permission keys granted to a given user.
+     */
+    public static function getPermissionsForUser(?array $user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        // Platform Superadmin / Developer has full unrestricted access
+        if (($user['role'] ?? '') === 'admin') {
+            return array_keys(self::ALL_PERMISSIONS);
+        }
+
+        // Check if user has explicit custom permissions overrides in their user record
+        if (!empty($user['custom_permissions'])) {
+            $custom = is_array($user['custom_permissions'])
+                ? $user['custom_permissions']
+                : json_decode((string) $user['custom_permissions'], true);
+
+            if (is_array($custom) && !empty($custom)) {
+                return array_values(array_unique(array_filter(array_map('strval', $custom))));
+            }
+        }
+
+        $tenantRole = (string) ($user['tenant_role'] ?? 'editor');
+        $tenantId = !empty($user['tenant_id']) ? (int) $user['tenant_id'] : null;
+
+        return self::getPermissionsForRole($tenantRole, $tenantId);
+    }
+
+    /**
+     * Get permission keys for a specific role slug and optional tenant.
+     */
+    public static function getPermissionsForRole(string $roleSlug, ?int $tenantId = null): array
+    {
+        $cacheKey = "{$roleSlug}:" . ($tenantId ?? 'global');
+        if (isset(self::$roleCache[$cacheKey])) {
+            return self::$roleCache[$cacheKey];
+        }
+
+        try {
+            // First check database for tenant-specific or global role definition
+            if ($tenantId !== null) {
+                $row = Db::one(
+                    'SELECT permissions FROM tenant_roles WHERE slug = ? AND (tenant_id = ? OR tenant_id IS NULL) ORDER BY tenant_id DESC LIMIT 1',
+                    [$roleSlug, $tenantId]
+                );
+            } else {
+                $row = Db::one(
+                    'SELECT permissions FROM tenant_roles WHERE slug = ? AND tenant_id IS NULL LIMIT 1',
+                    [$roleSlug]
+                );
+            }
+
+            if ($row && !empty($row['permissions'])) {
+                $decoded = is_array($row['permissions']) ? $row['permissions'] : json_decode((string) $row['permissions'], true);
+                if (is_array($decoded)) {
+                    $perms = array_values(array_unique(array_filter(array_map('strval', $decoded))));
+                    self::$roleCache[$cacheKey] = $perms;
+                    return $perms;
+                }
+            }
+        } catch (\Throwable) {
+            // database table might not be migrated yet; fallback to static matrix
+        }
+
+        // Fallback to static defaults
+        $fallback = self::DEFAULT_ROLE_PERMISSIONS[$roleSlug] ?? self::DEFAULT_ROLE_PERMISSIONS['viewer'];
+        self::$roleCache[$cacheKey] = $fallback;
+        return $fallback;
+    }
 
     /**
      * Check whether a given user array (and optional active API key) has a specific permission.
@@ -101,14 +221,12 @@ final class Rbac
             return false;
         }
 
-        // 1. Check User RBAC Permission
-        $isPlatformAdmin = ($user['role'] ?? '') === 'admin';
-        if ($isPlatformAdmin) {
+        // 1. Platform Superadmin / Developer bypasses tenant restrictions
+        if (($user['role'] ?? '') === 'admin') {
             $hasUserPermission = true;
         } else {
-            $tenantRole = $user['tenant_role'] ?? 'editor';
-            $allowedRoles = self::PERMISSIONS[$permission] ?? [];
-            $hasUserPermission = in_array($tenantRole, $allowedRoles, true);
+            $perms = self::getPermissionsForUser($user);
+            $hasUserPermission = in_array($permission, $perms, true);
         }
 
         if (!$hasUserPermission) {
@@ -116,7 +234,6 @@ final class Rbac
         }
 
         // 2. Enforce Explicit API Key Scope when authenticated via API key
-        // API keys never inherit unrestricted permissions from their creator (even if creator is owner/admin).
         $activeKey = $apiKey ?? TenantContext::apiKey();
         if ($activeKey !== null) {
             $requiredScopes = self::PERMISSION_SCOPES[$permission] ?? [];
@@ -125,11 +242,11 @@ final class Rbac
                     'api_key_scope_violation',
                     'warning',
                     [
-                        'api_key_id' => $activeKey['id'] ?? null,
-                        'key_prefix' => $activeKey['key_prefix'] ?? null,
+                        'api_key_id'          => $activeKey['id'] ?? null,
+                        'key_prefix'          => $activeKey['key_prefix'] ?? null,
                         'required_permission' => $permission,
-                        'required_scopes' => $requiredScopes,
-                        'granted_scopes' => self::extractScopes($activeKey),
+                        'required_scopes'     => $requiredScopes,
+                        'granted_scopes'      => self::extractScopes($activeKey),
                     ],
                     (int) ($user['id'] ?? 0),
                     isset($user['tenant_id']) ? (int) $user['tenant_id'] : null
@@ -160,9 +277,6 @@ final class Rbac
 
     /**
      * Check if an API key has at least one of the required scopes.
-     *
-     * @param array $apiKey
-     * @param string|string[] $requiredScopes
      */
     public static function apiKeyHasScope(array $apiKey, string|array $requiredScopes): bool
     {
