@@ -18,6 +18,7 @@ final class RoleController
      */
     public function index(Request $req, Response $res): Response
     {
+        Rbac::ensureSchema();
         $u = $req->getAttribute('user');
         $tenantId = TenantContext::id() ?? (!empty($u['tenant_id']) ? (int) $u['tenant_id'] : null);
 
@@ -137,6 +138,7 @@ final class RoleController
      */
     public function create(Request $req, Response $res): Response
     {
+        Rbac::ensureSchema();
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'roles.manage');
 
@@ -197,6 +199,7 @@ final class RoleController
      */
     public function update(Request $req, Response $res, array $args): Response
     {
+        Rbac::ensureSchema();
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'roles.manage');
 
@@ -244,6 +247,7 @@ final class RoleController
      */
     public function delete(Request $req, Response $res, array $args): Response
     {
+        Rbac::ensureSchema();
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'roles.manage');
 

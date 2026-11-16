@@ -30,6 +30,8 @@ if (isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']) && (str_starts_with(
     $_SERVER['SCRIPT_NAME'] = '/index.php';
 }
 
+\App\Support\Rbac::ensureSchema();
+
 $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();

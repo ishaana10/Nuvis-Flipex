@@ -94,6 +94,7 @@ final class MigrationRunner
 
     public static function migrateUp(): array
     {
+        \App\Support\Rbac::ensureSchema();
         $applied = array_column(Db::all('SELECT version FROM schema_migrations'), 'version');
         $maxBatch = (int) (Db::one('SELECT COALESCE(MAX(batch), 0) AS b FROM schema_migrations')['b'] ?? 0) + 1;
         $executed = [];

@@ -138,6 +138,80 @@ final class Rbac
 
     /** In-memory role permission cache per request lifecycle */
     private static array $roleCache = [];
+    private static bool $ensured = false;
+
+    /**
+     * Ensure the tenant_roles table and users.custom_permissions column exist on demand.
+     * Idempotent and safe to run on boot or before any RBAC resolution.
+     */
+    public static function ensureSchema(): void
+    {
+        if (self::$ensured) {
+            return;
+        }
+        self::$ensured = true;
+
+        try {
+            $pdo = Db::pdo();
+
+            // 1. Ensure tenant_roles table exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS tenant_roles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tenant_id INT NULL,
+                name VARCHAR(120) NOT NULL,
+                slug VARCHAR(60) NOT NULL,
+                description TEXT NULL,
+                is_system TINYINT(1) NOT NULL DEFAULT 0,
+                permissions JSON NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_tenant_slug (tenant_id, slug),
+                INDEX idx_roles_tenant (tenant_id),
+                INDEX idx_roles_slug (slug)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+            // 2. Ensure custom_permissions column exists on users
+            $colCheck = $pdo->query("SHOW COLUMNS FROM users LIKE 'custom_permissions'")->fetch();
+            if (!$colCheck) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN custom_permissions JSON NULL AFTER tenant_role");
+            }
+
+            // 3. Ensure tenant_role column is VARCHAR(60) instead of strict enum
+            try {
+                $pdo->exec("ALTER TABLE users MODIFY COLUMN tenant_role VARCHAR(60) NOT NULL DEFAULT 'editor'");
+            } catch (\Throwable) {
+                // Ignore if already modified or restricted
+            }
+
+            // 4. Seed system default roles into tenant_roles if empty
+            $roleCount = (int) ($pdo->query("SELECT COUNT(*) FROM tenant_roles WHERE tenant_id IS NULL")->fetchColumn() ?: 0);
+            if ($roleCount === 0) {
+                $st = $pdo->prepare("INSERT INTO tenant_roles (tenant_id, name, slug, description, is_system, permissions) VALUES (NULL, ?, ?, ?, 1, ?)");
+                foreach (self::DEFAULT_ROLE_PERMISSIONS as $slug => $perms) {
+                    $name = match ($slug) {
+                        'owner'   => 'Tenant Owner',
+                        'admin'   => 'Tenant Administrator',
+                        'editor'  => 'Content Editor',
+                        'viewer'  => 'Viewer / Reader',
+                        'finance' => 'Billing & Finance Manager',
+                        default   => ucfirst($slug),
+                    };
+                    $desc = match ($slug) {
+                        'owner'   => 'Full administrative, financial, and operational authority over the tenant workspace, publications, and team.',
+                        'admin'   => 'Workspace administrator managing publications, hotspots, team members, integrations, and workspace settings.',
+                        'editor'  => 'Creates, customizes, and publishes flipbooks and hotspots. Restricted from deleting publications, billing, devops, and tenant settings.',
+                        'viewer'  => 'Read-only access to view publications, search content, and view basic engagement analytics.',
+                        'finance' => 'Manages company billing, subscription invoices, payment submissions, and Fiji bank transfer reconciliations.',
+                        default   => 'Workspace role template.',
+                    };
+                    $st->execute([$name, $slug, $desc, json_encode($perms)]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal error fallback
+            error_log('Rbac::ensureSchema non-fatal: ' . $e->getMessage());
+        }
+    }
 
     /**
      * Get the full list of permission keys granted to a given user.
@@ -147,6 +221,8 @@ final class Rbac
         if (!$user) {
             return [];
         }
+
+        self::ensureSchema();
 
         // Platform Superadmin / Developer has full unrestricted access
         if (($user['role'] ?? '') === 'admin') {

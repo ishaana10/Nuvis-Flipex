@@ -7,6 +7,7 @@ use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
 use App\Support\Mailer;
+use App\Support\Rbac;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -40,6 +41,8 @@ final class AdminController
     /** List all users with tenant, plan, and publication count */
     public function users(Request $req, Response $res): Response
     {
+        Rbac::ensureSchema();
+
         $q = trim((string) ($req->getQueryParams()['q'] ?? ''));
         $params = [];
         $sql = "SELECT u.id, u.email, u.name, u.role, u.tenant_role, u.custom_permissions, u.status, u.plan_id, u.tenant_id,
@@ -57,7 +60,29 @@ final class AdminController
         }
 
         $sql .= " ORDER BY u.created_at DESC";
-        $rows = Db::all($sql, $params);
+
+        try {
+            $rows = Db::all($sql, $params);
+        } catch (\Throwable) {
+            // Fallback query if custom_permissions column has not yet migrated
+            $sqlFallback = "SELECT u.id, u.email, u.name, u.role, u.tenant_role, u.status, u.plan_id, u.tenant_id,
+                           u.email_verified_at, u.created_at, u.last_login_at,
+                           t.name AS company_name, p.name AS plan_name,
+                           (SELECT COUNT(*) FROM flipbooks f WHERE f.user_id = u.id) AS flipbooks_count
+                    FROM users u
+                    LEFT JOIN tenants t ON t.id = u.tenant_id
+                    LEFT JOIN plans p ON p.id = u.plan_id
+                    WHERE u.deleted_at IS NULL";
+            if ($q !== '') {
+                $sqlFallback .= " AND (u.name LIKE ? OR u.email LIKE ? OR t.name LIKE ?)";
+            }
+            $sqlFallback .= " ORDER BY u.created_at DESC";
+            $rows = Db::all($sqlFallback, $params);
+            foreach ($rows as &$r) {
+                $r['custom_permissions'] = null;
+            }
+            unset($r);
+        }
 
         return Http::json($res, array_map(fn($r) => [
             'id' => (int) $r['id'],
@@ -82,6 +107,8 @@ final class AdminController
     /** Create a new user */
     public function createUser(Request $req, Response $res): Response
     {
+        Rbac::ensureSchema();
+
         $b = (array) $req->getParsedBody();
         $email = trim(strtolower((string) ($b['email'] ?? '')));
         $name = trim((string) ($b['name'] ?? ''));
@@ -109,11 +136,19 @@ final class AdminController
         }
 
         $hash = password_hash($password, PASSWORD_ARGON2ID);
-        Db::run(
-            'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, custom_permissions, status, plan_id, email_verified_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-            [$tenantId, $email, $hash, $name, $role, $tenantRole, $customPerms, $status, $planId]
-        );
+        try {
+            Db::run(
+                'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, custom_permissions, status, plan_id, email_verified_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+                [$tenantId, $email, $hash, $name, $role, $tenantRole, $customPerms, $status, $planId]
+            );
+        } catch (\Throwable) {
+            Db::run(
+                'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, plan_id, email_verified_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+                [$tenantId, $email, $hash, $name, $role, $tenantRole, $status, $planId]
+            );
+        }
 
         $id = (int) Db::pdo()->lastInsertId();
         Audit::log('admin.create_user', 'user', $id, ['email' => $email, 'role' => $role, 'tenantRole' => $tenantRole]);
@@ -124,6 +159,8 @@ final class AdminController
     /** Update an existing user */
     public function updateUser(Request $req, Response $res, array $args): Response
     {
+        Rbac::ensureSchema();
+
         $id = (int) $args['id'];
         $u = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL', [$id]);
         if (!$u) {
@@ -138,7 +175,7 @@ final class AdminController
         $tenantId = array_key_exists('tenantId', $b) ? ($b['tenantId'] ? (int) $b['tenantId'] : null) : $u['tenant_id'];
         $planId = isset($b['planId']) ? (int) $b['planId'] : (int) $u['plan_id'];
 
-        $customPerms = $u['custom_permissions'];
+        $customPerms = $u['custom_permissions'] ?? null;
         if (array_key_exists('customPermissions', $b)) {
             $customPerms = is_array($b['customPermissions'])
                 ? json_encode(array_values(array_intersect($b['customPermissions'], array_keys(\App\Support\Rbac::ALL_PERMISSIONS))))
@@ -149,10 +186,17 @@ final class AdminController
             return Http::error($res, 'Validation failed', 422, ['name' => 'Name cannot be empty']);
         }
 
-        Db::run(
-            'UPDATE users SET name = ?, role = ?, tenant_role = ?, custom_permissions = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
-            [$name, $role, $tenantRole, $customPerms, $status, $tenantId, $planId, $id]
-        );
+        try {
+            Db::run(
+                'UPDATE users SET name = ?, role = ?, tenant_role = ?, custom_permissions = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
+                [$name, $role, $tenantRole, $customPerms, $status, $tenantId, $planId, $id]
+            );
+        } catch (\Throwable) {
+            Db::run(
+                'UPDATE users SET name = ?, role = ?, tenant_role = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
+                [$name, $role, $tenantRole, $status, $tenantId, $planId, $id]
+            );
+        }
 
         // If user was suspended, revoke all active sessions immediately
         if ($status === 'suspended') {
