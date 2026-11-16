@@ -81,6 +81,115 @@ const VIEWER_THEMES: Record<string, { name: string; bg: string; barBg: string; t
   forest: { name: 'Forest Executive', bg: '#112218', barBg: 'rgba(10, 22, 15, 0.9)', text: '#ecfdf5' },
 };
 
+// Sleek Monochrome SVG Vector Icons for Viewer Toolbar & Panels (Inheriting toolbar color without OS emoji color artifacts)
+const SvgSearch = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+const SvgList = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
+  </svg>
+);
+const SvgBookmark = ({ filled }: { filled?: boolean }) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </svg>
+);
+const SvgShare = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+const SvgSaveOffline = ({ saved, caching }: { saved?: boolean; caching?: boolean }) => {
+  if (saved) {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+    );
+  }
+  if (caching) {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+};
+const SvgVolume = ({ muted }: { muted?: boolean }) => {
+  if (muted) {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+        <line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+};
+const SvgDownload = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+const SvgGrid = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="7" height="7" x="3" y="3" rx="1.5" /><rect width="7" height="7" x="14" y="3" rx="1.5" />
+    <rect width="7" height="7" x="14" y="14" rx="1.5" /><rect width="7" height="7" x="3" y="14" rx="1.5" />
+  </svg>
+);
+const SvgKeyboard = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="16" x="2" y="4" rx="2" />
+    <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10" />
+  </svg>
+);
+const SvgFullscreen = ({ isFs }: { isFs?: boolean }) => {
+  if (isFs) {
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
+};
+const SvgUser = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+  </svg>
+);
+const SvgQr = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="6" height="6" x="3" y="3" rx="1" /><rect width="6" height="6" x="15" y="3" rx="1" />
+    <rect width="6" height="6" x="3" y="15" rx="1" /><path d="M15 15h2v2h-2zM19 19h2v2h-2zM15 19h2v2h-2zM19 15h2v2h-2z" />
+  </svg>
+);
+const SvgClose = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
 export default function FlipbookViewer({
   pages,
   title,
@@ -153,6 +262,7 @@ export default function FlipbookViewer({
   // Drawers & Modals
   const [showThumbs, setShowThumbs] = useState(false);
   const [showToc, setShowToc] = useState(false);
+  const [tocFilter, setTocFilter] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -771,6 +881,10 @@ export default function FlipbookViewer({
             level: 1,
           };
         });
+
+  const filteredToc: TocItem[] = tocFilter.trim()
+    ? effectiveToc.filter((t) => t.title.toLowerCase().includes(tocFilter.toLowerCase().trim()))
+    : effectiveToc;
 
   const updateBookPageStacks = useCallback((pageIdx: number, totalPages: number, orientation: string) => {
     if (!host.current || !flip.current) return;
@@ -2593,7 +2707,7 @@ export default function FlipbookViewer({
         </div>
 
         <div className="hz-top-actions">
-          {/* Author / Publisher Profile Button (Image 5) */}
+          {/* Author / Publisher Profile Button */}
           {settings.showProfileButton && (
             <button
               type="button"
@@ -2606,11 +2720,11 @@ export default function FlipbookViewer({
               aria-label="Publisher Profile"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              👤
+              <SvgUser />
             </button>
           )}
 
-          {/* Quick Mobile QR Code Button (Image 2 & 6) */}
+          {/* Quick Mobile QR Code Button */}
           {settings.showQrCode && (
             <button
               type="button"
@@ -2623,7 +2737,7 @@ export default function FlipbookViewer({
               aria-label="QR Code"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              📱
+              <SvgQr />
             </button>
           )}
 
@@ -2636,7 +2750,7 @@ export default function FlipbookViewer({
               title="Open in Landscape Full Mode"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              🔄 Landscape Full
+              <span style={{ fontSize: '12px' }}>🔄</span> Landscape Full
             </button>
           )}
 
@@ -2653,7 +2767,7 @@ export default function FlipbookViewer({
               aria-label="Search Inside Publication"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              🔍
+              <SvgSearch />
             </button>
           )}
 
@@ -2669,7 +2783,7 @@ export default function FlipbookViewer({
             aria-label="Table of Contents"
             style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
-            ☰
+            <SvgList />
           </button>
 
           {/* Bookmark Current Page (Desktop) */}
@@ -2688,7 +2802,7 @@ export default function FlipbookViewer({
             aria-label="Bookmark current page"
             style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
-            {isCurrentBookmarked ? '🔖' : '🏷️'}
+            <SvgBookmark filled={isCurrentBookmarked} />
           </button>
 
           {/* Share Current Page / Publication */}
@@ -2703,7 +2817,7 @@ export default function FlipbookViewer({
               aria-label="Share Page"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              🔗
+              <SvgShare />
             </button>
           )}
 
@@ -2721,7 +2835,7 @@ export default function FlipbookViewer({
             aria-label="Save for Offline Reading"
             style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
-            {offlineSaved ? '✅' : cachingOffline ? '⏳' : '💾'}
+            <SvgSaveOffline saved={offlineSaved} caching={cachingOffline} />
           </button>
 
           {soundConfigEnabled && readingMode === 'flip' && (
@@ -2731,7 +2845,7 @@ export default function FlipbookViewer({
               title={soundMuted ? 'Turn Sound On' : 'Mute Sound'}
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              {soundMuted ? '🔇' : '🔊'}
+              <SvgVolume muted={soundMuted} />
             </button>
           )}
 
@@ -2744,7 +2858,7 @@ export default function FlipbookViewer({
               title="Download PDF"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              📥
+              <SvgDownload />
             </a>
           )}
 
@@ -2755,7 +2869,7 @@ export default function FlipbookViewer({
               title="Toggle Page Thumbnails"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              📑
+              <SvgGrid />
             </button>
           )}
 
@@ -2765,7 +2879,7 @@ export default function FlipbookViewer({
             title="Keyboard Shortcuts & Theme Settings (Shortcut: ?)"
             style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
-            ⌨️
+            <SvgKeyboard />
           </button>
 
           {settings.showFullscreenButton !== false && (
@@ -2775,7 +2889,7 @@ export default function FlipbookViewer({
               title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              {isFullscreen ? '✕' : '⛶'}
+              <SvgFullscreen isFs={isFullscreen} />
             </button>
           )}
         </div>
@@ -2804,20 +2918,23 @@ export default function FlipbookViewer({
 
       {/* Slide-Out Search Inside Publication Panel */}
       {showSearch && (
-        <div
-          className="fixed top-16 right-4 z-40 flex max-h-[75vh] w-80 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 text-white shadow-2xl backdrop-blur-lg"
+        <aside
+          className="hz-nav-panel fixed top-16 right-4 z-40 flex max-h-[75vh] w-84 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl"
           role="dialog"
           aria-label="Search Inside Publication"
         >
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-              🔍 Search Inside Publication
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 bg-slate-900/60">
+            <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+              <SvgSearch /> Search Inside Publication
             </span>
-            <button onClick={() => setShowSearch(false)} className="text-slate-400 hover:text-white">
-              ✕
+            <button
+              onClick={() => setShowSearch(false)}
+              className="flex items-center justify-center h-7 w-7 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <SvgClose />
             </button>
           </div>
-          <div className="p-3 border-b border-white/10">
+          <div className="p-3 border-b border-white/10 bg-slate-900/30">
             <input
               type="search"
               autoFocus
@@ -2827,7 +2944,7 @@ export default function FlipbookViewer({
               className="w-full rounded-xl border border-white/20 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-amber-400"
             />
           </div>
-          <div className="flex-1 overflow-y-auto divide-y divide-white/10 p-2">
+          <div className="hz-custom-scroll flex-1 overflow-y-auto divide-y divide-white/10 p-2">
             {searchQuery.trim().length < 2 ? (
               <p className="p-4 text-center text-xs text-slate-400">
                 Type at least 2 characters to search across all {pages.length} pages.
@@ -2849,78 +2966,155 @@ export default function FlipbookViewer({
                 >
                   <div className="flex items-center justify-between text-xs font-bold text-amber-400">
                     <span>Page {res.page}</span>
-                    <span>Jump →</span>
+                    <span className="text-[10px] bg-amber-400/20 px-2 py-0.5 rounded-full text-amber-300">Jump →</span>
                   </div>
                   <p className="mt-1 text-[11px] text-slate-300 line-clamp-3">{res.snippet}</p>
                 </button>
               ))
             )}
           </div>
-        </div>
+        </aside>
       )}
 
-      {/* Slide-Out Table of Contents & Bookmarks Panel */}
+      {/* Slide-Out Modern Table of Contents & Bookmarks Panel */}
       {(showToc || showBookmarks) && (
-        <div
-          className="fixed top-16 left-4 z-40 flex max-h-[75vh] w-80 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 text-white shadow-2xl backdrop-blur-lg"
+        <aside
+          className="hz-side-drawer fixed top-16 left-4 z-40 flex max-h-[80vh] w-84 sm:w-96 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl"
           role="navigation"
           aria-label="Table of Contents and Bookmarks"
         >
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <div className="flex gap-3 text-xs font-bold">
+          {/* Header with Modern Segmented Pill Tabs */}
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 bg-slate-900/60">
+            <div className="hz-drawer-tabs flex items-center bg-white/10 p-1 rounded-full text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => { setShowToc(true); setShowBookmarks(false); }}
-                className={showToc ? 'text-amber-400 underline' : 'text-slate-400 hover:text-white'}
+                className={`hz-drawer-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all ${
+                  showToc
+                    ? 'bg-white text-slate-900 shadow-md font-bold'
+                    : 'text-slate-300 hover:text-white bg-transparent'
+                }`}
               >
-                ☰ Contents ({effectiveToc.length})
+                <SvgList />
+                <span>Contents</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${showToc ? 'bg-slate-200 text-slate-800' : 'bg-white/15 text-slate-300'}`}>
+                  {effectiveToc.length}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => { setShowBookmarks(true); setShowToc(false); }}
-                className={showBookmarks ? 'text-amber-400 underline' : 'text-slate-400 hover:text-white'}
+                className={`hz-drawer-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all ${
+                  showBookmarks
+                    ? 'bg-white text-slate-900 shadow-md font-bold'
+                    : 'text-slate-300 hover:text-white bg-transparent'
+                }`}
               >
-                🔖 Bookmarks ({bookmarks.length})
+                <SvgBookmark filled={bookmarks.length > 0} />
+                <span>Bookmarks</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${showBookmarks ? 'bg-slate-200 text-slate-800' : 'bg-white/15 text-slate-300'}`}>
+                  {bookmarks.length}
+                </span>
               </button>
             </div>
+
             <button
+              type="button"
               onClick={() => { setShowToc(false); setShowBookmarks(false); }}
-              className="text-slate-400 hover:text-white"
+              className="hz-drawer-close flex items-center justify-center h-8 w-8 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Close panel (Esc)"
+              aria-label="Close"
             >
-              ✕
+              <SvgClose />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+
+          {/* Quick Filter Search for TOC */}
+          {showToc && effectiveToc.length > 5 && (
+            <div className="px-3 pt-3 pb-2 border-b border-white/10 bg-slate-900/30">
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-slate-400 pointer-events-none">
+                  <SvgSearch />
+                </span>
+                <input
+                  type="text"
+                  value={tocFilter}
+                  onChange={(e) => setTocFilter(e.target.value)}
+                  placeholder="Filter contents…"
+                  className="w-full rounded-xl border border-white/15 bg-slate-900/80 pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-400 outline-none focus:border-amber-400/80 transition-colors"
+                />
+                {tocFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setTocFilter('')}
+                    className="absolute right-2.5 text-slate-400 hover:text-white p-0.5"
+                    title="Clear filter"
+                  >
+                    <SvgClose />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Body Content */}
+          <div className="hz-custom-scroll flex-1 overflow-y-auto p-2 space-y-1">
             {showToc ? (
-              effectiveToc.map((item, idx) => (
-                <button
-                  key={`${item.page}-${idx}`}
-                  type="button"
-                  onClick={() => {
-                    goto(item.page - 1);
-                    setShowToc(false);
-                  }}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-colors ${
-                    current + 1 === item.page
-                      ? 'bg-amber-400/20 font-bold text-amber-300'
-                      : 'text-slate-200 hover:bg-white/10'
-                  }`}
-                >
-                  <span className="truncate pr-2">{item.title}</span>
-                  <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
-                    p. {item.page}
-                  </span>
-                </button>
-              ))
+              filteredToc.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No sections match “{tocFilter}”.
+                </div>
+              ) : (
+                filteredToc.map((item, idx) => {
+                  const isActive = current + 1 === item.page;
+                  return (
+                    <button
+                      key={`${item.page}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        goto(item.page - 1);
+                        setShowToc(false);
+                      }}
+                      className={`hz-toc-item group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs transition-all ${
+                        isActive
+                          ? 'hz-toc-active bg-amber-400/20 text-amber-300 font-bold border-l-4 border-amber-400 pl-2.5'
+                          : 'text-slate-200 hover:bg-white/10 hover:text-white border-l-4 border-transparent pl-2.5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        {isActive && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0 shadow-sm" />
+                        )}
+                        <span className="truncate">{item.title}</span>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-mono transition-colors ${
+                          isActive
+                            ? 'bg-amber-400/30 text-amber-200 font-semibold'
+                            : 'bg-white/10 text-slate-400 group-hover:bg-white/20 group-hover:text-slate-200'
+                        }`}
+                      >
+                        p. {item.page}
+                      </span>
+                    </button>
+                  );
+                })
+              )
             ) : bookmarks.length === 0 ? (
-              <p className="p-4 text-center text-xs text-slate-400">
-                No bookmarked pages yet. Click 🏷️ or press <b>B</b> to bookmark any page.
-              </p>
+              <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-slate-400">
+                <div className="h-10 w-10 rounded-full bg-white/5 flex items-center justify-center text-slate-300 mb-2">
+                  <SvgBookmark />
+                </div>
+                <p className="font-semibold text-slate-200 mb-1">No bookmarks yet</p>
+                <p className="text-[11px] text-slate-400 max-w-[200px]">
+                  Click the bookmark icon in the top toolbar or press <kbd className="px-1 py-0.5 bg-white/10 rounded text-[10px]">B</kbd> to save any page.
+                </p>
+              </div>
             ) : (
               bookmarks.map((bmPage) => (
                 <div
                   key={bmPage}
-                  className="flex items-center justify-between rounded-xl px-3 py-2 text-xs hover:bg-white/10"
+                  className="group flex items-center justify-between rounded-xl px-3 py-2 text-xs hover:bg-white/10 transition-colors"
                 >
                   <button
                     type="button"
@@ -2928,14 +3122,18 @@ export default function FlipbookViewer({
                       goto(bmPage - 1);
                       setShowBookmarks(false);
                     }}
-                    className="flex-1 text-left font-semibold text-amber-300"
+                    className="flex items-center gap-2 flex-1 text-left font-medium text-slate-200 hover:text-amber-300 transition-colors"
                   >
-                    🔖 Page {bmPage}
+                    <span className="text-amber-400">
+                      <SvgBookmark filled />
+                    </span>
+                    <span>Page {bmPage}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => toggleBookmark(bmPage)}
-                    className="text-slate-400 hover:text-red-400"
+                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-red-500/10 transition-all"
+                    title="Remove bookmark"
                   >
                     Remove
                   </button>
@@ -2943,7 +3141,7 @@ export default function FlipbookViewer({
               ))
             )}
           </div>
-        </div>
+        </aside>
       )}
 
       {/* Main Reading Stage: Supports 3 Modes ('flip' | 'scroll' | 'reader') */}

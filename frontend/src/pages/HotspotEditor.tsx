@@ -117,15 +117,15 @@ const HOTSPOT_TYPE_META: Record<
     label: 'Image Lightbox',
     shortLabel: 'Lightbox',
     icon: '🖼️',
-    badgeColor: 'bg-purple-500 text-white',
-    borderClass: 'border-purple-400 bg-purple-500/18',
+    badgeColor: 'bg-teal-600 text-white',
+    borderClass: 'border-teal-400 bg-teal-500/18',
   },
   audio: {
     label: 'Audio Clip',
     shortLabel: 'Audio',
     icon: '🔊',
-    badgeColor: 'bg-indigo-500 text-white',
-    borderClass: 'border-indigo-400 bg-indigo-500/18',
+    badgeColor: 'bg-sky-600 text-white',
+    borderClass: 'border-sky-400 bg-sky-500/18',
   },
 };
 

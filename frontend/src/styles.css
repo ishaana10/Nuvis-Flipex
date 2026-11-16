@@ -566,7 +566,7 @@ html.dark .preview-topbar .btn-pub:hover {
 .thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 12px; background: #0c0d0f; justify-content: flex-start; scrollbar-width: thin; }
 .thumbs img { height: 75px; border-radius: 4px; cursor: pointer; opacity: 0.5; transition: all 0.15s ease-in-out; border: 2px solid transparent; }
 .thumbs img:hover { opacity: 0.85; }
-.thumbs img.on { opacity: 1; border-color: #6366f1; transform: scale(1.05); }
+.thumbs img.on { opacity: 1; border-color: #f59e0b; transform: scale(1.05); }
 
 /* Action pills in Dashboard */
 .fb-title { font-size: 15px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -766,8 +766,81 @@ html.dark .preview-topbar .btn-pub:hover {
 .hz-book-title { color: #fff; font-size: 13px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .hz-brand-badge { background: rgba(255,255,255,0.15); color: #e2e8f0; font-size: 11px; padding: 3px 8px; border-radius: 4px; backdrop-filter: blur(4px); }
 .hz-top-actions { display: flex; gap: 6px; align-items: center; pointer-events: auto; margin-left: auto; }
-.hz-icon-btn { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: all 0.15s; text-decoration: none; backdrop-filter: blur(6px); padding: 0; }
-.hz-icon-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.06); }
+.hz-icon-btn {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f1f5f9;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+}
+.hz-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #ffffff;
+  transform: translateY(-1px) scale(1.06);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+.hz-icon-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+.hz-icon-btn.ring-2 {
+  background: rgba(245, 158, 11, 0.25) !important;
+  border-color: #f59e0b !important;
+  color: #fbbf24 !important;
+}
+
+/* Custom Scrollbar for Sleek Slide-Out Panels */
+.hz-custom-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.hz-custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hz-custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+.hz-custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+/* Explicit Reset for Drawer Buttons to eliminate global 'button' style leakage */
+.hz-side-drawer button,
+.hz-nav-panel button {
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  font-size: inherit;
+  cursor: pointer;
+  box-shadow: none;
+}
+.hz-side-drawer .hz-drawer-tab {
+  cursor: pointer;
+}
+.hz-side-drawer .hz-toc-item {
+  background: transparent;
+  cursor: pointer;
+}
+.hz-side-drawer .hz-toc-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.hz-side-drawer .hz-toc-item.hz-toc-active {
+  background: rgba(245, 158, 11, 0.16) !important;
+}
 
 /* Mobile One-Tap Landscape Fullscreen Button (visible only on mobile portrait) */
 .hz-mobile-landscape-btn {

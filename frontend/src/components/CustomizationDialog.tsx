@@ -793,7 +793,7 @@ export default function CustomizationDialog({
               <span className="flipex-promo-dot bg-emerald-500" />
               <span className="flipex-promo-dot bg-red-500" />
               <span className="flipex-promo-dot bg-blue-500" />
-              <span className="flipex-promo-dot bg-purple-500" />
+              <span className="flipex-promo-dot bg-amber-500" />
             </div>
             <span className="flipex-promo-text">Add interactive links, videos, audio & hotspots</span>
             <Link
