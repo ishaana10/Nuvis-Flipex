@@ -2979,40 +2979,32 @@ export default function FlipbookViewer({
       {/* Slide-Out Modern Table of Contents & Bookmarks Panel */}
       {(showToc || showBookmarks) && (
         <aside
-          className="hz-side-drawer fixed top-16 left-4 z-40 flex max-h-[80vh] w-84 sm:w-96 flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl"
+          className="hz-side-drawer"
           role="navigation"
           aria-label="Table of Contents and Bookmarks"
         >
           {/* Header with Modern Segmented Pill Tabs */}
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 bg-slate-900/60">
-            <div className="hz-drawer-tabs flex items-center bg-white/10 p-1 rounded-full text-xs font-semibold">
+          <div className="hz-drawer-header">
+            <div className="hz-drawer-tabs">
               <button
                 type="button"
                 onClick={() => { setShowToc(true); setShowBookmarks(false); }}
-                className={`hz-drawer-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all ${
-                  showToc
-                    ? 'bg-white text-slate-900 shadow-md font-bold'
-                    : 'text-slate-300 hover:text-white bg-transparent'
-                }`}
+                className={`hz-drawer-tab ${showToc ? 'active' : ''}`}
               >
                 <SvgList />
                 <span>Contents</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${showToc ? 'bg-slate-200 text-slate-800' : 'bg-white/15 text-slate-300'}`}>
+                <span className="hz-drawer-tab-badge">
                   {effectiveToc.length}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => { setShowBookmarks(true); setShowToc(false); }}
-                className={`hz-drawer-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all ${
-                  showBookmarks
-                    ? 'bg-white text-slate-900 shadow-md font-bold'
-                    : 'text-slate-300 hover:text-white bg-transparent'
-                }`}
+                className={`hz-drawer-tab ${showBookmarks ? 'active' : ''}`}
               >
                 <SvgBookmark filled={bookmarks.length > 0} />
                 <span>Bookmarks</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${showBookmarks ? 'bg-slate-200 text-slate-800' : 'bg-white/15 text-slate-300'}`}>
+                <span className="hz-drawer-tab-badge">
                   {bookmarks.length}
                 </span>
               </button>
@@ -3021,7 +3013,7 @@ export default function FlipbookViewer({
             <button
               type="button"
               onClick={() => { setShowToc(false); setShowBookmarks(false); }}
-              className="hz-drawer-close flex items-center justify-center h-8 w-8 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="hz-drawer-close"
               title="Close panel (Esc)"
               aria-label="Close"
             >
@@ -3030,43 +3022,41 @@ export default function FlipbookViewer({
           </div>
 
           {/* Quick Filter Search for TOC */}
-          {showToc && effectiveToc.length > 5 && (
-            <div className="px-3 pt-3 pb-2 border-b border-white/10 bg-slate-900/30">
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-slate-400 pointer-events-none">
-                  <SvgSearch />
-                </span>
-                <input
-                  type="text"
-                  value={tocFilter}
-                  onChange={(e) => setTocFilter(e.target.value)}
-                  placeholder="Filter contents…"
-                  className="w-full rounded-xl border border-white/15 bg-slate-900/80 pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-400 outline-none focus:border-amber-400/80 transition-colors"
-                />
-                {tocFilter && (
-                  <button
-                    type="button"
-                    onClick={() => setTocFilter('')}
-                    className="absolute right-2.5 text-slate-400 hover:text-white p-0.5"
-                    title="Clear filter"
-                  >
-                    <SvgClose />
-                  </button>
-                )}
-              </div>
+          {showToc && (
+            <div className="hz-drawer-filter-bar">
+              <span className="hz-filter-icon">
+                <SvgSearch />
+              </span>
+              <input
+                type="text"
+                value={tocFilter}
+                onChange={(e) => setTocFilter(e.target.value)}
+                placeholder="Filter table of contents…"
+              />
+              {tocFilter && (
+                <button
+                  type="button"
+                  onClick={() => setTocFilter('')}
+                  className="hz-filter-clear"
+                  title="Clear filter"
+                >
+                  <SvgClose />
+                </button>
+              )}
             </div>
           )}
 
           {/* Body Content */}
-          <div className="hz-custom-scroll flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="hz-custom-scroll hz-drawer-list">
             {showToc ? (
               filteredToc.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400">
-                  No sections match “{tocFilter}”.
+                <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
+                  No sections match “{tocFilter}”
                 </div>
               ) : (
                 filteredToc.map((item, idx) => {
                   const isActive = current + 1 === item.page;
+                  const displayNum = (idx + 1).toString().padStart(2, '0');
                   return (
                     <button
                       key={`${item.page}-${idx}`}
@@ -3075,25 +3065,14 @@ export default function FlipbookViewer({
                         goto(item.page - 1);
                         setShowToc(false);
                       }}
-                      className={`hz-toc-item group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs transition-all ${
-                        isActive
-                          ? 'hz-toc-active bg-amber-400/20 text-amber-300 font-bold border-l-4 border-amber-400 pl-2.5'
-                          : 'text-slate-200 hover:bg-white/10 hover:text-white border-l-4 border-transparent pl-2.5'
-                      }`}
+                      className={`hz-toc-item ${isActive ? 'hz-toc-active' : ''}`}
+                      title={`${item.title} (Page ${item.page})`}
                     >
-                      <div className="flex items-center gap-2 truncate pr-2">
-                        {isActive && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0 shadow-sm" />
-                        )}
-                        <span className="truncate">{item.title}</span>
+                      <div className="hz-toc-item-left">
+                        <span className="hz-toc-idx">{displayNum}</span>
+                        <span className="hz-toc-title">{item.title}</span>
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-mono transition-colors ${
-                          isActive
-                            ? 'bg-amber-400/30 text-amber-200 font-semibold'
-                            : 'bg-white/10 text-slate-400 group-hover:bg-white/20 group-hover:text-slate-200'
-                        }`}
-                      >
+                      <span className="hz-toc-badge">
                         p. {item.page}
                       </span>
                     </button>
@@ -3101,30 +3080,27 @@ export default function FlipbookViewer({
                 })
               )
             ) : bookmarks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-slate-400">
-                <div className="h-10 w-10 rounded-full bg-white/5 flex items-center justify-center text-slate-300 mb-2">
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 16px', textAlign: 'center' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '10px' }}>
                   <SvgBookmark />
                 </div>
-                <p className="font-semibold text-slate-200 mb-1">No bookmarks yet</p>
-                <p className="text-[11px] text-slate-400 max-w-[200px]">
-                  Click the bookmark icon in the top toolbar or press <kbd className="px-1 py-0.5 bg-white/10 rounded text-[10px]">B</kbd> to save any page.
-                </p>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No bookmarks yet</div>
+                <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '220px', lineHeight: 1.4 }}>
+                  Click the bookmark icon in the top toolbar or press <kbd style={{ padding: '1px 5px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', fontSize: '10px' }}>B</kbd> to save any page.
+                </div>
               </div>
             ) : (
               bookmarks.map((bmPage) => (
-                <div
-                  key={bmPage}
-                  className="group flex items-center justify-between rounded-xl px-3 py-2 text-xs hover:bg-white/10 transition-colors"
-                >
+                <div key={bmPage} className="hz-bookmark-item">
                   <button
                     type="button"
                     onClick={() => {
                       goto(bmPage - 1);
                       setShowBookmarks(false);
                     }}
-                    className="flex items-center gap-2 flex-1 text-left font-medium text-slate-200 hover:text-amber-300 transition-colors"
+                    className="hz-bookmark-jump"
                   >
-                    <span className="text-amber-400">
+                    <span style={{ color: '#f59e0b' }}>
                       <SvgBookmark filled />
                     </span>
                     <span>Page {bmPage}</span>
@@ -3132,7 +3108,7 @@ export default function FlipbookViewer({
                   <button
                     type="button"
                     onClick={() => toggleBookmark(bmPage)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-red-500/10 transition-all"
+                    className="hz-bookmark-del"
                     title="Remove bookmark"
                   >
                     Remove
@@ -3141,6 +3117,14 @@ export default function FlipbookViewer({
               ))
             )}
           </div>
+
+          {/* Footer Info */}
+          {showToc && (
+            <div className="hz-drawer-footer">
+              <span>{filteredToc.length} of {effectiveToc.length} sections</span>
+              <span>Click row to jump →</span>
+            </div>
+          )}
         </aside>
       )}
 
