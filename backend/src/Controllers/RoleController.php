@@ -95,13 +95,21 @@ final class RoleController
             ];
         }, $rows);
 
-        return Http::json($res, $rolesList);
+        return Http::json($res, [
+            'roles' => $rolesList,
+            'permissionsMatrix' => self::buildPermissionsMatrix(),
+        ]);
     }
 
     /**
      * Get dictionary of all permissions grouped by module.
      */
     public function permissionsMatrix(Request $req, Response $res): Response
+    {
+        return Http::json($res, self::buildPermissionsMatrix());
+    }
+
+    public static function buildPermissionsMatrix(): array
     {
         $grouped = [];
         foreach (Rbac::ALL_PERMISSIONS as $permKey => $meta) {
@@ -130,7 +138,7 @@ final class RoleController
             ];
         }
 
-        return Http::json($res, array_values($grouped));
+        return array_values($grouped);
     }
 
     /**

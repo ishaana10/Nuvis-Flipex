@@ -217,17 +217,28 @@ export default function AdminPanel() {
   const loadStats = useCallback(() => api<Stats>('/admin/stats').then(setStats), []);
   const loadUsers = useCallback(() => api<AdminUser[]>(`/admin/users?q=${encodeURIComponent(userQuery)}`).then(setUsers), [userQuery]);
   const loadRoles = useCallback(() => {
-    return api<{ roles: RoleItem[]; permissionsMatrix: PermissionModuleGroup[] }>('/admin/roles')
-      .then((res) => {
-        setRoles(res.roles);
-        setPermissionMatrix(res.permissionsMatrix);
+    return Promise.all([
+      api<any>('/admin/roles').catch(() => null),
+      api<any>('/admin/roles/permissions-matrix').catch(() => null),
+    ])
+      .then(([rolesRes, matrixRes]) => {
+        const rolesList: RoleItem[] = Array.isArray(rolesRes)
+          ? rolesRes
+          : (rolesRes && Array.isArray(rolesRes.roles) ? rolesRes.roles : []);
+
+        const matrixList: PermissionModuleGroup[] = Array.isArray(matrixRes)
+          ? matrixRes
+          : (rolesRes && Array.isArray(rolesRes.permissionsMatrix) ? rolesRes.permissionsMatrix : []);
+
+        setRoles(rolesList);
+        setPermissionMatrix(matrixList);
         setSelectedRole((prev) => {
-          if (!prev && res.roles.length > 0) {
-            setRoleFormPerms(res.roles[0].permissions || []);
-            return res.roles[0];
+          if (!prev && rolesList.length > 0) {
+            setRoleFormPerms(rolesList[0].permissions || []);
+            return rolesList[0];
           }
           if (prev) {
-            const updated = res.roles.find((r) => r.id === prev.id);
+            const updated = rolesList.find((r) => r.id === prev.id);
             if (updated) {
               setRoleFormPerms(updated.permissions || []);
               return updated;
@@ -267,10 +278,12 @@ export default function AdminPanel() {
     if (preset === 'clear') {
       setRoleFormPerms([]);
     } else if (preset === 'full') {
-      const allKeys = permissionMatrix.flatMap((g) => g.permissions.map((p) => p.key));
+      const allKeys = (permissionMatrix || []).flatMap((g) => (g.permissions || []).map((p) => p.key));
       setRoleFormPerms(allKeys);
     } else if (preset === 'readonly') {
-      const readKeys = permissionMatrix.flatMap((g) => g.permissions.filter((p) => p.action === 'read').map((p) => p.key));
+      const readKeys = (permissionMatrix || []).flatMap((g) =>
+        (g.permissions || []).filter((p) => p.action === 'read').map((p) => p.key)
+      );
       setRoleFormPerms(readKeys);
     } else if (preset === 'editor') {
       setRoleFormPerms([
@@ -446,31 +459,31 @@ export default function AdminPanel() {
           className={`admin-tab-btn ${tab === 'users' ? 'active' : ''}`}
           onClick={() => setTab('users')}
         >
-          👥 User Management ({users.length})
+          👥 User Management ({(users || []).length})
         </button>
         <button
           className={`admin-tab-btn ${tab === 'roles' ? 'active' : ''}`}
           onClick={() => {
             setTab('roles');
-            if (roles.length > 0 && !selectedRole) {
+            if ((roles || []).length > 0 && !selectedRole) {
               setSelectedRole(roles[0]);
               setRoleFormPerms(roles[0].permissions || []);
             }
           }}
         >
-          🎭 Role Manager & RBAC ({roles.length})
+          🎭 Role Manager & RBAC ({(roles || []).length})
         </button>
         <button
           className={`admin-tab-btn ${tab === 'companies' ? 'active' : ''}`}
           onClick={() => setTab('companies')}
         >
-          🏢 Company Management ({companies.length})
+          🏢 Company Management ({(companies || []).length})
         </button>
         <button
           className={`admin-tab-btn ${tab === 'subscriptions' ? 'active' : ''}`}
           onClick={() => setTab('subscriptions')}
         >
-          💎 Subscriptions & Plans ({plans.length})
+          💎 Subscriptions & Plans ({(plans || []).length})
         </button>
         <button
           className={`admin-tab-btn ${tab === 'email' ? 'active' : ''}`}
@@ -482,7 +495,7 @@ export default function AdminPanel() {
           className={`admin-tab-btn ${tab === 'security' ? 'active' : ''}`}
           onClick={() => setTab('security')}
         >
-          🛡️ Security & Audit Trail ({securityEvents.length})
+          🛡️ Security & Audit Trail ({(securityEvents || []).length})
         </button>
       </div>
 
@@ -751,12 +764,12 @@ export default function AdminPanel() {
               </div>
 
               <div className="role-cards-list">
-                {roles.length === 0 ? (
+                {(roles || []).length === 0 ? (
                   <div className="card muted center" style={{ padding: 24 }}>
                     No roles loaded.
                   </div>
                 ) : (
-                  roles.map((r) => {
+                  (roles || []).map((r) => {
                     const isSelected = selectedRole?.id === r.id;
                     return (
                       <div
@@ -764,7 +777,7 @@ export default function AdminPanel() {
                         className={`role-item-card ${isSelected ? 'selected' : ''}`}
                         onClick={() => {
                           setSelectedRole(r);
-                          setRoleFormPerms([...r.permissions]);
+                          setRoleFormPerms([...(r.permissions || [])]);
                         }}
                       >
                         <div className="role-card-top">
@@ -782,8 +795,8 @@ export default function AdminPanel() {
                         </div>
                         <p className="role-card-desc">{r.description}</p>
                         <div className="role-card-meta">
-                          <span>👥 <b>{r.memberCount}</b> members</span>
-                          <span>🔑 <b>{r.permissions.length}</b> permissions</span>
+                          <span>👥 <b>{r.memberCount || 0}</b> members</span>
+                          <span>🔑 <b>{(r.permissions || []).length}</b> permissions</span>
                         </div>
                       </div>
                     );
@@ -850,22 +863,22 @@ export default function AdminPanel() {
                       Clear All
                     </button>
                     <span className="perm-counter-pill">
-                      Active: <b>{roleFormPerms.length}</b> / {permissionMatrix.flatMap((g) => g.permissions).length}
+                      Active: <b>{(roleFormPerms || []).length}</b> / {(permissionMatrix || []).flatMap((g) => g.permissions || []).length}
                     </span>
                   </div>
 
                   {/* Modules & Granular Permission Matrix */}
                   <div className="role-matrix-container">
-                    {permissionMatrix.map((grp) => {
-                      const grpKeys = grp.permissions.map((p) => p.key);
-                      const allGrpChecked = grpKeys.length > 0 && grpKeys.every((k) => roleFormPerms.includes(k));
-                      const someGrpChecked = grpKeys.some((k) => roleFormPerms.includes(k));
+                    {(permissionMatrix || []).map((grp) => {
+                      const grpKeys = (grp.permissions || []).map((p) => p.key);
+                      const allGrpChecked = grpKeys.length > 0 && grpKeys.every((k) => (roleFormPerms || []).includes(k));
+                      const someGrpChecked = grpKeys.some((k) => (roleFormPerms || []).includes(k));
 
                       const toggleGroup = () => {
                         if (allGrpChecked) {
-                          setRoleFormPerms((prev) => prev.filter((k) => !grpKeys.includes(k)));
+                          setRoleFormPerms((prev) => (prev || []).filter((k) => !grpKeys.includes(k)));
                         } else {
-                          setRoleFormPerms((prev) => Array.from(new Set([...prev, ...grpKeys])));
+                          setRoleFormPerms((prev) => Array.from(new Set([...(prev || []), ...grpKeys])));
                         }
                       };
 
@@ -886,13 +899,13 @@ export default function AdminPanel() {
                               <code className="module-slug-tag">{grp.module}</code>
                             </div>
                             <span className="module-group-count">
-                              {grpKeys.filter((k) => roleFormPerms.includes(k)).length} / {grpKeys.length} enabled
+                              {grpKeys.filter((k) => (roleFormPerms || []).includes(k)).length} / {grpKeys.length} enabled
                             </span>
                           </div>
 
                           <div className="matrix-permissions-grid">
-                            {grp.permissions.map((p) => {
-                              const isChecked = roleFormPerms.includes(p.key);
+                            {(grp.permissions || []).map((p) => {
+                              const isChecked = (roleFormPerms || []).includes(p.key);
                               return (
                                 <div
                                   key={p.key}
@@ -1867,8 +1880,8 @@ function UserModal({
             <label className="field">
               <span>Tenant RBAC Role</span>
               <select value={tenantRole} onChange={(e) => handleRoleChange(e.target.value)}>
-                {roles.length > 0 ? (
-                  roles.map((r) => (
+                {(roles || []).length > 0 ? (
+                  (roles || []).map((r) => (
                     <option key={r.slug} value={r.slug}>
                       {r.name} ({r.slug}) {r.isSystem ? '• System' : '• Custom'}
                     </option>
@@ -2122,9 +2135,9 @@ function RoleModal({
             <label className="field">
               <span>Clone Initial Permissions From Template</span>
               <select value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
-                {roles.map((r) => (
+                {(roles || []).map((r) => (
                   <option key={r.slug} value={r.slug}>
-                    {r.name} ({r.permissions.length} permissions)
+                    {r.name} ({(r.permissions || []).length} permissions)
                   </option>
                 ))}
               </select>
