@@ -191,12 +191,23 @@ final class AdminController
                 'UPDATE users SET name = ?, role = ?, tenant_role = ?, custom_permissions = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
                 [$name, $role, $tenantRole, $customPerms, $status, $tenantId, $planId, $id]
             );
-        } catch (\Throwable) {
-            Db::run(
-                'UPDATE users SET name = ?, role = ?, tenant_role = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
-                [$name, $role, $tenantRole, $status, $tenantId, $planId, $id]
-            );
+        } catch (\Throwable $e) {
+            // Attempt to ensure column and retry
+            try {
+                Db::pdo()->exec("ALTER TABLE users ADD COLUMN custom_permissions JSON NULL AFTER tenant_role");
+                Db::run(
+                    'UPDATE users SET name = ?, role = ?, tenant_role = ?, custom_permissions = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
+                    [$name, $role, $tenantRole, $customPerms, $status, $tenantId, $planId, $id]
+                );
+            } catch (\Throwable) {
+                Db::run(
+                    'UPDATE users SET name = ?, role = ?, tenant_role = ?, status = ?, tenant_id = ?, plan_id = ? WHERE id = ?',
+                    [$name, $role, $tenantRole, $status, $tenantId, $planId, $id]
+                );
+            }
         }
+
+        Rbac::clearRoleCache();
 
         // If user was suspended, revoke all active sessions immediately
         if ($status === 'suspended') {

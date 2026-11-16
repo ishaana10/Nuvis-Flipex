@@ -309,6 +309,11 @@ final class Rbac
         return $fallback;
     }
 
+    public static function clearRoleCache(): void
+    {
+        self::$roleCache = [];
+    }
+
     /**
      * Check whether a given user array (and optional active API key) has a specific permission.
      */

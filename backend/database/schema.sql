@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(120) NOT NULL,
   avatar_path VARCHAR(255) NULL,
   role ENUM('user','admin') NOT NULL DEFAULT 'user',
-  tenant_role ENUM('owner','admin','finance','editor','viewer') NOT NULL DEFAULT 'editor',
+  tenant_role VARCHAR(60) NOT NULL DEFAULT 'editor',
+  custom_permissions JSON NULL,
   plan_id INT UNSIGNED NOT NULL DEFAULT 1,
   status ENUM('active','suspended') NOT NULL DEFAULT 'active',
   two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0,
@@ -79,6 +80,21 @@ CREATE TABLE IF NOT EXISTS users (
   FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE SET NULL,
   FOREIGN KEY (plan_id) REFERENCES plans(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS tenant_roles (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tenant_id BIGINT UNSIGNED NULL,
+  name VARCHAR(120) NOT NULL,
+  slug VARCHAR(60) NOT NULL,
+  description TEXT NULL,
+  is_system TINYINT(1) NOT NULL DEFAULT 0,
+  permissions JSON NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_tenant_slug (tenant_id, slug),
+  INDEX idx_roles_tenant (tenant_id),
+  INDEX idx_roles_slug (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

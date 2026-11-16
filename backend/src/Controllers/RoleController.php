@@ -35,38 +35,37 @@ final class RoleController
             $rows = [];
         }
 
-        // If table is empty or not yet migrated, construct from standard defaults
+        // If table is empty or not yet migrated, seed and persist standard defaults
         if (empty($rows)) {
-            $rolesList = [];
-            $idCounter = 1;
-            foreach (Rbac::DEFAULT_ROLE_PERMISSIONS as $slug => $perms) {
-                $name = match ($slug) {
-                    'owner'   => 'Tenant Owner',
-                    'admin'   => 'Tenant Administrator',
-                    'editor'  => 'Content Editor',
-                    'viewer'  => 'Viewer / Reader',
-                    'finance' => 'Billing & Finance Manager',
-                    default   => ucfirst($slug),
-                };
-                $desc = match ($slug) {
-                    'owner'   => 'Full administrative, financial, and operational authority over the tenant workspace, publications, and team.',
-                    'admin'   => 'Workspace administrator managing publications, hotspots, team members, integrations, and workspace settings.',
-                    'editor'  => 'Creates, customizes, and publishes flipbooks and hotspots. Restricted from deleting publications, billing, devops, and tenant settings.',
-                    'viewer'  => 'Read-only access to view publications, search content, and view basic engagement analytics.',
-                    'finance' => 'Manages company billing, subscription invoices, payment submissions, and Fiji bank transfer reconciliations.',
-                    default   => 'Custom tenant role with defined permissions.',
-                };
-                $rolesList[] = [
-                    'id'          => $idCounter++,
-                    'name'        => $name,
-                    'slug'        => $slug,
-                    'description' => $desc,
-                    'isSystem'    => true,
-                    'permissions' => $perms,
-                    'memberCount' => 0,
-                ];
+            try {
+                $st = Db::pdo()->prepare(
+                    "INSERT INTO tenant_roles (tenant_id, name, slug, description, is_system, permissions) VALUES (NULL, ?, ?, ?, 1, ?)"
+                );
+                foreach (Rbac::DEFAULT_ROLE_PERMISSIONS as $slug => $perms) {
+                    $name = match ($slug) {
+                        'owner'   => 'Tenant Owner',
+                        'admin'   => 'Tenant Administrator',
+                        'editor'  => 'Content Editor',
+                        'viewer'  => 'Viewer / Reader',
+                        'finance' => 'Billing & Finance Manager',
+                        default   => ucfirst($slug),
+                    };
+                    $desc = match ($slug) {
+                        'owner'   => 'Full administrative, financial, and operational authority over the tenant workspace, publications, and team.',
+                        'admin'   => 'Workspace administrator managing publications, hotspots, team members, integrations, and workspace settings.',
+                        'editor'  => 'Creates, customizes, and publishes flipbooks and hotspots. Restricted from deleting publications, billing, devops, and tenant settings.',
+                        'viewer'  => 'Read-only access to view publications, search content, and view basic engagement analytics.',
+                        'finance' => 'Manages company billing, subscription invoices, payment submissions, and Fiji bank transfer reconciliations.',
+                        default   => 'Custom tenant role with defined permissions.',
+                    };
+                    $st->execute([$name, $slug, $desc, json_encode($perms, JSON_UNESCAPED_SLASHES)]);
+                }
+                $rows = $tenantId !== null
+                    ? Db::all('SELECT * FROM tenant_roles WHERE tenant_id IS NULL OR tenant_id = ? ORDER BY is_system DESC, id ASC', [$tenantId])
+                    : Db::all('SELECT * FROM tenant_roles WHERE tenant_id IS NULL ORDER BY is_system DESC, id ASC');
+            } catch (\Throwable) {
+                $rows = [];
             }
-            return Http::json($res, $rolesList);
         }
 
         // Calculate member counts per role (strictly scoped to current tenant if tenant-authenticated)
@@ -225,16 +224,6 @@ final class RoleController
             return Http::error($res, 'Role not found', 404);
         }
 
-        // Cross-tenant authorization check: tenant administrators cannot edit global system roles or roles from other tenants
-        if (($u['role'] ?? '') !== 'admin') {
-            if (!empty($role['is_system'])) {
-                return Http::error($res, 'System default roles cannot be modified by workspace administrators', 403);
-            }
-            if ($tenantId === null || (int) ($role['tenant_id'] ?? 0) !== $tenantId) {
-                return Http::error($res, 'Unauthorized access to role from another tenant', 403);
-            }
-        }
-
         $b = (array) $req->getParsedBody();
         $name = isset($b['name']) ? trim((string) $b['name']) : $role['name'];
         $desc = isset($b['description']) ? trim((string) $b['description']) : ($role['description'] ?? '');
@@ -250,12 +239,61 @@ final class RoleController
             $perms = json_decode($perms, true) ?: [];
         }
 
+        $isSuperAdmin = ($u['role'] ?? '') === 'admin';
+
+        // Multi-tenant isolation & workspace role customization logic
+        if (!$isSuperAdmin) {
+            // A workspace administrator cannot modify a custom role belonging to a different tenant
+            if ($role['tenant_id'] !== null && (int) $role['tenant_id'] !== $tenantId) {
+                return Http::error($res, 'Unauthorized access to role from another tenant', 403);
+            }
+
+            // If a tenant administrator customizes a global system default template (tenant_id IS NULL),
+            // create or update a tenant-scoped role override so other tenants are never affected!
+            if ($role['tenant_id'] === null) {
+                if ($tenantId === null) {
+                    return Http::error($res, 'Global system default roles can only be edited by platform administrators', 403);
+                }
+
+                $existing = Db::one('SELECT id FROM tenant_roles WHERE tenant_id = ? AND slug = ?', [$tenantId, $role['slug']]);
+                if ($existing) {
+                    $id = (int) $existing['id'];
+                    Db::run(
+                        'UPDATE tenant_roles SET name = ?, description = ?, permissions = ? WHERE id = ?',
+                        [$name, $desc, json_encode($perms, JSON_UNESCAPED_SLASHES), $id]
+                    );
+                } else {
+                    Db::run(
+                        'INSERT INTO tenant_roles (tenant_id, name, slug, description, is_system, permissions) VALUES (?, ?, ?, ?, 0, ?)',
+                        [$tenantId, $name, $role['slug'], $desc, json_encode($perms, JSON_UNESCAPED_SLASHES)]
+                    );
+                    $id = (int) Db::pdo()->lastInsertId();
+                }
+
+                Rbac::clearRoleCache();
+                Audit::log('roles.update', 'role', $id, ['name' => $name, 'slug' => $role['slug'], 'tenant_id' => $tenantId, 'permissions' => $perms]);
+
+                return Http::json($res, [
+                    'id'          => $id,
+                    'tenantId'    => $tenantId,
+                    'name'        => $name,
+                    'slug'        => $role['slug'],
+                    'description' => $desc,
+                    'isSystem'    => false,
+                    'permissions' => $perms,
+                    'message'     => "Customized permissions for role \"{$name}\" saved for your workspace.",
+                ]);
+            }
+        }
+
+        // Platform administrator or workspace administrator updating their own tenant-scoped role
         Db::run(
             'UPDATE tenant_roles SET name = ?, description = ?, permissions = ? WHERE id = ?',
             [$name, $desc, json_encode($perms, JSON_UNESCAPED_SLASHES), $id]
         );
 
-        Audit::log('roles.update', 'role', $id, ['name' => $name, 'permissions' => $perms]);
+        Rbac::clearRoleCache();
+        Audit::log('roles.update', 'role', $id, ['name' => $name, 'slug' => $role['slug'], 'permissions' => $perms]);
 
         return Http::json($res, [
             'id'          => $id,
@@ -265,6 +303,7 @@ final class RoleController
             'description' => $desc,
             'isSystem'    => (bool) $role['is_system'],
             'permissions' => $perms,
+            'message'     => "Permissions updated successfully for role \"{$name}\"",
         ]);
     }
 

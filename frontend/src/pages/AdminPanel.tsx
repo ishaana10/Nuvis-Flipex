@@ -210,6 +210,7 @@ export default function AdminPanel() {
   const [savingSettings, setSavingSettings] = useState(false);
 
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [roleSaveFeedback, setRoleSaveFeedback] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
     setMsg({ text, type });
@@ -309,15 +310,22 @@ export default function AdminPanel() {
   const saveRolePermissions = async () => {
     if (!selectedRole) return;
     setRoleSaving(true);
+    setRoleSaveFeedback(null);
     try {
-      await api(`/admin/roles/${selectedRole.id}`, 'PUT', {
+      const res = await api<any>(`/admin/roles/${selectedRole.id}`, 'PUT', {
         permissions: roleFormPerms,
         description: selectedRole.description,
       });
-      showMsg(`Permissions updated for role "${selectedRole.name}"`);
+      const successText = res?.message || `Permissions updated for role "${selectedRole.name}"`;
+      showMsg(successText);
+      setRoleSaveFeedback({ text: successText, type: 'success' });
+      setTimeout(() => setRoleSaveFeedback(null), 5000);
       await loadRoles();
     } catch (err: any) {
-      showMsg(err.message || 'Failed to update role', 'error');
+      const errText = err.message || 'Failed to update role';
+      showMsg(errText, 'error');
+      setRoleSaveFeedback({ text: errText, type: 'error' });
+      setTimeout(() => setRoleSaveFeedback(null), 7000);
     } finally {
       setRoleSaving(false);
     }
@@ -459,9 +467,52 @@ export default function AdminPanel() {
       </div>
 
       {msg && (
-        <div className={`admin-alert ${msg.type === 'error' ? 'alert-danger' : 'alert-success'}`}>
-          {msg.text}
-        </div>
+        <>
+          <div className={`admin-alert ${msg.type === 'error' ? 'alert-danger' : 'alert-success'}`}>
+            {msg.text}
+          </div>
+          <div
+            className={`admin-floating-toast ${msg.type === 'error' ? 'toast-error' : 'toast-success'}`}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 999999,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '12px 20px',
+              borderRadius: '12px',
+              background: msg.type === 'error' ? '#ef4444' : '#10b981',
+              color: '#ffffff',
+              fontWeight: 600,
+              fontSize: '14px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <span>{msg.type === 'error' ? '⚠️' : '✓'}</span>
+            <span>{msg.text}</span>
+            <button
+              type="button"
+              onClick={() => setMsg(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ffffff',
+                fontSize: '18px',
+                cursor: 'pointer',
+                marginLeft: '8px',
+                padding: 0,
+                lineHeight: 1,
+              }}
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        </>
       )}
 
       {/* Navigation Tabs (BoardUI Style) */}
@@ -842,6 +893,18 @@ export default function AdminPanel() {
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {roleSaveFeedback && (
+                        <span
+                          style={{
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            color: roleSaveFeedback.type === 'error' ? '#ef4444' : '#10b981',
+                            marginRight: '6px',
+                          }}
+                        >
+                          {roleSaveFeedback.type === 'error' ? '⚠️' : '✓'} {roleSaveFeedback.text}
+                        </span>
+                      )}
                       {!selectedRole.isSystem && (
                         <button
                           type="button"
@@ -954,7 +1017,18 @@ export default function AdminPanel() {
                     })}
                   </div>
 
-                  <div className="role-editor-footer">
+                  <div className="role-editor-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                    {roleSaveFeedback && (
+                      <span
+                        style={{
+                          fontSize: '0.9rem',
+                          fontWeight: 600,
+                          color: roleSaveFeedback.type === 'error' ? '#ef4444' : '#10b981',
+                        }}
+                      >
+                        {roleSaveFeedback.type === 'error' ? '⚠️' : '✓'} {roleSaveFeedback.text}
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="btn-primary"
