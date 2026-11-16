@@ -67,9 +67,13 @@ export default function Preview() {
             <span>Customize Style</span>
             <span>🎨</span>
           </button>
-          <Link to={`/dashboard/editor/${data.id}`} className="btn-pub-outline">
-            <span>Edit Hotspots</span>
-            <span>✏️</span>
+          <Link
+            to={`/dashboard/editor/${data.id}`}
+            className="btn-pub-outline"
+            title="Open Interactive Page Designer & Enrichments Studio"
+          >
+            <span>🎨</span>
+            <span>Interactive Page Designer</span>
           </Link>
           <a href={`/v/${data.slug}`} target="_blank" rel="noreferrer" className="btn-pub-outline">
             <span>Open Reader Link</span>

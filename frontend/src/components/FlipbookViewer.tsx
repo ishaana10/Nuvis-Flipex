@@ -2621,11 +2621,22 @@ export default function FlipbookViewer({
       className={`heyzine-viewer effect-${settings.pageEffect || 'magazine'} ${isFullscreen ? 'is-fullscreen' : ''}`}
       dir={settings.rightToLeft ? 'rtl' : 'ltr'}
       style={{
-        background: settings.backgroundImage ? settings.backgroundImage : activeBg,
+        background: settings.backgroundImage ? settings.backgroundImage : (settings.backgroundGradient || activeBg),
         backgroundSize:
           settings.backgroundImage?.includes('1.5px') ? '18px 18px' : 'cover',
         backgroundPosition: 'center center',
         ['--spread-aspect' as any]: `${spreadAspect}`,
+        ['--hz-accent' as any]: settings.brandAccentColor || settings.toolbarButtonColor || '#f59e0b',
+        ['--hz-drawer-bg' as any]: settings.drawerBgColor || settings.panelBgColor || 'rgba(13, 17, 23, 0.95)',
+        ['--hz-drawer-header-bg' as any]: settings.drawerHeaderBgColor || 'rgba(22, 27, 34, 0.95)',
+        ['--hz-drawer-text' as any]: settings.drawerTextColor || settings.panelFontColor || '#f1f5f9',
+        ['--hz-drawer-active-bg' as any]: settings.drawerActiveColor || settings.brandAccentColor || '#f59e0b',
+        ['--hz-drawer-active-text' as any]: settings.drawerActiveTextColor || '#0f172a',
+        ['--hz-header-bg' as any]: settings.headerBgColor || settings.toolbarColor || 'rgba(15, 23, 42, 0.75)',
+        ['--hz-header-text' as any]: settings.headerTextColor || settings.toolbarButtonColor || '#ffffff',
+        ['--hz-nav-pill-bg' as any]: settings.navPillBgColor || settings.toolbarColor || 'rgba(17, 24, 39, 0.88)',
+        ['--hz-nav-pill-text' as any]: settings.navPillTextColor || settings.toolbarButtonColor || '#ffffff',
+        ['--hz-hotspot-color' as any]: settings.hotspotHighlightColor || settings.brandAccentColor || '#f59e0b',
       }}
       onContextMenu={(e) => {
         if (settings.rightClickMenu === false) {

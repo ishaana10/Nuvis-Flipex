@@ -831,12 +831,12 @@ html.dark .preview-topbar .btn-pub:hover {
   flex-direction: column !important;
   overflow: hidden !important;
   border-radius: 16px !important;
-  background: rgba(13, 17, 23, 0.94) !important;
+  background: var(--hz-drawer-bg, rgba(13, 17, 23, 0.94)) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
-  color: #f1f5f9 !important;
+  color: var(--hz-drawer-text, #f1f5f9) !important;
   animation: hzSlideInDrawer 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
@@ -857,7 +857,7 @@ html.dark .preview-topbar .btn-pub:hover {
   align-items: center !important;
   justify-content: space-between !important;
   padding: 12px 14px !important;
-  background: rgba(22, 27, 34, 0.9) !important;
+  background: var(--hz-drawer-header-bg, rgba(22, 27, 34, 0.9)) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important;
   flex-shrink: 0 !important;
 }
@@ -896,8 +896,8 @@ html.dark .preview-topbar .btn-pub:hover {
 }
 
 .hz-side-drawer .hz-drawer-tab.active {
-  background: #ffffff !important;
-  color: #0f172a !important;
+  background: var(--hz-drawer-active-bg, #ffffff) !important;
+  color: var(--hz-drawer-active-text, #0f172a) !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
 }
 
@@ -1047,8 +1047,8 @@ html.dark .preview-topbar .btn-pub:hover {
 
 .hz-side-drawer .hz-toc-item.hz-toc-active {
   background: rgba(245, 158, 11, 0.16) !important;
-  border: 1px solid rgba(245, 158, 11, 0.4) !important;
-  color: #fde68a !important;
+  border: 1px solid var(--hz-accent, rgba(245, 158, 11, 0.4)) !important;
+  color: var(--hz-accent, #fde68a) !important;
   font-weight: 600 !important;
 }
 
@@ -1071,7 +1071,7 @@ html.dark .preview-topbar .btn-pub:hover {
 }
 
 .hz-side-drawer .hz-toc-item.hz-toc-active .hz-toc-idx {
-  color: #f59e0b !important;
+  color: var(--hz-accent, #f59e0b) !important;
 }
 
 .hz-side-drawer .hz-toc-title {
@@ -1098,9 +1098,9 @@ html.dark .preview-topbar .btn-pub:hover {
 }
 
 .hz-side-drawer .hz-toc-item.hz-toc-active .hz-toc-badge {
-  background: #f59e0b !important;
-  border-color: #f59e0b !important;
-  color: #0f172a !important;
+  background: var(--hz-accent, #f59e0b) !important;
+  border-color: var(--hz-accent, #f59e0b) !important;
+  color: var(--hz-drawer-active-text, #0f172a) !important;
   font-weight: 700 !important;
 }
 
@@ -1181,12 +1181,12 @@ html.dark .preview-topbar .btn-pub:hover {
   flex-direction: column !important;
   overflow: hidden !important;
   border-radius: 16px !important;
-  background: rgba(13, 17, 23, 0.94) !important;
+  background: var(--hz-drawer-bg, rgba(13, 17, 23, 0.94)) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7) !important;
-  color: #f1f5f9 !important;
+  color: var(--hz-drawer-text, #f1f5f9) !important;
 }
 
 .hz-nav-panel input {
@@ -1507,8 +1507,8 @@ html.dark .preview-topbar .btn-pub:hover {
 
 /* Bottom Navigation Pill */
 .hz-bottom-bar { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 20; pointer-events: none; }
-.hz-nav-pill { pointer-events: auto; background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; padding: 4px 14px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-.hz-pill-btn { background: none; border: none; color: #fff; cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px; transition: background 0.15s; }
+.hz-nav-pill { pointer-events: auto; background: var(--hz-nav-pill-bg, rgba(17, 24, 39, 0.85)) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; padding: 4px 14px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); color: var(--hz-nav-pill-text, #ffffff) !important; }
+.hz-pill-btn { background: none; border: none; color: inherit; cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 4px; transition: background 0.15s; }
 .hz-pill-btn:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
 .hz-pill-btn:disabled { opacity: 0.3; cursor: default; }
 .hz-pill-btn.fs { font-size: 13px; font-weight: 500; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 12px; }

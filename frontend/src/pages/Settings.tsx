@@ -135,6 +135,68 @@ export default function Settings() {
   const load = () => api<Session[]>('/me/sessions').then(setSessions);
   useEffect(() => { load(); }, []);
 
+  // Phase 2: Brand Kits & Reusable Visual Identity
+  const [brandKits, setBrandKits] = useState<any[]>([]);
+  const [showNewKitForm, setShowNewKitForm] = useState(false);
+  const [newKitName, setNewKitName] = useState('');
+  const [newKitPrimary, setNewKitPrimary] = useState('#f59e0b');
+  const [newKitSecondary, setNewKitSecondary] = useState('#0f172a');
+  const [newKitDrawerBg, setNewKitDrawerBg] = useState('#0d1117');
+  const [kitMsg, setKitMsg] = useState('');
+
+  const loadBrandKits = () => {
+    api<{ brandKits: any[] }>('/brand-kits')
+      .then((res) => {
+        if (res?.brandKits) setBrandKits(res.brandKits);
+      })
+      .catch(() => {});
+  };
+  useEffect(() => { loadBrandKits(); }, []);
+
+  const handleCreateBrandKit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newKitName.trim()) return;
+    try {
+      await api('/brand-kits', 'POST', {
+        name: newKitName.trim(),
+        primaryColor: newKitPrimary,
+        secondaryColor: newKitSecondary,
+        accentColor: newKitPrimary,
+        drawerBgColor: newKitDrawerBg,
+        drawerTextColor: '#f1f5f9',
+      });
+      setNewKitName('');
+      setShowNewKitForm(false);
+      setKitMsg('Brand Kit created successfully.');
+      setTimeout(() => setKitMsg(''), 3000);
+      loadBrandKits();
+    } catch (err: any) {
+      alert(err.message || 'Failed to create brand kit');
+    }
+  };
+
+  const handleDeleteBrandKit = async (id: number) => {
+    if (!confirm('Delete this Brand Kit?')) return;
+    try {
+      await api(`/brand-kits/${id}`, 'DELETE');
+      loadBrandKits();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete brand kit');
+    }
+  };
+
+  const handleSetDefaultBrandKit = async (kit: any) => {
+    try {
+      await api(`/brand-kits/${kit.id}`, 'PUT', {
+        ...kit,
+        isDefault: true,
+      });
+      loadBrandKits();
+    } catch (err: any) {
+      alert(err.message || 'Failed to set default brand kit');
+    }
+  };
+
   const [delPassword, setDelPassword] = useState('');
   const del = useForm(async () => {
     if (!confirm('Delete your account? This cannot be undone.')) return;
@@ -365,6 +427,152 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* Phase 2: Brand Kits & Reusable Visual Identity */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>🎨 Workspace Brand Kits</h2>
+            <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
+              Standardize your organization's visual identity, primary colors, navigation accents, and drawer themes across all publications.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+            onClick={() => setShowNewKitForm(!showNewKitForm)}
+          >
+            {showNewKitForm ? 'Cancel' : '+ New Brand Kit'}
+          </button>
+        </div>
+
+        {kitMsg && (
+          <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '12px' }}>
+            ✓ {kitMsg}
+          </div>
+        )}
+
+        {showNewKitForm && (
+          <form onSubmit={handleCreateBrandKit} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 700 }}>Create New Brand Kit</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Brand Kit Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Summer Campaign 2026"
+                  value={newKitName}
+                  onChange={(e) => setNewKitName(e.target.value)}
+                  style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Primary Brand Accent</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="color"
+                    value={newKitPrimary}
+                    onChange={(e) => setNewKitPrimary(e.target.value)}
+                    style={{ width: '36px', height: '32px', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{newKitPrimary}</span>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Bar / Header Shade</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="color"
+                    value={newKitSecondary}
+                    onChange={(e) => setNewKitSecondary(e.target.value)}
+                    style={{ width: '36px', height: '32px', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{newKitSecondary}</span>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Side Drawer Shade</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="color"
+                    value={newKitDrawerBg}
+                    onChange={(e) => setNewKitDrawerBg(e.target.value)}
+                    style={{ width: '36px', height: '32px', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{newKitDrawerBg}</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowNewKitForm(false)} style={{ fontSize: '12px' }}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary" style={{ fontSize: '12px' }}>
+                Save Brand Kit
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+          {brandKits.map((kit) => (
+            <div
+              key={kit.id}
+              style={{
+                border: kit.isDefault ? '2px solid #f59e0b' : '1px solid #e2e8f0',
+                borderRadius: '12px',
+                padding: '14px',
+                background: kit.isDefault ? '#fffbeb' : '#ffffff',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                gap: '10px',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <b style={{ fontSize: '14px', color: '#0f172a' }}>{kit.name}</b>
+                  {kit.isDefault && (
+                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: '#f59e0b', color: '#0f172a' }}>
+                      DEFAULT
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: kit.accentColor, border: '1px solid rgba(0,0,0,0.1)' }} title="Accent Color" />
+                  <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: kit.secondaryColor, border: '1px solid rgba(0,0,0,0.1)' }} title="Bar Color" />
+                  <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: kit.drawerBgColor || '#0d1117', border: '1px solid rgba(0,0,0,0.1)' }} title="Drawer Color" />
+                  <span style={{ fontSize: '11px', color: '#64748b', marginLeft: '6px' }}>{kit.fontFamily}</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', paddingTop: '6px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                {!kit.isDefault && (
+                  <button
+                    type="button"
+                    className="link"
+                    style={{ fontSize: '11px', color: '#b45309', fontWeight: 600 }}
+                    onClick={() => handleSetDefaultBrandKit(kit)}
+                  >
+                    Set Default
+                  </button>
+                )}
+                {brandKits.length > 1 && (
+                  <button
+                    type="button"
+                    className="link"
+                    style={{ fontSize: '11px', color: '#dc2626' }}
+                    onClick={() => handleDeleteBrandKit(kit.id)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

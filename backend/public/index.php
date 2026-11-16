@@ -7,6 +7,7 @@ use App\Controllers\AdminController;
 use App\Controllers\AnalyticsController;
 use App\Controllers\AuthController;
 use App\Controllers\BillingController;
+use App\Controllers\BrandKitController;
 use App\Controllers\DevOpsController;
 use App\Controllers\FlipbookController;
 use App\Controllers\HotspotController;
@@ -150,6 +151,15 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $r->post('', [RoleController::class, 'create']);
         $r->put('/{id:[0-9]+}', [RoleController::class, 'update']);
         $r->delete('/{id:[0-9]+}', [RoleController::class, 'delete']);
+    })->add(new TenantScope())->add(new Auth());
+
+    // Phase 2: Brand Kits & Reusable Visual Identity
+    $g->group('/brand-kits', function (RouteCollectorProxy $bk) {
+        $bk->get('', [BrandKitController::class, 'index']);
+        $bk->post('', [BrandKitController::class, 'create']);
+        $bk->put('/{id:[0-9]+}', [BrandKitController::class, 'update']);
+        $bk->delete('/{id:[0-9]+}', [BrandKitController::class, 'delete']);
+        $bk->post('/{id:[0-9]+}/apply/{flipbookId:[0-9]+}', [BrandKitController::class, 'apply']);
     })->add(new TenantScope())->add(new Auth());
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);

@@ -432,6 +432,15 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
               <button disabled={uploading} onClick={() => input.current?.click()} className="btn-primary">
                 {uploading ? 'Uploading PDF…' : '+ Upload PDF'}
               </button>
+              {featuredBook && can('hotspot.manage') && (
+                <Link
+                  to={`/dashboard/editor/${featuredBook.id}`}
+                  className="btn-secondary flex items-center gap-1.5 text-xs font-semibold py-2 px-3"
+                  title="Open Interactive Page Designer & Enrichments Studio"
+                >
+                  <span>🎨</span> Interactive Page Designer
+                </Link>
+              )}
             </>
           ) : (
             <span className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-500">
@@ -529,8 +538,8 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                         <Link to={`/dashboard/preview/${featuredBook.id}`} className="action-pill preview">
                           View flipbook 👁️
                         </Link>
-                        <Link to={`/dashboard/editor/${featuredBook.id}`} className="action-pill editor">
-                          Edit enrichments 🔗
+                        <Link to={`/dashboard/editor/${featuredBook.id}`} className="action-pill editor" title="Design interactive links, products, videos, audios & callouts">
+                          🎨 Interactive Page Designer
                         </Link>
                         <Link to={`/dashboard/analytics/${featuredBook.id}`} className="action-pill analytics">
                           Statistics 📊
@@ -845,13 +854,13 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                 {/* Studio Tools Grid */}
                 <div className="fb-tools-grid">
                   {f.status === 'ready' && can('hotspot.manage') && (
-                    <Link to={`/dashboard/editor/${f.id}`} className="fb-tool-btn">
-                      <span>🔗</span> Hotspots
+                    <Link to={`/dashboard/editor/${f.id}`} className="fb-tool-btn" title="Open Interactive Page Designer & Enrichments Studio">
+                      <span>🎨</span> Page Designer
                     </Link>
                   )}
                   {f.status === 'ready' && can('flipbook.edit') && (
                     <button type="button" className="fb-tool-btn" onClick={() => setCustomize(f)}>
-                      <span>🎨</span> Customize
+                      <span>🛠️</span> Customize
                     </button>
                   )}
                   {f.status === 'ready' && can('analytics.view') && (

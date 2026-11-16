@@ -83,28 +83,31 @@ type InteractionState =
 
 const HOTSPOT_TYPE_META: Record<
   HotspotType,
-  { label: string; shortLabel: string; icon: string; badgeColor: string; borderClass: string }
+  { label: string; shortLabel: string; icon: string; badgeColor: string; borderClass: string; desc: string }
 > = {
   link: {
-    label: 'Web Link',
-    shortLabel: 'Link',
+    label: 'Web Link & Action',
+    shortLabel: 'Smart Link',
     icon: '🔗',
     badgeColor: 'bg-amber-400 text-slate-950',
     borderClass: 'border-amber-400 bg-amber-400/18',
+    desc: 'External URL, internal page jump, email, or telephone trigger',
   },
   product: {
-    label: 'Product / Price Tag',
-    shortLabel: 'Product',
+    label: 'Product Showcase & WhatsApp',
+    shortLabel: 'Product Tag',
     icon: '🛍️',
     badgeColor: 'bg-emerald-500 text-white',
     borderClass: 'border-emerald-400 bg-emerald-500/18',
+    desc: 'Interactive price tag, SKU, title & 1-tap WhatsApp order button',
   },
   video: {
-    label: 'Video Modal',
-    shortLabel: 'Video',
+    label: 'Video Player Modal',
+    shortLabel: 'Video Embed',
     icon: '🎬',
     badgeColor: 'bg-rose-500 text-white',
     borderClass: 'border-rose-400 bg-rose-500/18',
+    desc: 'YouTube, Vimeo, or MP4 direct responsive video overlay',
   },
   page: {
     label: 'Internal Page Jump',
@@ -112,20 +115,23 @@ const HOTSPOT_TYPE_META: Record<
     icon: '📄',
     badgeColor: 'bg-sky-500 text-white',
     borderClass: 'border-sky-400 bg-sky-500/18',
+    desc: 'Instant navigation to another page in this publication',
   },
   image: {
-    label: 'Image Lightbox',
-    shortLabel: 'Lightbox',
+    label: 'Photo Lightbox & Gallery',
+    shortLabel: 'Photo Gallery',
     icon: '🖼️',
     badgeColor: 'bg-teal-600 text-white',
     borderClass: 'border-teal-400 bg-teal-500/18',
+    desc: 'High-res image popup with captions and zoom capability',
   },
   audio: {
-    label: 'Audio Clip',
-    shortLabel: 'Audio',
-    icon: '🔊',
-    badgeColor: 'bg-sky-600 text-white',
-    borderClass: 'border-sky-400 bg-sky-500/18',
+    label: 'Audio & Voice Narration',
+    shortLabel: 'Audio Player',
+    icon: '🎵',
+    badgeColor: 'bg-purple-600 text-white',
+    borderClass: 'border-purple-400 bg-purple-500/18',
+    desc: 'Background voiceover, podcast clip, or audio narrative',
   },
 };
 
@@ -177,6 +183,7 @@ export default function HotspotEditor() {
   const [snapGuides, setSnapGuides] = useState<{ x?: number; y?: number }>({});
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [onlyWithHotspots, setOnlyWithHotspots] = useState(false);
+  const [leftTab, setLeftTab] = useState<'elements' | 'pages'>('elements');
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<number | null>(null);
@@ -519,10 +526,10 @@ export default function HotspotEditor() {
           <div>
             <div className="flex items-center gap-2">
               <span className="preview-title font-bold">{details.title}</span>
-              <Badge variant="golden">Hotspot Studio 2.0</Badge>
+              <Badge variant="golden">🎨 Interactive Page Designer &amp; Enrichments Studio</Badge>
             </div>
             <p className="text-[11px] text-slate-400 m-0">
-              Click &amp; drag directly on the page to draw a hotspot · Drag to move · 8-point resize · Ctrl+C / Ctrl+V across pages
+              Interactive Page Designer · Click &amp; drag directly on canvas or drop interactive elements from the toolbox · 8-point resize · Ctrl+C / Ctrl+V
             </p>
           </div>
         </div>
@@ -530,7 +537,6 @@ export default function HotspotEditor() {
         {/* Center Quick Draw Tool Selector */}
         <div className="flex items-center gap-1.5 rounded-xl bg-slate-900/90 border border-slate-800 p-1">
           {(Object.keys(HOTSPOT_TYPE_META) as HotspotType[])
-            .filter((t) => t !== 'audio')
             .map((t) => {
               const meta = HOTSPOT_TYPE_META[t];
               const isActive = activeDrawTool === t;
@@ -539,7 +545,7 @@ export default function HotspotEditor() {
                   key={t}
                   type="button"
                   onClick={() => setActiveDrawTool(t)}
-                  title={`Set active draw tool to ${meta.label} (or double-click to drop immediately)`}
+                  title={`Select ${meta.label} draw tool (double-click to drop on page)`}
                   onDoubleClick={() => void createHotspot(t)}
                   className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
                     isActive
@@ -573,71 +579,145 @@ export default function HotspotEditor() {
         </div>
       </div>
 
-      {/* Main 3-Column Studio Layout: Left Page Thumbnails | Center Interactive Canvas | Right Inspector */}
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_340px] gap-4 flex-1 mt-3 items-start">
-        {/* 1. LEFT PANEL: Visual Page Thumbnail Strip & Hotspot Badges */}
+      {/* Main 3-Column Studio Layout: Left Toolbox/Thumbnails | Center Interactive Canvas | Right Inspector */}
+      <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_340px] gap-4 flex-1 mt-3 items-start">
+        {/* 1. LEFT PANEL: Interactive Designer Element Palette & Page Thumbnails */}
         <div className="card p-3 flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
-          <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-amber-500" />
-              Pages ({details.pages.length})
-            </span>
-            <label className="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={onlyWithHotspots}
-                onChange={(e) => setOnlyWithHotspots(e.target.checked)}
-                className="rounded border-slate-300 text-amber-500"
-              />
-              <span>Tagged only</span>
-            </label>
+          {/* Top Segmented Tab Switcher */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg mb-3 border border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setLeftTab('elements')}
+              className={`py-1 text-xs font-semibold rounded-md transition-all ${
+                leftTab === 'elements'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              🎨 Elements
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeftTab('pages')}
+              className={`py-1 text-xs font-semibold rounded-md transition-all ${
+                leftTab === 'pages'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              📑 Pages ({details.pages.length})
+            </button>
           </div>
 
-          <div className="overflow-y-auto space-y-2 pr-1 flex-1">
-            {visiblePages.map((p) => {
-              const count = countsByPage[p.n] || 0;
-              const isCurrent = p.n === page;
-              return (
-                <button
-                  key={p.n}
-                  type="button"
-                  onClick={() => {
-                    setPage(p.n);
-                    setSelectedId(null);
-                  }}
-                  className={`w-full flex items-center gap-2.5 rounded-xl p-2 text-left transition-all border ${
-                    isCurrent
-                      ? 'border-amber-400 bg-amber-50/70 dark:bg-amber-400/10 shadow-sm'
-                      : 'border-slate-200/80 dark:border-slate-800 hover:border-amber-400/50 bg-white dark:bg-slate-900/60'
-                  }`}
-                >
-                  <img
-                    src={p.thumb || p.image}
-                    alt={`Page ${p.n}`}
-                    loading="lazy"
-                    className="h-14 w-11 rounded border border-slate-200 dark:border-slate-700 object-cover bg-slate-100 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-slate-900 dark:text-white">Page {p.n}</div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {count > 0 ? (
-                        <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                          {count} hotspot{count > 1 ? 's' : ''}
+          {leftTab === 'elements' ? (
+            /* Interactive Component Blocks Palette */
+            <div className="overflow-y-auto space-y-2.5 pr-1 flex-1">
+              <div className="px-1 pb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Interactive Element Palette
+                </span>
+                <p className="text-[11px] text-slate-400 m-0 mt-0.5">
+                  Click "+ Add to Page" to drop directly on Page {page}, or select above to draw anywhere.
+                </p>
+              </div>
+
+              {(Object.keys(HOTSPOT_TYPE_META) as HotspotType[]).map((t) => {
+                const meta = HOTSPOT_TYPE_META[t];
+                return (
+                  <div
+                    key={t}
+                    className="flex flex-col gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 bg-white dark:bg-slate-900/60 hover:border-amber-400/50 transition-all shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{meta.icon}</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {meta.label}
                         </span>
-                      ) : (
-                        'No hotspots'
-                      )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void createHotspot(t)}
+                        className="px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 hover:bg-amber-300 text-[11px] font-bold shadow-sm flex items-center gap-1"
+                        title={`Drop ${meta.shortLabel} on Page ${page}`}
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>Add</span>
+                      </button>
                     </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0 line-clamp-2">
+                      {meta.desc}
+                    </p>
                   </div>
-                  {count > 0 && (
-                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[10px] font-extrabold text-slate-950">
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Visual Page Thumbnails */
+            <>
+              <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-amber-500" />
+                  Pages ({details.pages.length})
+                </span>
+                <label className="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={onlyWithHotspots}
+                    onChange={(e) => setOnlyWithHotspots(e.target.checked)}
+                    className="rounded border-slate-300 text-amber-500"
+                  />
+                  <span>Tagged only</span>
+                </label>
+              </div>
+
+              <div className="overflow-y-auto space-y-2 pr-1 flex-1">
+                {visiblePages.map((p) => {
+                  const count = countsByPage[p.n] || 0;
+                  const isCurrent = p.n === page;
+                  return (
+                    <button
+                      key={p.n}
+                      type="button"
+                      onClick={() => {
+                        setPage(p.n);
+                        setSelectedId(null);
+                      }}
+                      className={`w-full flex items-center gap-2.5 rounded-xl p-2 text-left transition-all border ${
+                        isCurrent
+                          ? 'border-amber-400 bg-amber-50/70 dark:bg-amber-400/10 shadow-sm'
+                          : 'border-slate-200/80 dark:border-slate-800 hover:border-amber-400/50 bg-white dark:bg-slate-900/60'
+                      }`}
+                    >
+                      <img
+                        src={p.thumb || p.image}
+                        alt={`Page ${p.n}`}
+                        loading="lazy"
+                        className="h-14 w-11 rounded border border-slate-200 dark:border-slate-700 object-cover bg-slate-100 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white">Page {p.n}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {count > 0 ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                              {count} hotspot{count > 1 ? 's' : ''}
+                            </span>
+                          ) : (
+                            'No hotspots'
+                          )}
+                        </div>
+                      </div>
+                      {count > 0 && (
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-400 px-1.5 text-[10px] font-extrabold text-slate-950">
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {/* 2. CENTER PANEL: Direct-Manipulation Interactive Page Canvas */}

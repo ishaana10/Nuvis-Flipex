@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -127,6 +127,21 @@ export interface FlipbookSettings {
   panelOpacity?: number;
   panelFontColor?: string;
 
+  // Visual Studio Theming & Custom Color Palette
+  brandAccentColor?: string;
+  backgroundGradient?: string;
+  drawerBgColor?: string;
+  drawerHeaderBgColor?: string;
+  drawerTextColor?: string;
+  drawerActiveColor?: string;
+  drawerActiveTextColor?: string;
+  headerBgColor?: string;
+  headerTextColor?: string;
+  navPillBgColor?: string;
+  navPillTextColor?: string;
+  hotspotHighlightColor?: string;
+  fontFamily?: string;
+
   // Viewer Controls Buttons
   allowDownload?: boolean;
   showThumbnailsButton?: boolean;
@@ -159,24 +174,126 @@ export interface FlipbookSettings {
 
 // Visual skin presets matching Image 9 (Themes -> Presets)
 export const PRESET_SKINS = [
-  { id: 'classical', name: 'Classical', bg: '#2b2d32', toolbar: '#1e2024', btn: '#d1d5db' },
-  { id: 'whitewall', name: 'WhiteWall', bg: '#f8fafc', toolbar: '#ffffff', btn: '#334155' },
-  { id: 'milk', name: 'Milk', bg: '#f1f0ea', toolbar: '#e4e2d8', btn: '#475569' },
-  { id: 'elegantgrey', name: 'ElegantGrey', bg: 'linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%)', toolbar: '#334155', btn: '#f8fafc' },
-  { id: 'texture', name: 'Texture', bg: '#e5e7eb', toolbar: '#4b5563', btn: '#ffffff' },
-  { id: 'green', name: 'Green', bg: '#dcfce7', toolbar: '#15803d', btn: '#ffffff' },
-  { id: 'pinkblue', name: 'PinkBlue', bg: 'linear-gradient(135deg, #fbcfe8 0%, #bfdbfe 100%)', toolbar: '#475569', btn: '#ffffff' },
-  { id: 'warmsunshine', name: 'WarmSunshine', bg: 'linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%)', toolbar: '#78350f', btn: '#ffffff' },
-  { id: 'yellowwood', name: 'YellowWood', bg: '#d4a373', toolbar: '#8d5b4c', btn: '#ffffff' },
-  { id: 'lightyellowwood', name: 'LightYellowWood', bg: '#e9edc9', toolbar: '#606c38', btn: '#ffffff' },
-  { id: 'mount', name: 'Mount', bg: 'linear-gradient(180deg, #38bdf8 0%, #0369a1 100%)', toolbar: '#0c4a6e', btn: '#ffffff' },
-  { id: 'snow', name: 'Snow', bg: 'linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)', toolbar: '#0284c7', btn: '#ffffff' },
-  { id: 'freshblue', name: 'FreshBlue', bg: 'linear-gradient(135deg, #67e8f9 0%, #0284c7 100%)', toolbar: '#0369a1', btn: '#ffffff' },
-  { id: 'coolblue', name: 'CoolBlue', bg: 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)', toolbar: '#1e293b', btn: '#38bdf8' },
-  { id: 'starrysky', name: 'StarrySky', bg: '#090d16', toolbar: '#111827', btn: '#a5b4fc' },
-  { id: 'technology', name: 'Technology', bg: '#030712', toolbar: '#1f2937', btn: '#38bdf8' },
-  { id: 'gold_citrus', name: 'Golden Nuvis', bg: 'linear-gradient(135deg, #fef08a 0%, #f59e0b 60%, #b45309 100%)', toolbar: '#78350f', btn: '#ffffff' },
-  { id: 'wood_desk', name: 'Warm Ivory Paper', bg: 'linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%)', toolbar: '#44403c', btn: '#fafaf9' },
+  {
+    id: 'modern_slate',
+    name: 'Modern Dark Slate',
+    bg: 'radial-gradient(ellipse at 50% 50%, #1a202c 0%, #0b0f17 100%)',
+    toolbar: '#0f172a',
+    btn: '#f8fafc',
+    accent: '#f59e0b',
+    drawerBg: '#0d1117',
+    drawerHeader: '#161b22',
+    drawerText: '#f1f5f9',
+    drawerActive: '#f59e0b',
+    drawerActiveText: '#0f172a',
+  },
+  {
+    id: 'mannats_classic',
+    name: 'Mannats Royal Navy',
+    bg: 'radial-gradient(ellipse at 50% 50%, #1e293b 0%, #0f172a 100%)',
+    toolbar: '#0f2942',
+    btn: '#fbbf24',
+    accent: '#fbbf24',
+    drawerBg: '#0284c7',
+    drawerHeader: '#0369a1',
+    drawerText: '#ffffff',
+    drawerActive: '#fde047',
+    drawerActiveText: '#0f172a',
+  },
+  {
+    id: 'warm_gold_luxe',
+    name: 'Warm Gold Luxe',
+    bg: 'linear-gradient(135deg, #1c1917 0%, #292524 50%, #44403c 100%)',
+    toolbar: '#292524',
+    btn: '#f59e0b',
+    accent: '#d97706',
+    drawerBg: '#1c1917',
+    drawerHeader: '#292524',
+    drawerText: '#fafaf9',
+    drawerActive: '#f59e0b',
+    drawerActiveText: '#1c1917',
+  },
+  {
+    id: 'emerald_prestige',
+    name: 'Emerald Prestige',
+    bg: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #0f172a 100%)',
+    toolbar: '#064e3b',
+    btn: '#34d399',
+    accent: '#10b981',
+    drawerBg: '#022c22',
+    drawerHeader: '#064e3b',
+    drawerText: '#ecfdf5',
+    drawerActive: '#10b981',
+    drawerActiveText: '#022c22',
+  },
+  {
+    id: 'ocean_deep',
+    name: 'Ocean Deep Sapphire',
+    bg: 'linear-gradient(135deg, #030712 0%, #0c4a6e 50%, #0369a1 100%)',
+    toolbar: '#0c4a6e',
+    btn: '#38bdf8',
+    accent: '#0284c7',
+    drawerBg: '#082f49',
+    drawerHeader: '#0c4a6e',
+    drawerText: '#f0f9ff',
+    drawerActive: '#38bdf8',
+    drawerActiveText: '#082f49',
+  },
+  {
+    id: 'sunset_crimson',
+    name: 'Sunset Crimson',
+    bg: 'linear-gradient(135deg, #18181b 0%, #881337 60%, #e11d48 100%)',
+    toolbar: '#4c0519',
+    btn: '#fda4af',
+    accent: '#f43f5e',
+    drawerBg: '#27272a',
+    drawerHeader: '#3f3f46',
+    drawerText: '#fff1f2',
+    drawerActive: '#f43f5e',
+    drawerActiveText: '#ffffff',
+  },
+  {
+    id: 'pacific_coral',
+    name: 'Pacific Coral',
+    bg: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fed7aa 100%)',
+    toolbar: '#ea580c',
+    btn: '#ffffff',
+    accent: '#ea580c',
+    drawerBg: '#ffffff',
+    drawerHeader: '#fff7ed',
+    drawerText: '#1e293b',
+    drawerActive: '#ea580c',
+    drawerActiveText: '#ffffff',
+  },
+  {
+    id: 'clean_minimal_light',
+    name: 'Clean Minimal Light',
+    bg: '#f8fafc',
+    toolbar: '#ffffff',
+    btn: '#475569',
+    accent: '#4f46e5',
+    drawerBg: '#ffffff',
+    drawerHeader: '#f1f5f9',
+    drawerText: '#0f172a',
+    drawerActive: '#4f46e5',
+    drawerActiveText: '#ffffff',
+  },
+  {
+    id: 'cyber_neon',
+    name: 'Cyber Neon Midnight',
+    bg: 'linear-gradient(135deg, #050505 0%, #170729 60%, #2e1065 100%)',
+    toolbar: '#170729',
+    btn: '#a855f7',
+    accent: '#c084fc',
+    drawerBg: '#09090b',
+    drawerHeader: '#18181b',
+    drawerText: '#faf5ff',
+    drawerActive: '#c084fc',
+    drawerActiveText: '#09090b',
+  },
+  { id: 'classical', name: 'Classical Gray', bg: '#2b2d32', toolbar: '#1e2024', btn: '#d1d5db' },
+  { id: 'green', name: 'Nature Green', bg: '#dcfce7', toolbar: '#15803d', btn: '#ffffff' },
+  { id: 'freshblue', name: 'Fresh Blue Sky', bg: 'linear-gradient(135deg, #67e8f9 0%, #0284c7 100%)', toolbar: '#0369a1', btn: '#ffffff' },
 ];
 
 // Layout templates matching Image 3 (Themes -> Layouts)
@@ -252,7 +369,7 @@ export default function CustomizationDialog({
   };
 
   // Design Sub-tabs
-  const [designTab, setDesignTab] = useState<'basic' | 'toolbar'>('basic');
+  const [designTab, setDesignTab] = useState<'colors' | 'basic' | 'toolbar'>('colors');
   // Themes Sub-tabs
   const [themesTab, setThemesTab] = useState<'layouts' | 'presets' | 'effects'>('presets');
   const [layoutDevice, setLayoutDevice] = useState<'pc' | 'mobile'>('pc');
@@ -355,6 +472,34 @@ export default function CustomizationDialog({
   const [panelBgColor, setPanelBgColor] = useState(current.panelBgColor || '#111215');
   const [panelOpacity, setPanelOpacity] = useState<number>(current.panelOpacity ?? 1.0);
   const [panelFontColor, setPanelFontColor] = useState(current.panelFontColor || '#ffffff');
+
+  // 7b. Color & Theme Studio (TOC Drawer, Nav Pill, Brand Accent & Gradients)
+  const [brandAccentColor, setBrandAccentColor] = useState(current.brandAccentColor || '#f59e0b');
+  const [drawerBgColor, setDrawerBgColor] = useState(current.drawerBgColor || current.panelBgColor || '#0d1117');
+  const [drawerHeaderBgColor, setDrawerHeaderBgColor] = useState(current.drawerHeaderBgColor || '#161b22');
+  const [drawerTextColor, setDrawerTextColor] = useState(current.drawerTextColor || current.panelFontColor || '#f1f5f9');
+  const [drawerActiveColor, setDrawerActiveColor] = useState(current.drawerActiveColor || current.brandAccentColor || '#f59e0b');
+  const [drawerActiveTextColor, setDrawerActiveTextColor] = useState(current.drawerActiveTextColor || '#0f172a');
+  const [headerBgColor, setHeaderBgColor] = useState(current.headerBgColor || current.toolbarColor || '#0f172a');
+  const [headerTextColor, setHeaderTextColor] = useState(current.headerTextColor || current.toolbarButtonColor || '#ffffff');
+  const [navPillBgColor, setNavPillBgColor] = useState(current.navPillBgColor || current.toolbarColor || '#111827');
+  const [navPillTextColor, setNavPillTextColor] = useState(current.navPillTextColor || current.toolbarButtonColor || '#ffffff');
+  const [hotspotHighlightColor, setHotspotHighlightColor] = useState(current.hotspotHighlightColor || current.brandAccentColor || '#f59e0b');
+  const [backgroundGradient, setBackgroundGradient] = useState(current.backgroundGradient || '');
+  const [gradientStart, setGradientStart] = useState('#0f172a');
+  const [gradientEnd, setGradientEnd] = useState('#1e293b');
+  const [gradientAngle, setGradientAngle] = useState('135deg');
+  const [brandKits, setBrandKits] = useState<any[]>([]);
+  const [selectedBrandKitId, setSelectedBrandKitId] = useState<number | null>(null);
+  const [brandKitFeedback, setBrandKitFeedback] = useState<string>('');
+
+  useEffect(() => {
+    api<{ brandKits: any[] }>('/brand-kits')
+      .then((res) => {
+        if (res?.brandKits) setBrandKits(res.brandKits);
+      })
+      .catch(() => {});
+  }, []);
 
   // Controls buttons
   const [allowDownload, setAllowDownload] = useState<boolean>(current.allowDownload ?? false);
@@ -475,14 +620,84 @@ export default function CustomizationDialog({
     });
   };
 
-  // Apply a preset skin
-  const applyPresetSkin = (skin: (typeof PRESET_SKINS)[0]) => {
+  // Apply a preset skin with full harmonization
+  const applyPresetSkin = (skin: any) => {
     setPresetSkinId(skin.id);
     setBackground(skin.bg);
     setBackgroundType(skin.bg.includes('gradient') ? 'style' : 'color');
     setToolbarColor(skin.toolbar);
     setToolbarButtonColor(skin.btn);
     setToolbarFontColor(skin.btn);
+    if (skin.accent) setBrandAccentColor(skin.accent);
+    if (skin.drawerBg) setDrawerBgColor(skin.drawerBg);
+    if (skin.drawerHeader) setDrawerHeaderBgColor(skin.drawerHeader);
+    if (skin.drawerText) setDrawerTextColor(skin.drawerText);
+    if (skin.drawerActive) setDrawerActiveColor(skin.drawerActive);
+    if (skin.drawerActiveText) setDrawerActiveTextColor(skin.drawerActiveText);
+    if (skin.toolbar) {
+      setHeaderBgColor(skin.toolbar);
+      setNavPillBgColor(skin.toolbar);
+    }
+    if (skin.btn) {
+      setHeaderTextColor(skin.btn);
+      setNavPillTextColor(skin.btn);
+    }
+  };
+
+  const applyCustomGradient = (start: string, end: string, angle: string) => {
+    const grad = `linear-gradient(${angle}, ${start} 0%, ${end} 100%)`;
+    setBackground(grad);
+    setBackgroundGradient(grad);
+    setBackgroundType('style');
+  };
+
+  const applyBrandKit = (kit: any) => {
+    if (!kit) return;
+    if (kit.accentColor) setBrandAccentColor(kit.accentColor);
+    if (kit.secondaryColor) {
+      setToolbarColor(kit.secondaryColor);
+      setHeaderBgColor(kit.secondaryColor);
+      setNavPillBgColor(kit.secondaryColor);
+    }
+    if (kit.primaryColor) {
+      setToolbarButtonColor(kit.primaryColor);
+      setHeaderTextColor(kit.primaryColor);
+      setNavPillTextColor(kit.primaryColor);
+    }
+    if (kit.drawerBgColor) setDrawerBgColor(kit.drawerBgColor);
+    if (kit.drawerTextColor) setDrawerTextColor(kit.drawerTextColor);
+    if (kit.accentColor) setDrawerActiveColor(kit.accentColor);
+    if (kit.backgroundGradient) {
+      setBackground(kit.backgroundGradient);
+      setBackgroundGradient(kit.backgroundGradient);
+      setBackgroundType('style');
+    }
+    setBrandKitFeedback(`Applied ${kit.name}!`);
+    setTimeout(() => setBrandKitFeedback(''), 3000);
+  };
+
+  const handleSaveBrandKit = async () => {
+    try {
+      const kitName = `${companyName || 'Workspace'} Custom Palette`;
+      const res = await api<{ brandKit: any }>('/brand-kits', 'POST', {
+        name: kitName,
+        primaryColor: brandAccentColor,
+        secondaryColor: toolbarColor,
+        accentColor: brandAccentColor,
+        backgroundGradient: background.includes('gradient') ? background : undefined,
+        drawerBgColor,
+        drawerTextColor,
+        isDefault: false,
+      });
+      if (res?.brandKit) {
+        setBrandKits((prev) => [...prev, res.brandKit]);
+        setBrandKitFeedback(`Saved as "${kitName}"!`);
+        setTimeout(() => setBrandKitFeedback(''), 3500);
+      }
+    } catch {
+      setBrandKitFeedback('Failed to save Brand Kit');
+      setTimeout(() => setBrandKitFeedback(''), 3500);
+    }
   };
 
   // Save Settings to Backend (isolated per tenant)
@@ -564,6 +779,18 @@ export default function CustomizationDialog({
         panelBgColor,
         panelOpacity,
         panelFontColor,
+        brandAccentColor,
+        drawerBgColor,
+        drawerHeaderBgColor,
+        drawerTextColor,
+        drawerActiveColor,
+        drawerActiveTextColor,
+        headerBgColor,
+        headerTextColor,
+        navPillBgColor,
+        navPillTextColor,
+        hotspotHighlightColor,
+        backgroundGradient: background.includes('gradient') ? background : backgroundGradient,
         allowDownload,
         showThumbnailsButton,
         showSearchButton,
@@ -787,21 +1014,21 @@ export default function CustomizationDialog({
             </button>
           </div>
 
-          {/* Bottom Card: Add links/videos/images/etc -> Page Editor (Matching all screenshots) */}
+          {/* Bottom Card: Add links/videos/images/etc -> Interactive Page Designer */}
           <div className="flipex-sidebar-promo-card">
             <div className="flipex-promo-icons">
               <span className="flipex-promo-dot bg-emerald-500" />
-              <span className="flipex-promo-dot bg-red-500" />
+              <span className="flipex-promo-dot bg-rose-500" />
               <span className="flipex-promo-dot bg-blue-500" />
               <span className="flipex-promo-dot bg-amber-500" />
             </div>
-            <span className="flipex-promo-text">Add interactive links, videos, audio & hotspots</span>
+            <span className="flipex-promo-text">🎨 Interactive Page Designer &amp; Enrichments Studio</span>
             <Link
               to={`/dashboard/editor/${flipbook.id}`}
               className="flipex-promo-btn"
               onClick={onClose}
             >
-              <span>Page Editor</span> <span>→</span>
+              <span>Open Page Designer</span> <span>→</span>
             </Link>
           </div>
         </div>
@@ -1100,8 +1327,15 @@ export default function CustomizationDialog({
             {/* ==================== 3. CUSTOMIZE -> DESIGN (IMAGES 2, 4, 7, 8) ==================== */}
             {activeNav === 'design' && (
               <div>
-                {/* Segmented Sub-Tabs: Basic Settings | ToolBar Settings */}
+                {/* Segmented Sub-Tabs: Color & Theme Studio | Basic Settings | ToolBar Settings */}
                 <div className="flipex-segmented-tabs">
+                  <button
+                    type="button"
+                    className={`flipex-segmented-tab ${designTab === 'colors' ? 'active' : ''}`}
+                    onClick={() => setDesignTab('colors')}
+                  >
+                    🎨 Color &amp; Theme Studio
+                  </button>
                   <button
                     type="button"
                     className={`flipex-segmented-tab ${designTab === 'basic' ? 'active' : ''}`}
@@ -1118,7 +1352,314 @@ export default function CustomizationDialog({
                   </button>
                 </div>
 
-                {designTab === 'basic' ? (
+                {designTab === 'colors' ? (
+                  <div className="space-y-4">
+                    {/* 1. Curated 1-Click Themes Grid */}
+                    <div className="card p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
+                            🎨 Curated 1-Click Themes
+                          </h4>
+                          <p className="text-[11px] text-slate-500 m-0 mt-0.5">
+                            Harmonizes reader background, contents drawer, header &amp; highlights instantly.
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                          {PRESET_SKINS.length} Themes
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                        {PRESET_SKINS.map((skin) => {
+                          const isSel = presetSkinId === skin.id;
+                          return (
+                            <button
+                              key={skin.id}
+                              type="button"
+                              onClick={() => applyPresetSkin(skin)}
+                              className={`flex flex-col text-left rounded-xl p-2.5 border transition-all ${
+                                isSel
+                                  ? 'border-amber-400 ring-2 ring-amber-400/30 bg-amber-50/50 dark:bg-amber-950/20'
+                                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-white dark:bg-slate-900'
+                              }`}
+                            >
+                              <div
+                                className="h-10 w-full rounded-lg mb-2 relative overflow-hidden shadow-inner flex items-center justify-between px-2"
+                                style={{ background: skin.bg }}
+                              >
+                                <span
+                                  className="h-6 w-10 rounded border shadow-sm flex items-center justify-center text-[9px] font-bold"
+                                  style={{
+                                    background: (skin as any).drawerBg || skin.toolbar,
+                                    color: (skin as any).drawerText || skin.btn,
+                                  }}
+                                >
+                                  TOC
+                                </span>
+                                <span
+                                  className="h-3.5 w-3.5 rounded-full shadow"
+                                  style={{ background: (skin as any).accent || '#f59e0b' }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {skin.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 2. Workspace Brand Kit Integration */}
+                    <div className="card p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0 flex items-center gap-2">
+                          <span>🏢</span> Workspace Brand Kits
+                        </h4>
+                        {brandKitFeedback && (
+                          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            {brandKitFeedback}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          className="hz-form-select flex-1 text-xs"
+                          value={selectedBrandKitId ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : null;
+                            setSelectedBrandKitId(val);
+                            if (val) {
+                              const found = brandKits.find((k) => k.id === val);
+                              if (found) applyBrandKit(found);
+                            }
+                          }}
+                        >
+                          <option value="">Select saved brand kit...</option>
+                          {brandKits.map((k) => (
+                            <option key={k.id} value={k.id}>
+                              {k.name} {k.isDefault ? '(Default)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn-secondary text-xs py-1.5 px-3"
+                          onClick={handleSaveBrandKit}
+                          title="Save current palette as a reusable Brand Kit for this workspace"
+                        >
+                          Save as Brand Kit
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. Custom Linear Gradient & Solid Background Studio */}
+                    <div className="card p-4 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
+                        🌅 Custom Canvas Background &amp; Gradients
+                      </h4>
+                      <p className="text-[11px] text-slate-500 m-0">
+                        Design a multi-stop color blend or solid shade for the reader viewing stage.
+                      </p>
+
+                      <div className="flex items-center gap-3 pt-1">
+                        <div
+                          className="h-12 w-24 rounded-xl border border-slate-300 dark:border-slate-700 shadow-inner shrink-0"
+                          style={{ background: background }}
+                        />
+                        <div className="flex-1 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flipex-color-row !p-1.5">
+                              <span className="text-[11px]">Start Color</span>
+                              <input
+                                type="color"
+                                className="flipex-color-input"
+                                value={gradientStart}
+                                onChange={(e) => {
+                                  setGradientStart(e.target.value);
+                                  applyCustomGradient(e.target.value, gradientEnd, gradientAngle);
+                                }}
+                              />
+                            </div>
+                            <div className="flipex-color-row !p-1.5">
+                              <span className="text-[11px]">End Color</span>
+                              <input
+                                type="color"
+                                className="flipex-color-input"
+                                value={gradientEnd}
+                                onChange={(e) => {
+                                  setGradientEnd(e.target.value);
+                                  applyCustomGradient(gradientStart, e.target.value, gradientAngle);
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-slate-400">Angle:</span>
+                            {['135deg', '180deg', '90deg', '45deg', '0deg'].map((ang) => (
+                              <button
+                                key={ang}
+                                type="button"
+                                onClick={() => {
+                                  setGradientAngle(ang);
+                                  applyCustomGradient(gradientStart, gradientEnd, ang);
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                                  gradientAngle === ang
+                                    ? 'bg-amber-400 text-slate-950 border-amber-400'
+                                    : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                                }`}
+                              >
+                                {ang}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Side Drawer (TOC & Bookmarks) Custom Colors */}
+                    <div className="card p-4 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
+                        📑 Side Drawer (Contents &amp; Bookmarks)
+                      </h4>
+                      <p className="text-[11px] text-slate-500 m-0">
+                        Tailor the exact look of your slide-out index to match your brand identity.
+                      </p>
+
+                      <div className="space-y-2 pt-1">
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Drawer Background</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{drawerBgColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={drawerBgColor.startsWith('#') ? drawerBgColor : '#0d1117'}
+                              onChange={(e) => setDrawerBgColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Header &amp; Tabs Background</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{drawerHeaderBgColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={drawerHeaderBgColor.startsWith('#') ? drawerHeaderBgColor : '#161b22'}
+                              onChange={(e) => setDrawerHeaderBgColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Drawer Text Color</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{drawerTextColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={drawerTextColor.startsWith('#') ? drawerTextColor : '#f1f5f9'}
+                              onChange={(e) => setDrawerTextColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Active Row Highlight</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{drawerActiveColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={drawerActiveColor.startsWith('#') ? drawerActiveColor : '#f59e0b'}
+                              onChange={(e) => setDrawerActiveColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Active Page Badge Text</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{drawerActiveTextColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={drawerActiveTextColor.startsWith('#') ? drawerActiveTextColor : '#0f172a'}
+                              onChange={(e) => setDrawerActiveTextColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 5. Brand Accent, Headers & Navigation Bar */}
+                    <div className="card p-4 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
+                        ⚡ Brand Accent &amp; Reader Bars
+                      </h4>
+
+                      <div className="space-y-2 pt-1">
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Primary Brand Accent</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{brandAccentColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={brandAccentColor.startsWith('#') ? brandAccentColor : '#f59e0b'}
+                              onChange={(e) => setBrandAccentColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Top Header Bar Background</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{headerBgColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={headerBgColor.startsWith('#') ? headerBgColor : '#0f172a'}
+                              onChange={(e) => setHeaderBgColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Bottom Navigation Pill Background</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{navPillBgColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={navPillBgColor.startsWith('#') ? navPillBgColor : '#111827'}
+                              onChange={(e) => setNavPillBgColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flipex-color-row">
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Hotspot Glow &amp; Border Tint</span>
+                          <div className="flipex-color-picker-wrap">
+                            <span className="flipex-color-hex">{hotspotHighlightColor}</span>
+                            <input
+                              type="color"
+                              className="flipex-color-input"
+                              value={hotspotHighlightColor.startsWith('#') ? hotspotHighlightColor : '#f59e0b'}
+                              onChange={(e) => setHotspotHighlightColor(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : designTab === 'basic' ? (
                   <div className="space-y-3">
                     {/* General Settings Accordion (Image 7) */}
                     <div className={`flipex-accordion-card ${basicAccordions.general ? 'open' : ''}`}>
