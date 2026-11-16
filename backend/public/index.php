@@ -201,7 +201,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $bil->post('/invoices/{id:[0-9]+}/reverse', [BillingController::class, 'reversePayment']);
     })->add(new TenantScope())->add(new Auth());
 
-    // Modular Architecture, System Telemetry, DLQ, Structured Logs, Error Monitor & Backups
+    // Modular Architecture, System Telemetry, DLQ, Structured Logs, Error Monitor & Backups (Developer / Platform Admin Only)
     $g->group('/devops', function (RouteCollectorProxy $dev) {
         $dev->get('/overview', [DevOpsController::class, 'overview']);
         $dev->get('/jobs', [DevOpsController::class, 'publicationJobs']);
@@ -213,7 +213,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $dev->post('/errors/{id:[0-9]+}/resolve', [DevOpsController::class, 'resolveErrorReport']);
         $dev->post('/migrations/run', [DevOpsController::class, 'runMigrations']);
         $dev->post('/secrets/rotate', [DevOpsController::class, 'rotateSecrets']);
-    })->add(new TenantScope())->add(new Auth());
+    })->add(new TenantScope())->add(new Auth('admin'));
 
     $g->group('/me', function (RouteCollectorProxy $m) {
         $m->get('', [MeController::class, 'show']);
@@ -250,7 +250,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 
         // Company Subscriptions & Plans
         $adm->get('/plans', [AdminController::class, 'plans']);
+        $adm->post('/plans', [AdminController::class, 'createPlan']);
         $adm->patch('/plans/{id:[0-9]+}', [AdminController::class, 'updatePlan']);
+        $adm->delete('/plans/{id:[0-9]+}', [AdminController::class, 'deletePlan']);
 
         // Platform Settings & Email Setup
         $adm->get('/settings', [AdminController::class, 'settings']);

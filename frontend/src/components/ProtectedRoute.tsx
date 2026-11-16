@@ -219,7 +219,7 @@ export function ProtectedRoute() {
   // Enforce RBAC route access
   const isUnauthorized =
     (isBilling && !can('billing.view') && !can('billing.manage')) ||
-    (isDevOps && !can('devops.overview') && user.role !== 'admin') ||
+    (isDevOps && user.role !== 'admin') ||
     (isIntegrations && !can('settings.manage') && !can('api_keys.manage') && !can('webhooks.manage')) ||
     (isAdmin && user.role !== 'admin');
 
@@ -359,8 +359,8 @@ export function ProtectedRoute() {
             </Link>
           )}
 
-          {/* 8. Modular Architecture & DevOps Production Readiness */}
-          {(can('devops.overview') || user.role === 'admin') && (
+          {/* 8. Modular Architecture & DevOps Production Readiness (Developer / Platform Admin Only) */}
+          {user.role === 'admin' && (
             <Link
               to="/devops"
               className={`sidebar-item ${isDevOps && !activeModuleHub ? 'active' : ''}`}
@@ -647,15 +647,21 @@ export function ProtectedRoute() {
                       <Link to="/flipbooks" className="profile-menu-item">
                         📚 My Publications
                       </Link>
-                      <Link to="/integrations" className="profile-menu-item">
-                        🔌 Enterprise Integrations & API
-                      </Link>
-                      <Link to="/billing" className="profile-menu-item">
-                        💳 Billing, Invoices & Subscriptions
-                      </Link>
-                      <Link to="/devops" className="profile-menu-item">
-                        🏗️ Modular Architecture & DevOps
-                      </Link>
+                      {(can('settings.manage') || can('api_keys.manage') || can('webhooks.manage') || user.role === 'admin') && (
+                        <Link to="/integrations" className="profile-menu-item">
+                          🔌 Enterprise Integrations & API
+                        </Link>
+                      )}
+                      {(can('billing.view') || can('billing.manage') || user.role === 'admin') && (
+                        <Link to="/billing" className="profile-menu-item">
+                          💳 Billing, Invoices & Subscriptions
+                        </Link>
+                      )}
+                      {user.role === 'admin' && (
+                        <Link to="/devops" className="profile-menu-item">
+                          🏗️ Modular Architecture & DevOps
+                        </Link>
+                      )}
                       <Link to="/settings" className="profile-menu-item">
                         ⚙️ Account & Security (2FA / API)
                       </Link>

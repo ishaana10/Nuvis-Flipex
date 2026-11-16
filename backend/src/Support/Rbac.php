@@ -78,7 +78,6 @@ final class Rbac
             'settings.view', 'settings.manage',
             'api_keys.manage', 'webhooks.manage',
             'billing.view', 'billing.manage', 'billing.reconcile',
-            'devops.overview', 'devops.jobs', 'devops.backup_request', 'devops.backup_recovery',
             'tenant.delete',
         ],
         'admin' => [
@@ -88,7 +87,6 @@ final class Rbac
             'settings.view', 'settings.manage',
             'api_keys.manage', 'webhooks.manage',
             'billing.view',
-            'devops.overview', 'devops.jobs',
         ],
         'editor' => [
             'flipbook.view', 'flipbook.create', 'flipbook.edit', 'flipbook.publish', 'hotspot.manage',
@@ -206,7 +204,30 @@ final class Rbac
                     };
                     $st->execute([$name, $slug, $desc, json_encode($perms)]);
                 }
+            } else {
+                // Ensure system roles in tenant_roles do not contain devops permissions for tenants
+                foreach (['owner', 'admin'] as $slug) {
+                    if (isset(self::DEFAULT_ROLE_PERMISSIONS[$slug])) {
+                        $st = $pdo->prepare("UPDATE tenant_roles SET permissions = ? WHERE slug = ? AND is_system = 1");
+                        $st->execute([json_encode(self::DEFAULT_ROLE_PERMISSIONS[$slug]), $slug]);
+                    }
+                }
             }
+
+            // 5. Ensure plans table has features and description columns for customizable plan capabilities
+            $planCols = $pdo->query("SHOW COLUMNS FROM plans LIKE 'features'")->fetch();
+            if (!$planCols) {
+                try {
+                    $pdo->exec("ALTER TABLE plans ADD COLUMN features JSON NULL, ADD COLUMN description VARCHAR(255) NULL");
+                } catch (\Throwable) {}
+            }
+
+            // Seed default features on core plans 1, 2, 3 if empty
+            try {
+                $pdo->exec("UPDATE plans SET description = 'Essential features for personal magazines and hobbyists', features = '[\"Up to 3 Active Publications\", \"Standard Page Turn Animation\", \"Basic Viewer Analytics\", \"Community Support\"]' WHERE id = 1 AND (features IS NULL OR features = '' OR features = '[]')");
+                $pdo->exec("UPDATE plans SET description = 'Professional tools for businesses and independent publishers', features = '[\"Up to 15 Active Publications\", \"Interactive Hotspots & Web Links\", \"Custom Branding & Styling\", \"Export CSV Engagement Reports\", \"Priority Email Support\"]' WHERE id = 2 AND (features IS NULL OR features = '' OR features = '[]')");
+                $pdo->exec("UPDATE plans SET description = 'Full commercial power with white-label and unlimited scale', features = '[\"100+ Publications & Bulk Upload\", \"White-Label / Remove Branding\", \"Interactive Video & Product Links\", \"REST API & Webhooks Automation\", \"Custom CNAME Domain\", \"Dedicated Account SLA\"]' WHERE id = 3 AND (features IS NULL OR features = '' OR features = '[]')");
+            } catch (\Throwable) {}
         } catch (\Throwable $e) {
             // Non-fatal error fallback
             error_log('Rbac::ensureSchema non-fatal: ' . $e->getMessage());

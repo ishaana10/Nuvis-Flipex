@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 
 interface ArchitectureLayer {
   order: number;
@@ -199,6 +201,11 @@ interface DevOpsOverviewResponse {
 }
 
 export default function DevOpsCenter() {
+  const { user } = useAuth();
+  if (user && user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const [activeTab, setActiveTab] = useState<'architecture' | 'telemetry' | 'queue' | 'logs' | 'backups'>('architecture');
   const [data, setData] = useState<DevOpsOverviewResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);

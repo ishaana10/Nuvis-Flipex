@@ -125,6 +125,8 @@ interface Plan {
   id: number;
   name: string;
   price: number;
+  description?: string;
+  features?: string[];
   maxFlipbooks: number;
   maxPages: number;
   maxUploadMb: number;
@@ -334,6 +336,21 @@ export default function AdminPanel() {
       await loadUsers();
     } catch (err: any) {
       showMsg(err.message || 'Failed to delete role', 'error');
+    }
+  };
+
+  const deletePlan = async (p: Plan) => {
+    if (p.companiesCount > 0 || p.usersCount > 0) {
+      showMsg(`Cannot delete plan "${p.name}" because it is currently assigned to ${p.companiesCount} companies and ${p.usersCount} users.`, 'error');
+      return;
+    }
+    if (!confirm(`Are you sure you want to permanently delete plan "${p.name}"?`)) return;
+    try {
+      await api(`/admin/plans/${p.id}`, 'DELETE');
+      showMsg(`Plan "${p.name}" has been deleted.`);
+      loadPlans();
+    } catch (err: any) {
+      showMsg(err.message || 'Failed to delete plan', 'error');
     }
   };
 
@@ -1079,13 +1096,34 @@ export default function AdminPanel() {
       {/* Tab 4: Subscriptions & Plans */}
       {tab === 'subscriptions' && (
         <div className="admin-tab-content">
+          <div className="tbl-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Subscription Plans & Feature Bundles</h3>
+              <p className="muted" style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
+                Configure pricing tiers, resource quotas, and marketing feature bullets visible to tenants.
+              </p>
+            </div>
+            <button
+              className="btn-primary"
+              onClick={() => setPlanModal({ open: true, plan: null })}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+            >
+              <span>+</span> Add New Plan
+            </button>
+          </div>
+
           <div className="plans-grid">
             {plans.map((p) => (
               <div className={`plan-card ${p.name === 'Enterprise' ? 'featured' : ''}`} key={p.id}>
                 <div className="plan-badge-top">
-                  {p.name === 'Enterprise' ? '🌟 Enterprise' : 'Subscription Tier'}
+                  {p.name === 'Enterprise' ? '🌟 Enterprise' : (p.price === 0 ? '🌱 Free / Trial' : 'Subscription Tier')}
                 </div>
                 <h3 className="plan-name">{p.name}</h3>
+                {p.description && (
+                  <p className="plan-desc" style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 12px 0', minHeight: '32px' }}>
+                    {p.description}
+                  </p>
+                )}
                 <div className="plan-price">
                   <span className="price-num">${p.price}</span>
                   <span className="price-period">/ month</span>
@@ -1114,18 +1152,43 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
+                {p.features && p.features.length > 0 && (
+                  <div className="plan-custom-features" style={{ margin: '14px 0', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+                    <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', fontWeight: 600, marginBottom: '6px' }}>
+                      Feature Highlights:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {p.features.map((feat, idx) => (
+                        <li key={idx}>✓ {feat}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="plan-sub-stats">
                   <span>🏢 <b>{p.companiesCount}</b> Companies</span>
                   <span>👥 <b>{p.usersCount}</b> Users</span>
                 </div>
 
-                <button
-                  className="btn-primary"
-                  style={{ width: '100%', marginTop: '16px' }}
-                  onClick={() => setPlanModal({ open: true, plan: p })}
-                >
-                  Edit Plan Quotas
-                </button>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                  <button
+                    className="btn-primary"
+                    style={{ flex: 1 }}
+                    onClick={() => setPlanModal({ open: true, plan: p })}
+                  >
+                    Edit Plan & Features
+                  </button>
+                  {p.companiesCount === 0 && p.usersCount === 0 && (
+                    <button
+                      className="btn-tbl del"
+                      style={{ padding: '0 14px', borderRadius: '8px' }}
+                      title="Delete this unassigned plan"
+                      onClick={() => deletePlan(p)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -1736,14 +1799,15 @@ export default function AdminPanel() {
       )}
 
       {/* Plan Edit Modal */}
-      {planModal.open && planModal.plan && (
+      {planModal.open && (
         <PlanModal
           plan={planModal.plan}
           onClose={() => setPlanModal({ open: false, plan: null })}
           onSaved={() => {
+            const wasCreating = !planModal.plan;
             setPlanModal({ open: false, plan: null });
             loadPlans();
-            showMsg(`Plan ${planModal.plan?.name} updated.`);
+            showMsg(wasCreating ? 'New plan created successfully.' : `Plan updated successfully.`);
           }}
         />
       )}
@@ -2332,34 +2396,67 @@ function PlanModal({
   onClose,
   onSaved,
 }: {
-  plan: Plan;
+  plan: Plan | null;
   onClose(): void;
   onSaved(): void;
 }) {
-  const [name, setName] = useState(plan.name);
-  const [price, setPrice] = useState(plan.price);
-  const [maxFlipbooks, setMaxFlipbooks] = useState(plan.maxFlipbooks);
-  const [maxPages, setMaxPages] = useState(plan.maxPages);
-  const [maxUploadMb, setMaxUploadMb] = useState(plan.maxUploadMb);
-  const [monthlyViews, setMonthlyViews] = useState(plan.monthlyViews);
-  const [removeBranding, setRemoveBranding] = useState(plan.removeBranding);
+  const [name, setName] = useState(plan ? plan.name : '');
+  const [description, setDescription] = useState(plan?.description || '');
+  const [price, setPrice] = useState(plan ? plan.price : 0);
+  const [maxFlipbooks, setMaxFlipbooks] = useState(plan ? plan.maxFlipbooks : 10);
+  const [maxPages, setMaxPages] = useState(plan ? plan.maxPages : 100);
+  const [maxUploadMb, setMaxUploadMb] = useState(plan ? plan.maxUploadMb : 50);
+  const [monthlyViews, setMonthlyViews] = useState(plan ? plan.monthlyViews : 10000);
+  const [removeBranding, setRemoveBranding] = useState(plan ? plan.removeBranding : false);
+  const [features, setFeatures] = useState<string[]>(plan?.features || []);
+  const [newFeature, setNewFeature] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  const FEATURE_PRESETS = [
+    'Custom Domain & SSL',
+    'Interactive Hotspots & Video',
+    'Password & Gated Access',
+    'Lead Capture & CRM Forms',
+    'REST API & Webhooks Access',
+    'Priority Support & Dedicated SLA',
+    'Advanced Analytics & Export',
+    'Team Collaboration & RBAC',
+  ];
+
+  const addFeature = (feat: string) => {
+    const trimmed = feat.trim();
+    if (!trimmed) return;
+    if (features.includes(trimmed)) return;
+    setFeatures([...features, trimmed]);
+  };
+
+  const removeFeature = (idx: number) => {
+    setFeatures(features.filter((_, i) => i !== idx));
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await api(`/admin/plans/${plan.id}`, 'PATCH', {
+      const payload = {
         name,
+        description,
         price,
         maxFlipbooks,
         maxPages,
         maxUploadMb,
         monthlyViews,
         removeBranding,
-      });
+        features,
+      };
+
+      if (plan) {
+        await api(`/admin/plans/${plan.id}`, 'PATCH', payload);
+      } else {
+        await api('/admin/plans', 'POST', payload);
+      }
       onSaved();
     } catch (err: any) {
       setError(err.message);
@@ -2370,20 +2467,33 @@ function PlanModal({
 
   return (
     <div className="modal" onClick={onClose}>
-      <div className="card admin-modal-card" onClick={(e) => e.stopPropagation()}>
-        <h2>Edit Subscription Plan: {plan.name}</h2>
+      <div className="card admin-modal-card" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+        <h2>{plan ? `Edit Subscription Plan: ${plan.name}` : '✨ Create New Subscription Plan'}</h2>
+        <p className="muted" style={{ fontSize: '13px', margin: '-8px 0 16px 0' }}>
+          Define resource limits, pricing, and feature bullets available to tenants.
+        </p>
         {error && <p className="err">{error}</p>}
         <form onSubmit={submit} className="stack">
           <div className="row-fields">
-            <label className="field">
-              <span>Plan Name</span>
-              <input required value={name} onChange={(e) => setName(e.target.value)} />
+            <label className="field" style={{ flex: 2 }}>
+              <span>Plan Name *</span>
+              <input required placeholder="e.g. Professional Plus" value={name} onChange={(e) => setName(e.target.value)} />
             </label>
-            <label className="field">
-              <span>Monthly Price ($)</span>
+            <label className="field" style={{ flex: 1 }}>
+              <span>Monthly Price ($) *</span>
               <input type="number" step="0.01" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} />
             </label>
           </div>
+
+          <label className="field">
+            <span>Short Description / Target Audience</span>
+            <input
+              placeholder="e.g. For growing marketing agencies and corporate publishers"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </label>
+
           <div className="row-fields">
             <label className="field">
               <span>Max Flipbooks</span>
@@ -2404,7 +2514,8 @@ function PlanModal({
               <input type="number" min={100} value={monthlyViews} onChange={(e) => setMonthlyViews(Number(e.target.value))} />
             </label>
           </div>
-          <label className="field" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+
+          <label className="field" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: '4px 0' }}>
             <input
               type="checkbox"
               checked={removeBranding}
@@ -2413,10 +2524,118 @@ function PlanModal({
             />
             <span>Allow White-Label (Remove platform branding)</span>
           </label>
+
+          {/* Dynamic Feature Bullets */}
+          <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                ⭐ Plan Feature Highlights & Marketing Bullets
+              </span>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>{features.length} features added</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <input
+                type="text"
+                placeholder="Type custom feature..."
+                value={newFeature}
+                onChange={(e) => setNewFeature(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addFeature(newFeature);
+                    setNewFeature('');
+                  }
+                }}
+                style={{ flex: 1, padding: '6px 10px', fontSize: '13px' }}
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  addFeature(newFeature);
+                  setNewFeature('');
+                }}
+                style={{ padding: '6px 14px', fontSize: '13px' }}
+              >
+                Add Feature
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', alignSelf: 'center' }}>Quick Presets:</span>
+              {FEATURE_PRESETS.map((preset) => {
+                const added = features.includes(preset);
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => (added ? setFeatures(features.filter((f) => f !== preset)) : addFeature(preset))}
+                    style={{
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      borderRadius: '12px',
+                      border: added ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                      background: added ? '#eff6ff' : '#ffffff',
+                      color: added ? '#1d4ed8' : '#475569',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {added ? '✓ ' : '+ '}
+                    {preset}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Added list */}
+            {features.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {features.map((feat, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: '#fff',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <span>✓ {feat}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFeature(idx)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        padding: '0 4px',
+                      }}
+                      title="Remove feature"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                No custom features added yet. Use quick presets or type custom ones above.
+              </p>
+            )}
+          </div>
+
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save Plan Settings'}
+              {busy ? 'Saving…' : (plan ? 'Save Changes' : 'Create Plan')}
             </button>
           </div>
         </form>

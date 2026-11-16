@@ -416,52 +416,161 @@ final class AdminController
     /** List all Subscription Plans */
     public function plans(Request $req, Response $res): Response
     {
+        Rbac::ensureSchema();
         $rows = Db::all(
             'SELECT p.*,
                     (SELECT COUNT(*) FROM tenants t WHERE t.plan_id = p.id) AS companies_count,
                     (SELECT COUNT(*) FROM users u WHERE u.plan_id = p.id AND u.deleted_at IS NULL) AS users_count
-             FROM plans p ORDER BY p.price ASC'
+             FROM plans p ORDER BY p.price ASC, p.id ASC'
         );
 
-        return Http::json($res, array_map(fn($r) => [
-            'id' => (int) $r['id'],
-            'name' => $r['name'],
-            'price' => (float) $r['price'],
-            'maxFlipbooks' => (int) $r['max_flipbooks'],
-            'maxPages' => (int) $r['max_pages'],
-            'maxUploadMb' => (int) $r['max_upload_mb'],
-            'monthlyViews' => (int) $r['monthly_views'],
-            'removeBranding' => (bool) $r['remove_branding'],
-            'companiesCount' => (int) $r['companies_count'],
-            'usersCount' => (int) $r['users_count'],
-        ], $rows));
+        return Http::json($res, array_map(function ($r) {
+            $features = [];
+            if (!empty($r['features'])) {
+                $decoded = is_array($r['features']) ? $r['features'] : json_decode((string) $r['features'], true);
+                if (is_array($decoded)) {
+                    $features = array_values(array_filter(array_map('trim', array_map('strval', $decoded))));
+                }
+            }
+            return [
+                'id' => (int) $r['id'],
+                'name' => $r['name'],
+                'price' => (float) $r['price'],
+                'description' => $r['description'] ?? '',
+                'features' => $features,
+                'maxFlipbooks' => (int) $r['max_flipbooks'],
+                'maxPages' => (int) $r['max_pages'],
+                'maxUploadMb' => (int) $r['max_upload_mb'],
+                'monthlyViews' => (int) $r['monthly_views'],
+                'removeBranding' => (bool) $r['remove_branding'],
+                'companiesCount' => (int) $r['companies_count'],
+                'usersCount' => (int) $r['users_count'],
+            ];
+        }, $rows));
     }
 
-    /** Update a Subscription Plan */
-    public function updatePlan(Request $req, Response $res, array $args): Response
+    /** Create a new Subscription Plan */
+    public function createPlan(Request $req, Response $res): Response
     {
-        $id = (int) $args['id'];
+        Rbac::ensureSchema();
         $b = (array) $req->getParsedBody();
 
         $name = trim((string) ($b['name'] ?? ''));
-        $price = (float) ($b['price'] ?? 0);
-        $maxFlipbooks = (int) ($b['maxFlipbooks'] ?? 3);
-        $maxPages = (int) ($b['maxPages'] ?? 50);
-        $maxUploadMb = (int) ($b['maxUploadMb'] ?? 20);
-        $monthlyViews = (int) ($b['monthlyViews'] ?? 1000);
+        $price = max(0, (float) ($b['price'] ?? 0));
+        $description = trim((string) ($b['description'] ?? ''));
+        $maxFlipbooks = max(1, (int) ($b['maxFlipbooks'] ?? 5));
+        $maxPages = max(1, (int) ($b['maxPages'] ?? 50));
+        $maxUploadMb = max(1, (int) ($b['maxUploadMb'] ?? 20));
+        $monthlyViews = max(1, (int) ($b['monthlyViews'] ?? 1000));
         $removeBranding = !empty($b['removeBranding']) ? 1 : 0;
+
+        $rawFeatures = $b['features'] ?? [];
+        $features = is_array($rawFeatures)
+            ? array_values(array_filter(array_map('trim', array_map('strval', $rawFeatures))))
+            : [];
+        $featuresJson = json_encode($features);
 
         if ($name === '') {
             return Http::error($res, 'Validation failed', 422, ['name' => 'Plan name is required']);
         }
 
         Db::run(
-            'UPDATE plans SET name = ?, price = ?, max_flipbooks = ?, max_pages = ?, max_upload_mb = ?,
-                              monthly_views = ?, remove_branding = ? WHERE id = ?',
-            [$name, $price, $maxFlipbooks, $maxPages, $maxUploadMb, $monthlyViews, $removeBranding, $id]
+            'INSERT INTO plans (name, price, description, features, max_flipbooks, max_pages, max_upload_mb, monthly_views, remove_branding)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$name, $price, $description, $featuresJson, $maxFlipbooks, $maxPages, $maxUploadMb, $monthlyViews, $removeBranding]
         );
 
+        $id = (int) Db::pdo()->lastInsertId();
+        Audit::log('admin.create_plan', 'plan', $id, ['name' => $name, 'price' => $price]);
+
+        return Http::json($res, [
+            'id' => $id,
+            'name' => $name,
+            'price' => $price,
+            'description' => $description,
+            'features' => $features,
+            'maxFlipbooks' => $maxFlipbooks,
+            'maxPages' => $maxPages,
+            'maxUploadMb' => $maxUploadMb,
+            'monthlyViews' => $monthlyViews,
+            'removeBranding' => (bool) $removeBranding,
+            'companiesCount' => 0,
+            'usersCount' => 0,
+        ], 201);
+    }
+
+    /** Update a Subscription Plan */
+    public function updatePlan(Request $req, Response $res, array $args): Response
+    {
+        Rbac::ensureSchema();
+        $id = (int) $args['id'];
+        $b = (array) $req->getParsedBody();
+
+        $name = trim((string) ($b['name'] ?? ''));
+        $price = max(0, (float) ($b['price'] ?? 0));
+        $description = trim((string) ($b['description'] ?? ''));
+        $maxFlipbooks = max(1, (int) ($b['maxFlipbooks'] ?? 3));
+        $maxPages = max(1, (int) ($b['maxPages'] ?? 50));
+        $maxUploadMb = max(1, (int) ($b['maxUploadMb'] ?? 20));
+        $monthlyViews = max(1, (int) ($b['monthlyViews'] ?? 1000));
+        $removeBranding = !empty($b['removeBranding']) ? 1 : 0;
+
+        $rawFeatures = $b['features'] ?? null;
+        $featuresJson = null;
+        if (is_array($rawFeatures)) {
+            $features = array_values(array_filter(array_map('trim', array_map('strval', $rawFeatures))));
+            $featuresJson = json_encode($features);
+        }
+
+        if ($name === '') {
+            return Http::error($res, 'Validation failed', 422, ['name' => 'Plan name is required']);
+        }
+
+        if ($featuresJson !== null) {
+            Db::run(
+                'UPDATE plans SET name = ?, price = ?, description = ?, features = ?, max_flipbooks = ?, max_pages = ?, max_upload_mb = ?,
+                                  monthly_views = ?, remove_branding = ? WHERE id = ?',
+                [$name, $price, $description, $featuresJson, $maxFlipbooks, $maxPages, $maxUploadMb, $monthlyViews, $removeBranding, $id]
+            );
+        } else {
+            Db::run(
+                'UPDATE plans SET name = ?, price = ?, description = ?, max_flipbooks = ?, max_pages = ?, max_upload_mb = ?,
+                                  monthly_views = ?, remove_branding = ? WHERE id = ?',
+                [$name, $price, $description, $maxFlipbooks, $maxPages, $maxUploadMb, $monthlyViews, $removeBranding, $id]
+            );
+        }
+
+        Audit::log('admin.update_plan', 'plan', $id, ['name' => $name, 'price' => $price]);
+
         return Http::json($res, ['ok' => true]);
+    }
+
+    /** Delete a Subscription Plan */
+    public function deletePlan(Request $req, Response $res, array $args): Response
+    {
+        Rbac::ensureSchema();
+        $id = (int) $args['id'];
+
+        $plan = Db::one('SELECT * FROM plans WHERE id = ?', [$id]);
+        if (!$plan) {
+            return Http::error($res, 'Plan not found', 404);
+        }
+
+        $activeCompanies = (int) (Db::one('SELECT COUNT(*) c FROM tenants WHERE plan_id = ?', [$id])['c'] ?? 0);
+        $activeUsers = (int) (Db::one('SELECT COUNT(*) c FROM users WHERE plan_id = ? AND deleted_at IS NULL', [$id])['c'] ?? 0);
+
+        if ($activeCompanies > 0 || $activeUsers > 0) {
+            return Http::error(
+                $res,
+                "Cannot delete plan '{$plan['name']}': currently assigned to {$activeCompanies} companies and {$activeUsers} users. Please reassign them first.",
+                422
+            );
+        }
+
+        Db::run('DELETE FROM plans WHERE id = ?', [$id]);
+        Audit::log('admin.delete_plan', 'plan', $id, ['name' => $plan['name']]);
+
+        return Http::json($res, ['ok' => true, 'message' => "Plan '{$plan['name']}' deleted successfully"]);
     }
 
     /** Get Platform System & Email Settings */
