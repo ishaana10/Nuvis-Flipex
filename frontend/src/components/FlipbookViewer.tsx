@@ -1084,7 +1084,7 @@ export default function FlipbookViewer({
     const readerProfile = getReaderProfile();
     const initialWindow = pagesToLoad(startPageIdx, pages.length, readerProfile);
     const initialUrls = pages.map((p, idx) =>
-      initialWindow.has(idx) ? (p.imageHigh || p.image) : BLANK_PAGE_SVG
+      initialWindow.has(idx) ? p.image : BLANK_PAGE_SVG
     );
 
     const syncImageWindow = (centerIdx: number) => {
@@ -1095,7 +1095,7 @@ export default function FlipbookViewer({
         const img: HTMLImageElement | undefined = sp?.image;
         if (!img || !pages[idx]) return;
         if (wanted.has(idx)) {
-          const targetSrc = pages[idx].imageHigh || pages[idx].image;
+          const targetSrc = pages[idx].image;
           if (img.dataset.nvLoaded !== '1' && img.dataset.nvLoading !== '1') {
             img.dataset.nvLoading = '1';
             img.onload = () => {

@@ -7,10 +7,14 @@ use App\Support\Storage;
 
 /**
  * Infrastructure Cache & Distributed Lock Service.
- * Supports Redis (via ext-redis or TCP socket) with automatic atomic file-cache & flock fallback.
+ * Provides genuine Redis caching and atomic distributed locks (via ext-redis)
+ * with robust, atomic file-cache & flock fallback for local/shared environments.
  */
 final class CacheManager
 {
+    private static ?\Redis $redisClient = null;
+    private static bool $redisAttempted = false;
+
     private static function cacheDir(): string
     {
         $dir = Storage::root() . '/cache';
@@ -18,24 +22,49 @@ final class CacheManager
         return $dir;
     }
 
+    /**
+     * Lazy-load and persist Redis connection instance.
+     */
+    public static function redis(): ?\Redis
+    {
+        if (self::$redisAttempted) {
+            return self::$redisClient;
+        }
+
+        self::$redisAttempted = true;
+
+        if (!extension_loaded('redis') || !class_exists('\Redis')) {
+            return null;
+        }
+
+        $redisHost = $_ENV['REDIS_HOST'] ?? '127.0.0.1';
+        $redisPort = (int) ($_ENV['REDIS_PORT'] ?? 6379);
+        $redisPassword = $_ENV['REDIS_PASSWORD'] ?? null;
+
+        try {
+            $r = new \Redis();
+            $connected = @$r->connect($redisHost, $redisPort, 0.5);
+            if ($connected) {
+                if (!empty($redisPassword)) {
+                    $r->auth($redisPassword);
+                }
+                $r->setOption(\Redis::OPT_SERIALIZER, \Redis::SERIALIZER_NONE);
+                self::$redisClient = $r;
+                return self::$redisClient;
+            }
+        } catch (\Throwable) {
+            self::$redisClient = null;
+        }
+
+        return null;
+    }
+
     public static function driverInfo(): array
     {
         $redisHost = $_ENV['REDIS_HOST'] ?? '127.0.0.1';
         $redisPort = (int) ($_ENV['REDIS_PORT'] ?? 6379);
-        $extLoaded = extension_loaded('redis');
-        $connected = false;
-
-        if ($extLoaded && class_exists('\Redis')) {
-            try {
-                $r = new \Redis();
-                $connected = @$r->connect($redisHost, $redisPort, 0.25);
-                if ($connected) {
-                    $r->close();
-                }
-            } catch (\Throwable) {
-                $connected = false;
-            }
-        }
+        $r = self::redis();
+        $connected = ($r !== null);
 
         return [
             'activeDriver' => $connected ? 'redis' : 'atomic_file_redis_compatible',
@@ -48,6 +77,19 @@ final class CacheManager
 
     public static function get(string $key, mixed $default = null): mixed
     {
+        $r = self::redis();
+        if ($r !== null) {
+            try {
+                $raw = $r->get('cache:' . $key);
+                if ($raw !== false && $raw !== null) {
+                    $decoded = json_decode((string) $raw, true);
+                    return $decoded !== null ? $decoded : $raw;
+                }
+            } catch (\Throwable) {
+                // Fail gracefully to file cache
+            }
+        }
+
         $file = self::cacheDir() . '/' . hash('sha256', $key) . '.cache.json';
         if (!is_file($file)) {
             return $default;
@@ -66,13 +108,24 @@ final class CacheManager
 
     public static function set(string $key, mixed $value, int $ttlSeconds = 300): void
     {
+        $payload = json_encode($value);
+
+        $r = self::redis();
+        if ($r !== null) {
+            try {
+                $r->setEx('cache:' . $key, max(1, $ttlSeconds), (string) $payload);
+            } catch (\Throwable) {
+                // Continue to file cache
+            }
+        }
+
         $file = self::cacheDir() . '/' . hash('sha256', $key) . '.cache.json';
-        $payload = json_encode([
+        $fileData = json_encode([
             'key' => $key,
             'expires_at' => time() + $ttlSeconds,
             'value' => $value,
         ]);
-        @file_put_contents($file, $payload, LOCK_EX);
+        @file_put_contents($file, $fileData, LOCK_EX);
     }
 
     public static function remember(string $key, int $ttlSeconds, callable $resolver): mixed
@@ -88,9 +141,25 @@ final class CacheManager
 
     /**
      * Acquire a distributed / atomic lock for worker or billing concurrency protection.
+     * Uses atomic Redis SET key token NX EX ttl when Redis is available, or flock on file.
      */
     public static function acquireLock(string $lockName, int $ttlSeconds = 60): bool
     {
+        $r = self::redis();
+        if ($r !== null) {
+            try {
+                // Redis atomic lock pattern (SET resource token NX EX seconds)
+                $token = (string) getmypid() . '_' . microtime(true);
+                $acquired = (bool) $r->set('lock:' . $lockName, $token, ['nx', 'ex' => max(1, $ttlSeconds)]);
+                if ($acquired) {
+                    return true;
+                }
+                return false;
+            } catch (\Throwable) {
+                // Fall back to filesystem atomic lock
+            }
+        }
+
         $lockFile = self::cacheDir() . '/lock_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $lockName) . '.lock';
         if (is_file($lockFile)) {
             $meta = json_decode((string) @file_get_contents($lockFile), true);
@@ -98,17 +167,28 @@ final class CacheManager
                 return false;
             }
         }
-        @file_put_contents($lockFile, json_encode([
+
+        $written = @file_put_contents($lockFile, json_encode([
             'lock' => $lockName,
             'pid' => getmypid(),
             'acquired_at' => time(),
             'expires_at' => time() + $ttlSeconds,
         ]), LOCK_EX);
-        return true;
+
+        return $written !== false;
     }
 
     public static function releaseLock(string $lockName): void
     {
+        $r = self::redis();
+        if ($r !== null) {
+            try {
+                $r->del('lock:' . $lockName);
+            } catch (\Throwable) {
+                // continue to file lock release
+            }
+        }
+
         $lockFile = self::cacheDir() . '/lock_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $lockName) . '.lock';
         if (is_file($lockFile)) {
             @unlink($lockFile);

@@ -32,8 +32,8 @@ final class Mailer
         ];
     }
 
-    /** Core Dispatch Method with Auto Fallback & Logging */
-    public static function send(string $to, string $subject, string $html, string $template = 'generic'): bool
+    /** Core Dispatch Method with Auto Fallback, Attachment Support & Logging */
+    public static function send(string $to, string $subject, string $html, string $template = 'generic', array $attachments = []): bool
     {
         $cfg = self::getConfig();
         $status = 'sent';
@@ -64,6 +64,21 @@ final class Mailer
 
             $mail->setFrom($cfg['from_email'], $cfg['from_name']);
             $mail->addAddress($to);
+
+            // Process optional attachments (file paths or in-memory string attachments)
+            foreach ($attachments as $att) {
+                if (is_string($att) && is_file($att)) {
+                    $mail->addAttachment($att);
+                } elseif (is_array($att) && !empty($att['name']) && isset($att['data'])) {
+                    $mail->addStringAttachment(
+                        (string) $att['data'],
+                        (string) $att['name'],
+                        'base64',
+                        (string) ($att['mime'] ?? 'text/csv')
+                    );
+                }
+            }
+
             $mail->isHTML(true);
             $mail->CharSet = 'UTF-8';
             $mail->Subject = $subject;

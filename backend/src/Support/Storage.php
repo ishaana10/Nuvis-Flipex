@@ -60,6 +60,12 @@ final class Storage
         @rmdir($dir);
     }
 
+    /** Alias for temporarySignedUrl for consistent storage interface */
+    public static function signedUrl(string $relPath, int $ttlSeconds = 3600): string
+    {
+        return self::temporarySignedUrl($relPath, $ttlSeconds);
+    }
+
     /** Generate cryptographic HMAC-SHA256 signed URL for protected temporary access */
     public static function temporarySignedUrl(string $relPath, int $ttlSeconds = 3600): string
     {

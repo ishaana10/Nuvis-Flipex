@@ -943,14 +943,23 @@ final class FlipbookController
     }
 
     /**
-     * Web-triggered queue worker endpoint (`/api/v1/jobs/process-next`).
-     * Automatically drains queued PDF conversions on shared/cPanel hosting (like A2 Hosting)
-     * without requiring a persistent CLI daemon or SSH cron setup.
+     * Protected internal/platform-admin worker execution endpoint.
+     * Can only be triggered by Platform Administrators (user.role === 'admin')
+     * or internal cron/daemons passing a valid X-Worker-Secret header.
+     * General tenant users are strictly prohibited to prevent cross-tenant job claims.
      */
     public function processNextJob(Request $req, Response $res): Response
     {
         $u = $req->getAttribute('user');
-        Rbac::authorize($u, 'flipbook.view');
+        $workerSecret = $req->getHeaderLine('X-Worker-Secret');
+        $expectedSecret = $_ENV['WORKER_SECRET'] ?? ($_ENV['JWT_SECRET'] ?? '');
+
+        $isPlatformAdmin = is_array($u) && ($u['role'] ?? '') === 'admin';
+        $isInternalWorker = !empty($workerSecret) && !empty($expectedSecret) && hash_equals($expectedSecret, $workerSecret);
+
+        if (!$isPlatformAdmin && !$isInternalWorker) {
+            return Http::error($res, 'Unauthorized: Queue processing requires platform administrator or internal worker credentials', 403);
+        }
 
         $result = JobRunner::processNextJob();
         return Http::json($res, $result);

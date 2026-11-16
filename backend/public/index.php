@@ -66,6 +66,7 @@ $app->options('/{routes:.+}', fn($req, $res) => $res); // handled by Cors
 
 $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->get('/health', fn($req, $res) => Http::json($res, ['status' => 'ok']));
+    $g->post('/internal/worker/process-next', [FlipbookController::class, 'processNextJob']);
 
     $g->group('/auth', function (RouteCollectorProxy $a) {
         $a->get('/registration-status', [AuthController::class, 'registrationStatus']);
@@ -138,7 +139,6 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 
     $g->group('/jobs', function (RouteCollectorProxy $j) {
         $j->get('', [FlipbookController::class, 'listJobs']);
-        $j->post('/process-next', [FlipbookController::class, 'processNextJob']);
         $j->post('/{id:[0-9]+}/retry', [FlipbookController::class, 'retryJob']);
         $j->delete('/{id:[0-9]+}', [FlipbookController::class, 'cancelJob']);
     })->add(new TenantScope())->add(new Auth());
@@ -264,6 +264,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         // Security Monitoring & Audit Trail
         $adm->get('/security-events', [AdminController::class, 'securityEvents']);
         $adm->get('/audit-logs', [AdminController::class, 'auditLogs']);
+
+        // Platform Queue Worker Endpoint
+        $adm->post('/jobs/process-next', [FlipbookController::class, 'processNextJob']);
 
         // Role Management & Permissions Matrix (Super Admin)
         $adm->get('/roles', [RoleController::class, 'index']);

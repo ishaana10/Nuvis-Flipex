@@ -69,10 +69,17 @@ final class RoleController
             return Http::json($res, $rolesList);
         }
 
-        // Calculate member counts per role
+        // Calculate member counts per role (strictly scoped to current tenant if tenant-authenticated)
         $counts = [];
         try {
-            $countRows = Db::all('SELECT tenant_role, COUNT(*) as cnt FROM users WHERE deleted_at IS NULL GROUP BY tenant_role');
+            if ($tenantId !== null) {
+                $countRows = Db::all(
+                    'SELECT tenant_role, COUNT(*) as cnt FROM users WHERE deleted_at IS NULL AND tenant_id = ? GROUP BY tenant_role',
+                    [$tenantId]
+                );
+            } else {
+                $countRows = Db::all('SELECT tenant_role, COUNT(*) as cnt FROM users WHERE deleted_at IS NULL GROUP BY tenant_role');
+            }
             foreach ($countRows as $cr) {
                 $counts[$cr['tenant_role']] = (int) $cr['cnt'];
             }
@@ -212,9 +219,20 @@ final class RoleController
         Rbac::authorize($u, 'roles.manage');
 
         $id = (int) $args['id'];
+        $tenantId = TenantContext::id() ?? (!empty($u['tenant_id']) ? (int) $u['tenant_id'] : null);
         $role = Db::one('SELECT * FROM tenant_roles WHERE id = ?', [$id]);
         if (!$role) {
             return Http::error($res, 'Role not found', 404);
+        }
+
+        // Cross-tenant authorization check: tenant administrators cannot edit global system roles or roles from other tenants
+        if (($u['role'] ?? '') !== 'admin') {
+            if (!empty($role['is_system'])) {
+                return Http::error($res, 'System default roles cannot be modified by workspace administrators', 403);
+            }
+            if ($tenantId === null || (int) ($role['tenant_id'] ?? 0) !== $tenantId) {
+                return Http::error($res, 'Unauthorized access to role from another tenant', 403);
+            }
         }
 
         $b = (array) $req->getParsedBody();
@@ -260,6 +278,7 @@ final class RoleController
         Rbac::authorize($u, 'roles.manage');
 
         $id = (int) $args['id'];
+        $tenantId = TenantContext::id() ?? (!empty($u['tenant_id']) ? (int) $u['tenant_id'] : null);
         $role = Db::one('SELECT * FROM tenant_roles WHERE id = ?', [$id]);
         if (!$role) {
             return Http::error($res, 'Role not found', 404);
@@ -269,8 +288,20 @@ final class RoleController
             return Http::error($res, 'System default roles (Owner, Admin, Editor, Viewer, Finance) cannot be deleted', 400);
         }
 
-        // Reassign any users currently assigned to this custom role to 'viewer'
-        Db::run('UPDATE users SET tenant_role = "viewer" WHERE tenant_role = ?', [$role['slug']]);
+        // Cross-tenant authorization check: tenant administrators cannot delete roles from other tenants
+        if (($u['role'] ?? '') !== 'admin') {
+            if ($tenantId === null || (int) ($role['tenant_id'] ?? 0) !== $tenantId) {
+                return Http::error($res, 'Unauthorized access to role from another tenant', 403);
+            }
+        }
+
+        // Reassign any users currently assigned to this custom role to 'viewer' strictly within this tenant
+        if (!empty($role['tenant_id'])) {
+            Db::run('UPDATE users SET tenant_role = "viewer" WHERE tenant_role = ? AND tenant_id = ?', [$role['slug'], (int) $role['tenant_id']]);
+        } else {
+            // Global custom role deleted by platform administrator
+            Db::run('UPDATE users SET tenant_role = "viewer" WHERE tenant_role = ?', [$role['slug']]);
+        }
 
         Db::run('DELETE FROM tenant_roles WHERE id = ?', [$id]);
         Audit::log('roles.delete', 'role', $id, ['name' => $role['name'], 'slug' => $role['slug']]);

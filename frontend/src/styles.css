@@ -4306,6 +4306,18 @@ html[data-theme="dark"] .text-slate-500 {
    FLIPEX FULL TENANT CUSTOMIZATION STUDIO (MATCHING SCREENSHOTS 1-10)
    ============================================================================ */
 
+.hz-studio-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 999999 !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 16px !important;
+}
+
 .flipex-studio-modal {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -4318,7 +4330,7 @@ html[data-theme="dark"] .text-slate-500 {
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
   border: 1px solid var(--border-color);
   position: relative;
-  z-index: 100000 !important;
+  z-index: 1000000 !important;
 }
 
 @media (max-width: 820px) {

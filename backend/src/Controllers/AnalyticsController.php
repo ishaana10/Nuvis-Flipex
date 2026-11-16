@@ -317,11 +317,101 @@ final class AnalyticsController
             if ($fb) $title = $fb['title'];
         }
 
+        // 1. Compute reporting date range based on frequency
+        $freq = strtolower((string) ($sr['frequency'] ?? 'weekly'));
+        $days = match($freq) {
+            'daily' => 1,
+            'monthly' => 30,
+            default => 7,
+        };
+        $since = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+
+        // 2. Query event telemetry for the specified window
+        $params = [$tenantId, $since];
+        $sql = 'SELECT ae.created_at, f.title AS flipbook_title, ae.event_type, ae.page_number, ae.dwell_seconds, ae.session_id, ae.meta
+                FROM analytics_events ae
+                LEFT JOIN flipbooks f ON f.id = ae.flipbook_id
+                WHERE ae.tenant_id = ? AND ae.created_at >= ?';
+        if (!empty($sr['flipbook_id'])) {
+            $sql .= ' AND ae.flipbook_id = ?';
+            $params[] = (int) $sr['flipbook_id'];
+        }
+        $sql .= ' ORDER BY ae.created_at DESC LIMIT 5000';
+        $events = [];
+        try {
+            $events = Db::all($sql, $params);
+        } catch (\Throwable) {
+            // Table might be empty or fallback
+        }
+
+        // 3. Assemble CSV attachment export
+        $csvHandle = fopen('php://temp', 'r+');
+        fputcsv($csvHandle, ['Timestamp (UTC)', 'Publication', 'Event Type', 'Page Number', 'Dwell Seconds', 'Session ID', 'Device/Referrer']);
+        $totalDwell = 0.0;
+        $uniqueSessions = [];
+        foreach ($events as $ev) {
+            $meta = !empty($ev['meta']) ? json_decode((string) $ev['meta'], true) : [];
+            $devOrRef = $meta['device'] ?? ($meta['referrer'] ?? 'direct');
+            $dwell = (float) ($ev['dwell_seconds'] ?? 0);
+            $totalDwell += $dwell;
+            $uniqueSessions[$ev['session_id']] = true;
+            fputcsv($csvHandle, [
+                $ev['created_at'],
+                $ev['flipbook_title'] ?? $title,
+                $ev['event_type'],
+                $ev['page_number'] ?? '',
+                $dwell,
+                $ev['session_id'],
+                $devOrRef,
+            ]);
+        }
+        rewind($csvHandle);
+        $csvContent = stream_get_contents($csvHandle);
+        fclose($csvHandle);
+
+        $totalEventsCount = count($events);
+        $uniqueVisitorsCount = count($uniqueSessions);
+        $totalMins = round($totalDwell / 60, 1);
+        $generatedAt = date('Y-m-d H:i:s');
+        $csvFilename = 'analytics_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', strtolower($title)) . '_' . date('Ymd') . '.csv';
+
+        // 4. Build executive HTML email summary with KPI cards
+        $html = "
+            <div style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1e293b;max-width:640px;margin:0 auto;padding:24px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;\">
+                <div style=\"border-bottom:2px solid #F5C542;padding-bottom:12px;margin-bottom:20px;\">
+                    <h2 style=\"margin:0;color:#0f172a;font-size:22px;\">Nuvis Flipex — Analytics Digest</h2>
+                    <p style=\"margin:4px 0 0;color:#64748b;font-size:14px;\">Publication Scope: <b>" . htmlspecialchars($title) . "</b></p>
+                </div>
+                <div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;\">
+                    <div style=\"background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0;text-align:center;\">
+                        <div style=\"font-size:24px;font-weight:800;color:#0284c7;\">{$totalEventsCount}</div>
+                        <div style=\"font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;margin-top:4px;\">Total Events</div>
+                    </div>
+                    <div style=\"background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0;text-align:center;\">
+                        <div style=\"font-size:24px;font-weight:800;color:#10b981;\">{$uniqueVisitorsCount}</div>
+                        <div style=\"font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;margin-top:4px;\">Unique Readers</div>
+                    </div>
+                    <div style=\"background:#f8fafc;padding:14px;border-radius:8px;border:1px solid #e2e8f0;text-align:center;\">
+                        <div style=\"font-size:24px;font-weight:800;color:#f59e0b;\">{$totalMins}m</div>
+                        <div style=\"font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;margin-top:4px;\">Read Time</div>
+                    </div>
+                </div>
+                <p style=\"font-size:14px;line-height:1.6;color:#334155;\">
+                    This report covers the past <b>{$days} day(s)</b> ({$freq} digest). The raw data export has been compiled and attached as <b>" . htmlspecialchars($csvFilename) . "</b> for your records.
+                </p>
+                <div style=\"margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;display:flex;justify-content:space-between;\">
+                    <span>Generated: {$generatedAt} UTC</span>
+                    <span>Nuvis Flipex Enterprise Analytics</span>
+                </div>
+            </div>
+        ";
+
         Mailer::send(
             $sr['recipient_email'],
             "Nuvis Flipex — Scheduled Analytics Report ({$title})",
+            $html,
             'scheduled_analytics',
-            "<h2>Nuvis Flipex Analytics Summary</h2><p>Publication Scope: <b>" . htmlspecialchars($title) . "</b></p><p>Frequency: " . strtoupper((string) $sr['frequency']) . "</p><p>Generated at: " . date('Y-m-d H:i:s') . "</p>"
+            [['name' => $csvFilename, 'data' => $csvContent, 'mime' => 'text/csv']]
         );
 
         Db::run('UPDATE scheduled_reports SET last_sent_at = NOW() WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);

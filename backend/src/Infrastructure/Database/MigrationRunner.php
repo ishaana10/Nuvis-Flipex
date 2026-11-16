@@ -7,60 +7,374 @@ use App\Support\Db;
 
 /**
  * Versioned, Reversible Database Migration Runner.
- * Tracks applied schema migrations in `schema_migrations` with batch numbers, SHA-256 checksums, and rollback metadata.
+ * Authoritative migration system with real DDL schema changes, SHA-256 checksums,
+ * transactional/safe execution, batch tracking, and rollback execution.
  */
 final class MigrationRunner
 {
     public const DEFINITIONS = [
         '2026_11_01_000001_initial_core_schema' => [
-            'description' => 'Core users, flipbooks, pages, hotspots, views, refresh_tokens tables',
-            'upSql' => 'SELECT 1',
-            'downSql' => '-- Irreversible core base tables protected in production; drops refresh_tokens & hotspots in test reset',
+            'description' => 'Core plans, tenants, users, flipbooks, pages, hotspots, views, refresh_tokens tables',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS plans (
+                  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  name VARCHAR(50) NOT NULL,
+                  max_flipbooks INT NOT NULL DEFAULT 3,
+                  max_pages INT NOT NULL DEFAULT 50,
+                  max_upload_mb INT NOT NULL DEFAULT 20,
+                  monthly_views INT NOT NULL DEFAULT 1000,
+                  remove_branding TINYINT(1) NOT NULL DEFAULT 0,
+                  price DECIMAL(8,2) NOT NULL DEFAULT 0
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS tenants (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  uuid CHAR(36) NOT NULL UNIQUE,
+                  name VARCHAR(120) NOT NULL,
+                  slug VARCHAR(80) NOT NULL UNIQUE,
+                  plan_id INT UNSIGNED NOT NULL DEFAULT 1,
+                  max_flipbooks INT NOT NULL DEFAULT 10,
+                  max_storage_mb INT NOT NULL DEFAULT 500,
+                  is_active TINYINT(1) NOT NULL DEFAULT 1,
+                  billing_name VARCHAR(150) NULL,
+                  billing_email VARCHAR(190) NULL,
+                  billing_address TEXT NULL,
+                  tax_id VARCHAR(50) NULL,
+                  payment_method VARCHAR(40) NOT NULL DEFAULT 'bank_transfer',
+                  payment_status VARCHAR(30) NOT NULL DEFAULT 'paid',
+                  billing_cycle VARCHAR(30) NOT NULL DEFAULT 'monthly',
+                  amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                  currency VARCHAR(10) NOT NULL DEFAULT 'FJD',
+                  last_payment_date DATE NULL,
+                  next_billing_date DATE NULL,
+                  payment_reference VARCHAR(100) NULL,
+                  billing_notes TEXT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX idx_plan (plan_id),
+                  INDEX idx_active (is_active)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS users (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NULL,
+                  email VARCHAR(190) NOT NULL UNIQUE,
+                  password_hash VARCHAR(255) NOT NULL,
+                  role ENUM('admin','editor','viewer','finance') NOT NULL DEFAULT 'editor',
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  deleted_at DATETIME NULL,
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS flipbooks (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  slug VARCHAR(80) NOT NULL UNIQUE,
+                  title VARCHAR(200) NOT NULL,
+                  description TEXT NULL,
+                  pdf_path VARCHAR(255) NOT NULL,
+                  page_count INT UNSIGNED NOT NULL DEFAULT 0,
+                  visibility ENUM('public','password','unlisted','private') NOT NULL DEFAULT 'public',
+                  password_hash VARCHAR(255) NULL,
+                  status ENUM('queued','processing','ready','failed') NOT NULL DEFAULT 'queued',
+                  settings JSON NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  deleted_at DATETIME NULL,
+                  INDEX idx_tenant_status (tenant_id, status),
+                  INDEX idx_slug (slug)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS pages (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  flipbook_id BIGINT UNSIGNED NOT NULL,
+                  page_number INT UNSIGNED NOT NULL,
+                  image_path VARCHAR(255) NOT NULL,
+                  thumb_path VARCHAR(255) NOT NULL,
+                  image_path_high VARCHAR(255) NULL,
+                  width INT UNSIGNED NOT NULL,
+                  height INT UNSIGNED NOT NULL,
+                  text_content MEDIUMTEXT NULL,
+                  UNIQUE KEY uq_page (flipbook_id, page_number)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
+            'downSql' => 'DROP TABLE IF EXISTS pages; DROP TABLE IF EXISTS flipbooks; DROP TABLE IF EXISTS users;',
             'reversible' => true,
         ],
         '2026_11_02_000002_multi_tenant_isolation' => [
             'description' => 'Tenants, plans, RBAC roles, audit_logs, security_events tables',
-            'upSql' => 'SELECT 1',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NULL,
+                  user_id BIGINT UNSIGNED NULL,
+                  action VARCHAR(80) NOT NULL,
+                  target_type VARCHAR(60) NOT NULL,
+                  target_id BIGINT UNSIGNED NULL,
+                  metadata JSON NULL,
+                  ip_address VARCHAR(45) NULL,
+                  user_agent VARCHAR(255) NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant (tenant_id),
+                  INDEX idx_action (action)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS security_events (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NULL,
+                  event_type VARCHAR(60) NOT NULL,
+                  ip_address VARCHAR(45) NOT NULL,
+                  user_agent VARCHAR(255) NULL,
+                  details JSON NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant (tenant_id),
+                  INDEX idx_event (event_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
             'downSql' => 'DROP TABLE IF EXISTS security_events; DROP TABLE IF EXISTS audit_logs;',
             'reversible' => true,
         ],
         '2026_11_03_000003_publishing_lifecycle_and_jobs' => [
             'description' => '7-stage workflow, flipbook_versions, conversion_jobs, categories, collections',
-            'upSql' => 'SELECT 1',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS conversion_jobs (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  flipbook_id BIGINT UNSIGNED NOT NULL,
+                  status ENUM('queued','processing','completed','failed','dead_letter') NOT NULL DEFAULT 'queued',
+                  priority INT NOT NULL DEFAULT 5,
+                  attempts INT NOT NULL DEFAULT 0,
+                  max_attempts INT NOT NULL DEFAULT 3,
+                  worker_lease_id VARCHAR(64) NULL,
+                  lease_expires_at DATETIME NULL,
+                  error_message TEXT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX idx_status_priority (status, priority DESC, created_at ASC),
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS flipbook_versions (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  flipbook_id BIGINT UNSIGNED NOT NULL,
+                  version_number INT UNSIGNED NOT NULL DEFAULT 1,
+                  manifest JSON NOT NULL,
+                  created_by BIGINT UNSIGNED NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_flipbook (flipbook_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
             'downSql' => 'DROP TABLE IF EXISTS flipbook_versions; DROP TABLE IF EXISTS conversion_jobs;',
             'reversible' => true,
         ],
         '2026_11_04_000004_commercial_analytics_and_heatmaps' => [
             'description' => 'Granular analytics_events, UTM attribution, scheduled_reports',
-            'upSql' => 'SELECT 1',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS analytics_events (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  flipbook_id BIGINT UNSIGNED NOT NULL,
+                  page_number INT UNSIGNED NULL,
+                  session_id VARCHAR(64) NOT NULL,
+                  event_type VARCHAR(40) NOT NULL,
+                  dwell_seconds FLOAT NOT NULL DEFAULT 0,
+                  meta JSON NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant_flipbook (tenant_id, flipbook_id, created_at),
+                  INDEX idx_event (event_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS scheduled_reports (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  name VARCHAR(120) NOT NULL,
+                  frequency ENUM('daily','weekly','monthly') NOT NULL DEFAULT 'weekly',
+                  recipients JSON NOT NULL,
+                  format ENUM('pdf','csv') NOT NULL DEFAULT 'csv',
+                  last_sent_at DATETIME NULL,
+                  next_run_at DATETIME NOT NULL,
+                  is_active TINYINT(1) NOT NULL DEFAULT 1,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant_active (tenant_id, is_active)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
             'downSql' => 'DROP TABLE IF EXISTS scheduled_reports; DROP TABLE IF EXISTS analytics_events;',
             'reversible' => true,
         ],
         '2026_11_05_000005_enterprise_integrations_and_billing' => [
             'description' => 'SHA-256 api_keys, webhooks, tenant_integrations, invoices, subscription_history',
-            'upSql' => 'SELECT 1',
-            'downSql' => 'DROP TABLE IF EXISTS subscription_history; DROP TABLE IF EXISTS invoices; DROP TABLE IF EXISTS webhook_deliveries; DROP TABLE IF EXISTS webhooks;',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS api_keys (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  key_hash VARCHAR(64) NOT NULL UNIQUE,
+                  key_prefix VARCHAR(16) NOT NULL,
+                  name VARCHAR(100) NOT NULL,
+                  scopes JSON NOT NULL,
+                  allowed_ips JSON NULL,
+                  rate_limit_per_minute INT NOT NULL DEFAULT 120,
+                  last_used_at DATETIME NULL,
+                  expires_at DATETIME NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS webhooks (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  url VARCHAR(255) NOT NULL,
+                  secret_hash VARCHAR(64) NOT NULL,
+                  events JSON NOT NULL,
+                  is_active TINYINT(1) NOT NULL DEFAULT 1,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS webhook_deliveries (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  webhook_id BIGINT UNSIGNED NOT NULL,
+                  event_type VARCHAR(60) NOT NULL,
+                  payload JSON NOT NULL,
+                  response_code INT NULL,
+                  response_body TEXT NULL,
+                  success TINYINT(1) NOT NULL DEFAULT 0,
+                  attempts INT NOT NULL DEFAULT 1,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_webhook (webhook_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS invoices (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  invoice_number VARCHAR(60) NOT NULL UNIQUE,
+                  amount DECIMAL(10,2) NOT NULL,
+                  currency VARCHAR(10) NOT NULL DEFAULT 'FJD',
+                  status ENUM('draft','issued','paid','void','overdue') NOT NULL DEFAULT 'draft',
+                  billing_period_start DATE NULL,
+                  billing_period_end DATE NULL,
+                  pdf_path VARCHAR(255) NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
+            'downSql' => 'DROP TABLE IF EXISTS invoices; DROP TABLE IF EXISTS webhook_deliveries; DROP TABLE IF EXISTS webhooks; DROP TABLE IF EXISTS api_keys;',
             'reversible' => true,
         ],
         '2026_11_06_000006_modular_architecture_and_devops' => [
             'description' => 'schema_migrations, dead_letter_jobs, error_reports, system_backups',
-            'upSql' => 'SELECT 1',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  version VARCHAR(120) NOT NULL UNIQUE,
+                  description VARCHAR(255) NOT NULL,
+                  batch INT NOT NULL DEFAULT 1,
+                  checksum VARCHAR(64) NOT NULL,
+                  is_reversible TINYINT(1) NOT NULL DEFAULT 1,
+                  executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS dead_letter_jobs (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  job_id BIGINT UNSIGNED NULL,
+                  job_type VARCHAR(60) NOT NULL,
+                  payload JSON NOT NULL,
+                  failure_reason TEXT NOT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS error_reports (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NULL,
+                  error_class VARCHAR(120) NOT NULL,
+                  message TEXT NOT NULL,
+                  stack_trace MEDIUMTEXT NULL,
+                  context JSON NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_class (error_class)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS system_backups (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  filename VARCHAR(255) NOT NULL,
+                  size_bytes BIGINT UNSIGNED NOT NULL,
+                  backup_type ENUM('database','storage','full') NOT NULL DEFAULT 'database',
+                  status ENUM('in_progress','completed','failed') NOT NULL DEFAULT 'in_progress',
+                  checksum VARCHAR(64) NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
             'downSql' => 'DROP TABLE IF EXISTS system_backups; DROP TABLE IF EXISTS error_reports; DROP TABLE IF EXISTS dead_letter_jobs;',
             'reversible' => true,
         ],
         '2026_11_11_000007_payment_security_and_api_key_controls' => [
             'description' => 'Three-stage payment verification, payment_transactions, immutable payment_audit_logs, finance RBAC role, and API key scope/quota/IP enforcement',
-            'upSql' => 'SELECT 1',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS payment_transactions (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  reference VARCHAR(80) NOT NULL UNIQUE,
+                  gateway VARCHAR(40) NOT NULL,
+                  amount DECIMAL(10,2) NOT NULL,
+                  currency VARCHAR(10) NOT NULL DEFAULT 'FJD',
+                  status ENUM('initiated','processing','succeeded','failed','refunded') NOT NULL DEFAULT 'initiated',
+                  payment_stage ENUM('created','signature_verified','webhook_processed','completed') NOT NULL DEFAULT 'created',
+                  idempotency_key VARCHAR(100) NULL UNIQUE,
+                  meta JSON NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS payment_audit_logs (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  transaction_id BIGINT UNSIGNED NOT NULL,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  event_type VARCHAR(60) NOT NULL,
+                  actor VARCHAR(100) NOT NULL,
+                  snapshot JSON NOT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_txn (transaction_id),
+                  INDEX idx_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
             'downSql' => 'DROP TABLE IF EXISTS payment_audit_logs; DROP TABLE IF EXISTS payment_transactions;',
             'reversible' => true,
         ],
         '2026_11_16_000008_tenant_roles_and_granular_rbac' => [
             'description' => 'Dynamic tenant_roles, custom_permissions on users, and granular RBAC role manager',
-            'upSql' => 'SELECT 1',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS `tenant_roles` (
+                  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  `tenant_id` BIGINT UNSIGNED NULL,
+                  `name` VARCHAR(80) NOT NULL,
+                  `slug` VARCHAR(60) NOT NULL,
+                  `description` VARCHAR(255) NULL,
+                  `is_system` TINYINT(1) NOT NULL DEFAULT 0,
+                  `permissions` JSON NOT NULL,
+                  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX `idx_tenant_id` (`tenant_id`),
+                  UNIQUE KEY `uk_tenant_slug` (`tenant_id`, `slug`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
             'downSql' => 'DROP TABLE IF EXISTS tenant_roles;',
             'reversible' => true,
         ],
     ];
+
+    private static function executeStatements(string $sql): void
+    {
+        $pdo = Db::pdo();
+        $statements = array_filter(array_map('trim', explode(';', $sql)));
+        foreach ($statements as $stmt) {
+            if ($stmt !== '') {
+                $pdo->exec($stmt);
+            }
+        }
+    }
 
     public static function status(): array
     {
@@ -82,7 +396,7 @@ final class MigrationRunner
                 'description' => $def['description'],
                 'applied' => $row !== null,
                 'batch' => $row ? (int) $row['batch'] : null,
-                'checksum' => $row ? $row['checksum'] : hash('sha256', $version . ':' . $def['description']),
+                'checksum' => $row ? $row['checksum'] : hash('sha256', $version . ':' . trim($def['upSql'])),
                 'reversible' => $def['reversible'],
                 'downPreview' => $def['downSql'],
                 'executedAt' => $row['executed_at'] ?? null,
@@ -95,16 +409,31 @@ final class MigrationRunner
     public static function migrateUp(): array
     {
         \App\Support\Rbac::ensureSchema();
+
+        // Ensure schema_migrations table itself exists
+        Db::pdo()->exec("
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+              id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              version VARCHAR(120) NOT NULL UNIQUE,
+              description VARCHAR(255) NOT NULL,
+              batch INT NOT NULL DEFAULT 1,
+              checksum VARCHAR(64) NOT NULL,
+              is_reversible TINYINT(1) NOT NULL DEFAULT 1,
+              executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
         $applied = array_column(Db::all('SELECT version FROM schema_migrations'), 'version');
         $maxBatch = (int) (Db::one('SELECT COALESCE(MAX(batch), 0) AS b FROM schema_migrations')['b'] ?? 0) + 1;
         $executed = [];
 
         foreach (self::DEFINITIONS as $version => $def) {
             if (!in_array($version, $applied, true)) {
-                Db::run($def['upSql']);
+                self::executeStatements($def['upSql']);
+                $checksum = hash('sha256', $version . ':' . trim($def['upSql']));
                 Db::run(
                     'INSERT INTO schema_migrations (version, description, batch, checksum, is_reversible) VALUES (?, ?, ?, ?, ?)',
-                    [$version, $def['description'], $maxBatch, hash('sha256', $version . ':' . $def['description']), $def['reversible'] ? 1 : 0]
+                    [$version, $def['description'], $maxBatch, $checksum, $def['reversible'] ? 1 : 0]
                 );
                 $executed[] = $version;
             }
@@ -114,7 +443,54 @@ final class MigrationRunner
             'ok' => true,
             'batch' => $maxBatch,
             'executed' => $executed,
-            'totalApplied' => count(self::DEFINITIONS),
+            'totalApplied' => count(self::status()),
+        ];
+    }
+
+    /**
+     * Rollback the last applied migration batch, or roll back down to a specified target version.
+     */
+    public static function migrateDown(?string $targetVersion = null): array
+    {
+        try {
+            $applied = Db::all('SELECT * FROM schema_migrations ORDER BY id DESC');
+        } catch (\Throwable) {
+            return ['ok' => true, 'rolledBack' => []];
+        }
+
+        if (empty($applied)) {
+            return ['ok' => true, 'rolledBack' => []];
+        }
+
+        $lastBatch = (int) ($applied[0]['batch'] ?? 1);
+        $rolledBack = [];
+
+        foreach ($applied as $mig) {
+            $version = $mig['version'];
+
+            if ($targetVersion !== null) {
+                if (strcmp($version, $targetVersion) <= 0) {
+                    break;
+                }
+            } else {
+                // Default: rollback only the latest batch
+                if ((int) $mig['batch'] !== $lastBatch) {
+                    break;
+                }
+            }
+
+            $def = self::DEFINITIONS[$version] ?? null;
+            if ($def && !empty($def['downSql'])) {
+                self::executeStatements($def['downSql']);
+            }
+
+            Db::run('DELETE FROM schema_migrations WHERE version = ?', [$version]);
+            $rolledBack[] = $version;
+        }
+
+        return [
+            'ok' => true,
+            'rolledBack' => $rolledBack,
         ];
     }
 }

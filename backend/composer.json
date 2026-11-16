@@ -9,5 +9,13 @@
     "firebase/php-jwt": "^7.0",
     "phpmailer/phpmailer": "^6.9"
   },
-  "autoload": { "psr-4": { "App\\": "src/" } }
+  "autoload": { "psr-4": { "App\\": "src/" } },
+  "scripts": {
+    "test:migrations": "php bin/test_migrations.php",
+    "test:security": "php bin/test_security.php",
+    "test": [
+      "@test:migrations",
+      "@test:security"
+    ]
+  }
 }
