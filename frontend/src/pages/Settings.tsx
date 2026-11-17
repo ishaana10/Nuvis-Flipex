@@ -323,6 +323,79 @@ export default function Settings() {
     }
   };
 
+  // Phase 5: Pacific Advertising Marketplace state
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [adName, setAdName] = useState('');
+  const [adTargetUrl, setAdTargetUrl] = useState('');
+  const [adBannerUrl, setAdBannerUrl] = useState('');
+  const [adHeadline, setAdHeadline] = useState('');
+  const [adSubtext, setAdSubtext] = useState('');
+  const [adPlacement, setAdPlacement] = useState('header_banner');
+  const [adCountry, setAdCountry] = useState('ALL');
+  const [adBudget, setAdBudget] = useState('100');
+  const [adCurrency, setAdCurrency] = useState('FJD');
+  const [creatingAd, setCreatingAd] = useState(false);
+
+  const loadCampaigns = async () => {
+    setLoadingCampaigns(true);
+    try {
+      const res = await api<any>('/ads/campaigns', 'GET');
+      if (res?.campaigns) setCampaigns(res.campaigns);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingCampaigns(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCampaigns();
+  }, []);
+
+  const handleCreateCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adName || !adTargetUrl || !adBannerUrl) {
+      alert('Campaign name, target link and banner image URL are required');
+      return;
+    }
+    setCreatingAd(true);
+    try {
+      await api('/ads/campaigns', 'POST', {
+        campaign_name: adName,
+        target_url: adTargetUrl,
+        banner_image_url: adBannerUrl,
+        headline: adHeadline,
+        subtext: adSubtext,
+        placement_type: adPlacement,
+        target_country: adCountry,
+        budget_amount: parseFloat(adBudget) || 100,
+        currency: adCurrency,
+      });
+      setAdName('');
+      setAdTargetUrl('');
+      setAdBannerUrl('');
+      setAdHeadline('');
+      setAdSubtext('');
+      loadCampaigns();
+      alert('Advertising campaign created and active across Pacific reader network!');
+    } catch (err: any) {
+      alert(err.message || 'Failed to create campaign');
+    } finally {
+      setCreatingAd(false);
+    }
+  };
+
+  const handleDeleteCampaign = async (id: number) => {
+    if (!confirm('Cancel and delete this ad campaign?')) return;
+    try {
+      await api(`/ads/campaigns/${id}`, 'DELETE');
+      loadCampaigns();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete campaign');
+    }
+  };
+
   const [delPassword, setDelPassword] = useState('');
   const del = useForm(async () => {
     if (!confirm('Delete your account? This cannot be undone.')) return;
@@ -1164,6 +1237,183 @@ export default function Settings() {
               style={{ padding: '8px 20px', fontSize: '13px' }}
             >
               {eduBusy ? 'Saving Profile…' : 'Save Educational Workspace'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Phase 5: Pacific Advertising & Sponsored Promotions */}
+      <div className="card" style={{ border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '16px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🌴</span> Pacific Advertising &amp; Sponsored Promotions
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+              Promote your catalogues, school events, or brand with high-visibility banner placements across the Pacific reader network.
+            </p>
+          </div>
+          <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.15)', color: '#d97706' }}>
+            Multi-Currency Billing
+          </span>
+        </div>
+
+        {/* Existing Campaigns Table */}
+        <div style={{ marginBottom: '24px' }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 700 }}>Your Active Campaigns ({campaigns.length})</h3>
+          {loadingCampaigns ? (
+            <p style={{ fontSize: '12px', color: '#94a3b8' }}>Loading campaigns…</p>
+          ) : campaigns.length === 0 ? (
+            <p style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>
+              No advertising campaigns running yet. Use the form below to launch your first sponsored promotion.
+            </p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+              {campaigns.map((c) => (
+                <div key={c.id} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>{c.campaignName}</span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: '#dcfce7', color: '#166534', fontWeight: 700 }}>
+                      {c.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src={c.bannerImageUrl} alt={c.campaignName} style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover' }} />
+                    <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                      <div>Type: <strong>{c.placementType}</strong></div>
+                      <div>Target: <strong>{c.targetCountry}</strong></div>
+                      <div>Budget: <strong>{c.currency} ${c.budgetAmount}</strong></div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #e2e8f0', fontSize: '11px', color: '#64748b' }}>
+                    <span>👁️ {c.impressions} | 👆 {c.clicks} ({c.ctr}%)</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCampaign(c.id)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Create Campaign Form */}
+        <form onSubmit={handleCreateCampaign} style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 700 }}>Launch New Sponsored Promotion</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Campaign Name *</label>
+              <input
+                type="text"
+                value={adName}
+                onChange={(e) => setAdName(e.target.value)}
+                placeholder="e.g. Suva Spring Mega Sale"
+                required
+                style={{ width: '100%', padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Target Link URL *</label>
+              <input
+                type="url"
+                value={adTargetUrl}
+                onChange={(e) => setAdTargetUrl(e.target.value)}
+                placeholder="https://..."
+                required
+                style={{ width: '100%', padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Banner Image URL *</label>
+              <input
+                type="url"
+                value={adBannerUrl}
+                onChange={(e) => setAdBannerUrl(e.target.value)}
+                placeholder="https://... 300x250 or 728x90"
+                required
+                style={{ width: '100%', padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Headline</label>
+              <input
+                type="text"
+                value={adHeadline}
+                onChange={(e) => setAdHeadline(e.target.value)}
+                placeholder="e.g. 50% Off Commercial Orders"
+                style={{ width: '100%', padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Placement Slot</label>
+              <select
+                value={adPlacement}
+                onChange={(e) => setAdPlacement(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+              >
+                <option value="header_banner">Directory Header Banner</option>
+                <option value="sidebar_spotlight">Sidebar Reader Spotlight</option>
+                <option value="directory_featured">Featured Directory Listing</option>
+                <option value="interstitial_page">Full Spread Interstitial</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Target Island</label>
+              <select
+                value={adCountry}
+                onChange={(e) => setAdCountry(e.target.value)}
+                style={{ width: '100%', padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+              >
+                <option value="ALL">🌴 Pan-Pacific (All Islands)</option>
+                <option value="FJ">🇫🇯 Fiji Islands</option>
+                <option value="WS">🇼🇸 Samoa</option>
+                <option value="TO">🇹🇴 Tonga</option>
+                <option value="VU">🇻🇺 Vanuatu</option>
+                <option value="PG">🇵🇬 Papua New Guinea</option>
+                <option value="AU">🇦🇺 Australia</option>
+                <option value="NZ">🇳🇿 New Zealand</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Currency &amp; Budget</label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <select
+                  value={adCurrency}
+                  onChange={(e) => setAdCurrency(e.target.value)}
+                  style={{ width: '80px', padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                >
+                  <option value="FJD">FJD $</option>
+                  <option value="AUD">AUD $</option>
+                  <option value="NZD">NZD $</option>
+                  <option value="USD">USD $</option>
+                </select>
+                <input
+                  type="number"
+                  min="10"
+                  step="10"
+                  value={adBudget}
+                  onChange={(e) => setAdBudget(e.target.value)}
+                  style={{ flex: 1, padding: '8px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+            <button
+              type="submit"
+              disabled={creatingAd}
+              className="btn-primary"
+              style={{ padding: '8px 20px', fontSize: '13px' }}
+            >
+              {creatingAd ? 'Launching Campaign…' : 'Launch Sponsored Campaign'}
             </button>
           </div>
         </form>

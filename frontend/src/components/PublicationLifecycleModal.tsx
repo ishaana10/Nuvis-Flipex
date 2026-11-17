@@ -139,6 +139,74 @@ export default function PublicationLifecycleModal({
   const [newResDesc, setNewResDesc] = useState('');
   const [creatingRes, setCreatingRes] = useState(false);
 
+  // Phase 5: Pacific Regional Directory & AI Assistant state
+  const [runningAiAssist, setRunningAiAssist] = useState(false);
+  const [listInDirectory, setListInDirectory] = useState(false);
+  const [dirCountry, setDirCountry] = useState('FJ');
+  const [dirRegion, setDirRegion] = useState('');
+  const [dirCategory, setDirCategory] = useState('commercial');
+  const [dirTags, setDirTags] = useState('');
+  const [savingDirectory, setSavingDirectory] = useState(false);
+
+  useEffect(() => {
+    if (tab === 'seo' && book.id) {
+      api<any>(`/directory/entry/${book.id}`, 'GET')
+        .then((res) => {
+          if (res?.entry) {
+            setListInDirectory(Boolean(res.entry.is_public));
+            if (res.entry.country_code) setDirCountry(res.entry.country_code);
+            if (res.entry.region_name) setDirRegion(res.entry.region_name);
+            if (res.entry.category) setDirCategory(res.entry.category);
+            if (res.entry.tags) setDirTags(res.entry.tags);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [tab, book.id]);
+
+  const handleRunAiAssist = async () => {
+    setRunningAiAssist(true);
+    setMsg(null);
+    try {
+      const res = await api<any>(`/flipbooks/${book.id}/ai-assist`, 'POST', { apply: true });
+      if (res?.seoMeta) {
+        if (res.seoMeta.title) setSeoTitle(res.seoMeta.title);
+        if (res.seoMeta.description) setSeoDesc(res.seoMeta.description);
+        if (res.seoMeta.keywords) setSeoKeywords(res.seoMeta.keywords);
+      }
+      setMsg({
+        type: 'ok',
+        text: res.summary || 'AI auto-extracted table of contents bookmarks and generated SEO metadata successfully.',
+      });
+      onUpdated();
+    } catch (e: any) {
+      setMsg({ type: 'err', text: e instanceof ApiError ? e.message : 'AI assistant extraction failed' });
+    } finally {
+      setRunningAiAssist(false);
+    }
+  };
+
+  const handleSaveDirectoryListing = async () => {
+    setSavingDirectory(true);
+    setMsg(null);
+    try {
+      await api('/directory/publish', 'POST', {
+        flipbook_id: book.id,
+        country_code: dirCountry,
+        region_name: dirRegion.trim(),
+        category: dirCategory,
+        tags: dirTags.trim(),
+        is_public: listInDirectory ? 1 : 0,
+      });
+      setMsg({ type: 'ok', text: 'Pacific Regional Directory listing updated successfully.' });
+      onUpdated();
+    } catch (e: any) {
+      setMsg({ type: 'err', text: e instanceof ApiError ? e.message : 'Failed to update directory listing' });
+    } finally {
+      setSavingDirectory(false);
+    }
+  };
+
   const loadEducationalResources = async () => {
     setLoadingResources(true);
     try {
@@ -735,7 +803,35 @@ export default function PublicationLifecycleModal({
           )}
 
           {tab === 'seo' && (
-            <form onSubmit={handleSaveSeoAndMetadata} className="space-y-4">
+            <div className="space-y-6">
+              {/* AI Publishing Assistant Card */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/20 text-amber-500 font-bold">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">
+                      AI Publishing Assistant
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Auto-extract interactive Table of Contents bookmarks, SEO summary, and search keywords from page text.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRunAiAssist}
+                  disabled={runningAiAssist}
+                  className="shrink-0 text-xs font-semibold border-amber-400/40 text-amber-600 dark:text-amber-300 hover:bg-amber-400/20"
+                >
+                  {runningAiAssist ? 'Scanning Document Pages…' : '✨ Auto-Generate with AI'}
+                </Button>
+              </div>
+
+              <form onSubmit={handleSaveSeoAndMetadata} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -865,7 +961,97 @@ export default function PublicationLifecycleModal({
                 </div>
               </div>
             </form>
-          )}
+
+            {/* Pacific Regional Directory Listing Card */}
+            <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                  <span>🌴</span>
+                  Pacific Regional Directory Listing (/explore)
+                </div>
+                <Badge variant={listInDirectory ? 'success' : 'default'}>
+                  {listInDirectory ? 'Listed in Directory' : 'Private'}
+                </Badge>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={listInDirectory}
+                  onChange={(e) => setListInDirectory(e.target.checked)}
+                  className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                />
+                <span>Publish this digital catalogue to the Pacific Regional Directory</span>
+              </label>
+
+              {listInDirectory && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                      Island / Country
+                    </label>
+                    <select
+                      value={dirCountry}
+                      onChange={(e) => setDirCountry(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm focus:border-amber-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    >
+                      <option value="FJ">🇫🇯 Fiji Islands</option>
+                      <option value="WS">🇼🇸 Samoa</option>
+                      <option value="TO">🇹🇴 Tonga</option>
+                      <option value="VU">🇻🇺 Vanuatu</option>
+                      <option value="PG">🇵🇬 Papua New Guinea</option>
+                      <option value="SB">🇸🇧 Solomon Islands</option>
+                      <option value="AU">🇦🇺 Australia</option>
+                      <option value="NZ">🇳🇿 New Zealand</option>
+                      <option value="PACIFIC">🌴 Pan-Pacific</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                      City / Region Name
+                    </label>
+                    <Input
+                      value={dirRegion}
+                      onChange={(e) => setDirRegion(e.target.value)}
+                      placeholder="e.g. Suva, Nadi, Lautoka, Apia"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                      Directory Category
+                    </label>
+                    <select
+                      value={dirCategory}
+                      onChange={(e) => setDirCategory(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm focus:border-amber-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    >
+                      <option value="commercial">🛍️ Commercial & Retail</option>
+                      <option value="education">🎓 School & Academic</option>
+                      <option value="tourism">🏖️ Tourism & Hospitality</option>
+                      <option value="government">🏛️ Government & Public</option>
+                      <option value="lifestyle">📖 Magazines & Culture</option>
+                      <option value="general">🌐 General Publication</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveDirectoryListing}
+                  disabled={savingDirectory}
+                >
+                  {savingDirectory ? 'Updating Directory…' : 'Update Directory Listing'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
           {tab === 'education' && (
             <div className="space-y-6">

@@ -440,7 +440,24 @@ export default function FlipbookViewer({
         if (d?.annotations && Array.isArray(d.annotations)) setStudyNotes(d.annotations);
       })
       .catch(() => {});
+
+    // Phase 5: Pacific Advertising Sponsored Spotlight
+    fetch('/api/v1/public/ads/serve?placement_type=sidebar_spotlight&limit=1')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.ads && d.ads.length > 0) setSponsorAd(d.ads[0]);
+      })
+      .catch(() => {});
   }, [slug]);
+
+  const [sponsorAd, setSponsorAd] = useState<{
+    id: number;
+    campaignName: string;
+    advertiserName: string;
+    targetUrl: string;
+    bannerImageUrl: string;
+    headline: string;
+  } | null>(null);
 
   const handleAddStudyNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3559,11 +3576,67 @@ export default function FlipbookViewer({
             ) : null}
           </div>
 
-          {/* Footer Info */}
-          {showToc && (
-            <div className="hz-drawer-footer">
-              <span>{filteredToc.length} of {effectiveToc.length} sections</span>
-              <span>Click row to jump →</span>
+          {/* Footer Info & Pacific Directory Link */}
+          <div className="hz-drawer-footer" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {showToc && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <span>{filteredToc.length} of {effectiveToc.length} sections</span>
+                <span>Click row to jump →</span>
+              </div>
+            )}
+            <a
+              href="/explore"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'center',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#f59e0b',
+                paddingTop: '6px',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                textDecoration: 'none',
+              }}
+            >
+              🌴 Browse Pacific Directory (/explore) →
+            </a>
+          </div>
+
+          {/* Sponsored Ad Spotlight (if active) */}
+          {sponsorAd && (
+            <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.35)' }}>
+              <a
+                href={sponsorAd.targetUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  fetch(`/api/v1/public/ads/${sponsorAd.id}/track`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ event_type: 'click' }),
+                  }).catch(() => {});
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}
+              >
+                <img
+                  src={sponsorAd.bannerImageUrl}
+                  alt={sponsorAd.headline}
+                  style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }}
+                />
+                <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase' }}>
+                    Sponsored
+                  </div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {sponsorAd.headline || sponsorAd.campaignName}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                    {sponsorAd.advertiserName}
+                  </div>
+                </div>
+              </a>
             </div>
           )}
         </aside>

@@ -15,6 +15,7 @@ use App\Controllers\FlipbookController;
 use App\Controllers\HotspotController;
 use App\Controllers\IntegrationController;
 use App\Controllers\MeController;
+use App\Controllers\PacificExpansionController;
 use App\Controllers\PublicController;
 use App\Controllers\RoleController;
 use App\Infrastructure\Logging\CentralExceptionReporter;
@@ -116,6 +117,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         // Analytics
         $f->get('/{id:[0-9]+}/analytics', [AnalyticsController::class, 'show']);
         $f->get('/{id:[0-9]+}/analytics/export-csv', [AnalyticsController::class, 'exportCsv']);
+
+        // Phase 5: AI Publishing Assistant
+        $f->post('/{id:[0-9]+}/ai-assist', [PacificExpansionController::class, 'aiAssist']);
     })->add(new TenantScope())->add(new Auth());
 
     // Tenant-Wide Executive Analytics & Scheduled Reports (Authenticated & Tenant-Scoped)
@@ -198,6 +202,22 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->delete('/public/{slug}/annotations/{id:[0-9]+}', [EducationalController::class, 'deleteAnnotation']);
     $g->post('/public/{slug}/verify-pin', [EducationalController::class, 'verifyPin'])->add(new RateLimit('verify_pin', 20, 300));
     $g->post('/public/{slug}/verify-domain', [EducationalController::class, 'verifyDomain'])->add(new RateLimit('verify_domain', 20, 300));
+
+    // Phase 5: Pacific Regional Directory & Advertising Marketplace
+    $g->get('/public/directory', [PacificExpansionController::class, 'listDirectory']);
+    $g->get('/public/ads/serve', [PacificExpansionController::class, 'servePublicAds']);
+    $g->post('/public/ads/{id:[0-9]+}/track', [PacificExpansionController::class, 'trackAdEvent'])->add(new RateLimit('ad_track', 60, 300));
+
+    $g->group('/directory', function (RouteCollectorProxy $dir) {
+        $dir->post('/publish', [PacificExpansionController::class, 'publishToDirectory']);
+        $dir->get('/entry/{flipbook_id:[0-9]+}', [PacificExpansionController::class, 'getDirectoryEntry']);
+    })->add(new TenantScope())->add(new Auth());
+
+    $g->group('/ads/campaigns', function (RouteCollectorProxy $ad) {
+        $ad->get('', [PacificExpansionController::class, 'listCampaigns']);
+        $ad->post('', [PacificExpansionController::class, 'createCampaign']);
+        $ad->delete('/{id:[0-9]+}', [PacificExpansionController::class, 'deleteCampaign']);
+    })->add(new TenantScope())->add(new Auth());
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);
     $g->get('/public/{slug}/cover', [PublicController::class, 'cover']);

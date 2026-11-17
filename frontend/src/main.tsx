@@ -16,6 +16,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const PublicViewer = lazy(() => import('./pages/PublicViewer'));
 const PublicBusinessProfile = lazy(() => import('./pages/PublicBusinessProfile'));
 const PublicSchoolPortal = lazy(() => import('./pages/PublicSchoolPortal'));
+const PublicDirectory = lazy(() => import('./pages/PublicDirectory'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Preview = lazy(() => import('./pages/Preview'));
 const HotspotEditor = lazy(() => import('./pages/HotspotEditor'));
@@ -48,6 +49,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/v/:slug" element={<Boundary area="reader"><PublicViewer /></Boundary>} />
           <Route path="/biz/:slug" element={<Boundary area="business profile"><PublicBusinessProfile /></Boundary>} />
           <Route path="/edu/:slug" element={<Boundary area="school portal"><PublicSchoolPortal /></Boundary>} />
+          <Route path="/explore" element={<Boundary area="directory"><PublicDirectory /></Boundary>} />
+          <Route path="/directory" element={<Navigate to="/explore" replace />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Boundary area="dashboard"><Dashboard view="overview" /></Boundary>} />
             <Route path="/flipbooks" element={<Boundary area="dashboard"><Dashboard view="flipbooks" /></Boundary>} />
