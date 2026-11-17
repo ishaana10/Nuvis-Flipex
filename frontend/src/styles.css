@@ -6197,5 +6197,151 @@ html[data-theme="dark"] .studio-empty-desc {
   z-index: 40;
 }
 
+/* ==========================================================================
+   STAGE 3: CONTEXTUAL INSPECTOR SUITE (TYPOGRAPHY, IMAGE CROP, SHAPES, PRODUCTS)
+   ========================================================================== */
+
+.studio-inspector-section {
+  padding-top: 12px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.studio-section-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #a78bfa;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio-btn-group {
+  display: flex;
+  gap: 4px;
+  background: #0b1120;
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+}
+
+.studio-btn-group-item {
+  flex: 1;
+  padding: 5px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-btn-group-item:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.studio-btn-group-item.active {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4) !important;
+}
+
+.studio-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio-slider-val {
+  font-family: monospace;
+  font-size: 11px;
+  color: #cbd5e1;
+  width: 42px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.studio-dpi-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.studio-dpi-badge.ready,
+.studio-dpi-badge.good {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.studio-dpi-badge.warning,
+.studio-dpi-badge.warn {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+.studio-fmt-btn {
+  padding: 5px 8px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-fmt-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.studio-fmt-btn.active {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4) !important;
+}
+
+.studio-star-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px;
+  color: #475569;
+  transition: transform 0.1s ease, color 0.1s ease;
+}
+
+.studio-star-btn.active {
+  color: #fbbf24;
+}
+
+.studio-star-btn:hover {
+  transform: scale(1.25);
+  color: #f59e0b;
+}
+
+
 
 

@@ -266,27 +266,29 @@ flowchart TD
 
 ### Stage 3 — Complete Contextual Inspector
 **Focus:** Dedicated, deep customization panels based on active element selection.
-- [ ] **Typography & Text Inspector:**
-  - Google Web-Fonts selector (Inter, Playfair Display, Montserrat, Oswald, Cinzel, Dancing Script, Courier New).
+- [x] **Typography & Text Inspector:**
+  - Google Web-Fonts selector (Inter, Playfair Display, Montserrat, Oswald, Cinzel, Dancing Script, Courier New, Lora, Bebas Neue).
   - Font size, weight (300 to 900), italic, underline, strikethrough, all-caps.
-  - Letter-spacing (`tracking`), line-height (`leading`), paragraph spacing.
+  - Letter-spacing (`tracking`), line-height (`leading`), paragraph spacing, and text-shadow presets.
   - Text alignment (left, center, right, justify).
   - Column count (1, 2, 3 columns) with column gutter control.
   - Drop-Cap toggle with drop-cap height and indent controls.
-- [ ] **Image & Photo Frame Inspector:**
-  - Aspect ratio locking (`1:1`, `4:3`, `16:9`, `Freeform`).
-  - Image crop modal / overlay inside frame without distorting page layout.
-  - Fit to frame vs Fill frame modes.
-  - Image filters: brightness, contrast, saturation, blur, grayscale.
+- [x] **Image & Photo Frame Inspector:**
+  - Aspect ratio locking and quick Unsplash photo presets.
+  - Object-fit scaling (Cover crop, Contain inside, Fill stretch).
+  - Fit to frame vs Fill frame modes with frame corner radius, border width, and color.
+  - Creative image filters: brightness, contrast, saturation, soft blur, grayscale monochrome toggle, and one-click reset.
   - Border width, border color, border radius, and box-shadow depth.
-  - Print DPI validation warning if uploaded image is under 200 DPI for print bounds.
-- [ ] **Shape & Vector Inspector:**
-  - Basic primitives: Rectangle, Rounded Rectangle, Circle, Ellipse, Line, Arrow, Star.
-  - Custom SVG shape loader and decorative ornamental dividers.
-  - 3-Gradient and solid color fill styling with 9 alignment presets.
-- [ ] **Product Card Inspector:**
-  - Deconstructed sub-component controls: title, price, was price, badge, SKU, WhatsApp phone, QR code.
-  - Instant WhatsApp direct-ordering link builder with prefilled message formatting.
+  - Print DPI validation inspector badge (calculating print DPI vs screen target with color-coded ready/warning badges).
+- [x] **Shape & Vector Inspector:**
+  - Basic primitives: Rectangle, Rounded Card, Pill / Capsule, Circle / Ellipse.
+  - Fill Mode: Solid Color vs 3-Gradient Fill with live color stops.
+  - 3-Gradient styling with 8-direction quick compass presets (0°, 45°, 90°, 135°, 180°, 225°, 270°, radial) and angle slider.
+  - Border style (solid, dashed, dotted, none), border width, border color, and corner radius.
+- [x] **Product Card Inspector:**
+  - Deconstructed sub-component controls: title, price, was price, badge with quick presets, SKU, WhatsApp phone, stock status, and 5-star customer rating.
+  - Instant WhatsApp direct-ordering link builder with prefilled message formatting and test link.
+  - Direct QR Code overlay toggle for mobile 1-tap scanning.
 
 ---
 

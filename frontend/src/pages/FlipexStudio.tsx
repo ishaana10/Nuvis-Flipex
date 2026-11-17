@@ -74,6 +74,29 @@ export interface CanvasElement {
   caption?: string;
   linkUrl?: string;
 
+  // Stage 3: Image Frame & Creative Filters
+  objectFit?: 'cover' | 'contain' | 'fill';
+  filterBrightness?: number; // 50 - 150
+  filterContrast?: number; // 50 - 150
+  filterSaturation?: number; // 0 - 200
+  filterGrayscale?: boolean;
+  filterBlur?: number; // 0 - 10
+
+  // Stage 3: Shape & Vector Styling
+  shapeType?: 'rectangle' | 'circle' | 'pill' | 'line';
+  fillType?: 'solid' | 'gradient';
+  gradientFill?: {
+    stop1: string;
+    stop2: string;
+    stop3: string;
+    angle: number | 'radial';
+  };
+
+  // Stage 3: Commercial Product Details
+  rating?: number; // 0 - 5
+  stockStatus?: 'in_stock' | 'low_stock' | 'out_of_stock';
+  showQrCode?: boolean;
+
   // Magazine & Editorial properties
   columns?: number; // 2 or 3
   columnGutter?: number;
@@ -100,12 +123,16 @@ export interface CanvasElement {
     fontWeight?: string;
     fontStyle?: string;
     fontFamily?: string;
+    textDecoration?: 'none' | 'underline' | 'line-through';
+    textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+    textShadow?: string;
     color?: string;
     backgroundColor?: string;
     textAlign?: 'left' | 'center' | 'right' | 'justify';
     borderRadius?: number;
     borderColor?: string;
     borderWidth?: number;
+    borderStyle?: 'solid' | 'dashed' | 'dotted';
     letterSpacing?: string;
     lineHeight?: number;
     boxShadow?: string;
@@ -113,6 +140,7 @@ export interface CanvasElement {
     transform?: string;
     padding?: string | number;
     zIndex?: number;
+    filter?: string;
   };
 }
 
@@ -2738,10 +2766,18 @@ export default function FlipexStudio() {
                     cursor: 'move',
                     zIndex: isSelected ? 35 : (el.style?.zIndex || 10),
                     outline: isSelected ? '2px solid #a855f7' : 'none',
-                    boxShadow: isSelected ? '0 0 0 4px rgba(168, 85, 247, 0.3)' : 'none',
-                    borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined,
-                    backgroundColor: el.style?.backgroundColor,
-                    opacity: el.style?.opacity,
+                    boxShadow: isSelected ? '0 0 0 4px rgba(168, 85, 247, 0.3)' : (el.style?.boxShadow || 'none'),
+                    borderRadius: el.shapeType === 'circle' ? '50%' : (el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined),
+                    borderWidth: el.style?.borderWidth ? `${el.style.borderWidth}px` : undefined,
+                    borderStyle: (el.style?.borderStyle as any) || (el.style?.borderWidth ? 'solid' : undefined),
+                    borderColor: el.style?.borderColor,
+                    backgroundColor: el.fillType === 'gradient' && el.gradientFill
+                      ? buildGradientCss(el.gradientFill.stop1, el.gradientFill.stop2, el.gradientFill.stop3, el.gradientFill.angle)
+                      : el.style?.backgroundColor,
+                    background: el.fillType === 'gradient' && el.gradientFill
+                      ? buildGradientCss(el.gradientFill.stop1, el.gradientFill.stop2, el.gradientFill.stop3, el.gradientFill.angle)
+                      : undefined,
+                    opacity: el.style?.opacity !== undefined ? el.style.opacity : 1,
                     fontFamily: el.style?.fontFamily,
                     transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
                     transformOrigin: 'center center',
@@ -2783,11 +2819,15 @@ export default function FlipexStudio() {
                         fontSize: `${el.style?.fontSize || 16}px`,
                         fontWeight: el.style?.fontWeight || 'normal',
                         fontStyle: el.style?.fontStyle || 'normal',
+                        textDecoration: el.style?.textDecoration || 'none',
+                        textTransform: el.style?.textTransform || 'none',
+                        textShadow: el.style?.textShadow,
                         color: el.style?.color || '#0F172A',
                         textAlign: el.style?.textAlign || 'left',
                         lineHeight: el.style?.lineHeight || 1.3,
                         letterSpacing: el.style?.letterSpacing,
                         overflow: 'hidden',
+                        padding: el.style?.padding ? `${el.style.padding}px` : undefined,
                       }}
                       contentEditable={isSelected}
                       suppressContentEditableWarning
@@ -2809,7 +2849,9 @@ export default function FlipexStudio() {
                         color: el.style?.color || '#334155',
                         lineHeight: el.style?.lineHeight || 1.6,
                         overflow: 'hidden',
-                        textAlign: 'justify',
+                        textAlign: el.style?.textAlign || 'justify',
+                        fontFamily: el.style?.fontFamily,
+                        letterSpacing: el.style?.letterSpacing,
                       }}
                     >
                       {el.dropCap && el.content ? (
@@ -2822,7 +2864,7 @@ export default function FlipexStudio() {
                               paddingTop: '4px',
                               paddingRight: '8px',
                               fontWeight: 'bold',
-                              color: '#0F172A',
+                              color: el.style?.color || '#0F172A',
                               fontFamily: 'serif',
                             }}
                           >
@@ -2917,10 +2959,19 @@ export default function FlipexStudio() {
                     </div>
                   )}
 
-                  {/* IMAGE ELEMENT */}
+                  {/* IMAGE ELEMENT (STAGE 3 OBJECT FIT & FILTERS) */}
                   {el.type === 'image' && (
-                    <div className="w-full h-full relative overflow-hidden rounded">
-                      <img src={el.src} alt={el.caption || 'Studio Element'} className="w-full h-full object-cover" />
+                    <div className="w-full h-full relative overflow-hidden" style={{ borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined }}>
+                      <img
+                        src={el.src}
+                        alt={el.caption || 'Studio Element'}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: el.objectFit || 'cover',
+                          filter: `brightness(${el.filterBrightness ?? 100}%) contrast(${el.filterContrast ?? 100}%) saturate(${el.filterSaturation ?? 100}%) blur(${el.filterBlur || 0}px) ${el.filterGrayscale ? 'grayscale(100%)' : ''}`,
+                        }}
+                      />
                       {el.caption && (
                         <div className="absolute bottom-0 inset-x-0 bg-black/60 backdrop-blur-sm p-1.5 text-white text-[11px]">
                           {el.caption}
@@ -2929,7 +2980,7 @@ export default function FlipexStudio() {
                     </div>
                   )}
 
-                  {/* PRODUCT CARD ELEMENT (CATALOGUE) */}
+                  {/* PRODUCT CARD ELEMENT (STAGE 3 COMMERCIAL SPECS) */}
                   {el.type === 'product' && (
                     <div className="w-full h-full bg-white rounded-2xl border border-slate-200 shadow-md p-3 flex flex-col justify-between overflow-hidden relative text-slate-900">
                       {el.badge && (
@@ -2939,15 +2990,46 @@ export default function FlipexStudio() {
                           </span>
                         </div>
                       )}
+                      {el.stockStatus && (
+                        <div className="absolute top-3 right-3 z-10">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shadow-xs ${
+                              el.stockStatus === 'in_stock'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : el.stockStatus === 'low_stock'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                : 'bg-red-100 text-red-800 border border-red-300'
+                            }`}
+                          >
+                            {el.stockStatus === 'in_stock' ? 'In Stock' : el.stockStatus === 'low_stock' ? 'Low Stock' : 'Pre-Order'}
+                          </span>
+                        </div>
+                      )}
                       {el.image && (
-                        <div className="h-36 w-full rounded-xl overflow-hidden bg-slate-50 mb-2">
-                          <img src={el.image} alt={el.name} className="w-full h-full object-cover" />
+                        <div className="h-36 w-full rounded-xl overflow-hidden bg-slate-50 mb-2 mt-4">
+                          <img
+                            src={el.image}
+                            alt={el.name}
+                            className="w-full h-full"
+                            style={{
+                              objectFit: el.objectFit || 'cover',
+                              filter: `brightness(${el.filterBrightness ?? 100}%) contrast(${el.filterContrast ?? 100}%) saturate(${el.filterSaturation ?? 100}%) blur(${el.filterBlur || 0}px) ${el.filterGrayscale ? 'grayscale(100%)' : ''}`,
+                            }}
+                          />
                         </div>
                       )}
                       <div>
                         <h4 className="font-bold text-xs line-clamp-2 text-slate-800">{el.name}</h4>
                         {el.description && (
                           <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{el.description}</p>
+                        )}
+                        {(el.rating || 0) > 0 && (
+                          <div className="flex items-center gap-0.5 my-1 text-amber-400 text-xs">
+                            {Array.from({ length: 5 }).map((_, starIdx) => (
+                              <span key={starIdx}>{starIdx < (el.rating || 0) ? '★' : '☆'}</span>
+                            ))}
+                            <span className="text-[10px] font-semibold text-slate-500 ml-1">({el.rating}.0)</span>
+                          </div>
                         )}
                         <div className="flex items-baseline gap-2 mt-1">
                           <span className="text-base font-extrabold text-red-600">{el.price}</span>
@@ -2956,14 +3038,41 @@ export default function FlipexStudio() {
                           )}
                         </div>
                       </div>
-                      <div className="mt-2">
+                      <div className="mt-2 flex items-center gap-1.5">
                         <button
                           type="button"
-                          className="w-full py-1.5 studio-gradient-btn emerald rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
+                          className="flex-1 py-1.5 studio-gradient-btn emerald rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
                         >
                           <span>💬</span> WhatsApp Order
                         </button>
+                        {el.showQrCode && (
+                          <div
+                            className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-300 flex items-center justify-center text-xs"
+                            title="Direct WhatsApp 1-Tap QR Code"
+                          >
+                            📱
+                          </div>
+                        )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* SHAPE ELEMENT */}
+                  {el.type === 'shape' && (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {el.content && (
+                        <span style={{ color: el.style?.color || '#ffffff', fontSize: `${el.style?.fontSize || 14}px`, fontWeight: 'bold' }}>
+                          {el.content}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -3255,41 +3364,15 @@ export default function FlipexStudio() {
                   </div>
                 </div>
 
-                {/* Magazine Column Properties */}
-                {selectedElement.type === 'column_text' && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="studio-prop-label">Columns</label>
-                        <select
-                          value={selectedElement.columns || 2}
-                          onChange={(e) => updateSelectedElement({ columns: parseInt(e.target.value, 10) })}
-                          className="studio-prop-select"
-                        >
-                          <option value={1}>1 Column</option>
-                          <option value={2}>2 Columns</option>
-                          <option value={3}>3 Columns</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="studio-prop-label">Drop-Cap</label>
-                        <button
-                          type="button"
-                          onClick={() => updateSelectedElement({ dropCap: !selectedElement.dropCap })}
-                          className={`w-full py-1.5 rounded font-bold text-xs ${
-                            selectedElement.dropCap ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-700 text-slate-300'
-                          }`}
-                        >
-                          {selectedElement.dropCap ? 'Drop-Cap ON' : 'Drop-Cap OFF'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* ==========================================================
+                   STAGE 3 CONTEXTUAL INSPECTOR SUITE
+                   ========================================================== */}
 
-                {/* Text Properties */}
+                {/* TYPOGRAPHY SUITE */}
                 {(selectedElement.type === 'text' || selectedElement.type === 'badge' || selectedElement.type === 'column_text') && (
-                  <div className="space-y-3">
+                  <div className="studio-inspector-section">
+                    <span className="studio-section-title">✍️ Typography &amp; Content</span>
+
                     <div>
                       <label className="studio-prop-label">Text Content</label>
                       <textarea
@@ -3297,12 +3380,15 @@ export default function FlipexStudio() {
                         value={selectedElement.content || ''}
                         onChange={(e) => updateSelectedElement({ content: e.target.value })}
                         className="studio-prop-textarea"
+                        placeholder="Enter text content…"
                       />
                     </div>
+
+                    {/* 9 Google Web-Fonts */}
                     <div>
-                      <label className="studio-prop-label">Font Family</label>
+                      <label className="studio-prop-label">Font Family (Google Web-Fonts)</label>
                       <select
-                        value={selectedElement.style?.fontFamily || 'Inter, sans-serif'}
+                        value={selectedElement.style?.fontFamily || "'Inter', sans-serif"}
                         onChange={(e) =>
                           updateSelectedElement({
                             style: { ...selectedElement.style, fontFamily: e.target.value },
@@ -3310,13 +3396,93 @@ export default function FlipexStudio() {
                         }
                         className="studio-prop-select"
                       >
-                        <option value="Inter, sans-serif">Modern Sans (Inter)</option>
+                        <option value="'Inter', sans-serif">Modern Sans (Inter)</option>
                         <option value="'Playfair Display', Georgia, serif">Editorial Serif (Playfair)</option>
-                        <option value="'Courier New', monospace">Technical Mono</option>
-                        <option value="'Dancing Script', cursive">Handwritten Script</option>
-                        <option value="'Oswald', sans-serif">Impact Display (Oswald)</option>
+                        <option value="'Montserrat', sans-serif">Clean Grotesque (Montserrat)</option>
+                        <option value="'Lora', serif">Literature Serif (Lora)</option>
+                        <option value="'Cinzel', serif">Luxury Roman (Cinzel)</option>
+                        <option value="'Oswald', sans-serif">Impact Condensed (Oswald)</option>
+                        <option value="'Dancing Script', cursive">Handwritten Script (Dancing)</option>
+                        <option value="'Fira Code', monospace">Developer Mono (Fira Code)</option>
+                        <option value="'Bebas Neue', cursive">Headline Poster (Bebas)</option>
                       </select>
                     </div>
+
+                    {/* Formatting Action Bar: B, I, U, S, TT */}
+                    <div>
+                      <label className="studio-prop-label">Formatting &amp; Case</label>
+                      <div className="studio-btn-group">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isBold = selectedElement.style?.fontWeight === '700' || selectedElement.style?.fontWeight === 'bold';
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, fontWeight: isBold ? '400' : '700' },
+                            });
+                          }}
+                          className={`studio-fmt-btn ${
+                            selectedElement.style?.fontWeight === '700' || selectedElement.style?.fontWeight === 'bold' ? 'active' : ''
+                          }`}
+                          title="Bold (B)"
+                        >
+                          <b>B</b>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isItalic = selectedElement.style?.fontStyle === 'italic';
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, fontStyle: isItalic ? 'normal' : 'italic' },
+                            });
+                          }}
+                          className={`studio-fmt-btn ${selectedElement.style?.fontStyle === 'italic' ? 'active' : ''}`}
+                          title="Italic (I)"
+                        >
+                          <i>I</i>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isUnder = selectedElement.style?.textDecoration === 'underline';
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, textDecoration: isUnder ? 'none' : 'underline' },
+                            });
+                          }}
+                          className={`studio-fmt-btn ${selectedElement.style?.textDecoration === 'underline' ? 'active' : ''}`}
+                          title="Underline (U)"
+                        >
+                          <u>U</u>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isStrike = selectedElement.style?.textDecoration === 'line-through';
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, textDecoration: isStrike ? 'none' : 'line-through' },
+                            });
+                          }}
+                          className={`studio-fmt-btn ${selectedElement.style?.textDecoration === 'line-through' ? 'active' : ''}`}
+                          title="Strikethrough (S)"
+                        >
+                          <s>S</s>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isUpper = selectedElement.style?.textTransform === 'uppercase';
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, textTransform: isUpper ? 'none' : 'uppercase' },
+                            });
+                          }}
+                          className={`studio-fmt-btn ${selectedElement.style?.textTransform === 'uppercase' ? 'active' : ''}`}
+                          title="Uppercase (TT)"
+                        >
+                          aA
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Text Alignment */}
                     <div>
                       <label className="studio-prop-label">Text Alignment</label>
                       <div className="flex gap-1">
@@ -3350,16 +3516,20 @@ export default function FlipexStudio() {
                               cursor: 'pointer',
                             }}
                           >
-                            {align === 'left' ? '⇤' : align === 'center' ? '≡' : align === 'right' ? '⇥' : '↔'}
+                            {align === 'left' ? '⇤ Left' : align === 'center' ? '≡ Center' : align === 'right' ? '⇥ Right' : '↔ Justify'}
                           </button>
                         ))}
                       </div>
                     </div>
+
+                    {/* Font Size & Weight */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="studio-prop-label">Font Size (px)</label>
+                        <span className="studio-prop-sublabel">Font Size (px)</span>
                         <input
                           type="number"
+                          min={8}
+                          max={160}
                           value={selectedElement.style?.fontSize || 16}
                           onChange={(e) =>
                             updateSelectedElement({
@@ -3370,24 +3540,607 @@ export default function FlipexStudio() {
                         />
                       </div>
                       <div>
-                        <label className="studio-prop-label">Text Color</label>
+                        <span className="studio-prop-sublabel">Font Weight</span>
+                        <select
+                          value={selectedElement.style?.fontWeight || '400'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, fontWeight: e.target.value },
+                            })
+                          }
+                          className="studio-prop-select"
+                        >
+                          <option value="300">300 - Light</option>
+                          <option value="400">400 - Regular</option>
+                          <option value="500">500 - Medium</option>
+                          <option value="600">600 - SemiBold</option>
+                          <option value="700">700 - Bold</option>
+                          <option value="900">900 - Black</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Line Height & Letter Spacing */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="studio-prop-sublabel">Line Height</span>
+                        <input
+                          type="number"
+                          step={0.1}
+                          min={0.8}
+                          max={3.0}
+                          value={selectedElement.style?.lineHeight || 1.3}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, lineHeight: parseFloat(e.target.value) || 1.2 },
+                            })
+                          }
+                          className="studio-prop-input"
+                        />
+                      </div>
+                      <div>
+                        <span className="studio-prop-sublabel">Letter Spacing (px)</span>
+                        <input
+                          type="text"
+                          value={selectedElement.style?.letterSpacing || 'normal'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, letterSpacing: e.target.value },
+                            })
+                          }
+                          placeholder="e.g. 1px, 2px"
+                          className="studio-prop-input font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Text Color */}
+                    <div>
+                      <label className="studio-prop-label">Text Color</label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={selectedElement.style?.color || '#0F172A'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, color: e.target.value },
+                            })
+                          }
+                          className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                        />
+                        <input
+                          type="text"
+                          value={selectedElement.style?.color || '#0F172A'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, color: e.target.value },
+                            })
+                          }
+                          className="studio-prop-input font-mono uppercase text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Text Shadow Preset */}
+                    <div>
+                      <label className="studio-prop-label">Text Shadow / Glow</label>
+                      <select
+                        value={selectedElement.style?.textShadow || 'none'}
+                        onChange={(e) =>
+                          updateSelectedElement({
+                            style: { ...selectedElement.style, textShadow: e.target.value === 'none' ? undefined : e.target.value },
+                          })
+                        }
+                        className="studio-prop-select"
+                      >
+                        <option value="none">None</option>
+                        <option value="0 2px 4px rgba(0,0,0,0.5)">Subtle Drop Shadow</option>
+                        <option value="0 4px 12px rgba(0,0,0,0.75)">Deep Editorial Drop</option>
+                        <option value="0 0 10px rgba(168,85,247,0.75)">Cosmic Purple Glow</option>
+                        <option value="0 0 10px rgba(52,211,153,0.75)">Emerald Glow</option>
+                        <option value="1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000">Heavy Poster Outline</option>
+                      </select>
+                    </div>
+
+                    {/* Magazine Multi-Column & Drop-Cap */}
+                    {selectedElement.type === 'column_text' && (
+                      <div className="pt-2 border-t border-slate-800 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="studio-prop-sublabel">Columns</span>
+                            <select
+                              value={selectedElement.columns || 2}
+                              onChange={(e) => updateSelectedElement({ columns: parseInt(e.target.value, 10) })}
+                              className="studio-prop-select"
+                            >
+                              <option value={1}>1 Column</option>
+                              <option value={2}>2 Columns</option>
+                              <option value={3}>3 Columns</option>
+                            </select>
+                          </div>
+                          <div>
+                            <span className="studio-prop-sublabel">Drop-Cap Initial</span>
+                            <button
+                              type="button"
+                              onClick={() => updateSelectedElement({ dropCap: !selectedElement.dropCap })}
+                              className={`w-full py-1.5 rounded font-bold text-xs ${
+                                selectedElement.dropCap ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-700 text-slate-300'
+                              }`}
+                            >
+                              {selectedElement.dropCap ? 'Drop-Cap ON' : 'Drop-Cap OFF'}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="studio-prop-sublabel">Column Gutter Gap (px)</span>
+                          <input
+                            type="number"
+                            min={10}
+                            max={60}
+                            value={selectedElement.columnGutter || 20}
+                            onChange={(e) => updateSelectedElement({ columnGutter: parseInt(e.target.value, 10) || 16 })}
+                            className="studio-prop-input"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* IMAGE FRAME & CREATIVE FILTERS (STAGE 3) */}
+                {selectedElement.type === 'image' && (
+                  <div className="studio-inspector-section">
+                    <span className="studio-section-title">🖼️ Image Frame &amp; Print DPI</span>
+
+                    <div>
+                      <label className="studio-prop-label">Image Source URL</label>
+                      <input
+                        type="text"
+                        value={selectedElement.src || ''}
+                        onChange={(e) => updateSelectedElement({ src: e.target.value })}
+                        className="studio-prop-input"
+                        placeholder="https://..."
+                      />
+                    </div>
+
+                    {/* Unsplash Presets */}
+                    <div>
+                      <label className="studio-prop-label">Sample Presets</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { label: '🏖️ Tropical Beach', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80' },
+                          { label: '🎧 Tech Gadget', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80' },
+                          { label: '🍹 Luxury Dining', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80' },
+                          { label: '🥦 Fresh Produce', url: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&q=80' },
+                        ].map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => updateSelectedElement({ src: preset.url })}
+                            className="studio-tool-btn ocean"
+                            style={{ padding: '4px 6px', fontSize: '10px', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Object-Fit Mode */}
+                    <div>
+                      <label className="studio-prop-label">Object Fit &amp; Scaling</label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {(['cover', 'contain', 'fill'] as const).map((fit) => (
+                          <button
+                            key={fit}
+                            type="button"
+                            onClick={() => updateSelectedElement({ objectFit: fit })}
+                            className={`studio-fmt-btn ${ (selectedElement.objectFit || 'cover') === fit ? 'active' : '' }`}
+                            style={{ fontSize: '10px', textTransform: 'capitalize' }}
+                          >
+                            {fit === 'cover' ? 'Crop Cover' : fit === 'contain' ? 'Fit Inside' : 'Fill Stretch'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 300 DPI Print Quality Validation Badge */}
+                    <div>
+                      <label className="studio-prop-label">Print Quality Inspector</label>
+                      {(() => {
+                        const effectiveDpi = Math.min(300, Math.round((1200 / Math.max(1, selectedElement.w)) * 72));
+                        const isPrintReady = effectiveDpi >= 220;
+                        return (
+                          <div className={`studio-dpi-badge ${isPrintReady ? 'good' : 'warn'}`}>
+                            <span>{isPrintReady ? '✅ 300 DPI High-Res Print Quality' : `⚠️ ${effectiveDpi} DPI Standard Screen Res`}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Creative Photo Filters */}
+                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <label className="studio-prop-label" style={{ margin: 0 }}>Creative Filters</label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateSelectedElement({
+                              filterBrightness: 100,
+                              filterContrast: 100,
+                              filterSaturation: 100,
+                              filterGrayscale: false,
+                              filterBlur: 0,
+                            })
+                          }
+                          style={{ fontSize: '10px', color: '#a855f7', background: 'none', border: 'none', cursor: 'pointer' }}
+                        >
+                          Reset Filters
+                        </button>
+                      </div>
+
+                      <div className="studio-slider-row">
+                        <span>Brightness</span>
+                        <input
+                          type="range"
+                          min={50}
+                          max={150}
+                          value={selectedElement.filterBrightness ?? 100}
+                          onChange={(e) => updateSelectedElement({ filterBrightness: parseInt(e.target.value, 10) })}
+                          style={{ accentColor: '#a855f7' }}
+                        />
+                        <span className="font-mono">{selectedElement.filterBrightness ?? 100}%</span>
+                      </div>
+
+                      <div className="studio-slider-row">
+                        <span>Contrast</span>
+                        <input
+                          type="range"
+                          min={50}
+                          max={150}
+                          value={selectedElement.filterContrast ?? 100}
+                          onChange={(e) => updateSelectedElement({ filterContrast: parseInt(e.target.value, 10) })}
+                          style={{ accentColor: '#a855f7' }}
+                        />
+                        <span className="font-mono">{selectedElement.filterContrast ?? 100}%</span>
+                      </div>
+
+                      <div className="studio-slider-row">
+                        <span>Saturation</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={200}
+                          value={selectedElement.filterSaturation ?? 100}
+                          onChange={(e) => updateSelectedElement({ filterSaturation: parseInt(e.target.value, 10) })}
+                          style={{ accentColor: '#a855f7' }}
+                        />
+                        <span className="font-mono">{selectedElement.filterSaturation ?? 100}%</span>
+                      </div>
+
+                      <div className="studio-slider-row">
+                        <span>Soft Blur</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={10}
+                          value={selectedElement.filterBlur ?? 0}
+                          onChange={(e) => updateSelectedElement({ filterBlur: parseInt(e.target.value, 10) })}
+                          style={{ accentColor: '#a855f7' }}
+                        />
+                        <span className="font-mono">{selectedElement.filterBlur ?? 0}px</span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="studio-prop-sublabel">Grayscale Monochrome</span>
+                        <button
+                          type="button"
+                          onClick={() => updateSelectedElement({ filterGrayscale: !selectedElement.filterGrayscale })}
+                          className={`px-3 py-1 rounded text-xs font-bold ${
+                            selectedElement.filterGrayscale ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {selectedElement.filterGrayscale ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Frame Corner Radius & Border */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+                      <div>
+                        <span className="studio-prop-sublabel">Corner Radius</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={selectedElement.style?.borderRadius || 0}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, borderRadius: parseInt(e.target.value, 10) || 0 },
+                            })
+                          }
+                          className="studio-prop-input"
+                        />
+                      </div>
+                      <div>
+                        <span className="studio-prop-sublabel">Border Width</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={20}
+                          value={selectedElement.style?.borderWidth || 0}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, borderWidth: parseInt(e.target.value, 10) || 0 },
+                            })
+                          }
+                          className="studio-prop-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* VECTOR SHAPES & 3-GRADIENT SUITE (STAGE 3) */}
+                {selectedElement.type === 'shape' && (
+                  <div className="studio-inspector-section">
+                    <span className="studio-section-title">🔶 Vector Geometry &amp; 3-Gradient Fill</span>
+
+                    {/* Shape Geometry */}
+                    <div>
+                      <label className="studio-prop-label">Shape Geometry</label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {[
+                          { id: 'rectangle', label: 'Rectangle' },
+                          { id: 'pill', label: 'Pill / Card' },
+                          { id: 'circle', label: 'Circle' },
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              const bRad = s.id === 'circle' ? 9999 : s.id === 'pill' ? 24 : 0;
+                              updateSelectedElement({
+                                shapeType: s.id as any,
+                                style: { ...selectedElement.style, borderRadius: bRad },
+                              });
+                            }}
+                            className={`studio-fmt-btn ${ (selectedElement.shapeType || 'rectangle') === s.id ? 'active' : '' }`}
+                            style={{ fontSize: '10px' }}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Fill Mode: Solid vs 3-Gradient */}
+                    <div>
+                      <label className="studio-prop-label">Fill Type</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => updateSelectedElement({ fillType: 'solid' })}
+                          className={`studio-fmt-btn ${ (selectedElement.fillType || 'solid') === 'solid' ? 'active' : '' }`}
+                        >
+                          Solid Color
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateSelectedElement({
+                              fillType: 'gradient',
+                              gradientFill: selectedElement.gradientFill || {
+                                stop1: '#6366f1',
+                                stop2: '#a855f7',
+                                stop3: '#ec4899',
+                                angle: 135,
+                              },
+                            })
+                          }
+                          className={`studio-fmt-btn ${ selectedElement.fillType === 'gradient' ? 'active' : '' }`}
+                        >
+                          🎨 3-Gradient Fill
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* If Solid Fill */}
+                    {selectedElement.fillType !== 'gradient' ? (
+                      <div>
+                        <label className="studio-prop-label">Solid Fill Color</label>
                         <div className="flex items-center gap-1.5">
                           <input
                             type="color"
-                            value={selectedElement.style?.color || '#0F172A'}
+                            value={selectedElement.style?.backgroundColor || '#1E293B'}
                             onChange={(e) =>
                               updateSelectedElement({
-                                style: { ...selectedElement.style, color: e.target.value },
+                                style: { ...selectedElement.style, backgroundColor: e.target.value },
                               })
                             }
                             className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
                           />
                           <input
                             type="text"
-                            value={selectedElement.style?.color || '#0F172A'}
+                            value={selectedElement.style?.backgroundColor || '#1E293B'}
                             onChange={(e) =>
                               updateSelectedElement({
-                                style: { ...selectedElement.style, color: e.target.value },
+                                style: { ...selectedElement.style, backgroundColor: e.target.value },
+                              })
+                            }
+                            className="studio-prop-input font-mono uppercase text-xs"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      /* If 3-Gradient Fill */
+                      <div className="space-y-2.5 pt-1">
+                        <div>
+                          <label className="studio-prop-label">3 Gradient Color Stops</label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[1, 2, 3].map((stopIdx) => {
+                              const sKey = `stop${stopIdx}` as 'stop1' | 'stop2' | 'stop3';
+                              const currentVal =
+                                selectedElement.gradientFill?.[sKey] || (stopIdx === 1 ? '#6366f1' : stopIdx === 2 ? '#a855f7' : '#ec4899');
+                              return (
+                                <div key={stopIdx} className="flex flex-col items-center gap-1 p-1.5 rounded bg-slate-900 border border-slate-800">
+                                  <span style={{ fontSize: '9px', color: '#94a3b8' }}>Stop {stopIdx}</span>
+                                  <input
+                                    type="color"
+                                    value={currentVal}
+                                    onChange={(e) => {
+                                      const prevGrad = selectedElement.gradientFill || { stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 };
+                                      updateSelectedElement({
+                                        gradientFill: { ...prevGrad, [sKey]: e.target.value },
+                                      });
+                                    }}
+                                    className="w-7 h-7 rounded cursor-pointer border-0 bg-transparent p-0"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Angle Slider & Compass */}
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="studio-prop-sublabel">Gradient Angle</span>
+                            <span className="font-mono text-xs text-purple-400">{selectedElement.gradientFill?.angle ?? 135}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={360}
+                            value={typeof selectedElement.gradientFill?.angle === 'number' ? selectedElement.gradientFill.angle : 135}
+                            onChange={(e) => {
+                              const prevGrad = selectedElement.gradientFill || { stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 };
+                              updateSelectedElement({
+                                gradientFill: { ...prevGrad, angle: parseInt(e.target.value, 10) },
+                              });
+                            }}
+                            style={{ width: '100%', accentColor: '#a855f7' }}
+                          />
+
+                          {/* 8-Direction Quick Angle Buttons */}
+                          <div className="grid grid-cols-4 gap-1 mt-1.5">
+                            {[
+                              { label: '0° ⬆', deg: 0 },
+                              { label: '45° ↗', deg: 45 },
+                              { label: '90° ➡', deg: 90 },
+                              { label: '135° ↘', deg: 135 },
+                              { label: '180° ⬇', deg: 180 },
+                              { label: '225° ↙', deg: 225 },
+                              { label: '270° ⬅', deg: 270 },
+                              { label: 'Radial', deg: 'radial' as any },
+                            ].map((dir) => (
+                              <button
+                                key={dir.label}
+                                type="button"
+                                onClick={() => {
+                                  const prevGrad = selectedElement.gradientFill || { stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 };
+                                  updateSelectedElement({
+                                    gradientFill: { ...prevGrad, angle: dir.deg },
+                                  });
+                                }}
+                                className="studio-tool-btn cosmic"
+                                style={{ padding: '3px 2px', fontSize: '9px' }}
+                              >
+                                {dir.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 3-Gradient Presets */}
+                        <div>
+                          <label className="studio-prop-label">Gradient Presets</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {GRADIENT_PRESETS.slice(0, 4).map((p) => (
+                              <button
+                                key={p.name}
+                                type="button"
+                                onClick={() => {
+                                  updateSelectedElement({
+                                    gradientFill: { stop1: p.stop1, stop2: p.stop2, stop3: p.stop3, angle: p.angle },
+                                  });
+                                }}
+                                style={{
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  color: '#ffffff',
+                                  background: buildGradientCss(p.stop1, p.stop2, p.stop3, p.angle),
+                                  border: '1px solid rgba(255,255,255,0.2)',
+                                  textAlign: 'left',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {p.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Borders & Styling */}
+                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="studio-prop-sublabel">Border Style</span>
+                          <select
+                            value={selectedElement.style?.borderStyle || 'solid'}
+                            onChange={(e) =>
+                              updateSelectedElement({
+                                style: { ...selectedElement.style, borderStyle: e.target.value as any },
+                              })
+                            }
+                            className="studio-prop-select"
+                          >
+                            <option value="solid">Solid</option>
+                            <option value="dashed">Dashed</option>
+                            <option value="dotted">Dotted</option>
+                            <option value="none">None</option>
+                          </select>
+                        </div>
+                        <div>
+                          <span className="studio-prop-sublabel">Border Width</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={20}
+                            value={selectedElement.style?.borderWidth || 0}
+                            onChange={(e) =>
+                              updateSelectedElement({
+                                style: { ...selectedElement.style, borderWidth: parseInt(e.target.value, 10) || 0 },
+                              })
+                            }
+                            className="studio-prop-input"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="studio-prop-sublabel">Border Color</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={selectedElement.style?.borderColor || '#334155'}
+                            onChange={(e) =>
+                              updateSelectedElement({
+                                style: { ...selectedElement.style, borderColor: e.target.value },
+                              })
+                            }
+                            className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                          />
+                          <input
+                            type="text"
+                            value={selectedElement.style?.borderColor || '#334155'}
+                            onChange={(e) =>
+                              updateSelectedElement({
+                                style: { ...selectedElement.style, borderColor: e.target.value },
                               })
                             }
                             className="studio-prop-input font-mono uppercase text-xs"
@@ -3398,18 +4151,22 @@ export default function FlipexStudio() {
                   </div>
                 )}
 
-                {/* Product Card Properties */}
+                {/* COMMERCIAL PRODUCT CARD SUITE (STAGE 3) */}
                 {selectedElement.type === 'product' && (
-                  <div className="space-y-2.5">
+                  <div className="studio-inspector-section">
+                    <span className="studio-section-title">🛒 Commercial Product &amp; WhatsApp Specs</span>
+
                     <div>
-                      <label className="studio-prop-label">Product Title</label>
+                      <label className="studio-prop-label">Product Name / Title</label>
                       <input
                         type="text"
                         value={selectedElement.name || ''}
                         onChange={(e) => updateSelectedElement({ name: e.target.value })}
                         className="studio-prop-input"
+                        placeholder="Product title"
                       />
                     </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="studio-prop-label">Selling Price</label>
@@ -3419,39 +4176,96 @@ export default function FlipexStudio() {
                           onChange={(e) => updateSelectedElement({ price: e.target.value })}
                           className="studio-prop-input font-bold"
                           style={{ color: '#f87171' }}
+                          placeholder="$49.00"
                         />
                       </div>
                       <div>
-                        <label className="studio-prop-label">Was Price</label>
+                        <label className="studio-prop-label">Was / Original Price</label>
                         <input
                           type="text"
                           value={selectedElement.originalPrice || ''}
                           onChange={(e) => updateSelectedElement({ originalPrice: e.target.value })}
-                          className="studio-prop-input"
+                          className="studio-prop-input text-slate-400"
+                          placeholder="$79.00"
                         />
                       </div>
                     </div>
+
+                    {/* Promo Splash Badge */}
                     <div>
-                      <label className="studio-prop-label">Promo Badge</label>
+                      <label className="studio-prop-label">Promo Splash Badge</label>
                       <input
                         type="text"
                         value={selectedElement.badge || ''}
                         onChange={(e) => updateSelectedElement({ badge: e.target.value })}
                         className="studio-prop-input font-bold"
                         style={{ color: '#fbbf24' }}
+                        placeholder="e.g. HOT DEAL, 40% OFF"
                       />
+                      <div className="flex gap-1 mt-1">
+                        {['HOT DEAL', 'SAVE 30%', 'NEW', 'FEATURED', 'LIMITED'].map((badgePreset) => (
+                          <button
+                            key={badgePreset}
+                            type="button"
+                            onClick={() => updateSelectedElement({ badge: badgePreset })}
+                            className="studio-tool-btn cosmic"
+                            style={{ padding: '2px 5px', fontSize: '9px' }}
+                          >
+                            {badgePreset}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    {/* Stock Status Selector */}
                     <div>
-                      <label className="studio-prop-label">Image URL</label>
+                      <label className="studio-prop-label">Inventory &amp; Stock Status</label>
+                      <select
+                        value={selectedElement.stockStatus || 'in_stock'}
+                        onChange={(e) => updateSelectedElement({ stockStatus: e.target.value as any })}
+                        className="studio-prop-select"
+                      >
+                        <option value="in_stock">✅ In Stock (Ready to Deliver)</option>
+                        <option value="low_stock">⚠️ Low Stock (Hurry Only Few Left)</option>
+                        <option value="out_of_stock">❌ Sold Out / Pre-Order</option>
+                      </select>
+                    </div>
+
+                    {/* Star Rating Selector (1 to 5 stars) */}
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label className="studio-prop-label" style={{ margin: 0 }}>Customer Star Rating</label>
+                        <span className="font-mono text-xs text-amber-400">{selectedElement.rating || 5}.0 / 5</span>
+                      </div>
+                      <div className="flex gap-1.5 mt-1">
+                        {[1, 2, 3, 4, 5].map((starVal) => (
+                          <button
+                            key={starVal}
+                            type="button"
+                            onClick={() => updateSelectedElement({ rating: starVal })}
+                            className={`studio-star-btn ${ (selectedElement.rating || 5) >= starVal ? 'active' : '' }`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Image URL */}
+                    <div>
+                      <label className="studio-prop-label">Product Image URL</label>
                       <input
                         type="text"
                         value={selectedElement.image || ''}
                         onChange={(e) => updateSelectedElement({ image: e.target.value })}
                         className="studio-prop-input"
+                        placeholder="https://..."
                       />
                     </div>
+
+                    {/* WhatsApp 1-Tap Ordering */}
                     <div>
-                      <label className="studio-prop-label">WhatsApp Order Number</label>
+                      <label className="studio-prop-label">WhatsApp Business Number</label>
                       <input
                         type="text"
                         value={selectedElement.whatsappNumber || ''}
@@ -3461,6 +4275,24 @@ export default function FlipexStudio() {
                         style={{ color: '#34d399' }}
                       />
                     </div>
+
+                    {/* Direct QR Code Overlay Toggle */}
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <span className="studio-prop-sublabel">Direct QR Code on Card</span>
+                        <p style={{ fontSize: '10px', color: '#64748b', margin: 0 }}>Renders a 1-tap mobile ordering scan badge</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => updateSelectedElement({ showQrCode: !selectedElement.showQrCode })}
+                        className={`px-3 py-1 rounded text-xs font-bold ${
+                          selectedElement.showQrCode ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-700 text-slate-300'
+                        }`}
+                      >
+                        {selectedElement.showQrCode ? 'QR ON' : 'QR OFF'}
+                      </button>
+                    </div>
+
                     {selectedElement.whatsappNumber && (
                       <a
                         href={`https://wa.me/${selectedElement.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
@@ -3475,94 +4307,15 @@ export default function FlipexStudio() {
                           padding: '7px 12px',
                           fontSize: '11px',
                           textDecoration: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
                         }}
                       >
                         <span>💬</span> Test WhatsApp Ordering Link ↗
                       </a>
                     )}
-                  </div>
-                )}
-
-                {/* Image Element Properties */}
-                {selectedElement.type === 'image' && (
-                  <div className="space-y-2.5">
-                    <div>
-                      <label className="studio-prop-label">Image Source URL</label>
-                      <input
-                        type="text"
-                        value={selectedElement.src || ''}
-                        onChange={(e) => updateSelectedElement({ src: e.target.value })}
-                        className="studio-prop-input"
-                      />
-                    </div>
-                    <div>
-                      <label className="studio-prop-label">Caption</label>
-                      <input
-                        type="text"
-                        value={selectedElement.caption || ''}
-                        onChange={(e) => updateSelectedElement({ caption: e.target.value })}
-                        className="studio-prop-input"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Shape / Container Properties */}
-                {selectedElement.type === 'shape' && (
-                  <div className="space-y-2.5">
-                    <div>
-                      <label className="studio-prop-label">Background Color</label>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="color"
-                          value={selectedElement.style?.backgroundColor || '#1E293B'}
-                          onChange={(e) =>
-                            updateSelectedElement({
-                              style: { ...selectedElement.style, backgroundColor: e.target.value },
-                            })
-                          }
-                          className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
-                        />
-                        <input
-                          type="text"
-                          value={selectedElement.style?.backgroundColor || '#1E293B'}
-                          onChange={(e) =>
-                            updateSelectedElement({
-                              style: { ...selectedElement.style, backgroundColor: e.target.value },
-                            })
-                          }
-                          className="studio-prop-input font-mono uppercase text-xs"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="studio-prop-label">Border Radius</label>
-                        <input
-                          type="number"
-                          value={selectedElement.style?.borderRadius || 16}
-                          onChange={(e) =>
-                            updateSelectedElement({
-                              style: { ...selectedElement.style, borderRadius: parseInt(e.target.value, 10) || 0 },
-                            })
-                          }
-                          className="studio-prop-input"
-                        />
-                      </div>
-                      <div>
-                        <label className="studio-prop-label">Border Width</label>
-                        <input
-                          type="number"
-                          value={selectedElement.style?.borderWidth || 1}
-                          onChange={(e) =>
-                            updateSelectedElement({
-                              style: { ...selectedElement.style, borderWidth: parseInt(e.target.value, 10) || 0 },
-                            })
-                          }
-                          className="studio-prop-input"
-                        />
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
