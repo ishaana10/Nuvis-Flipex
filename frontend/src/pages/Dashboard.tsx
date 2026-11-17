@@ -70,12 +70,47 @@ interface JobQueueItem {
   createdAt: string;
 }
 
-export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 'flipbooks' }) {
+export interface CommercialLead {
+  id: number;
+  flipbookId: number | null;
+  flipbookTitle: string;
+  flipbookSlug: string;
+  pageNumber: number | null;
+  productTitle: string;
+  productSku: string;
+  productPrice: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  quantity: number;
+  notes: string;
+  status: 'new' | 'contacted' | 'quoted' | 'converted' | 'closed';
+  source: string;
+  createdAt: string;
+}
+
+export interface LeadStats {
+  total: number;
+  new: number;
+  converted: number;
+}
+
+export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 'flipbooks' | 'leads' }) {
   const { user, can } = useAuth();
   const [items, setItems] = useState<Flipbook[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [jobs, setJobs] = useState<JobQueueItem[]>([]);
+
+  // Commercial Leads & Storefront State (Phase 3)
+  const [leads, setLeads] = useState<CommercialLead[]>([]);
+  const [leadStats, setLeadStats] = useState<LeadStats>({ total: 0, new: 0, converted: 0 });
+  const [leadLoading, setLeadLoading] = useState(false);
+  const [leadStatusFilter, setLeadStatusFilter] = useState<string>('all');
+  const [leadQuery, setLeadQuery] = useState('');
+  const [selectedLead, setSelectedLead] = useState<CommercialLead | null>(null);
+  const [storefrontInfo, setStorefrontInfo] = useState<{ slug: string; businessName: string; whatsappPhone: string } | null>(null);
+  const [copiedStorefrontLink, setCopiedStorefrontLink] = useState(false);
 
   const [q, setQ] = useState('');
   const [workflowFilter, setWorkflowFilter] = useState<string>('all');
@@ -127,6 +162,56 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     api<JobQueueItem[]>('/jobs').then(setJobs).catch(() => {});
   }, []);
 
+  const loadLeads = useCallback(() => {
+    setLeadLoading(true);
+    const params = new URLSearchParams();
+    if (leadStatusFilter && leadStatusFilter !== 'all') {
+      params.set('status', leadStatusFilter);
+    }
+    return api<{ leads: CommercialLead[]; stats: LeadStats }>(`/leads?${params.toString()}`)
+      .then((res) => {
+        if (res?.leads) setLeads(res.leads);
+        if (res?.stats) setLeadStats(res.stats);
+      })
+      .catch(() => {})
+      .finally(() => setLeadLoading(false));
+  }, [leadStatusFilter]);
+
+  const loadStorefrontInfo = useCallback(() => {
+    api<{ storefront: any }>('/biz/settings')
+      .then((res) => {
+        if (res?.storefront) setStorefrontInfo(res.storefront);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleUpdateLeadStatus = async (leadId: number, nextStatus: string) => {
+    try {
+      await api(`/leads/${leadId}`, 'PATCH', { status: nextStatus });
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, status: nextStatus as any } : l))
+      );
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead({ ...selectedLead, status: nextStatus as any });
+      }
+      loadLeads();
+    } catch (e: any) {
+      alert(`Could not update lead status: ${e.message}`);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: number) => {
+    if (!confirm('Are you sure you want to remove this lead record?')) return;
+    try {
+      await api(`/leads/${leadId}`, 'DELETE');
+      setLeads((prev) => prev.filter((l) => l.id !== leadId));
+      if (selectedLead?.id === leadId) setSelectedLead(null);
+      loadLeads();
+    } catch (e: any) {
+      alert(`Could not delete lead: ${e.message}`);
+    }
+  };
+
   const triggerQueueDrain = useCallback(async () => {
     if (workerBusyRef.current) return;
     workerBusyRef.current = true;
@@ -148,7 +233,9 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
   useEffect(() => {
     loadTaxonomy();
     loadJobs();
-  }, [loadTaxonomy, loadJobs]);
+    loadLeads();
+    loadStorefrontInfo();
+  }, [loadTaxonomy, loadJobs, loadLeads, loadStorefrontInfo]);
 
   // Poll while anything is converting so progress bars update. Polling uses exponential back-off
   // (2s → 15s, reset when the set of processing items changes), pauses while the tab is hidden, and
@@ -343,6 +430,20 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     }
   };
 
+  const filteredLeads = leads.filter((l) => {
+    if (leadQuery) {
+      const qLower = leadQuery.toLowerCase();
+      const match =
+        l.customerName.toLowerCase().includes(qLower) ||
+        l.customerEmail.toLowerCase().includes(qLower) ||
+        (l.customerPhone && l.customerPhone.toLowerCase().includes(qLower)) ||
+        (l.productTitle && l.productTitle.toLowerCase().includes(qLower)) ||
+        (l.flipbookTitle && l.flipbookTitle.toLowerCase().includes(qLower));
+      if (!match) return false;
+    }
+    return true;
+  });
+
   return (
     <div
       onDragOver={(e) => {
@@ -379,11 +480,17 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
       <div className="row head" style={{ flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ margin: '0 0 4px 0' }}>
-            {view === 'overview' ? 'Workspace Overview' : 'Your Flipbooks'}
+            {view === 'overview'
+              ? 'Workspace Overview'
+              : view === 'leads'
+              ? 'Commercial Storefront & Customer Leads'
+              : 'Your Flipbooks'}
           </h1>
           <p className="muted" style={{ margin: 0 }}>
             {view === 'overview'
               ? 'Executive Summary · Latest Publication Telemetry · Conversion Progress'
+              : view === 'leads'
+              ? 'Hotspot Leads Engine · Direct WhatsApp Ordering · Verified Storefront'
               : 'Full Publishing Lifecycle · Multi-Resolution WebP Engine · Version Control'}
           </p>
         </div>
@@ -448,6 +555,48 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
             </span>
           )}
         </div>
+      </div>
+
+      {/* 3-View Tab Navigation: Overview | Flipbooks | Storefront & Leads */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 mb-4 flex-wrap">
+        <Link
+          to="/dashboard"
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            view === 'overview'
+              ? 'bg-amber-400 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+          }`}
+          style={{ textDecoration: 'none' }}
+        >
+          📊 Executive Overview
+        </Link>
+        <Link
+          to="/flipbooks"
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            view === 'flipbooks'
+              ? 'bg-amber-400 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+          }`}
+          style={{ textDecoration: 'none' }}
+        >
+          📚 Flipbooks Library ({items.length})
+        </Link>
+        <Link
+          to="/leads"
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+            view === 'leads'
+              ? 'bg-amber-400 text-slate-950 shadow-sm'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+          }`}
+          style={{ textDecoration: 'none' }}
+        >
+          <span>🏪</span> Storefront &amp; Leads CRM
+          {leadStats.new > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-bold">
+              {leadStats.new} new
+            </span>
+          )}
+        </Link>
       </div>
 
       {/* Live Byte-Level Upload Progress Banner */}
@@ -606,7 +755,395 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
         </div>
       )}
 
-      {/* Search + Taxonomy & Workflow Filters */}
+      {view === 'leads' ? (
+        <div className="flex flex-col gap-4">
+          {/* Storefront Live Showcase Card */}
+          <div
+            className="card"
+            style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              borderRadius: '16px',
+              padding: '20px',
+            }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-2xl">🏪</span>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white m-0 truncate">
+                    {storefrontInfo?.businessName || 'Your Business Storefront'}
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-400 text-slate-950">
+                    Live Public Portal
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 m-0">
+                  Public Storefront URL:{' '}
+                  <code className="bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded font-mono text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+                    {window.location.origin}/biz/{storefrontInfo?.slug || 'storefront'}
+                  </code>
+                </p>
+                {storefrontInfo?.whatsappPhone && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 m-0 mt-1 font-semibold">
+                    💬 Direct WhatsApp Ordering Active: +{storefrontInfo.whatsappPhone}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {storefrontInfo?.slug && (
+                  <>
+                    <a
+                      href={`/biz/${storefrontInfo.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-primary"
+                      style={{ fontSize: '12px', padding: '7px 14px', textDecoration: 'none' }}
+                    >
+                      Open Public Storefront ↗
+                    </a>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ fontSize: '12px', padding: '7px 12px' }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/biz/${storefrontInfo.slug}`);
+                        setCopiedStorefrontLink(true);
+                        setTimeout(() => setCopiedStorefrontLink(false), 2500);
+                      }}
+                    >
+                      {copiedStorefrontLink ? '✓ Copied URL' : '📋 Copy Link'}
+                    </button>
+                  </>
+                )}
+                <Link
+                  to="/settings#storefront"
+                  className="btn-secondary"
+                  style={{ fontSize: '12px', padding: '7px 12px', textDecoration: 'none' }}
+                >
+                  ⚙️ Storefront Settings
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* CRM KPI Metrics Tiles */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="card p-4 rounded-xl flex flex-col justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Inquiries</span>
+              <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{leadStats.total}</div>
+              <span className="text-[11px] text-slate-400 mt-1">From reader hotspots &amp; storefront</span>
+            </div>
+            <div className="card p-4 rounded-xl flex flex-col justify-between border-l-4 border-amber-500">
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">New Leads</span>
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{leadStats.new}</div>
+              <span className="text-[11px] text-slate-400 mt-1">Awaiting sales team contact</span>
+            </div>
+            <div className="card p-4 rounded-xl flex flex-col justify-between border-l-4 border-blue-500">
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">In Contact / Quoted</span>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                {leads.filter((l) => l.status === 'contacted' || l.status === 'quoted').length}
+              </div>
+              <span className="text-[11px] text-slate-400 mt-1">Active customer negotiations</span>
+            </div>
+            <div className="card p-4 rounded-xl flex flex-col justify-between border-l-4 border-emerald-500">
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Converted</span>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{leadStats.converted}</div>
+              <span className="text-[11px] text-slate-400 mt-1">Orders closed &amp; fulfilled</span>
+            </div>
+          </div>
+
+          {/* Search & Status Filters */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <input
+              type="text"
+              placeholder="Search leads by customer name, email, phone, product title or publication..."
+              value={leadQuery}
+              onChange={(e) => setLeadQuery(e.target.value)}
+              className="search"
+              style={{ margin: 0, flex: '1 1 280px' }}
+            />
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'all', label: `All (${leadStats.total})` },
+                { id: 'new', label: `New (${leadStats.new})` },
+                { id: 'contacted', label: 'Contacted' },
+                { id: 'quoted', label: 'Quoted' },
+                { id: 'converted', label: `Converted (${leadStats.converted})` },
+                { id: 'closed', label: 'Closed' },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setLeadStatusFilter(pill.id)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    leadStatusFilter === pill.id
+                      ? 'bg-amber-400 text-slate-950 shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Commercial Leads Table */}
+          {filteredLeads.length === 0 ? (
+            <div className="card p-12 text-center">
+              <div className="text-3xl mb-2">📋</div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+                {leadLoading ? 'Loading inquiries...' : 'No customer inquiries found'}
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Customer leads from interactive product hotspots and your public storefront will appear here in real time.
+              </p>
+            </div>
+          ) : (
+            <div className="card overflow-x-auto p-0 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'var(--header-bg, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>
+                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Customer</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Product / Publication</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Notes / Inquiry</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Date</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Status</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLeads.map((lead) => (
+                    <tr
+                      key={lead.id}
+                      style={{ borderBottom: '1px solid var(--border-color, #e2e8f0)', verticalAlign: 'middle' }}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
+                    >
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="font-bold text-slate-900 dark:text-white">{lead.customerName}</div>
+                        <a
+                          href={`mailto:${lead.customerEmail}`}
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline block"
+                        >
+                          {lead.customerEmail}
+                        </a>
+                        {lead.customerPhone && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[11px] text-slate-500">{lead.customerPhone}</span>
+                            <a
+                              href={`https://wa.me/${lead.customerPhone.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+                              title="Chat on WhatsApp"
+                            >
+                              💬 WhatsApp
+                            </a>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        {lead.productTitle ? (
+                          <>
+                            <div className="font-semibold text-slate-900 dark:text-white">
+                              {lead.productTitle}
+                              {lead.quantity > 1 && (
+                                <span className="ml-1 text-xs text-amber-600 dark:text-amber-400 font-bold">
+                                  × {lead.quantity}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {lead.productSku && `SKU: ${lead.productSku} · `}
+                              {lead.productPrice && `${lead.productPrice} · `}
+                              {lead.pageNumber && `Page ${lead.pageNumber}`}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-slate-500 text-xs">General Business Inquiry</span>
+                        )}
+                        {lead.flipbookTitle && (
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            📖 {lead.flipbookTitle}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', maxWidth: '280px' }}>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 m-0 line-clamp-2">
+                          {lead.notes || '—'}
+                        </p>
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontSize: '12px', color: '#64748b' }}>
+                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <select
+                          value={lead.status}
+                          onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)}
+                          className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900"
+                          style={{
+                            color:
+                              lead.status === 'new'
+                                ? '#d97706'
+                                : lead.status === 'converted'
+                                ? '#059669'
+                                : lead.status === 'contacted'
+                                ? '#2563eb'
+                                : '#64748b',
+                          }}
+                        >
+                          <option value="new">🟡 New</option>
+                          <option value="contacted">🔵 Contacted</option>
+                          <option value="quoted">🟣 Quoted</option>
+                          <option value="converted">🟢 Converted</option>
+                          <option value="closed">⚪ Closed</option>
+                        </select>
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedLead(lead)}
+                            className="btn-secondary boardui-btn-sm"
+                            style={{ fontSize: '11px', padding: '4px 8px' }}
+                            title="View inquiry details"
+                          >
+                            👁️
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteLead(lead.id)}
+                            className="btn-secondary boardui-btn-sm"
+                            style={{ fontSize: '11px', padding: '4px 8px', color: '#ef4444' }}
+                            title="Delete lead record"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Lead Details Modal */}
+          {selectedLead && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+              <div className="card w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white m-0">
+                      Inquiry from {selectedLead.customerName}
+                    </h3>
+                    <span className="text-xs text-slate-400">
+                      Received {new Date(selectedLead.createdAt).toLocaleString()} · ID #{selectedLead.id}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLead(null)}
+                    className="rounded-full p-1 text-slate-400 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                    <span className="text-slate-400 block mb-1">Customer Email</span>
+                    <a
+                      href={`mailto:${selectedLead.customerEmail}`}
+                      className="font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {selectedLead.customerEmail}
+                    </a>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                    <span className="text-slate-400 block mb-1">Phone / WhatsApp</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {selectedLead.customerPhone || 'Not provided'}
+                    </span>
+                  </div>
+                  {selectedLead.productTitle && (
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 col-span-2">
+                      <span className="text-slate-400 block mb-1">Target Product &amp; Publication</span>
+                      <div className="font-bold text-slate-900 dark:text-white">
+                        {selectedLead.productTitle}{' '}
+                        {selectedLead.quantity > 1 && `(Qty: ${selectedLead.quantity})`}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {selectedLead.productSku && `SKU: ${selectedLead.productSku} · `}
+                        {selectedLead.productPrice && `Price: ${selectedLead.productPrice} · `}
+                        {selectedLead.pageNumber && `Page ${selectedLead.pageNumber} · `}
+                        {selectedLead.flipbookTitle && `Catalogue: ${selectedLead.flipbookTitle}`}
+                      </div>
+                    </div>
+                  )}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 col-span-2">
+                    <span className="text-slate-400 block mb-1">Customer Notes / Message</span>
+                    <p className="text-slate-800 dark:text-slate-200 m-0 whitespace-pre-wrap leading-relaxed">
+                      {selectedLead.notes || 'No extra notes submitted.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Status:</label>
+                    <select
+                      value={selectedLead.status}
+                      onChange={(e) => handleUpdateLeadStatus(selectedLead.id, e.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900"
+                    >
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="quoted">Quoted</option>
+                      <option value="converted">Converted</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedLead.customerPhone && (
+                      <a
+                        href={`https://wa.me/${selectedLead.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                          `Hi ${selectedLead.customerName}, thank you for your inquiry on ${selectedLead.productTitle || 'our catalogue'}!`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn-primary"
+                        style={{ fontSize: '12px', padding: '6px 12px', textDecoration: 'none', background: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                      >
+                        💬 WhatsApp Reply
+                      </a>
+                    )}
+                    <a
+                      href={`mailto:${selectedLead.customerEmail}?subject=${encodeURIComponent(
+                        `Inquiry Reply: ${selectedLead.productTitle || 'Your Catalogue Inquiry'}`
+                      )}`}
+                      className="btn-secondary"
+                      style={{ fontSize: '12px', padding: '6px 12px', textDecoration: 'none' }}
+                    >
+                      ✉️ Email Reply
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLead(null)}
+                      className="btn-secondary"
+                      style={{ fontSize: '12px', padding: '6px 12px' }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Search + Taxonomy & Workflow Filters */}
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -933,6 +1470,8 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {share && <ShareDialog flipbook={share} onClose={() => setShare(null)} onSaved={load} />}

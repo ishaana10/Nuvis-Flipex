@@ -8,6 +8,7 @@ use App\Controllers\AnalyticsController;
 use App\Controllers\AuthController;
 use App\Controllers\BillingController;
 use App\Controllers\BrandKitController;
+use App\Controllers\CommercialController;
 use App\Controllers\DevOpsController;
 use App\Controllers\FlipbookController;
 use App\Controllers\HotspotController;
@@ -161,6 +162,23 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $bk->delete('/{id:[0-9]+}', [BrandKitController::class, 'delete']);
         $bk->post('/{id:[0-9]+}/apply/{flipbookId:[0-9]+}', [BrandKitController::class, 'apply']);
     })->add(new TenantScope())->add(new Auth());
+
+    // Phase 3: Commercial Leads & Storefront Management
+    $g->group('/leads', function (RouteCollectorProxy $ld) {
+        $ld->get('', [CommercialController::class, 'listLeads']);
+        $ld->patch('/{id:[0-9]+}', [CommercialController::class, 'updateLead']);
+        $ld->delete('/{id:[0-9]+}', [CommercialController::class, 'deleteLead']);
+    })->add(new TenantScope())->add(new Auth());
+
+    $g->group('/biz/settings', function (RouteCollectorProxy $bs) {
+        $bs->get('', [CommercialController::class, 'getStorefrontSettings']);
+        $bs->post('', [CommercialController::class, 'updateStorefrontSettings']);
+    })->add(new TenantScope())->add(new Auth());
+
+    // Phase 3: Public Business Profile & Hotspot Commercial Inquiries
+    $g->get('/public/biz/{slug}', [CommercialController::class, 'publicBizProfile']);
+    $g->post('/public/biz/{slug}/contact', [CommercialController::class, 'publicBizContact'])->add(new RateLimit('contact', 10, 300));
+    $g->post('/public/{slug}/inquire', [CommercialController::class, 'publicInquire'])->add(new RateLimit('inquire', 20, 300));
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);
     $g->get('/public/{slug}/cover', [PublicController::class, 'cover']);

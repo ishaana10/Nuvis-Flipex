@@ -129,4 +129,8 @@ export const MessageSquare = (p: SVGProps<SVGSVGElement>) => (
   <IconBase {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></IconBase>
 );
 
+export const Search = (p: SVGProps<SVGSVGElement>) => (
+  <IconBase {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></IconBase>
+);
+
 

@@ -209,6 +209,7 @@ export function ProtectedRoute() {
     location.pathname.startsWith('/flipbooks') ||
     location.pathname.startsWith('/dashboard/preview') ||
     location.pathname.startsWith('/dashboard/editor');
+  const isLeads = location.pathname.startsWith('/leads');
   const isAnalytics = location.pathname.startsWith('/dashboard/analytics');
   const isIntegrations = location.pathname.startsWith('/integrations');
   const isBilling = location.pathname.startsWith('/billing');
@@ -275,7 +276,22 @@ export function ProtectedRoute() {
             <span className="sidebar-label">Flipbooks</span>
           </Link>
 
-          {/* 3. Extensible Modules Slot (For adding new modules later) */}
+          {/* 3. Commercial Storefront & Customer Leads */}
+          <Link
+            to="/leads"
+            className={`sidebar-item ${isLeads && !activeModuleHub ? 'active' : ''}`}
+            onClick={() => setActiveModuleHub(null)}
+            title="Storefront & Customer Product Inquiries CRM"
+          >
+            <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <path d="M16 10a4 4 0 0 1-8 0" />
+            </svg>
+            <span className="sidebar-label">Storefront</span>
+          </Link>
+
+          {/* 4. Extensible Modules Slot (For adding new modules later) */}
           <button
             type="button"
             className={`sidebar-item ${activeModuleHub === 'modules' ? 'active' : ''}`}

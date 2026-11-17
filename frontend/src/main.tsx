@@ -14,6 +14,7 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 // Route-level chunks: a public reader never downloads dashboard / admin / billing / DevOps code.
 const PublicViewer = lazy(() => import('./pages/PublicViewer'));
+const PublicBusinessProfile = lazy(() => import('./pages/PublicBusinessProfile'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Preview = lazy(() => import('./pages/Preview'));
 const HotspotEditor = lazy(() => import('./pages/HotspotEditor'));
@@ -44,9 +45,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/forgot-password" element={<Boundary area="password reset"><ForgotPassword /></Boundary>} />
           <Route path="/reset-password" element={<Boundary area="password reset"><ResetPassword /></Boundary>} />
           <Route path="/v/:slug" element={<Boundary area="reader"><PublicViewer /></Boundary>} />
+          <Route path="/biz/:slug" element={<Boundary area="business profile"><PublicBusinessProfile /></Boundary>} />
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Boundary area="dashboard"><Dashboard view="overview" /></Boundary>} />
             <Route path="/flipbooks" element={<Boundary area="dashboard"><Dashboard view="flipbooks" /></Boundary>} />
+            <Route path="/leads" element={<Boundary area="commercial leads"><Dashboard view="leads" /></Boundary>} />
             <Route path="/integrations" element={<Boundary area="integrations"><IntegrationsHub /></Boundary>} />
             <Route path="/billing" element={<Boundary area="billing"><BillingPortal /></Boundary>} />
             <Route path="/devops" element={<Boundary area="DevOps"><DevOpsCenter /></Boundary>} />

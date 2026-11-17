@@ -52,6 +52,40 @@ export default function Settings() {
   // Tenant / Company Billing Details
   const [tenantBilling, setTenantBilling] = useState<TenantBilling | null>(null);
 
+  // Storefront & Commercial Profile Settings
+  const [storefront, setStorefront] = useState<{
+    id?: number;
+    businessName: string;
+    slug: string;
+    tagline: string;
+    bio: string;
+    phone: string;
+    whatsappPhone: string;
+    email: string;
+    address: string;
+    websiteUrl: string;
+    currency: string;
+    bannerUrl: string;
+    logoUrl: string;
+    isVerified?: boolean;
+  }>({
+    businessName: '',
+    slug: '',
+    tagline: '',
+    bio: '',
+    phone: '',
+    whatsappPhone: '',
+    email: '',
+    address: '',
+    websiteUrl: '',
+    currency: 'FJD',
+    bannerUrl: '',
+    logoUrl: '',
+  });
+  const [storefrontMsg, setStorefrontMsg] = useState('');
+  const [storefrontBusy, setStorefrontBusy] = useState(false);
+  const [copiedStorefrontLink, setCopiedStorefrontLink] = useState(false);
+
   useEffect(() => {
     api<any>('/me').then((d) => {
       if (d) {
@@ -63,7 +97,37 @@ export default function Settings() {
     api<TenantBilling>('/me/tenant-billing').then((d) => {
       if (d) setTenantBilling(d);
     }).catch(() => {});
+
+    api<{ storefront: any }>('/biz/settings').then((d) => {
+      if (d?.storefront) {
+        setStorefront((prev) => ({
+          ...prev,
+          ...d.storefront,
+        }));
+      }
+    }).catch(() => {});
   }, []);
+
+  const handleSaveStorefront = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStorefrontBusy(true);
+    setStorefrontMsg('');
+    try {
+      const res = await api<{ storefront: any; message: string }>('/biz/settings', 'POST', storefront);
+      if (res?.storefront) {
+        setStorefront((prev) => ({
+          ...prev,
+          ...res.storefront,
+        }));
+      }
+      setStorefrontMsg('Business storefront details saved successfully!');
+      setTimeout(() => setStorefrontMsg(''), 4000);
+    } catch (err: any) {
+      setStorefrontMsg(`Failed: ${err.message}`);
+    } finally {
+      setStorefrontBusy(false);
+    }
+  };
 
   const toggle2fa = async () => {
     const nextState = !twoFactorEnabled;
@@ -572,6 +636,247 @@ export default function Settings() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Phase 3: Public Business Profile & Storefront Hub */}
+      <div className="card" id="storefront">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0 }}>🏪 Public Business Profile &amp; Storefront</h2>
+              {storefront.isVerified && (
+                <span style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
+                  ✓ Verified Merchant
+                </span>
+              )}
+            </div>
+            <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
+              Configure your public storefront (`/biz/{storefront.slug || 'slug'}`) showcasing your corporate brand, contact channels, and all published digital catalogues.
+            </p>
+          </div>
+          {storefront.slug && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <a
+                href={`/biz/${storefront.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+                style={{ fontSize: '12px', padding: '6px 12px', textDecoration: 'none' }}
+              >
+                View Live Storefront ↗
+              </a>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ fontSize: '12px', padding: '6px 12px' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/biz/${storefront.slug}`);
+                  setCopiedStorefrontLink(true);
+                  setTimeout(() => setCopiedStorefrontLink(false), 2500);
+                }}
+              >
+                {copiedStorefrontLink ? '✓ Copied Link' : '📋 Copy Storefront Link'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {storefrontMsg && (
+          <div style={{
+            background: storefrontMsg.startsWith('Failed') ? '#fef2f2' : '#ecfdf5',
+            border: `1px solid ${storefrontMsg.startsWith('Failed') ? '#fecaca' : '#a7f3d0'}`,
+            color: storefrontMsg.startsWith('Failed') ? '#b91c1c' : '#065f46',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '13px',
+            marginBottom: '14px'
+          }}>
+            {storefrontMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSaveStorefront} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Business / Company Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={storefront.businessName}
+                onChange={(e) => setStorefront({ ...storefront, businessName: e.target.value })}
+                placeholder="e.g. Mannat Investments Pte Ltd"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Storefront Slug (URL)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRight: 'none', padding: '8px 10px', borderRadius: '8px 0 0 8px', fontSize: '12px', color: '#64748b' }}>
+                  /biz/
+                </span>
+                <input
+                  type="text"
+                  value={storefront.slug}
+                  onChange={(e) => setStorefront({ ...storefront, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
+                  placeholder="mannat-investments"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '0 8px 8px 0', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Company Tagline / Subtitle
+              </label>
+              <input
+                type="text"
+                value={storefront.tagline}
+                onChange={(e) => setStorefront({ ...storefront, tagline: e.target.value })}
+                placeholder="e.g. Quality Wholesale Food Products & Commercial Supplies in Fiji"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                About Company / Bio Description
+              </label>
+              <textarea
+                rows={3}
+                value={storefront.bio}
+                onChange={(e) => setStorefront({ ...storefront, bio: e.target.value })}
+                placeholder="Brief introduction of your business, services, catalogues, and wholesale terms..."
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', resize: 'vertical' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                💬 WhatsApp Order Number (Direct Chat)
+              </label>
+              <input
+                type="text"
+                value={storefront.whatsappPhone}
+                onChange={(e) => setStorefront({ ...storefront, whatsappPhone: e.target.value })}
+                placeholder="e.g. 6799991234 (Country code + number)"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+              <span className="muted" style={{ fontSize: '11px' }}>Enables 1-click WhatsApp order buttons in catalogue reader modals</span>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Direct Telephone
+              </label>
+              <input
+                type="text"
+                value={storefront.phone}
+                onChange={(e) => setStorefront({ ...storefront, phone: e.target.value })}
+                placeholder="e.g. +679 330 1234"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Sales Inquiry Email
+              </label>
+              <input
+                type="email"
+                value={storefront.email}
+                onChange={(e) => setStorefront({ ...storefront, email: e.target.value })}
+                placeholder="e.g. marketing@mannat.com.fj"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Official Website
+              </label>
+              <input
+                type="url"
+                value={storefront.websiteUrl}
+                onChange={(e) => setStorefront({ ...storefront, websiteUrl: e.target.value })}
+                placeholder="https://www.mannat.com.fj"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Base Currency Code
+              </label>
+              <select
+                value={storefront.currency}
+                onChange={(e) => setStorefront({ ...storefront, currency: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              >
+                <option value="FJD">FJD ($ Fiji Dollar)</option>
+                <option value="USD">USD ($ US Dollar)</option>
+                <option value="AUD">AUD ($ Australian Dollar)</option>
+                <option value="NZD">NZD ($ New Zealand Dollar)</option>
+                <option value="EUR">EUR (€ Euro)</option>
+                <option value="GBP">GBP (£ British Pound)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Physical Address / Office
+              </label>
+              <input
+                type="text"
+                value={storefront.address}
+                onChange={(e) => setStorefront({ ...storefront, address: e.target.value })}
+                placeholder="e.g. Lot 12 Wailada Industrial Sub-Division, Lami, Fiji"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Company Logo URL
+              </label>
+              <input
+                type="url"
+                value={storefront.logoUrl}
+                onChange={(e) => setStorefront({ ...storefront, logoUrl: e.target.value })}
+                placeholder="https://.../logo.png"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Storefront Banner Image URL
+              </label>
+              <input
+                type="url"
+                value={storefront.bannerUrl}
+                onChange={(e) => setStorefront({ ...storefront, bannerUrl: e.target.value })}
+                placeholder="https://.../banner.jpg"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+            <button
+              type="submit"
+              disabled={storefrontBusy}
+              className="btn-primary"
+              style={{ padding: '8px 20px', fontSize: '13px' }}
+            >
+              {storefrontBusy ? 'Saving Storefront…' : 'Save Storefront Settings'}
+            </button>
+          </div>
+        </form>
       </div>
 
       <div className="card">

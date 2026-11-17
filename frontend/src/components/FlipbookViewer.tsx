@@ -3,6 +3,7 @@ import { PageFlip } from 'page-flip';
 import { playPageFlipSound, unlockAudio } from '../utils/sound';
 import { getCanvasDpr, getReaderProfile, pagesToLoad } from './viewer/adaptiveLoading';
 import type { FlipbookSettings } from './CustomizationDialog';
+import { api } from '../api/client';
 
 export interface PageInfo {
   n: number;
@@ -353,6 +354,14 @@ export default function FlipbookViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
   const [activeProduct, setActiveProduct] = useState<ViewerHotspot | null>(null);
+  const [showProductInquiryForm, setShowProductInquiryForm] = useState(false);
+  const [productInquiryName, setProductInquiryName] = useState('');
+  const [productInquiryEmail, setProductInquiryEmail] = useState('');
+  const [productInquiryPhone, setProductInquiryPhone] = useState('');
+  const [productInquiryQty, setProductInquiryQty] = useState(1);
+  const [productInquiryNotes, setProductInquiryNotes] = useState('');
+  const [productInquiryBusy, setProductInquiryBusy] = useState(false);
+  const [productInquirySuccess, setProductInquirySuccess] = useState('');
   const [activeLightboxImage, setActiveLightboxImage] = useState<{ url: string; title: string } | null>(null);
   const [scrubPreviewPage, setScrubPreviewPage] = useState<number | null>(null);
 
@@ -4073,6 +4082,113 @@ export default function FlipbookViewer({
                 </p>
               )}
 
+              {/* Direct Inquiry Form Toggle / Expansion */}
+              {showProductInquiryForm ? (
+                <div className="mt-3 p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-amber-400">Send Direct Sales Inquiry</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowProductInquiryForm(false)}
+                      className="text-[11px] text-slate-400 hover:text-white"
+                    >
+                      ✕ Cancel
+                    </button>
+                  </div>
+
+                  {productInquirySuccess ? (
+                    <div className="text-center py-2 text-xs text-emerald-400 font-semibold">
+                      ✓ {productInquirySuccess}
+                    </div>
+                  ) : (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!slug || !activeProduct || !productInquiryName.trim() || !productInquiryEmail.trim()) return;
+                        setProductInquiryBusy(true);
+                        try {
+                          await api(`/public/${slug}/inquire`, 'POST', {
+                            name: productInquiryName.trim(),
+                            email: productInquiryEmail.trim(),
+                            phone: productInquiryPhone.trim(),
+                            quantity: productInquiryQty,
+                            notes: productInquiryNotes.trim(),
+                            productTitle: activeProduct.payload.title || 'Product',
+                            sku: activeProduct.payload.sku,
+                            price: activeProduct.payload.price,
+                            pageNumber: activeProduct.pageNumber || current + 1,
+                          });
+                          setProductInquirySuccess('Inquiry received! Our sales representative will be in touch.');
+                          setProductInquiryName('');
+                          setProductInquiryEmail('');
+                          setProductInquiryPhone('');
+                          setProductInquiryNotes('');
+                          setTimeout(() => {
+                            setProductInquirySuccess('');
+                            setShowProductInquiryForm(false);
+                          }, 3500);
+                        } catch {
+                          alert('Unable to submit inquiry at this moment.');
+                        } finally {
+                          setProductInquiryBusy(false);
+                        }
+                      }}
+                      className="space-y-2 text-left"
+                    >
+                      <input
+                        type="text"
+                        required
+                        placeholder="Your Full Name *"
+                        value={productInquiryName}
+                        onChange={(e) => setProductInquiryName(e.target.value)}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="email"
+                          required
+                          placeholder="Email Address *"
+                          value={productInquiryEmail}
+                          onChange={(e) => setProductInquiryEmail(e.target.value)}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                        />
+                        <input
+                          type="tel"
+                          placeholder="Phone / WhatsApp"
+                          value={productInquiryPhone}
+                          onChange={(e) => setProductInquiryPhone(e.target.value)}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-400">Qty:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={productInquiryQty}
+                          onChange={(e) => setProductInquiryQty(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-16 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white outline-none focus:border-amber-400 text-center"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Delivery town / notes (optional)"
+                          value={productInquiryNotes}
+                          onChange={(e) => setProductInquiryNotes(e.target.value)}
+                          className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={productInquiryBusy}
+                        className="w-full py-1.5 rounded-lg bg-amber-400 text-slate-950 text-xs font-bold hover:bg-amber-300 disabled:opacity-50 shadow"
+                      >
+                        {productInquiryBusy ? 'Sending…' : 'Submit Product Inquiry'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
                 {activeProduct.payload.url && (
                   <a
@@ -4114,9 +4230,22 @@ export default function FlipbookViewer({
                     💬 Inquire on WhatsApp
                   </a>
                 )}
+                {!showProductInquiryForm && (
+                  <button
+                    type="button"
+                    onClick={() => setShowProductInquiryForm(true)}
+                    className="rounded-xl border border-amber-400/50 bg-amber-400/10 px-3.5 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-400/20"
+                    title="Send inquiry without WhatsApp"
+                  >
+                    📋 Email Inquiry
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setActiveProduct(null)}
+                  onClick={() => {
+                    setActiveProduct(null);
+                    setShowProductInquiryForm(false);
+                  }}
                   className="rounded-xl border border-slate-700 px-3.5 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
                 >
                   Close
