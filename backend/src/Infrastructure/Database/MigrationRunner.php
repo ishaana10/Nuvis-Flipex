@@ -439,7 +439,7 @@ final class MigrationRunner
             'downSql' => 'DROP TABLE IF EXISTS commercial_leads; DROP TABLE IF EXISTS tenant_storefronts;',
             'reversible' => true,
         ],
-        '2026_11_17_000011_educational_publishing_and_institution_workspaces' => [
+        '2026_11_17_000011_educational_publishing' => [
             'description' => 'Educational institution profiles, lesson worksheets & attachments, and student study notes',
             'upSql' => "
                 CREATE TABLE IF NOT EXISTS `educational_profiles` (
@@ -559,6 +559,10 @@ final class MigrationRunner
               executed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
+
+        try {
+            Db::pdo()->exec("ALTER TABLE schema_migrations MODIFY version VARCHAR(120)");
+        } catch (\Throwable) {}
 
         $applied = array_column(Db::all('SELECT version FROM schema_migrations'), 'version');
         $maxBatch = (int) (Db::one('SELECT COALESCE(MAX(batch), 0) AS b FROM schema_migrations')['b'] ?? 0) + 1;
