@@ -1071,7 +1071,7 @@ final class StudioController
             $elements = $p['elements'] ? json_decode($p['elements'], true) : [];
             $bgColor = $bg['value'] ?? '#ffffff';
 
-            $html .= '<div class="page-container" style="background-color: ' . htmlspecialchars($bgColor) . ';">';
+            $html .= '<div class="page-container" style="background: ' . htmlspecialchars($bgColor) . ';">';
 
             foreach ($elements as $el) {
                 $type = $el['type'] ?? 'generic';

@@ -117,7 +117,14 @@ export interface StudioPage {
   id: number;
   document_id: number;
   page_number: number;
-  background?: { type: string; value: string };
+  background?: {
+    type: string;
+    value: string;
+    stop1?: string;
+    stop2?: string;
+    stop3?: string;
+    angle?: number | 'radial';
+  };
   elements: CanvasElement[];
   thumbnail_url?: string;
 }
@@ -161,6 +168,36 @@ export interface StudioAsset {
   file_url: string;
   file_size: number;
 }
+
+export const GRADIENT_PRESETS = [
+  { name: 'Cosmic Aurora', stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 as number | 'radial' },
+  { name: 'Sunset Radiance', stop1: '#f59e0b', stop2: '#ef4444', stop3: '#7c3aed', angle: 135 as number | 'radial' },
+  { name: 'Tropical Emerald', stop1: '#064e3b', stop2: '#059669', stop3: '#10b981', angle: 135 as number | 'radial' },
+  { name: 'Ocean Abyss', stop1: '#0f172a', stop2: '#0e7490', stop3: '#14b8a6', angle: 180 as number | 'radial' },
+  { name: 'Royal Orchid', stop1: '#2e1065', stop2: '#7c3aed', stop3: '#c026d3', angle: 135 as number | 'radial' },
+  { name: 'Clean Frost', stop1: '#f8fafc', stop2: '#e2e8f0', stop3: '#cbd5e1', angle: 180 as number | 'radial' },
+  { name: 'Warm Parchment', stop1: '#fffbeb', stop2: '#fef3c7', stop3: '#fed7aa', angle: 180 as number | 'radial' },
+  { name: 'Midnight Obsidian', stop1: '#020617', stop2: '#0f172a', stop3: '#1e1b4b', angle: 135 as number | 'radial' },
+];
+
+export const ALIGNMENT_OPTIONS: { angle: number | 'radial'; icon: string; label: string }[] = [
+  { angle: 315, icon: '↖', label: 'Top-Left (315°)' },
+  { angle: 0, icon: '⬆', label: 'Up (0°)' },
+  { angle: 45, icon: '↗', label: 'Top-Right (45°)' },
+  { angle: 270, icon: '⬅', label: 'Left (270°)' },
+  { angle: 'radial', icon: '⊙', label: 'Radial Glow' },
+  { angle: 90, icon: '➔', label: 'Right (90°)' },
+  { angle: 225, icon: '↙', label: 'Bottom-Left (225°)' },
+  { angle: 180, icon: '⬇', label: 'Down (180°)' },
+  { angle: 135, icon: '↘', label: 'Bottom-Right (135°)' },
+];
+
+export const buildGradientCss = (stop1: string, stop2: string, stop3: string, angle: number | 'radial') => {
+  if (angle === 'radial') {
+    return `radial-gradient(circle at center, ${stop1} 0%, ${stop2} 50%, ${stop3} 100%)`;
+  }
+  return `linear-gradient(${angle}deg, ${stop1} 0%, ${stop2} 50%, ${stop3} 100%)`;
+};
 
 export default function FlipexStudio() {
   const { id: routeDocId } = useParams<{ id?: string }>();
@@ -220,6 +257,12 @@ export default function FlipexStudio() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(false);
 
+  // Inspector Tab Switching: Element Properties vs Page & 3-Gradient Background
+  const [inspectorTab, setInspectorTab] = useState<'element' | 'page'>('page');
+
+  // Page Background Style Mode: 3-Color Gradient vs Solid Mono Color
+  const [bgMode, setBgMode] = useState<'gradient' | 'solid'>('gradient');
+
   // Auto-Fit Canvas to Screen Viewport
   const handleFitToScreen = useCallback(() => {
     if (!mainRef.current) return;
@@ -236,6 +279,16 @@ export default function FlipexStudio() {
     const fitZoom = Math.min(200, Math.max(30, Math.round(fitScale * 100)));
     setZoom(fitZoom);
   }, [currentDoc]);
+
+  // Auto-fit canvas to viewport when document loads or panels collapse/expand
+  useEffect(() => {
+    if (currentDoc) {
+      const timer = setTimeout(() => {
+        handleFitToScreen();
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [currentDoc?.id, sidebarCollapsed, inspectorCollapsed, handleFitToScreen]);
 
   // Load document list
   const loadDocuments = useCallback(async () => {
@@ -2052,7 +2105,7 @@ export default function FlipexStudio() {
               height: `${docH}px`,
               transform: `scale(${scale})`,
               transformOrigin: 'center center',
-              backgroundColor: activePage?.background?.value || '#FFFFFF',
+              background: activePage?.background?.value || '#FFFFFF',
               boxShadow: '0 25px 65px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
             }}
             className="relative transition-transform duration-75 select-none rounded-sm overflow-hidden"
@@ -2369,12 +2422,12 @@ export default function FlipexStudio() {
         {/* RIGHT PROPERTY INSPECTOR (Collapsible) */}
         <aside
           style={{
-            width: inspectorCollapsed ? '0px' : '285px',
-            minWidth: inspectorCollapsed ? '0px' : '285px',
-            maxWidth: inspectorCollapsed ? '0px' : '285px',
+            width: inspectorCollapsed ? '0px' : '315px',
+            minWidth: inspectorCollapsed ? '0px' : '315px',
+            maxWidth: inspectorCollapsed ? '0px' : '315px',
             padding: inspectorCollapsed ? '0px' : '16px',
             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-            overflow: 'hidden',
+            overflowY: 'auto',
             background: '#090d16',
             borderLeft: inspectorCollapsed ? 'none' : '1px solid #1e293b',
             fontSize: '0.78rem',
@@ -2382,361 +2435,905 @@ export default function FlipexStudio() {
             color: '#f8fafc',
           }}
         >
-          {selectedElement ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold uppercase tracking-wider text-slate-400 text-[10px]">
-                  {selectedElement.type} Element
-                </span>
-                <button
-                  onClick={deleteSelectedElement}
-                  className="text-rose-400 hover:text-white hover:bg-rose-950/60 font-bold px-2 py-0.5 rounded cursor-pointer transition-colors"
-                  title="Delete element"
-                >
-                  Delete ✕
-                </button>
-              </div>
+          {/* Top Inspector Tab Selector */}
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: '#0b1120', padding: '3px', borderRadius: '10px', border: '1px solid #1e293b' }}>
+            <button
+              type="button"
+              onClick={() => setInspectorTab('element')}
+              style={{
+                flex: 1,
+                padding: '7px 4px',
+                borderRadius: '7px',
+                fontSize: '11px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: inspectorTab === 'element' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
+                color: inspectorTab === 'element' ? '#ffffff' : '#94a3b8',
+                boxShadow: inspectorTab === 'element' ? '0 2px 8px rgba(99,102,241,0.3)' : 'none',
+              }}
+            >
+              ✏️ Element {selectedElement ? '' : '(None)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setInspectorTab('page')}
+              style={{
+                flex: 1,
+                padding: '7px 4px',
+                borderRadius: '7px',
+                fontSize: '11px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: inspectorTab === 'page' ? 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' : 'transparent',
+                color: inspectorTab === 'page' ? '#ffffff' : '#94a3b8',
+                boxShadow: inspectorTab === 'page' ? '0 2px 8px rgba(168,85,247,0.3)' : 'none',
+              }}
+            >
+              🎨 Page &amp; 3-Gradient
+            </button>
+          </div>
 
-              {/* Position & Size */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-400 mb-1.5">Position &amp; Dimensions</label>
-                <div className="grid grid-cols-2 gap-2 font-mono">
-                  <div>
-                    <span className="text-[10px] text-slate-500">X:</span>
-                    <input
-                      type="number"
-                      value={selectedElement.x}
-                      onChange={(e) => updateSelectedElement({ x: parseInt(e.target.value, 10) || 0 })}
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500">Y:</span>
-                    <input
-                      type="number"
-                      value={selectedElement.y}
-                      onChange={(e) => updateSelectedElement({ y: parseInt(e.target.value, 10) || 0 })}
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500">W:</span>
-                    <input
-                      type="number"
-                      value={selectedElement.w}
-                      onChange={(e) => updateSelectedElement({ w: parseInt(e.target.value, 10) || 20 })}
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500">H:</span>
-                    <input
-                      type="number"
-                      value={selectedElement.h}
-                      onChange={(e) => updateSelectedElement({ h: parseInt(e.target.value, 10) || 20 })}
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Layer Ordering */}
-              <div>
-                <label className="block text-[10px] text-slate-400 font-bold mb-1">Layer Ordering</label>
-                <div className="flex gap-1.5">
+          {inspectorTab === 'element' ? (
+            selectedElement ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold uppercase tracking-wider text-indigo-400 text-[10px]">
+                    {selectedElement.type.replace('_', ' ')} Element
+                  </span>
                   <button
-                    type="button"
-                    onClick={() => {
-                      const currentZ = selectedElement.style?.zIndex || 10;
-                      updateSelectedElement({
-                        style: { ...selectedElement.style, zIndex: Math.min(100, currentZ + 5) },
-                      });
-                    }}
-                    className="studio-tool-btn cosmic"
-                    style={{ flex: 1, padding: '5px 0', fontSize: '11px' }}
+                    onClick={deleteSelectedElement}
+                    className="text-rose-400 hover:text-white hover:bg-rose-950/60 font-bold px-2 py-0.5 rounded cursor-pointer transition-colors text-xs"
+                    title="Delete element"
                   >
-                    ▲ Bring Forward
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentZ = selectedElement.style?.zIndex || 10;
-                      updateSelectedElement({
-                        style: { ...selectedElement.style, zIndex: Math.max(1, currentZ - 5) },
-                      });
-                    }}
-                    className="studio-tool-btn ocean"
-                    style={{ flex: 1, padding: '5px 0', fontSize: '11px' }}
-                  >
-                    ▼ Send Backward
+                    Delete ✕
                   </button>
                 </div>
-              </div>
 
-              {/* Magazine Column Properties */}
-              {selectedElement.type === 'column_text' && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
+                {/* Position & Size */}
+                <div>
+                  <label className="studio-prop-label">Position &amp; Dimensions</label>
+                  <div className="grid grid-cols-2 gap-2 font-mono">
                     <div>
-                      <label className="block text-[10px] text-slate-500 mb-0.5">Columns</label>
+                      <span className="studio-prop-sublabel">X Position (pt)</span>
+                      <input
+                        type="number"
+                        value={selectedElement.x}
+                        onChange={(e) => updateSelectedElement({ x: parseInt(e.target.value, 10) || 0 })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                    <div>
+                      <span className="studio-prop-sublabel">Y Position (pt)</span>
+                      <input
+                        type="number"
+                        value={selectedElement.y}
+                        onChange={(e) => updateSelectedElement({ y: parseInt(e.target.value, 10) || 0 })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                    <div>
+                      <span className="studio-prop-sublabel">Width (pt)</span>
+                      <input
+                        type="number"
+                        value={selectedElement.w}
+                        onChange={(e) => updateSelectedElement({ w: parseInt(e.target.value, 10) || 20 })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                    <div>
+                      <span className="studio-prop-sublabel">Height (pt)</span>
+                      <input
+                        type="number"
+                        value={selectedElement.h}
+                        onChange={(e) => updateSelectedElement({ h: parseInt(e.target.value, 10) || 20 })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Layer Ordering */}
+                <div>
+                  <label className="studio-prop-label">Layer Stacking Order</label>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentZ = selectedElement.style?.zIndex || 10;
+                        updateSelectedElement({
+                          style: { ...selectedElement.style, zIndex: Math.min(100, currentZ + 5) },
+                        });
+                      }}
+                      className="studio-tool-btn cosmic"
+                      style={{ flex: 1, padding: '6px 0', fontSize: '11px' }}
+                    >
+                      ▲ Bring Forward
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentZ = selectedElement.style?.zIndex || 10;
+                        updateSelectedElement({
+                          style: { ...selectedElement.style, zIndex: Math.max(1, currentZ - 5) },
+                        });
+                      }}
+                      className="studio-tool-btn ocean"
+                      style={{ flex: 1, padding: '6px 0', fontSize: '11px' }}
+                    >
+                      ▼ Send Backward
+                    </button>
+                  </div>
+                </div>
+
+                {/* Magazine Column Properties */}
+                {selectedElement.type === 'column_text' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="studio-prop-label">Columns</label>
+                        <select
+                          value={selectedElement.columns || 2}
+                          onChange={(e) => updateSelectedElement({ columns: parseInt(e.target.value, 10) })}
+                          className="studio-prop-select"
+                        >
+                          <option value={1}>1 Column</option>
+                          <option value={2}>2 Columns</option>
+                          <option value={3}>3 Columns</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="studio-prop-label">Drop-Cap</label>
+                        <button
+                          type="button"
+                          onClick={() => updateSelectedElement({ dropCap: !selectedElement.dropCap })}
+                          className={`w-full py-1.5 rounded font-bold text-xs ${
+                            selectedElement.dropCap ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {selectedElement.dropCap ? 'Drop-Cap ON' : 'Drop-Cap OFF'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Text Properties */}
+                {(selectedElement.type === 'text' || selectedElement.type === 'badge' || selectedElement.type === 'column_text') && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="studio-prop-label">Text Content</label>
+                      <textarea
+                        rows={3}
+                        value={selectedElement.content || ''}
+                        onChange={(e) => updateSelectedElement({ content: e.target.value })}
+                        className="studio-prop-textarea"
+                      />
+                    </div>
+                    <div>
+                      <label className="studio-prop-label">Font Family</label>
                       <select
-                        value={selectedElement.columns || 2}
-                        onChange={(e) => updateSelectedElement({ columns: parseInt(e.target.value, 10) })}
-                        className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs text-slate-200"
+                        value={selectedElement.style?.fontFamily || 'Inter, sans-serif'}
+                        onChange={(e) =>
+                          updateSelectedElement({
+                            style: { ...selectedElement.style, fontFamily: e.target.value },
+                          })
+                        }
+                        className="studio-prop-select"
                       >
-                        <option value={1}>1 Column</option>
-                        <option value={2}>2 Columns</option>
-                        <option value={3}>3 Columns</option>
+                        <option value="Inter, sans-serif">Modern Sans (Inter)</option>
+                        <option value="'Playfair Display', Georgia, serif">Editorial Serif (Playfair)</option>
+                        <option value="'Courier New', monospace">Technical Mono</option>
+                        <option value="'Dancing Script', cursive">Handwritten Script</option>
+                        <option value="'Oswald', sans-serif">Impact Display (Oswald)</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] text-slate-500 mb-0.5">Drop-Cap</label>
-                      <button
-                        onClick={() => updateSelectedElement({ dropCap: !selectedElement.dropCap })}
-                        className={`w-full py-1.5 rounded font-bold text-xs ${
-                          selectedElement.dropCap ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-800 text-slate-300'
-                        }`}
-                      >
-                        {selectedElement.dropCap ? 'Drop-Cap ON' : 'Drop-Cap OFF'}
-                      </button>
+                      <label className="studio-prop-label">Text Alignment</label>
+                      <div className="flex gap-1">
+                        {(['left', 'center', 'right', 'justify'] as const).map((align) => (
+                          <button
+                            key={align}
+                            type="button"
+                            onClick={() =>
+                              updateSelectedElement({
+                                style: { ...selectedElement.style, textAlign: align },
+                              })
+                            }
+                            style={{
+                              flex: 1,
+                              padding: '5px 0',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background:
+                                (selectedElement.style?.textAlign || 'left') === align
+                                  ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
+                                  : '#1e293b',
+                              color:
+                                (selectedElement.style?.textAlign || 'left') === align
+                                  ? '#ffffff'
+                                  : '#94a3b8',
+                              border:
+                                (selectedElement.style?.textAlign || 'left') === align
+                                  ? 'none'
+                                  : '1px solid #334155',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {align === 'left' ? '⇤' : align === 'center' ? '≡' : align === 'right' ? '⇥' : '↔'}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Text Properties */}
-              {(selectedElement.type === 'text' || selectedElement.type === 'badge' || selectedElement.type === 'column_text') && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1">Content</label>
-                    <textarea
-                      rows={3}
-                      value={selectedElement.content || ''}
-                      onChange={(e) => updateSelectedElement({ content: e.target.value })}
-                      className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-800 text-xs text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-0.5">Font Family</label>
-                    <select
-                      value={selectedElement.style?.fontFamily || 'Inter, sans-serif'}
-                      onChange={(e) =>
-                        updateSelectedElement({
-                          style: { ...selectedElement.style, fontFamily: e.target.value },
-                        })
-                      }
-                      className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-800 text-xs text-slate-200"
-                    >
-                      <option value="Inter, sans-serif">Modern Sans (Inter)</option>
-                      <option value="'Playfair Display', Georgia, serif">Editorial Serif (Playfair)</option>
-                      <option value="'Courier New', monospace">Technical Mono</option>
-                      <option value="'Dancing Script', cursive">Handwritten Script</option>
-                      <option value="'Oswald', sans-serif">Impact Display (Oswald)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-0.5">Text Alignment</label>
-                    <div className="flex gap-1">
-                      {(['left', 'center', 'right', 'justify'] as const).map((align) => (
-                        <button
-                          key={align}
-                          type="button"
-                          onClick={() =>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="studio-prop-label">Font Size (px)</label>
+                        <input
+                          type="number"
+                          value={selectedElement.style?.fontSize || 16}
+                          onChange={(e) =>
                             updateSelectedElement({
-                              style: { ...selectedElement.style, textAlign: align },
+                              style: { ...selectedElement.style, fontSize: parseInt(e.target.value, 10) || 12 },
                             })
                           }
-                          style={{
-                            flex: 1,
-                            padding: '4px 0',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            background:
-                              (selectedElement.style?.textAlign || 'left') === align
-                                ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
-                                : '#1e293b',
-                            color:
-                              (selectedElement.style?.textAlign || 'left') === align
-                                ? '#ffffff'
-                                : '#94a3b8',
-                            border:
-                              (selectedElement.style?.textAlign || 'left') === align
-                                ? 'none'
-                                : '1px solid #334155',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {align === 'left' ? '⇤' : align === 'center' ? '≡' : align === 'right' ? '⇥' : '↔'}
-                        </button>
-                      ))}
+                          className="studio-prop-input"
+                        />
+                      </div>
+                      <div>
+                        <label className="studio-prop-label">Text Color</label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={selectedElement.style?.color || '#0F172A'}
+                            onChange={(e) =>
+                              updateSelectedElement({
+                                style: { ...selectedElement.style, color: e.target.value },
+                              })
+                            }
+                            className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                          />
+                          <input
+                            type="text"
+                            value={selectedElement.style?.color || '#0F172A'}
+                            onChange={(e) =>
+                              updateSelectedElement({
+                                style: { ...selectedElement.style, color: e.target.value },
+                              })
+                            }
+                            className="studio-prop-input font-mono uppercase text-xs"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                )}
+
+                {/* Product Card Properties */}
+                {selectedElement.type === 'product' && (
+                  <div className="space-y-2.5">
                     <div>
-                      <label className="block text-[10px] text-slate-500 mb-0.5">Font Size</label>
+                      <label className="studio-prop-label">Product Title</label>
                       <input
-                        type="number"
-                        value={selectedElement.style?.fontSize || 16}
-                        onChange={(e) =>
-                          updateSelectedElement({
-                            style: { ...selectedElement.style, fontSize: parseInt(e.target.value, 10) || 12 },
-                          })
-                        }
-                        className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
+                        type="text"
+                        value={selectedElement.name || ''}
+                        onChange={(e) => updateSelectedElement({ name: e.target.value })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="studio-prop-label">Selling Price</label>
+                        <input
+                          type="text"
+                          value={selectedElement.price || ''}
+                          onChange={(e) => updateSelectedElement({ price: e.target.value })}
+                          className="studio-prop-input font-bold"
+                          style={{ color: '#f87171' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="studio-prop-label">Was Price</label>
+                        <input
+                          type="text"
+                          value={selectedElement.originalPrice || ''}
+                          onChange={(e) => updateSelectedElement({ originalPrice: e.target.value })}
+                          className="studio-prop-input"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="studio-prop-label">Promo Badge</label>
+                      <input
+                        type="text"
+                        value={selectedElement.badge || ''}
+                        onChange={(e) => updateSelectedElement({ badge: e.target.value })}
+                        className="studio-prop-input font-bold"
+                        style={{ color: '#fbbf24' }}
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-slate-500 mb-0.5">Color</label>
+                      <label className="studio-prop-label">Image URL</label>
+                      <input
+                        type="text"
+                        value={selectedElement.image || ''}
+                        onChange={(e) => updateSelectedElement({ image: e.target.value })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="studio-prop-label">WhatsApp Order Number</label>
+                      <input
+                        type="text"
+                        value={selectedElement.whatsappNumber || ''}
+                        onChange={(e) => updateSelectedElement({ whatsappNumber: e.target.value })}
+                        placeholder="+6799991234"
+                        className="studio-prop-input font-mono"
+                        style={{ color: '#34d399' }}
+                      />
+                    </div>
+                    {selectedElement.whatsappNumber && (
+                      <a
+                        href={`https://wa.me/${selectedElement.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                          `Bula! I would like to order: ${selectedElement.name || 'Product'} (${selectedElement.price || ''}) SKU: ${selectedElement.sku || 'N/A'}`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="studio-gradient-btn emerald"
+                        style={{
+                          width: '100%',
+                          marginTop: '6px',
+                          padding: '7px 12px',
+                          fontSize: '11px',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        <span>💬</span> Test WhatsApp Ordering Link ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Image Element Properties */}
+                {selectedElement.type === 'image' && (
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="studio-prop-label">Image Source URL</label>
+                      <input
+                        type="text"
+                        value={selectedElement.src || ''}
+                        onChange={(e) => updateSelectedElement({ src: e.target.value })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="studio-prop-label">Caption</label>
+                      <input
+                        type="text"
+                        value={selectedElement.caption || ''}
+                        onChange={(e) => updateSelectedElement({ caption: e.target.value })}
+                        className="studio-prop-input"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Shape / Container Properties */}
+                {selectedElement.type === 'shape' && (
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="studio-prop-label">Background Color</label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={selectedElement.style?.backgroundColor || '#1E293B'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, backgroundColor: e.target.value },
+                            })
+                          }
+                          className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                        />
+                        <input
+                          type="text"
+                          value={selectedElement.style?.backgroundColor || '#1E293B'}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, backgroundColor: e.target.value },
+                            })
+                          }
+                          className="studio-prop-input font-mono uppercase text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="studio-prop-label">Border Radius</label>
+                        <input
+                          type="number"
+                          value={selectedElement.style?.borderRadius || 16}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, borderRadius: parseInt(e.target.value, 10) || 0 },
+                            })
+                          }
+                          className="studio-prop-input"
+                        />
+                      </div>
+                      <div>
+                        <label className="studio-prop-label">Border Width</label>
+                        <input
+                          type="number"
+                          value={selectedElement.style?.borderWidth || 1}
+                          onChange={(e) =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, borderWidth: parseInt(e.target.value, 10) || 0 },
+                            })
+                          }
+                          className="studio-prop-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* No element selected empty state */
+              <div style={{ textAlign: 'center', padding: '36px 12px' }}>
+                <div style={{ fontSize: '32px', marginBottom: '10px' }}>🎯</div>
+                <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#f1f5f9', marginBottom: '6px' }}>
+                  No Element Selected
+                </h4>
+                <p style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.5, marginBottom: '16px' }}>
+                  Click any element on the canvas to inspect and edit its position, font, colors, and content.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setInspectorTab('page')}
+                  className="studio-gradient-btn cosmic"
+                  style={{ padding: '8px 16px', fontSize: '11px', borderRadius: '8px' }}
+                >
+                  🎨 Open Page &amp; 3-Gradient Settings
+                </button>
+              </div>
+            )
+          ) : (
+            /* ==========================================================
+               PAGE & 3-GRADIENT STUDIO SUITE
+               ========================================================== */
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="font-bold uppercase tracking-wider text-purple-400 text-[10px]">
+                  Page {activePageIndex + 1} of {pages.length} Background
+                </span>
+                <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+                  {activePage?.background?.type === 'gradient' ? '3-Gradient' : 'Solid Color'}
+                </span>
+              </div>
+
+              {/* Background Style Mode Picker */}
+              <div style={{ display: 'flex', gap: '4px', background: '#0b1120', padding: '3px', borderRadius: '8px', border: '1px solid #1e293b' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBgMode('gradient');
+                    if (activePage?.background?.type !== 'gradient') {
+                      const s1 = activePage?.background?.stop1 || '#6366f1';
+                      const s2 = activePage?.background?.stop2 || '#a855f7';
+                      const s3 = activePage?.background?.stop3 || '#ec4899';
+                      const ang = activePage?.background?.angle ?? 135;
+                      const css = buildGradientCss(s1, s2, s3, ang);
+                      const updated = [...pages];
+                      updated[activePageIndex] = {
+                        ...updated[activePageIndex],
+                        background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                      };
+                      setPages(updated);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 4px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    background: bgMode === 'gradient' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
+                    color: bgMode === 'gradient' ? '#ffffff' : '#94a3b8',
+                  }}
+                >
+                  🌈 3-Color Gradient
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBgMode('solid');
+                    if (activePage?.background?.type !== 'color') {
+                      const updated = [...pages];
+                      updated[activePageIndex] = {
+                        ...updated[activePageIndex],
+                        background: { type: 'color', value: '#FFFFFF' },
+                      };
+                      setPages(updated);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 4px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    background: bgMode === 'solid' ? 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)' : 'transparent',
+                    color: bgMode === 'solid' ? '#ffffff' : '#94a3b8',
+                  }}
+                >
+                  🎨 Solid Color
+                </button>
+              </div>
+
+              {bgMode === 'gradient' ? (
+                /* 3-GRADIENT CONTROLS */
+                <div className="space-y-3.5">
+                  {/* Live Gradient Preview Swatch */}
+                  <div>
+                    <label className="studio-prop-label">Live Background Preview</label>
+                    <div
+                      style={{
+                        height: '52px',
+                        borderRadius: '10px',
+                        background: activePage?.background?.value || 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'relative',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: 'rgba(15, 23, 42, 0.75)',
+                          backdropFilter: 'blur(4px)',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: '#ffffff',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                        }}
+                      >
+                        {activePage?.background?.angle === 'radial' ? 'Radial Center Glow' : `${activePage?.background?.angle ?? 135}° Angle`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Gradient Alignment Options (Compass 3x3 Grid) */}
+                  <div>
+                    <label className="studio-prop-label">
+                      Alignment &amp; Direction (9 Options)
+                    </label>
+                    <div className="studio-align-grid">
+                      {ALIGNMENT_OPTIONS.map((opt) => {
+                        const currentAngle = activePage?.background?.angle ?? 135;
+                        const isCurrent = currentAngle === opt.angle;
+                        return (
+                          <button
+                            key={String(opt.angle)}
+                            type="button"
+                            onClick={() => {
+                              const s1 = activePage?.background?.stop1 || '#6366f1';
+                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s3 = activePage?.background?.stop3 || '#ec4899';
+                              const css = buildGradientCss(s1, s2, s3, opt.angle);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: {
+                                  type: 'gradient',
+                                  value: css,
+                                  stop1: s1,
+                                  stop2: s2,
+                                  stop3: s3,
+                                  angle: opt.angle,
+                                },
+                              };
+                              setPages(updated);
+                            }}
+                            className={`studio-align-btn ${isCurrent ? 'active' : ''}`}
+                            title={opt.label}
+                          >
+                            <span style={{ fontSize: '14px', lineHeight: 1 }}>{opt.icon}</span>
+                            <span style={{ fontSize: '9px', fontWeight: 700 }}>
+                              {opt.angle === 'radial' ? 'Radial' : `${opt.angle}°`}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 3 Color Gradient Stops */}
+                  <div>
+                    <label className="studio-prop-label">3 Color Gradient Stops</label>
+                    <div className="space-y-2">
+                      {/* Stop 1 */}
+                      <div>
+                        <span className="studio-prop-sublabel">Stop 1 (Start 0%)</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={activePage?.background?.stop1 || '#6366f1'}
+                            onChange={(e) => {
+                              const s1 = e.target.value;
+                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s3 = activePage?.background?.stop3 || '#ec4899';
+                              const ang = activePage?.background?.angle ?? 135;
+                              const css = buildGradientCss(s1, s2, s3, ang);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                              };
+                              setPages(updated);
+                            }}
+                            className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                          />
+                          <input
+                            type="text"
+                            value={activePage?.background?.stop1 || '#6366f1'}
+                            onChange={(e) => {
+                              const s1 = e.target.value;
+                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s3 = activePage?.background?.stop3 || '#ec4899';
+                              const ang = activePage?.background?.angle ?? 135;
+                              const css = buildGradientCss(s1, s2, s3, ang);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                              };
+                              setPages(updated);
+                            }}
+                            className="studio-prop-input font-mono uppercase text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Stop 2 */}
+                      <div>
+                        <span className="studio-prop-sublabel">Stop 2 (Midpoint 50%)</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={activePage?.background?.stop2 || '#a855f7'}
+                            onChange={(e) => {
+                              const s1 = activePage?.background?.stop1 || '#6366f1';
+                              const s2 = e.target.value;
+                              const s3 = activePage?.background?.stop3 || '#ec4899';
+                              const ang = activePage?.background?.angle ?? 135;
+                              const css = buildGradientCss(s1, s2, s3, ang);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                              };
+                              setPages(updated);
+                            }}
+                            className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                          />
+                          <input
+                            type="text"
+                            value={activePage?.background?.stop2 || '#a855f7'}
+                            onChange={(e) => {
+                              const s1 = activePage?.background?.stop1 || '#6366f1';
+                              const s2 = e.target.value;
+                              const s3 = activePage?.background?.stop3 || '#ec4899';
+                              const ang = activePage?.background?.angle ?? 135;
+                              const css = buildGradientCss(s1, s2, s3, ang);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                              };
+                              setPages(updated);
+                            }}
+                            className="studio-prop-input font-mono uppercase text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Stop 3 */}
+                      <div>
+                        <span className="studio-prop-sublabel">Stop 3 (End 100%)</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={activePage?.background?.stop3 || '#ec4899'}
+                            onChange={(e) => {
+                              const s1 = activePage?.background?.stop1 || '#6366f1';
+                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s3 = e.target.value;
+                              const ang = activePage?.background?.angle ?? 135;
+                              const css = buildGradientCss(s1, s2, s3, ang);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                              };
+                              setPages(updated);
+                            }}
+                            className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                          />
+                          <input
+                            type="text"
+                            value={activePage?.background?.stop3 || '#ec4899'}
+                            onChange={(e) => {
+                              const s1 = activePage?.background?.stop1 || '#6366f1';
+                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s3 = e.target.value;
+                              const ang = activePage?.background?.angle ?? 135;
+                              const css = buildGradientCss(s1, s2, s3, ang);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                              };
+                              setPages(updated);
+                            }}
+                            className="studio-prop-input font-mono uppercase text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 8 Pre-Crafted 3-Gradient Presets */}
+                  <div>
+                    <label className="studio-prop-label">Instant 3-Gradient Presets</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+                      {GRADIENT_PRESETS.map((preset) => {
+                        const presetCss = buildGradientCss(preset.stop1, preset.stop2, preset.stop3, preset.angle);
+                        const isSelected =
+                          activePage?.background?.stop1 === preset.stop1 &&
+                          activePage?.background?.stop2 === preset.stop2 &&
+                          activePage?.background?.stop3 === preset.stop3;
+                        return (
+                          <div
+                            key={preset.name}
+                            onClick={() => {
+                              const css = buildGradientCss(preset.stop1, preset.stop2, preset.stop3, preset.angle);
+                              const updated = [...pages];
+                              updated[activePageIndex] = {
+                                ...updated[activePageIndex],
+                                background: {
+                                  type: 'gradient',
+                                  value: css,
+                                  stop1: preset.stop1,
+                                  stop2: preset.stop2,
+                                  stop3: preset.stop3,
+                                  angle: preset.angle,
+                                },
+                              };
+                              setPages(updated);
+                            }}
+                            className={`studio-preset-card ${isSelected ? 'active' : ''}`}
+                            title={preset.name}
+                          >
+                            <div
+                              style={{
+                                height: '24px',
+                                borderRadius: '5px',
+                                background: presetCss,
+                                border: '1px solid rgba(255,255,255,0.1)',
+                              }}
+                            />
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {preset.name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* SOLID COLOR PALETTE */
+                <div className="space-y-3">
+                  <label className="studio-prop-label">Curated Magazine Colors</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {[
+                      { name: 'White', color: '#FFFFFF' },
+                      { name: 'Warm Cream', color: '#FDFBF7' },
+                      { name: 'Slate Light', color: '#F1F5F9' },
+                      { name: 'Dark Navy', color: '#0F172A' },
+                      { name: 'Midnight', color: '#090D16' },
+                      { name: 'Emerald Isle', color: '#064E3B' },
+                      { name: 'Royal Indigo', color: '#1E1B4B' },
+                      { name: 'Sunset Crimson', color: '#450A0A' },
+                    ].map((bg, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          const updated = [...pages];
+                          updated[activePageIndex].background = { type: 'color', value: bg.color };
+                          setPages(updated);
+                        }}
+                        style={{
+                          backgroundColor: bg.color,
+                          height: '32px',
+                          borderRadius: '6px',
+                          border: activePage?.background?.value === bg.color ? '2px solid #a855f7' : '1px solid #475569',
+                          cursor: 'pointer',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                        }}
+                        title={bg.name}
+                      />
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="studio-prop-label">Custom Solid Color</label>
+                    <div className="flex items-center gap-1.5">
                       <input
                         type="color"
-                        value={selectedElement.style?.color || '#0F172A'}
-                        onChange={(e) =>
-                          updateSelectedElement({
-                            style: { ...selectedElement.style, color: e.target.value },
-                          })
-                        }
-                        className="w-full h-8 rounded bg-slate-900 border border-slate-800 cursor-pointer"
+                        value={activePage?.background?.value && !activePage?.background?.value.includes('gradient') ? activePage.background.value : '#FFFFFF'}
+                        onChange={(e) => {
+                          const updated = [...pages];
+                          updated[activePageIndex].background = { type: 'color', value: e.target.value };
+                          setPages(updated);
+                        }}
+                        className="w-8 h-8 rounded border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                      />
+                      <input
+                        type="text"
+                        value={activePage?.background?.value && !activePage?.background?.value.includes('gradient') ? activePage.background.value : '#FFFFFF'}
+                        onChange={(e) => {
+                          const updated = [...pages];
+                          updated[activePageIndex].background = { type: 'color', value: e.target.value };
+                          setPages(updated);
+                        }}
+                        className="studio-prop-input font-mono uppercase text-xs"
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Product Card Properties */}
-              {selectedElement.type === 'product' && (
-                <div className="space-y-2.5">
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-0.5">Product Title</label>
-                    <input
-                      type="text"
-                      value={selectedElement.name || ''}
-                      onChange={(e) => updateSelectedElement({ name: e.target.value })}
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-0.5">Selling Price</label>
-                      <input
-                        type="text"
-                        value={selectedElement.price || ''}
-                        onChange={(e) => updateSelectedElement({ price: e.target.value })}
-                        className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs text-red-400 font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-0.5">Was Price</label>
-                      <input
-                        type="text"
-                        value={selectedElement.originalPrice || ''}
-                        onChange={(e) => updateSelectedElement({ originalPrice: e.target.value })}
-                        className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-0.5">Promo Badge</label>
-                    <input
-                      type="text"
-                      value={selectedElement.badge || ''}
-                      onChange={(e) => updateSelectedElement({ badge: e.target.value })}
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs text-amber-300 font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-0.5">Image URL</label>
-                    <input
-                      type="text"
-                      value={selectedElement.image || ''}
-                      onChange={(e) => updateSelectedElement({ image: e.target.value })}
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-0.5">WhatsApp Order Number</label>
-                    <input
-                      type="text"
-                      value={selectedElement.whatsappNumber || ''}
-                      onChange={(e) => updateSelectedElement({ whatsappNumber: e.target.value })}
-                      placeholder="+6799991234"
-                      className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs text-emerald-400 font-mono"
-                    />
-                  </div>
-                  {selectedElement.whatsappNumber && (
-                    <a
-                      href={`https://wa.me/${selectedElement.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                        `Bula! I would like to order: ${selectedElement.name || 'Product'} (${selectedElement.price || ''}) SKU: ${selectedElement.sku || 'N/A'}`
-                      )}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="studio-gradient-btn emerald"
-                      style={{
-                        width: '100%',
-                        marginTop: '6px',
-                        padding: '7px 12px',
-                        fontSize: '11px',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <span>💬</span> Test WhatsApp Ordering Link ↗
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Page Settings when no element is selected */
-            <div className="space-y-4">
-              <span className="font-bold uppercase tracking-wider text-slate-400 text-[10px] block border-b border-slate-800 pb-2">
-                Page {activePageIndex + 1} Settings
-              </span>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-2">Page Background</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '12px' }}>
-                  {[
-                    { name: 'White', color: '#FFFFFF' },
-                    { name: 'Warm Cream', color: '#FDFBF7' },
-                    { name: 'Slate Light', color: '#F1F5F9' },
-                    { name: 'Dark Navy', color: '#0F172A' },
-                    { name: 'Midnight', color: '#090D16' },
-                    { name: 'Emerald Isle', color: '#064E3B' },
-                    { name: 'Royal Indigo', color: '#1E1B4B' },
-                    { name: 'Sunset Crimson', color: '#450A0A' },
-                  ].map((bg, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        const updated = [...pages];
-                        updated[activePageIndex].background = { type: 'color', value: bg.color };
-                        setPages(updated);
-                      }}
-                      style={{
-                        backgroundColor: bg.color,
-                        height: '32px',
-                        borderRadius: '6px',
-                        border: activePage?.background?.value === bg.color ? '2px solid #a855f7' : '1px solid #475569',
-                        cursor: 'pointer',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                      }}
-                      title={bg.name}
-                    />
-                  ))}
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Color</label>
-                  <input
-                    type="color"
-                    value={activePage?.background?.value || '#FFFFFF'}
-                    onChange={(e) => {
-                      const updated = [...pages];
-                      updated[activePageIndex].background = { type: 'color', value: e.target.value };
-                      setPages(updated);
-                    }}
-                    style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid #334155', background: '#1e293b', cursor: 'pointer' }}
-                  />
-                </div>
+              {/* Action: Apply Background to All Pages */}
+              <div style={{ paddingTop: '8px', borderTop: '1px solid #1e293b' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentBg = activePage?.background || {
+                      type: 'gradient',
+                      value: buildGradientCss('#6366f1', '#a855f7', '#ec4899', 135),
+                      stop1: '#6366f1',
+                      stop2: '#a855f7',
+                      stop3: '#ec4899',
+                      angle: 135,
+                    };
+                    const updated = pages.map((p) => ({
+                      ...p,
+                      background: { ...currentBg },
+                    }));
+                    setPages(updated);
+                    alert(`✨ Successfully applied background to all ${pages.length} pages!`);
+                  }}
+                  className="studio-gradient-btn cosmic"
+                  style={{ width: '100%', padding: '9px 12px', fontSize: '11px', borderRadius: '8px' }}
+                >
+                  ✨ Apply to All {pages.length} Pages
+                </button>
               </div>
             </div>
           )}

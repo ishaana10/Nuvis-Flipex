@@ -810,7 +810,7 @@ export function ProtectedRoute() {
         )}
 
         {/* PAGE CONTENT */}
-        <main className="container app-main">
+        <main className={isStudio ? "app-main-studio" : "container app-main"}>
           {isUnauthorized ? (
             <div className="flex flex-col items-center justify-center p-8 my-12 text-center max-w-xl mx-auto">
               <div className="w-full card p-8 border border-amber-400/40 bg-white/95 dark:bg-slate-900/95 rounded-2xl shadow-2xl backdrop-blur-md">

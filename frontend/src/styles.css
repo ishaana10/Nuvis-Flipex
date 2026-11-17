@@ -5803,3 +5803,131 @@ html[data-theme="dark"] .studio-empty-desc {
   border: 1px solid rgba(168, 85, 247, 0.4);
   color: #e9d5ff;
 }
+
+/* ==========================================================================
+   FLIPEX STUDIO EXPANSIVE FULL-DESKTOP VIEWPORT & HIGH-CONTRAST PROPS
+   ========================================================================== */
+
+/* Full-width unconstrained studio layout - eliminates side whitespace on desktop */
+.app-main-studio {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: calc(100vh - 58px);
+}
+
+/* Studio Inspector Property Input Fields (Always high-contrast regardless of light/dark system mode) */
+.studio-prop-input,
+.studio-prop-select,
+.studio-prop-textarea {
+  background-color: #0b1120 !important;
+  border: 1px solid #334155 !important;
+  color: #f8fafc !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  padding: 6px 9px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  line-height: 1.4 !important;
+}
+
+.studio-prop-input:focus,
+.studio-prop-select:focus,
+.studio-prop-textarea:focus {
+  outline: none !important;
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.35) !important;
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+.studio-prop-input::placeholder,
+.studio-prop-textarea::placeholder {
+  color: #64748b !important;
+}
+
+.studio-prop-label {
+  display: block !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #e2e8f0 !important;
+  margin-bottom: 4px !important;
+  letter-spacing: 0.3px !important;
+}
+
+.studio-prop-sublabel {
+  display: block !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #94a3b8 !important;
+  margin-bottom: 3px !important;
+}
+
+/* 3-Gradient Alignment Compass Buttons */
+.studio-align-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.studio-align-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 4px;
+  background: #0b1120;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.studio-align-btn:hover {
+  background: #1e293b;
+  border-color: #64748b;
+  color: #f1f5f9;
+}
+
+.studio-align-btn.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35) 0%, rgba(168, 85, 247, 0.35) 100%) !important;
+  border-color: #a855f7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+/* 3-Gradient Preset Swatches */
+.studio-preset-card {
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid #334155;
+  background: #0b1120;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-preset-card:hover {
+  transform: translateY(-1px);
+  border-color: #818cf8;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.studio-preset-card.active {
+  border-color: #ec4899;
+  box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.4);
+}
+
