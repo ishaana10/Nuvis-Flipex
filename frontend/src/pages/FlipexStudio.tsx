@@ -188,9 +188,27 @@ export interface StudioTemplate {
   name: string;
   description: string;
   thumbnail_url: string;
+  preview_images?: string[];
   canvas_spec?: { pages: { background?: any; elements: CanvasElement[] }[] };
   is_system: number;
+  page_count?: number;
+  tenant_id?: number | null;
+  created_at?: string;
 }
+
+export const TEMPLATE_CATEGORIES = [
+  { id: 'all', label: 'All Categories', icon: '🌟' },
+  { id: 'retail_catalogue', label: 'Retail & Supermarket', icon: '🛒' },
+  { id: 'electronics_tech', label: 'Tech & Electronics', icon: '⚡' },
+  { id: 'food_restaurant', label: 'Food & Dining Menus', icon: '🍽️' },
+  { id: 'real_estate', label: 'Real Estate & Property', icon: '🏡' },
+  { id: 'school_yearbook', label: 'School & Yearbooks', icon: '🎓' },
+  { id: 'community_magazine', label: 'Editorial Magazines', icon: '📖' },
+  { id: 'wedding_album', label: 'Wedding & Keepsakes', icon: '💍' },
+  { id: 'annual_report', label: 'Corporate & Annual Reports', icon: '📊' },
+  { id: 'marketing_brochure', label: 'Marketing & Brochures', icon: '🚀' },
+  { id: 'creative_portfolio', label: 'Creative Portfolios', icon: '🎨' },
+];
 
 export interface StudioAsset {
   id: number;
@@ -242,6 +260,21 @@ export default function FlipexStudio() {
   const [loading, setLoading] = useState<boolean>(true);
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Stage 4: Template Platform & Discovery Browser State
+  const [hubView, setHubView] = useState<'documents' | 'templates'>('documents');
+  const [templateCategory, setTemplateCategory] = useState<string>('all');
+  const [templateSearch, setTemplateSearch] = useState<string>('');
+  const [templateDocType, setTemplateDocType] = useState<string>('all');
+  const [templateScope, setTemplateScope] = useState<'all' | 'system' | 'custom'>('all');
+  const [previewTemplate, setPreviewTemplate] = useState<StudioTemplate | null>(null);
+  const [previewPageIndex, setPreviewPageIndex] = useState<number>(0);
+  const [loadingTemplateDetail, setLoadingTemplateDetail] = useState<boolean>(false);
+  const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState<boolean>(false);
+  const [templateFormName, setTemplateFormName] = useState<string>('');
+  const [templateFormCategory, setTemplateFormCategory] = useState<string>('retail_catalogue');
+  const [templateFormDesc, setTemplateFormDesc] = useState<string>('');
+  const [savingTemplate, setSavingTemplate] = useState<boolean>(false);
 
   // Active Document in Editor
   const [currentDoc, setCurrentDoc] = useState<StudioDocument | null>(null);
@@ -403,15 +436,93 @@ export default function FlipexStudio() {
     }
   }, [searchQuery, filterType]);
 
-  // Load template library
+  // Load template library with search, category, and scope filters
   const loadTemplates = useCallback(async () => {
     try {
-      const res = await api<{ templates: StudioTemplate[] }>('/studio/templates');
+      const q = templateSearch ? `q=${encodeURIComponent(templateSearch)}&` : '';
+      const c = templateCategory !== 'all' ? `category=${encodeURIComponent(templateCategory)}&` : '';
+      const t = templateDocType !== 'all' ? `doc_type=${encodeURIComponent(templateDocType)}&` : '';
+      const s = templateScope !== 'all' ? `scope=${encodeURIComponent(templateScope)}&` : '';
+      const res = await api<{ templates: StudioTemplate[] }>(`/studio/templates?${q}${c}${t}${s}`);
       setTemplates(res.templates || []);
     } catch {
       //
     }
-  }, []);
+  }, [templateSearch, templateCategory, templateDocType, templateScope]);
+
+  // Stage 4: Open Template Multi-Page Interactive Preview
+  const handleOpenTemplatePreview = async (tpl: StudioTemplate) => {
+    setPreviewTemplate(tpl);
+    setPreviewPageIndex(0);
+    setLoadingTemplateDetail(true);
+    try {
+      const res = await api<{ template: StudioTemplate }>(`/studio/templates/${tpl.id}`);
+      if (res.template) {
+        setPreviewTemplate(res.template);
+      }
+    } catch {
+      // Keep lightweight tpl on network error
+    } finally {
+      setLoadingTemplateDetail(false);
+    }
+  };
+
+  // Stage 4: Launch Document from Template
+  const handleUseTemplate = async (templateId: number, customTitle?: string) => {
+    try {
+      setCreatingDoc(true);
+      const tpl = templates.find((t) => t.id === templateId) || previewTemplate;
+      const docTitle = customTitle || (tpl ? `${tpl.name} Project` : 'My New Publication');
+      const body = {
+        title: docTitle,
+        doc_type: tpl?.doc_type || 'catalogue',
+        orientation: 'portrait',
+        template_id: templateId,
+      };
+      const res = await api<{ ok: boolean; document_id: number }>('/studio/documents', 'POST', body);
+      setPreviewTemplate(null);
+      setShowNewDocModal(false);
+      navigate(`/studio/${res.document_id}`);
+      setActiveDocId(res.document_id);
+    } catch (e: any) {
+      alert('Failed to launch document from template: ' + (e?.message || 'Server error'));
+    } finally {
+      setCreatingDoc(false);
+    }
+  };
+
+  // Stage 4: Save current document as reusable template
+  const handleSaveAsTemplate = async () => {
+    if (!currentDoc || !templateFormName.trim() || savingTemplate) return;
+    setSavingTemplate(true);
+    try {
+      await api('/studio/templates', 'POST', {
+        name: templateFormName.trim(),
+        description: templateFormDesc.trim(),
+        category: templateFormCategory,
+        document_id: currentDoc.id,
+      });
+      setShowSaveAsTemplateModal(false);
+      setSaveMessage('✓ Document saved to Template Library!');
+      setTimeout(() => setSaveMessage(''), 4000);
+      loadTemplates();
+    } catch (e: any) {
+      alert('Failed to save template: ' + (e?.message || 'Server error'));
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  // Stage 4: Delete custom template
+  const handleDeleteCustomTemplate = async (templateId: number) => {
+    if (!window.confirm('Are you sure you want to delete this custom template?')) return;
+    try {
+      await api(`/studio/templates/${templateId}`, 'DELETE');
+      setTemplates((prev) => prev.filter((t) => t.id !== templateId));
+    } catch (e: any) {
+      alert('Failed to delete template: ' + (e?.message || 'Server error'));
+    }
+  };
 
   // Load single document in editor
   const loadDocumentEditor = useCallback(async (docId: number) => {
@@ -1298,7 +1409,34 @@ export default function FlipexStudio() {
           </div>
         </div>
 
-        {/* Filter Pills & Search */}
+        {/* Stage 4: Top Navigation View Switcher (My Documents vs Template Discovery Browser) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '14px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setHubView('documents')}
+            className={`studio-filter-pill ${hubView === 'documents' ? 'active' : ''}`}
+            style={{ fontSize: '0.88rem', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <span>📚</span>
+            <span>My Documents ({documents.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setHubView('templates');
+              loadTemplates();
+            }}
+            className={`studio-filter-pill ${hubView === 'templates' ? 'active' : ''}`}
+            style={{ fontSize: '0.88rem', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <span>🎨</span>
+            <span>Template Discovery Browser ({templates.length})</span>
+          </button>
+        </div>
+
+        {hubView === 'documents' ? (
+          <>
+            {/* Filter Pills & Search */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
             {[
@@ -1481,6 +1619,178 @@ export default function FlipexStudio() {
             ))}
           </div>
         )}
+          </>
+        ) : (
+          /* ==========================================================
+             STAGE 4: TEMPLATE PLATFORM & DISCOVERY BROWSER
+             ========================================================== */
+          <div className="space-y-6">
+            {/* 10 Commercial Categories Filter Row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '6px' }}>
+              {TEMPLATE_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setTemplateCategory(cat.id)}
+                  className={`studio-filter-pill ${templateCategory === cat.id ? 'active' : ''}`}
+                  style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Scope Tabs & Search Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setTemplateScope('all')}
+                  className={`studio-fmt-btn ${templateScope === 'all' ? 'active' : ''}`}
+                >
+                  All Templates
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplateScope('system')}
+                  className={`studio-fmt-btn ${templateScope === 'system' ? 'active' : ''}`}
+                >
+                  ⭐ Official Presets
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplateScope('custom')}
+                  className={`studio-fmt-btn ${templateScope === 'custom' ? 'active' : ''}`}
+                >
+                  🏢 My Custom Templates
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <select
+                  value={templateDocType}
+                  onChange={(e) => setTemplateDocType(e.target.value)}
+                  className="studio-prop-select"
+                  style={{ width: '160px', padding: '6px 10px', fontSize: '11px' }}
+                >
+                  <option value="all">All Formats</option>
+                  <option value="catalogue">🛒 Catalogues</option>
+                  <option value="magazine">📖 Magazines</option>
+                  <option value="album">📷 Photo Albums</option>
+                  <option value="custom">🎨 Custom</option>
+                </select>
+
+                <div className="studio-search-wrap" style={{ width: '240px' }}>
+                  <span className="studio-search-icon">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search templates…"
+                    value={templateSearch}
+                    onChange={(e) => setTemplateSearch(e.target.value)}
+                    className="studio-search-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Templates Grid */}
+            {templates.length === 0 ? (
+              <div className="studio-empty-state">
+                <div style={{ fontSize: '42px', marginBottom: '10px' }}>🔍</div>
+                <h3 className="studio-empty-title">No Templates Match Your Filters</h3>
+                <p className="studio-empty-desc">
+                  Try clearing the category filter or searching for another keyword like "Supermarket", "Yearbook", or "Menu".
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateCategory('all');
+                    setTemplateSearch('');
+                    setTemplateDocType('all');
+                    setTemplateScope('all');
+                  }}
+                  className="studio-gradient-btn cosmic"
+                  style={{ padding: '8px 18px', fontSize: '11px' }}
+                >
+                  Reset All Filters
+                </button>
+              </div>
+            ) : (
+              <div className="studio-template-grid">
+                {templates.map((tpl) => (
+                  <div key={tpl.id} className="studio-template-card">
+                    <div>
+                      {/* Thumbnail with overlay badges */}
+                      <div
+                        className="studio-template-thumb-wrap"
+                        onClick={() => handleOpenTemplatePreview(tpl)}
+                        title="Click to Preview Template Pages"
+                      >
+                        <img
+                          src={tpl.thumbnail_url}
+                          alt={tpl.name}
+                          className="studio-template-thumb"
+                        />
+                        <div className="studio-template-meta-badge">
+                          {tpl.category.replace('_', ' ')}
+                        </div>
+                        <div className="studio-template-pages-chip">
+                          📄 {tpl.page_count || 2} Pages
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <div style={{ padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#f8fafc', lineHeight: 1.3 }}>
+                            {tpl.name}
+                          </h4>
+                          {tpl.is_system === 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCustomTemplate(tpl.id);
+                              }}
+                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '13px' }}
+                              title="Delete this custom template"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+                        <p style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.5, margin: 0, minHeight: '36px' }}>
+                          {tpl.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Dual Action Buttons (3-Gradient) */}
+                    <div style={{ padding: '12px 16px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTemplatePreview(tpl)}
+                        className="studio-tool-btn ocean"
+                        style={{ flex: 1, padding: '8px 0', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                      >
+                        <span>👁️</span> Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUseTemplate(tpl.id)}
+                        className="studio-gradient-btn cosmic"
+                        style={{ flex: 1, padding: '8px 0', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                      >
+                        <span>✨</span> Use Template
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* New Document Modal */}
         {showNewDocModal && (
@@ -1601,6 +1911,203 @@ export default function FlipexStudio() {
                 >
                   {creatingDoc ? 'Launching Studio...' : 'Launch Studio 🚀'}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Stage 4: Multi-Page Interactive Template Preview Modal */}
+        {previewTemplate && (
+          <div className="studio-preview-modal-shell">
+            <div className="studio-preview-modal">
+              {/* Modal Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #1e293b' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>🎨</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc' }}>
+                      {previewTemplate.name}
+                    </h3>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {previewTemplate.category.replace('_', ' ')} • {previewTemplate.doc_type}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTemplate(null)}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer', padding: '4px' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="studio-preview-body">
+                {/* Left: Interactive Multi-Page Preview Sheet */}
+                <div className="studio-preview-viewer">
+                  {loadingTemplateDetail ? (
+                    <div style={{ color: '#94a3b8', fontSize: '12px' }}>Loading high-res template layout…</div>
+                  ) : (
+                    <>
+                      {/* Active Preview Page Display */}
+                      <div className="studio-preview-canvas-sheet">
+                        {previewTemplate.canvas_spec?.pages?.[previewPageIndex] ? (
+                          <div
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              position: 'relative',
+                              backgroundColor: previewTemplate.canvas_spec.pages[previewPageIndex].background?.value || '#ffffff',
+                              background: previewTemplate.canvas_spec.pages[previewPageIndex].background?.value || '#ffffff',
+                              overflow: 'hidden',
+                              padding: '16px',
+                            }}
+                          >
+                            {/* Scaled Preview of elements */}
+                            <div style={{ position: 'relative', width: '100%', height: '100%', transform: 'scale(0.55)', transformOrigin: 'top left' }}>
+                              {(previewTemplate.canvas_spec.pages[previewPageIndex].elements || []).map((el: any) => (
+                                <div
+                                  key={el.id}
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${el.x}px`,
+                                    top: `${el.y}px`,
+                                    width: `${el.w}px`,
+                                    height: `${el.h}px`,
+                                    backgroundColor: el.style?.backgroundColor,
+                                    color: el.style?.color || '#0f172a',
+                                    borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined,
+                                    fontSize: el.style?.fontSize ? `${el.style.fontSize}px` : '12px',
+                                    fontWeight: el.style?.fontWeight || 'normal',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {el.type === 'text' && (el.content || 'Sample Heading')}
+                                  {el.type === 'image' && el.src && (
+                                    <img src={el.src} alt="Sample" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  )}
+                                  {el.type === 'product' && (
+                                    <div style={{ padding: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+                                      {el.image && <img src={el.image} alt={el.name} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '6px' }} />}
+                                      <div style={{ fontWeight: 700, fontSize: '11px', marginTop: '4px' }}>{el.name}</div>
+                                      <div style={{ color: '#ef4444', fontWeight: 800 }}>{el.price}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <img
+                            src={previewTemplate.thumbnail_url}
+                            alt={previewTemplate.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Multi-Page Thumbnail Strip & Navigation */}
+                      <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: '#cbd5e1' }}>
+                          <button
+                            type="button"
+                            disabled={previewPageIndex <= 0}
+                            onClick={() => setPreviewPageIndex(Math.max(0, previewPageIndex - 1))}
+                            className="studio-tool-btn cosmic"
+                            style={{ padding: '3px 8px', fontSize: '11px' }}
+                          >
+                            ◀ Prev
+                          </button>
+                          <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>
+                            Page {previewPageIndex + 1} of {previewTemplate.canvas_spec?.pages?.length || previewTemplate.page_count || 1}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={previewPageIndex >= (previewTemplate.canvas_spec?.pages?.length || previewTemplate.page_count || 1) - 1}
+                            onClick={() => setPreviewPageIndex(previewPageIndex + 1)}
+                            className="studio-tool-btn cosmic"
+                            style={{ padding: '3px 8px', fontSize: '11px' }}
+                          >
+                            Next ▶
+                          </button>
+                        </div>
+
+                        {/* Page Thumbnails Selector */}
+                        <div className="studio-thumb-strip">
+                          {Array.from({ length: previewTemplate.canvas_spec?.pages?.length || previewTemplate.page_count || 1 }).map((_, pIdx) => (
+                            <div
+                              key={pIdx}
+                              onClick={() => setPreviewPageIndex(pIdx)}
+                              className={`studio-strip-thumb ${previewPageIndex === pIdx ? 'active' : ''}`}
+                              title={`View Page ${pIdx + 1}`}
+                            >
+                              <div style={{ width: '100%', height: '100%', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f8fafc', fontSize: '11px', fontWeight: 800 }}>
+                                P{pIdx + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Right: Specifications & One-Click Creation */}
+                <div className="studio-preview-details">
+                  <div>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                      <span className="studio-pill-tag">
+                        🌟 Commercial Starter
+                      </span>
+                      <span className="studio-pill-tag green">
+                        📄 {previewTemplate.canvas_spec?.pages?.length || previewTemplate.page_count || 2} Prebuilt Pages
+                      </span>
+                      <span className="studio-pill-tag purple">
+                        ✨ Ready to Customize
+                      </span>
+                    </div>
+
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 10px 0', color: '#f8fafc' }}>
+                      {previewTemplate.name}
+                    </h2>
+                    <p style={{ fontSize: '0.88rem', color: '#cbd5e1', lineHeight: 1.6, marginBottom: '20px' }}>
+                      {previewTemplate.description}
+                    </p>
+
+                    <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
+                      <h5 style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: 700, color: '#a855f7', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Template Specifications
+                      </h5>
+                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#94a3b8', lineHeight: 1.7 }}>
+                        <li>Fully customizable typography with 9 Google Web-Fonts</li>
+                        <li>High-res print-ready 300 DPI layout bounds</li>
+                        <li>Built-in 3-Gradient backgrounds and vector container geometry</li>
+                        <li>Instant 1-click publishing directly to interactive flipbook reader</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #1e293b', paddingTop: '20px' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewTemplate(null)}
+                        style={{ padding: '12px 18px', borderRadius: '10px', border: '1px solid #334155', background: 'transparent', color: '#cbd5e1', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                      >
+                        Back to Library
+                      </button>
+                      <button
+                        type="button"
+                        disabled={creatingDoc}
+                        onClick={() => handleUseTemplate(previewTemplate.id)}
+                        className="studio-gradient-btn cosmic"
+                        style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 700 }}
+                      >
+                        {creatingDoc ? 'Building Workspace…' : '🚀 Use This Template to Create Document'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1888,6 +2395,29 @@ export default function FlipexStudio() {
           >
             <span>🖨️</span> Print PDF
           </a>
+          <button
+            type="button"
+            onClick={() => {
+              setTemplateFormName(currentDoc?.title ? `${currentDoc.title} Template` : 'My Custom Template');
+              setTemplateFormCategory(
+                currentDoc?.doc_type === 'catalogue' ? 'retail_catalogue'
+                : currentDoc?.doc_type === 'magazine' ? 'community_magazine'
+                : currentDoc?.doc_type === 'album' ? 'wedding_album'
+                : 'business_corporate'
+              );
+              setTemplateFormDesc('');
+              setShowSaveAsTemplateModal(true);
+            }}
+            className="studio-tool-btn sunset"
+            style={{
+              padding: '6px 12px',
+              fontSize: '11px',
+              borderRadius: '8px',
+            }}
+            title="Save this document as a reusable template for your workspace"
+          >
+            <span>🎨</span> As Template
+          </button>
           <button
             type="button"
             onClick={handleSavePage}
@@ -5010,6 +5540,87 @@ export default function FlipexStudio() {
               >
                 Open Live Reader ↗
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Stage 4: Save As Custom Template Modal */}
+      {showSaveAsTemplateModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#0f172a', borderRadius: '20px', maxWidth: '520px', width: '100%', padding: '28px', boxShadow: '0 25px 60px rgba(0,0,0,0.5)', border: '1px solid #334155', color: '#f8fafc' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '24px' }}>🎨</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Save as Reusable Template</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaveAsTemplateModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.5, margin: '0 0 20px 0' }}>
+              Convert this publication's layout, multi-column styling, and element compositions into a reusable starter template for your workspace team.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="studio-prop-label">Template Name</label>
+                <input
+                  type="text"
+                  value={templateFormName}
+                  onChange={(e) => setTemplateFormName(e.target.value)}
+                  className="studio-prop-input"
+                  placeholder="e.g. Suva Weekly FMCG Catalogue Template"
+                />
+              </div>
+
+              <div>
+                <label className="studio-prop-label">Commercial Category</label>
+                <select
+                  value={templateFormCategory}
+                  onChange={(e) => setTemplateFormCategory(e.target.value)}
+                  className="studio-prop-select"
+                >
+                  {TEMPLATE_CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.icon} {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="studio-prop-label">Description (Optional)</label>
+                <textarea
+                  rows={3}
+                  value={templateFormDesc}
+                  onChange={(e) => setTemplateFormDesc(e.target.value)}
+                  className="studio-prop-textarea"
+                  placeholder="Describe the intended publication format, target audience, and layout features…"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #1e293b' }}>
+              <button
+                type="button"
+                onClick={() => setShowSaveAsTemplateModal(false)}
+                style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #334155', background: 'transparent', color: '#cbd5e1', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingTemplate || !templateFormName.trim()}
+                onClick={handleSaveAsTemplate}
+                className="studio-gradient-btn cosmic"
+                style={{ padding: '9px 22px', fontSize: '0.88rem' }}
+              >
+                {savingTemplate ? 'Saving Template…' : '✓ Save Reusable Template'}
+              </button>
             </div>
           </div>
         </div>

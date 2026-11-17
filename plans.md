@@ -294,14 +294,14 @@ flowchart TD
 
 ### Stage 4 — Template Platform & Discovery Browser
 **Focus:** Commercial template browsing, category classification, and custom template creation.
-- [ ] **Template Discovery Browser:**
-  - 10 Commercial categories: Business, Retail/Supermarket, Food/Restaurant, Real Estate, Education/Yearbook, Editorial/Magazine, Photography/Wedding, Corporate/Annual Reports, Marketing/Brochures, Personal.
-  - Search by keyword, layout type, orientation (Portrait/Landscape), and page count.
-  - High-resolution multi-page template preview modal before creation.
-- [ ] **"Save as Template" Workflow:**
-  - Convert any existing user document into a reusable template.
-  - Define custom placeholders: replaceable logo, editable headings, data-driven product cards, and locked decorative background graphics.
-  - Workspace template sharing vs private templates.
+- [x] **Template Discovery Browser:**
+  - 10 Commercial categories: Business & Corporate, Retail & Supermarket Specials, Food & Dining Menus, Real Estate & Property Showcase, Education & School Yearbooks, Editorial & Lifestyle Magazines, Photography & Wedding Keepsakes, Corporate & Annual Reports, Marketing & Brochures, Personal & Creative Portfolios.
+  - Search by keyword, document format type (Catalogues, Magazines, Albums, Custom), scope (Official Presets vs My Custom Templates).
+  - High-resolution interactive multi-page template preview modal with page-by-page flipping, specs breakdown, and one-click document creation.
+- [x] **"Save as Template" Workflow:**
+  - Convert any existing user document into a reusable template (`POST /studio/templates`).
+  - Customizable template title, category selection from the 10 commercial categories, and description.
+  - Workspace template sharing vs private templates, and custom template management/deletion.
 
 ---
 

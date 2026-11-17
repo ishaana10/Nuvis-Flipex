@@ -187,6 +187,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $st->get('/documents/{id:[0-9]+}/export-pdf', [StudioController::class, 'exportPdf']);
         $st->post('/documents/{id:[0-9]+}/publish', [StudioController::class, 'publishDocument']);
         $st->get('/templates', [StudioController::class, 'listTemplates']);
+        $st->get('/templates/{id:[0-9]+}', [StudioController::class, 'getTemplate']);
+        $st->post('/templates', [StudioController::class, 'saveTemplate']);
+        $st->delete('/templates/{id:[0-9]+}', [StudioController::class, 'deleteTemplate']);
         $st->get('/assets', [StudioController::class, 'listAssets']);
         $st->post('/assets/upload', [StudioController::class, 'uploadAsset']);
     })->add(new TenantScope())->add(new Auth());

@@ -139,16 +139,17 @@ final class StudioController
     }
 
     /**
-     * Seeds rich curated studio templates if the template library is empty.
+     * Seeds rich curated studio templates across 10 Commercial Categories if missing.
      */
     private function seedDefaultTemplates(): void
     {
-        $count = (int) (Db::one('SELECT COUNT(*) as c FROM studio_templates')['c'] ?? 0);
-        if ($count > 0) {
+        $count = (int) (Db::one('SELECT COUNT(*) as c FROM studio_templates WHERE is_system = 1')['c'] ?? 0);
+        if ($count >= 10) {
             return;
         }
 
         $templates = [
+            // 1. Retail & Supermarket Specials
             [
                 'category' => 'retail_catalogue',
                 'doc_type' => 'catalogue',
@@ -167,10 +168,21 @@ final class StudioController
                                 ['id' => 'p3', 'type' => 'product', 'x' => 50, 'y' => 480, 'w' => 230, 'h' => 290, 'name' => 'Pacific Sun Cooking Oil 2L', 'price' => '$11.95', 'originalPrice' => '$14.20', 'badge' => 'HOT DEAL', 'image' => 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=500&q=80', 'whatsappNumber' => '+6799991234', 'sku' => 'OIL-SUN-2L'],
                                 ['id' => 'p4', 'type' => 'product', 'x' => 315, 'y' => 480, 'w' => 230, 'h' => 290, 'name' => 'Rewa Fresh Dairy Milk 1L x 6', 'price' => '$16.80', 'originalPrice' => '$19.50', 'badge' => 'BULK VALUE', 'image' => 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=500&q=80', 'whatsappNumber' => '+6799991234', 'sku' => 'REW-MLK-6'],
                             ]
+                        ],
+                        [
+                            'background' => ['type' => 'color', 'value' => '#1E293B'],
+                            'elements' => [
+                                ['id' => 'p2_h', 'type' => 'text', 'x' => 40, 'y' => 40, 'w' => 515, 'h' => 45, 'content' => 'FARM FRESH FRUITS & GREEN MARKET', 'style' => ['fontSize' => 24, 'fontWeight' => 'bold', 'color' => '#34D399', 'textAlign' => 'center']],
+                                ['id' => 'p2_p1', 'type' => 'product', 'x' => 50, 'y' => 110, 'w' => 230, 'h' => 290, 'name' => 'Sigatoka Valley Watermelon 5kg', 'price' => '$14.50', 'badge' => 'FRESH PICK', 'image' => 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?auto=format&fit=crop&w=500&q=80', 'whatsappNumber' => '+6799991234', 'sku' => 'SIG-WML-5'],
+                                ['id' => 'p2_p2', 'type' => 'product', 'x' => 315, 'y' => 110, 'w' => 230, 'h' => 290, 'name' => 'Organic Island Pineapples (2x)', 'price' => '$7.00', 'badge' => 'SWEET DEALS', 'image' => 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=500&q=80', 'whatsappNumber' => '+6799991234', 'sku' => 'PIN-ORG-2'],
+                                ['id' => 'p2_p3', 'type' => 'product', 'x' => 50, 'y' => 420, 'w' => 230, 'h' => 290, 'name' => 'Local Island Tomatoes Tray 2kg', 'price' => '$8.95', 'originalPrice' => '$11.00', 'badge' => 'SAVE $2', 'image' => 'https://images.unsplash.com/photo-1546470427-e26264be0b11?auto=format&fit=crop&w=500&q=80', 'whatsappNumber' => '+6799991234', 'sku' => 'TOM-TRY-2'],
+                                ['id' => 'p2_p4', 'type' => 'product', 'x' => 315, 'y' => 420, 'w' => 230, 'h' => 290, 'name' => 'Island Navuso Taro / Dalo 4kg Bundle', 'price' => '$25.00', 'badge' => 'ROOT CROP', 'image' => 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?auto=format&fit=crop&w=500&q=80', 'whatsappNumber' => '+6799991234', 'sku' => 'DAL-NAV-4'],
+                            ]
                         ]
                     ]
                 ]),
             ],
+            // 2. Electronics & Tech Lookbook
             [
                 'category' => 'electronics_tech',
                 'doc_type' => 'catalogue',
@@ -188,15 +200,78 @@ final class StudioController
                                 ['id' => 'prod2', 'type' => 'product', 'x' => 40, 'y' => 490, 'w' => 245, 'h' => 280, 'name' => 'Smart Fitness Tracker GPS', 'price' => '$149.00', 'badge' => 'NEW ARRIVAL', 'image' => 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=500&q=80', 'sku' => 'FIT-GPS-02'],
                                 ['id' => 'prod3', 'type' => 'product', 'x' => 310, 'y' => 490, 'w' => 245, 'h' => 280, 'name' => 'Waterproof Bluetooth 5.3 Speaker', 'price' => '$89.00', 'badge' => 'BEACH READY', 'image' => 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=500&q=80', 'sku' => 'SPK-BT-WTR'],
                             ]
+                        ],
+                        [
+                            'background' => ['type' => 'color', 'value' => '#0F172A'],
+                            'elements' => [
+                                ['id' => 'p2_tech_hd', 'type' => 'text', 'x' => 40, 'y' => 40, 'w' => 515, 'h' => 40, 'content' => 'ULTRA-PORTABLE LAPTOPS & WORKSTATIONS', 'style' => ['fontSize' => 22, 'fontWeight' => 'bold', 'color' => '#818CF8']],
+                                ['id' => 'p2_prod4', 'type' => 'product', 'x' => 40, 'y' => 100, 'w' => 515, 'h' => 310, 'name' => 'ProBook Slim 14" M3 Ultra', 'price' => '$1,899.00', 'originalPrice' => '$2,099.00', 'badge' => 'FLAGSHIP', 'image' => 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80', 'sku' => 'LAP-PB-14', 'description' => '32GB Unified RAM, 1TB NVMe Gen4 SSD, 18-hour battery, Liquid Retina XDR display.'],
+                                ['id' => 'p2_prod5', 'type' => 'product', 'x' => 40, 'y' => 430, 'w' => 245, 'h' => 290, 'name' => 'Mechanical Wireless Keyboard RGB', 'price' => '$129.00', 'badge' => 'PRO TYPING', 'image' => 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=500&q=80', 'sku' => 'KBD-MECH-RGB'],
+                                ['id' => 'p2_prod6', 'type' => 'product', 'x' => 310, 'y' => 430, 'w' => 245, 'h' => 290, 'name' => 'Precision Ergonomic Mouse 4K', 'price' => '$79.00', 'badge' => 'SILENT CLICK', 'image' => 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=500&q=80', 'sku' => 'MSE-ERGO-4K'],
+                            ]
                         ]
                     ]
                 ]),
             ],
+            // 3. Food, Dining & Menus
+            [
+                'category' => 'food_restaurant',
+                'doc_type' => 'catalogue',
+                'name' => 'Coral Coast Luxury Resort Menu & Wine List',
+                'description' => 'Fine dining tropical resort menu with seafood platters, cocktail pairings, pricing, and QR table ordering.',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
+                'canvas_spec' => json_encode([
+                    'pages' => [
+                        [
+                            'background' => ['type' => 'color', 'value' => '#1C1917'],
+                            'elements' => [
+                                ['id' => 'm_hd', 'type' => 'text', 'x' => 40, 'y' => 50, 'w' => 515, 'h' => 45, 'content' => 'NAVATU OCEAN DINING', 'style' => ['fontSize' => 30, 'fontFamily' => "'Cinzel', serif", 'fontWeight' => 'bold', 'color' => '#FDE047', 'textAlign' => 'center', 'letterSpacing' => '3px']],
+                                ['id' => 'm_sub', 'type' => 'text', 'x' => 40, 'y' => 100, 'w' => 515, 'h' => 25, 'content' => 'PACIFIC SEAFOOD & CHEF SPECIALTIES', 'style' => ['fontSize' => 12, 'fontWeight' => '600', 'color' => '#D6D3D1', 'textAlign' => 'center', 'letterSpacing' => '2px']],
+                                ['id' => 'd1', 'type' => 'product', 'x' => 40, 'y' => 140, 'w' => 515, 'h' => 270, 'name' => 'Signature Island Kokoda Ceviche Platter', 'price' => '$38.00', 'badge' => 'CHEF SPECIAL', 'image' => 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80', 'description' => 'Wild-caught Pacific Walu marinated in fresh lime juice, freshly squeezed coconut milk, diced chillies, spring onions, served in a carved coconut husk.'],
+                                ['id' => 'd2', 'type' => 'product', 'x' => 40, 'y' => 430, 'w' => 245, 'h' => 290, 'name' => 'Grilled Coral Rock Lobster Tail', 'price' => '$65.00', 'badge' => 'LOCAL CATCH', 'image' => 'https://images.unsplash.com/photo-1533777857889-4be7c70b33f7?auto=format&fit=crop&w=500&q=80', 'description' => 'Garlic herb butter, cassava chips, papaya slaw.'],
+                                ['id' => 'd3', 'type' => 'product', 'x' => 310, 'y' => 430, 'w' => 245, 'h' => 290, 'name' => 'Yellowfin Tuna Steak Sesame Crusted', 'price' => '$48.00', 'badge' => 'FRESH TUNA', 'image' => 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=80', 'description' => 'Wasabi ginger glaze, bok choy, jasmine rice.'],
+                            ]
+                        ],
+                        [
+                            'background' => ['type' => 'color', 'value' => '#1C1917'],
+                            'elements' => [
+                                ['id' => 'm2_hd', 'type' => 'text', 'x' => 40, 'y' => 50, 'w' => 515, 'h' => 40, 'content' => 'COCKTAIL LOUNGE & DESSERTS', 'style' => ['fontSize' => 26, 'fontFamily' => "'Cinzel', serif", 'fontWeight' => 'bold', 'color' => '#FDE047', 'textAlign' => 'center']],
+                                ['id' => 'c1', 'type' => 'product', 'x' => 40, 'y' => 110, 'w' => 245, 'h' => 280, 'name' => 'Fiji Gold Rum Sunset Punch', 'price' => '$19.00', 'badge' => 'SIGNATURE', 'image' => 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=500&q=80', 'description' => 'Bati Dark Rum, passionfruit, fresh pineapple, lime.'],
+                                ['id' => 'c2', 'type' => 'product', 'x' => 310, 'y' => 110, 'w' => 245, 'h' => 280, 'name' => 'Hibiscus Blossom Gin Tonic', 'price' => '$18.00', 'badge' => 'BOTANICAL', 'image' => 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=500&q=80', 'description' => 'Handcrafted infused gin, artisanal tonic, star anise.'],
+                                ['id' => 'c3', 'type' => 'product', 'x' => 40, 'y' => 410, 'w' => 515, 'h' => 280, 'name' => 'Warm Coconut Banana Cake with Vanilla Bean Gelato', 'price' => '$22.00', 'badge' => 'SWEET TOOTH', 'image' => 'https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=700&q=80', 'description' => 'Toasted island coconut flakes, warm caramel drizzle, crushed macadamia praline.'],
+                            ]
+                        ]
+                    ]
+                ]),
+            ],
+            // 4. Real Estate & Property Showcase
+            [
+                'category' => 'real_estate',
+                'doc_type' => 'catalogue',
+                'name' => 'Suva Waterfront Villa & Property Showcase',
+                'description' => 'Exclusive island real estate portfolio with architectural photography, property specs, land tenure details, and agent contact.',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80',
+                'canvas_spec' => json_encode([
+                    'pages' => [
+                        [
+                            'background' => ['type' => 'color', 'value' => '#0F172A'],
+                            'elements' => [
+                                ['id' => 're_tag', 'type' => 'text', 'x' => 40, 'y' => 40, 'w' => 250, 'h' => 25, 'content' => 'PACIFIC PRIME REALTY • EXCLUSIVE LISTING', 'style' => ['fontSize' => 11, 'fontWeight' => 'bold', 'color' => '#38BDF8', 'letterSpacing' => '1.5px']],
+                                ['id' => 're_hd', 'type' => 'text', 'x' => 40, 'y' => 70, 'w' => 515, 'h' => 50, 'content' => 'The Palms Waterfront Sanctuary, Denarau', 'style' => ['fontSize' => 28, 'fontWeight' => '800', 'color' => '#FFFFFF']],
+                                ['id' => 're_hero', 'type' => 'image', 'x' => 40, 'y' => 130, 'w' => 515, 'h' => 310, 'src' => 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'],
+                                ['id' => 're_p1', 'type' => 'product', 'x' => 40, 'y' => 460, 'w' => 245, 'h' => 260, 'name' => '5-Bed Executive Villa', 'price' => '$2,850,000 FJD', 'badge' => 'FREEHOLD TITLE', 'image' => 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=500&q=80', 'description' => 'Private 20m boat pontoon, infinity pool, solar microgrid, 24/7 security.'],
+                                ['id' => 're_p2', 'type' => 'product', 'x' => 310, 'y' => 460, 'w' => 245, 'h' => 260, 'name' => 'Luxury Lagoon Penthouse', 'price' => '$1,450,000 FJD', 'badge' => 'CROWN LEASE', 'image' => 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=500&q=80', 'description' => 'Panoramic sea views, Italian marble, master suite with jacuzzi.'],
+                            ]
+                        ]
+                    ]
+                ]),
+            ],
+            // 5. School & University Yearbooks
             [
                 'category' => 'school_yearbook',
                 'doc_type' => 'magazine',
-                'name' => 'Pacific Heritage School Yearbook',
-                'description' => 'Comprehensive school and university yearbook with senior portraits, awards, quotes, and memories.',
+                'name' => 'Pacific Heritage Senior Graduate Yearbook',
+                'description' => 'Comprehensive school and university yearbook with senior portraits, academic awards, quotes, and memories.',
                 'thumbnail_url' => 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80',
                 'canvas_spec' => json_encode([
                     'pages' => [
@@ -214,10 +289,11 @@ final class StudioController
                     ]
                 ]),
             ],
+            // 6. Editorial & Lifestyle Magazines
             [
                 'category' => 'community_magazine',
                 'doc_type' => 'magazine',
-                'name' => 'Island Horizon Lifestyle & Travel',
+                'name' => 'Island Horizon Lifestyle & Travel Magazine',
                 'description' => 'Multi-column editorial magazine spread with drop caps, pull-quotes, full-bleed scenic backdrops, and author bylines.',
                 'thumbnail_url' => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
                 'canvas_spec' => json_encode([
@@ -236,10 +312,11 @@ final class StudioController
                     ]
                 ]),
             ],
+            // 7. Photography, Wedding & Keepsakes
             [
                 'category' => 'wedding_album',
                 'doc_type' => 'album',
-                'name' => 'Island Sanctuary Wedding & Event Album',
+                'name' => 'Island Sanctuary Luxury Wedding Keepsake',
                 'description' => 'Luxury photo album layout with elegant typography, multi-photo frames, vows keepsakes, and guest remembrance.',
                 'thumbnail_url' => 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80',
                 'canvas_spec' => json_encode([
@@ -257,14 +334,87 @@ final class StudioController
                     ]
                 ]),
             ],
+            // 8. Corporate & Annual Reports
+            [
+                'category' => 'annual_report',
+                'doc_type' => 'custom',
+                'name' => 'Pacific Enterprise Corporate Annual Report',
+                'description' => 'Executive annual financial & governance review with KPI metric callouts, chairman message, and strategic highlights.',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80',
+                'canvas_spec' => json_encode([
+                    'pages' => [
+                        [
+                            'background' => ['type' => 'color', 'value' => '#0F172A'],
+                            'elements' => [
+                                ['id' => 'ar_tag', 'type' => 'text', 'x' => 40, 'y' => 45, 'w' => 300, 'h' => 25, 'content' => 'ANNUAL PERFORMANCE REVIEW • FY2026', 'style' => ['fontSize' => 11, 'fontWeight' => 'bold', 'color' => '#38BDF8', 'letterSpacing' => '1.5px']],
+                                ['id' => 'ar_hd', 'type' => 'text', 'x' => 40, 'y' => 75, 'w' => 515, 'h' => 60, 'content' => 'Sustainable Growth Across Pacific Markets', 'style' => ['fontSize' => 28, 'fontWeight' => '800', 'color' => '#FFFFFF']],
+                                ['id' => 'ar_kpi1', 'type' => 'shape', 'x' => 40, 'y' => 150, 'w' => 165, 'h' => 100, 'content' => '$42.8M\nNet Revenue (+18%)', 'style' => ['backgroundColor' => '#1E293B', 'borderRadius' => 12, 'borderWidth' => 1, 'borderColor' => '#334155', 'color' => '#34D399', 'fontSize' => 16, 'textAlign' => 'center']],
+                                ['id' => 'ar_kpi2', 'type' => 'shape', 'x' => 215, 'y' => 150, 'w' => 165, 'h' => 100, 'content' => '124,000\nActive Subscribers', 'style' => ['backgroundColor' => '#1E293B', 'borderRadius' => 12, 'borderWidth' => 1, 'borderColor' => '#334155', 'color' => '#38BDF8', 'fontSize' => 16, 'textAlign' => 'center']],
+                                ['id' => 'ar_kpi3', 'type' => 'shape', 'x' => 390, 'y' => 150, 'w' => 165, 'h' => 100, 'content' => '99.98%\nInfrastructure Uptime', 'style' => ['backgroundColor' => '#1E293B', 'borderRadius' => 12, 'borderWidth' => 1, 'borderColor' => '#334155', 'color' => '#A855F7', 'fontSize' => 16, 'textAlign' => 'center']],
+                                ['id' => 'ar_body', 'type' => 'text', 'x' => 40, 'y' => 280, 'w' => 515, 'h' => 220, 'content' => 'Chairman’s Overview: FY2026 marked a pivotal milestone in our regional expansion across Fiji, Samoa, and Tonga. Through accelerated digital transformation, clean solar energy infrastructure adoption, and resilient supply chain partnerships, we achieved record operational margins.', 'style' => ['fontSize' => 14, 'color' => '#CBD5E1', 'lineHeight' => 1.7]],
+                            ]
+                        ]
+                    ]
+                ]),
+            ],
+            // 9. Marketing & Brochures
+            [
+                'category' => 'marketing_brochure',
+                'doc_type' => 'custom',
+                'name' => 'Viti Bula Tour & Eco-Adventure Guide',
+                'description' => 'Vibrant tourism marketing brochure with excursion packages, diving safari rates, and booking QR code.',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80',
+                'canvas_spec' => json_encode([
+                    'pages' => [
+                        [
+                            'background' => ['type' => 'color', 'value' => '#064E3B'],
+                            'elements' => [
+                                ['id' => 'mb_hd', 'type' => 'text', 'x' => 40, 'y' => 50, 'w' => 515, 'h' => 55, 'content' => 'EXPLORE UNTAMED FIJI', 'style' => ['fontSize' => 32, 'fontWeight' => '900', 'color' => '#6EE7B7', 'textAlign' => 'center', 'letterSpacing' => '2px']],
+                                ['id' => 'mb_sub', 'type' => 'text', 'x' => 40, 'y' => 110, 'w' => 515, 'h' => 30, 'content' => 'ISLAND ADVENTURES • WATERFALL TREKS • REEF DIVING', 'style' => ['fontSize' => 12, 'fontWeight' => '700', 'color' => '#D1FAE5', 'textAlign' => 'center', 'letterSpacing' => '1.5px']],
+                                ['id' => 'mb_pkg1', 'type' => 'product', 'x' => 40, 'y' => 160, 'w' => 245, 'h' => 280, 'name' => 'Manta Ray Reef Safari', 'price' => '$165 FJD', 'badge' => 'TOP RATED', 'image' => 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=500&q=80', 'description' => 'Full-day catamaran trip, snorkel gear, buffet lunch on private cay.'],
+                                ['id' => 'mb_pkg2', 'type' => 'product', 'x' => 310, 'y' => 160, 'w' => 245, 'h' => 280, 'name' => 'Highland Rainforest Zipline', 'price' => '$120 FJD', 'badge' => 'ADRENALINE', 'image' => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=500&q=80', 'description' => '16 high-speed zip spans over mountain gorges and hidden cascades.'],
+                            ]
+                        ]
+                    ]
+                ]),
+            ],
+            // 10. Personal & Creative Portfolios
+            [
+                'category' => 'creative_portfolio',
+                'doc_type' => 'custom',
+                'name' => 'Denarau Architecture & Design Portfolio',
+                'description' => 'Minimalist design portfolio for architects, interior designers, and visual creatives with project case studies.',
+                'thumbnail_url' => 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80',
+                'canvas_spec' => json_encode([
+                    'pages' => [
+                        [
+                            'background' => ['type' => 'color', 'value' => '#18181B'],
+                            'elements' => [
+                                ['id' => 'cp_logo', 'type' => 'text', 'x' => 40, 'y' => 45, 'w' => 300, 'h' => 25, 'content' => 'STUDIO VITI • ARCHITECTURE & SPATIAL DESIGN', 'style' => ['fontSize' => 11, 'fontWeight' => '600', 'color' => '#A1A1AA', 'letterSpacing' => '2px']],
+                                ['id' => 'cp_hd', 'type' => 'text', 'x' => 40, 'y' => 75, 'w' => 515, 'h' => 60, 'content' => 'Harmonizing Modern Form with Pacific Vernacular', 'style' => ['fontSize' => 26, 'fontWeight' => '700', 'color' => '#F4F4F5']],
+                                ['id' => 'cp_img1', 'type' => 'image', 'x' => 40, 'y' => 150, 'w' => 515, 'h' => 320, 'src' => 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'],
+                                ['id' => 'cp_txt', 'type' => 'text', 'x' => 40, 'y' => 490, 'w' => 515, 'h' => 120, 'content' => 'Selected Works (2024–2026): Embracing cross-ventilation, native mahogany timber joinery, and natural basalt stonework to create tropical pavilions that breathe with the trade winds.', 'style' => ['fontSize' => 13, 'color' => '#A1A1AA', 'lineHeight' => 1.6]],
+                            ]
+                        ]
+                    ]
+                ]),
+            ],
         ];
 
         foreach ($templates as $t) {
-            Db::run(
-                'INSERT INTO studio_templates (category, doc_type, name, description, thumbnail_url, canvas_spec, is_system)
-                 VALUES (?, ?, ?, ?, ?, ?, 1)',
-                [$t['category'], $t['doc_type'], $t['name'], $t['description'], $t['thumbnail_url'], $t['canvas_spec']]
-            );
+            $existing = Db::one('SELECT id FROM studio_templates WHERE name = ? AND is_system = 1', [$t['name']]);
+            if ($existing) {
+                Db::run(
+                    'UPDATE studio_templates SET category = ?, doc_type = ?, description = ?, thumbnail_url = ?, canvas_spec = ? WHERE id = ?',
+                    [$t['category'], $t['doc_type'], $t['description'], $t['thumbnail_url'], $t['canvas_spec'], $existing['id']]
+                );
+            } else {
+                Db::run(
+                    'INSERT INTO studio_templates (category, doc_type, name, description, thumbnail_url, canvas_spec, is_system)
+                     VALUES (?, ?, ?, ?, ?, ?, 1)',
+                    [$t['category'], $t['doc_type'], $t['name'], $t['description'], $t['thumbnail_url'], $t['canvas_spec']]
+                );
+            }
         }
     }
 
@@ -658,29 +808,206 @@ final class StudioController
     }
 
     /**
-     * GET /studio/templates: List templates.
+     * GET /studio/templates: List templates with category, doc_type, orientation, and keyword filtering.
      */
     public function listTemplates(Request $req, Response $res): Response
     {
         $this->ensureSchema();
+        $u = Auth::user($req);
         $tenantId = $this->resolveTenantId($u);
         $params = $req->getQueryParams();
         $docType = trim((string) ($params['doc_type'] ?? ''));
+        $category = trim((string) ($params['category'] ?? ''));
+        $search = trim((string) ($params['q'] ?? ''));
+        $scope = trim((string) ($params['scope'] ?? '')); // 'all', 'system', 'custom'
 
-        $sql = 'SELECT id, category, doc_type, name, description, thumbnail_url, is_system, created_at 
+        $sql = 'SELECT id, category, doc_type, name, description, thumbnail_url, canvas_spec, is_system, tenant_id, created_at 
                 FROM studio_templates 
-                WHERE (is_system = 1 OR tenant_id = ?)';
-        $binds = [$tenantId];
+                WHERE 1=1';
+        $binds = [];
 
-        if ($docType !== '') {
+        if ($scope === 'system') {
+            $sql .= ' AND is_system = 1';
+        } else if ($scope === 'custom') {
+            $sql .= ' AND is_system = 0 AND tenant_id = ?';
+            $binds[] = $tenantId;
+        } else {
+            $sql .= ' AND (is_system = 1 OR tenant_id = ?)';
+            $binds[] = $tenantId;
+        }
+
+        if ($docType !== '' && in_array($docType, ['catalogue', 'magazine', 'album', 'custom'], true)) {
             $sql .= ' AND doc_type = ?';
             $binds[] = $docType;
         }
 
-        $sql .= ' ORDER BY id ASC';
-        $templates = Db::all($sql, $binds);
+        if ($category !== '' && $category !== 'all') {
+            $sql .= ' AND category = ?';
+            $binds[] = $category;
+        }
+
+        if ($search !== '') {
+            $sql .= ' AND (name LIKE ? OR description LIKE ?)';
+            $binds[] = '%' . $search . '%';
+            $binds[] = '%' . $search . '%';
+        }
+
+        $sql .= ' ORDER BY is_system DESC, id ASC';
+        $rows = Db::all($sql, $binds);
+
+        $templates = [];
+        foreach ($rows as $row) {
+            $pageCount = 1;
+            $previewImages = [];
+            if (!empty($row['canvas_spec'])) {
+                $decoded = json_decode($row['canvas_spec'], true);
+                $pages = $decoded['pages'] ?? [];
+                $pageCount = max(1, count($pages));
+                foreach ($pages as $p) {
+                    if (!empty($p['thumbnail_url'])) {
+                        $previewImages[] = $p['thumbnail_url'];
+                    }
+                }
+            }
+            // Exclude heavy canvas_spec in list view for performance, but return page_count and preview_images
+            unset($row['canvas_spec']);
+            $row['page_count'] = $pageCount;
+            $row['preview_images'] = $previewImages;
+            $templates[] = $row;
+        }
 
         return Http::json($res, ['templates' => $templates]);
+    }
+
+    /**
+     * GET /studio/templates/{id}: Get detailed template with full canvas_spec for multi-page inspection.
+     */
+    public function getTemplate(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = Auth::user($req);
+        $tenantId = $this->resolveTenantId($u);
+        $id = (int) ($args['id'] ?? 0);
+
+        $tpl = Db::one('SELECT * FROM studio_templates WHERE id = ? AND (is_system = 1 OR tenant_id = ?)', [$id, $tenantId]);
+        if (!$tpl) {
+            return Http::json($res, ['error' => 'Template not found'], 404);
+        }
+
+        if (!empty($tpl['canvas_spec'])) {
+            $tpl['canvas_spec'] = json_decode($tpl['canvas_spec'], true);
+        }
+        if (!empty($tpl['preview_images'])) {
+            $tpl['preview_images'] = json_decode($tpl['preview_images'], true);
+        }
+
+        return Http::json($res, ['template' => $tpl]);
+    }
+
+    /**
+     * POST /studio/templates: Save an existing studio document as a reusable custom template.
+     */
+    public function saveTemplate(Request $req, Response $res): Response
+    {
+        $this->ensureSchema();
+        $u = Auth::user($req);
+        $tenantId = $this->resolveTenantId($u);
+        $body = (array) ($req->getParsedBody() ?? []);
+
+        $name = trim((string) ($body['name'] ?? ''));
+        $description = trim((string) ($body['description'] ?? ''));
+        $category = trim((string) ($body['category'] ?? 'business_corporate'));
+        $documentId = (int) ($body['document_id'] ?? 0);
+        $thumbnailUrl = trim((string) ($body['thumbnail_url'] ?? ''));
+
+        if ($name === '') {
+            return Http::json($res, ['error' => 'Template name is required'], 422);
+        }
+
+        if ($documentId <= 0) {
+            return Http::json($res, ['error' => 'Document ID is required to create a template'], 422);
+        }
+
+        $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$documentId, $tenantId]);
+        if (!$doc) {
+            return Http::json($res, ['error' => 'Document not found'], 404);
+        }
+
+        $dbPages = Db::all('SELECT * FROM studio_document_pages WHERE document_id = ? ORDER BY page_number ASC', [$documentId]);
+        if (empty($dbPages)) {
+            return Http::json($res, ['error' => 'Document has no pages to convert to a template'], 422);
+        }
+
+        $pages = [];
+        $previewThumbs = [];
+        foreach ($dbPages as $dp) {
+            $pages[] = [
+                'background' => !empty($dp['background']) ? json_decode($dp['background'], true) : null,
+                'elements' => !empty($dp['elements']) ? json_decode($dp['elements'], true) : [],
+                'thumbnail_url' => $dp['thumbnail_url'] ?? null,
+            ];
+            if (!empty($dp['thumbnail_url'])) {
+                $previewThumbs[] = $dp['thumbnail_url'];
+            }
+        }
+
+        if ($thumbnailUrl === '') {
+            $thumbnailUrl = !empty($doc['cover_thumb'])
+                ? $doc['cover_thumb']
+                : ($previewThumbs[0] ?? 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80');
+        }
+
+        $canvasSpecJson = json_encode(['pages' => $pages]);
+        $previewImagesJson = !empty($previewThumbs) ? json_encode($previewThumbs) : null;
+
+        Db::run(
+            'INSERT INTO studio_templates (category, doc_type, name, description, thumbnail_url, preview_images, canvas_spec, is_system, tenant_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)',
+            [$category, $doc['doc_type'], $name, $description, $thumbnailUrl, $previewImagesJson, $canvasSpecJson, $tenantId]
+        );
+        $templateId = (int) Db::pdo()->lastInsertId();
+
+        try {
+            Audit::log('studio_template.create', 'studio_template', $templateId, [
+                'name' => $name,
+                'category' => $category,
+                'source_document_id' => $documentId,
+            ]);
+        } catch (\Throwable $ae) {
+            error_log('Audit error on studio_template.create: ' . $ae->getMessage());
+        }
+
+        return Http::json($res, [
+            'ok' => true,
+            'template_id' => $templateId,
+            'message' => 'Document saved as reusable template successfully',
+        ]);
+    }
+
+    /**
+     * DELETE /studio/templates/{id}: Delete a custom template owned by this tenant.
+     */
+    public function deleteTemplate(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = Auth::user($req);
+        $tenantId = $this->resolveTenantId($u);
+        $id = (int) ($args['id'] ?? 0);
+
+        $tpl = Db::one('SELECT id, name FROM studio_templates WHERE id = ? AND tenant_id = ? AND is_system = 0', [$id, $tenantId]);
+        if (!$tpl) {
+            return Http::json($res, ['error' => 'Custom template not found or cannot delete system template'], 404);
+        }
+
+        Db::run('DELETE FROM studio_templates WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+
+        try {
+            Audit::log('studio_template.delete', 'studio_template', $id, ['name' => $tpl['name']]);
+        } catch (\Throwable $ae) {
+            error_log('Audit error on studio_template.delete: ' . $ae->getMessage());
+        }
+
+        return Http::json($res, ['ok' => true, 'message' => 'Custom template deleted successfully']);
     }
 
     /**

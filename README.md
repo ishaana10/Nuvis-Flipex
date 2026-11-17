@@ -260,6 +260,12 @@ The following notable updates, bug fixes, and architectural hardening milestones
   - **Apply to All Pages:** 1-click batch application synchronizing background styling across the entire publication.
 - **Backend Print & PDF Export Support:** Upgraded `StudioController.php` print generator to render CSS gradients and solid backgrounds seamlessly in print previews and vector PDFs.
 
+### Release Stage 4 — Flipex Studio Template Platform & Discovery Browser
+- **10 Commercial Template Categories:** Integrated prebuilt multi-page templates across Retail/Supermarkets, Tech/Electronics, Food/Menus, Real Estate, School Yearbooks, Lifestyle Magazines, Wedding Albums, Annual Reports, Marketing Brochures, and Creative Portfolios.
+- **Template Discovery Hub:** Dedicated browser with category filter pills, keyword search, format selection, and official vs. custom team template scoping.
+- **Interactive Multi-Page Preview Modal:** Interactive page-by-page inspection sheet with thumbnail carousel, commercial layout specifications, and 1-click document bootstrapping.
+- **Save as Reusable Template Workflow:** Direct API endpoint (`POST /studio/templates`) and in-editor modal allowing users to save custom publications as organization templates with commercial category tagging.
+
 ### Release `ea2bc35` — Flipex Studio Stage 3: Complete Contextual Inspector Suite
 - **Typography & Web-Fonts:** Embedded 9 curated Google Web-Fonts (`Inter`, `Playfair Display`, `Montserrat`, `Lora`, `Cinzel`, `Oswald`, `Dancing Script`, `Fira Code`, `Bebas Neue`) with B/I/U/S/TT formatting action bar, line-height, letter-spacing, text-shadow presets, multi-column count, and decorative drop-caps.
 - **Image Frame & Creative Filters:** Integrated object-fit modes (`cover`, `contain`, `fill`), real-time 300 DPI print quality validator badge, creative filter sliders (brightness, contrast, saturation, soft blur, grayscale monochrome toggle), and Unsplash photo presets.

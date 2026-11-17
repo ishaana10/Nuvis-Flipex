@@ -6342,6 +6342,201 @@ html[data-theme="dark"] .studio-empty-desc {
   color: #f59e0b;
 }
 
+/* ==========================================================================
+   STAGE 4: TEMPLATE PLATFORM & DISCOVERY BROWSER SUITE
+   ========================================================================== */
+
+.studio-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 22px;
+}
+
+.studio-template-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.studio-template-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.15);
+  border-color: #c084fc;
+}
+
+html[data-theme="dark"] .studio-template-card {
+  background: #0f172a;
+  border-color: #1e293b;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .studio-template-card:hover {
+  border-color: #a855f7;
+  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.25);
+}
+
+.studio-template-thumb-wrap {
+  position: relative;
+  height: 200px;
+  background: #f1f5f9;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+html[data-theme="dark"] .studio-template-thumb-wrap {
+  background: #090d16;
+}
+
+.studio-template-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.studio-template-card:hover .studio-template-thumb {
+  transform: scale(1.05);
+}
+
+.studio-template-meta-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 10px;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(6px);
+  color: #f8fafc;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.studio-template-pages-chip {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.85) 0%, rgba(168, 85, 247, 0.85) 100%);
+  backdrop-filter: blur(6px);
+  color: #ffffff;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.studio-preview-modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.studio-preview-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  width: min(1040px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  border: 1px solid #e2e8f0;
+}
+
+html[data-theme="dark"] .studio-preview-modal {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.studio-preview-body {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  flex: 1;
+  overflow: hidden;
+  min-height: 480px;
+}
+
+@media (max-width: 860px) {
+  .studio-preview-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.studio-preview-viewer {
+  background: #090d16;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid #1e293b;
+}
+
+.studio-preview-canvas-sheet {
+  width: min(340px, 100%);
+  aspect-ratio: 1 / 1.414;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+}
+
+.studio-preview-details {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-y: auto;
+}
+
+.studio-thumb-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 10px 0;
+  max-width: 100%;
+}
+
+.studio-strip-thumb {
+  width: 50px;
+  height: 70px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.studio-strip-thumb.active {
+  border-color: #a855f7;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
+  transform: scale(1.08);
+}
+
 
 
 
