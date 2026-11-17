@@ -96,9 +96,10 @@ export interface CanvasElement {
     fontSize?: number;
     fontWeight?: string;
     fontStyle?: string;
+    fontFamily?: string;
     color?: string;
     backgroundColor?: string;
-    textAlign?: 'left' | 'center' | 'right';
+    textAlign?: 'left' | 'center' | 'right' | 'justify';
     borderRadius?: number;
     borderColor?: string;
     borderWidth?: number;
@@ -108,6 +109,7 @@ export interface CanvasElement {
     opacity?: number;
     transform?: string;
     padding?: string | number;
+    zIndex?: number;
   };
 }
 
@@ -210,8 +212,30 @@ export default function FlipexStudio() {
 
   // Dragging & Moving elements on canvas
   const canvasRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const isDraggingRef = useRef<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number; elX: number; elY: number } | null>(null);
+
+  // Collapsible Studio Panels for Expansive Canvas View
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState<boolean>(false);
+
+  // Auto-Fit Canvas to Screen Viewport
+  const handleFitToScreen = useCallback(() => {
+    if (!mainRef.current) return;
+    const paddingX = 80;
+    const paddingY = 80;
+    const availW = mainRef.current.clientWidth - paddingX;
+    const availH = mainRef.current.clientHeight - paddingY;
+    if (availW <= 0 || availH <= 0) return;
+    const docW = currentDoc?.width_pt || 595.28;
+    const docH = currentDoc?.height_pt || 841.89;
+    const fitScaleX = availW / docW;
+    const fitScaleY = availH / docH;
+    const fitScale = Math.min(fitScaleX, fitScaleY);
+    const fitZoom = Math.min(200, Math.max(30, Math.round(fitScale * 100)));
+    setZoom(fitZoom);
+  }, [currentDoc]);
 
   // Load document list
   const loadDocuments = useCallback(async () => {
@@ -678,19 +702,11 @@ export default function FlipexStudio() {
               <button
                 type="button"
                 onClick={() => setShowNewDocModal(true)}
+                className="studio-gradient-btn cosmic"
                 style={{
-                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                  color: '#ffffff',
-                  fontWeight: 700,
                   fontSize: '0.95rem',
                   padding: '12px 24px',
                   borderRadius: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
                 }}
               >
                 <span>➕</span> Create New Document
@@ -744,16 +760,11 @@ export default function FlipexStudio() {
             <button
               type="button"
               onClick={() => setShowNewDocModal(true)}
+              className="studio-gradient-btn cosmic"
               style={{
-                background: '#6366f1',
-                color: '#ffffff',
-                fontWeight: 700,
                 fontSize: '0.9rem',
-                padding: '10px 22px',
+                padding: '11px 24px',
                 borderRadius: '10px',
-                border: 'none',
-                cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)',
               }}
             >
               + Create Your First Document
@@ -837,9 +848,10 @@ export default function FlipexStudio() {
                       flex: 1,
                       textAlign: 'center',
                       padding: '8px 12px',
-                      background: '#eef2ff',
-                      color: '#4f46e5',
-                      fontWeight: 600,
+                      background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 50%, rgba(236,72,153,0.12) 100%)',
+                      border: '1px solid rgba(168,85,247,0.3)',
+                      color: '#7c3aed',
+                      fontWeight: 700,
                       fontSize: '0.78rem',
                       borderRadius: '8px',
                       textDecoration: 'none',
@@ -870,14 +882,10 @@ export default function FlipexStudio() {
                       href={`/v/${doc.flipbook_slug}`}
                       target="_blank"
                       rel="noreferrer"
+                      className="studio-gradient-btn emerald"
                       style={{
-                        padding: '8px 14px',
-                        background: '#ecfdf5',
-                        color: '#059669',
+                        padding: '7px 14px',
                         fontSize: '0.78rem',
-                        fontWeight: 700,
-                        borderRadius: '8px',
-                        border: '1px solid #a7f3d0',
                         textDecoration: 'none',
                       }}
                       title="Open in Live Reader"
@@ -955,13 +963,13 @@ export default function FlipexStudio() {
                       style={{
                         padding: '12px',
                         borderRadius: '10px',
-                        border: newTemplateId === null ? '2px solid #6366f1' : '1px solid #cbd5e1',
-                        background: newTemplateId === null ? '#eef2ff' : '#ffffff',
+                        border: newTemplateId === null ? '2px solid #a855f7' : '1px solid #cbd5e1',
+                        background: newTemplateId === null ? 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%)' : '#ffffff',
                         cursor: 'pointer',
                         textAlign: 'center',
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        color: newTemplateId === null ? '#4f46e5' : '#334155',
+                        color: newTemplateId === null ? '#7c3aed' : '#334155',
                       }}
                     >
                       <span style={{ fontSize: '26px', display: 'block', marginBottom: '4px' }}>📄</span>
@@ -974,8 +982,8 @@ export default function FlipexStudio() {
                         style={{
                           padding: '8px',
                           borderRadius: '10px',
-                          border: newTemplateId === tpl.id ? '2px solid #6366f1' : '1px solid #cbd5e1',
-                          background: newTemplateId === tpl.id ? '#eef2ff' : '#ffffff',
+                          border: newTemplateId === tpl.id ? '2px solid #a855f7' : '1px solid #cbd5e1',
+                          background: newTemplateId === tpl.id ? 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%)' : '#ffffff',
                           cursor: 'pointer',
                           fontSize: '0.72rem',
                         }}
@@ -993,7 +1001,7 @@ export default function FlipexStudio() {
                 <button
                   type="button"
                   onClick={() => setShowNewDocModal(false)}
-                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
@@ -1001,20 +1009,14 @@ export default function FlipexStudio() {
                   type="button"
                   disabled={creatingDoc}
                   onClick={handleCreateDocument}
+                  className="studio-gradient-btn cosmic"
                   style={{
-                    padding: '8px 20px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: creatingDoc ? '#818cf8' : '#6366f1',
-                    color: '#ffffff',
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    cursor: creatingDoc ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+                    padding: '10px 24px',
+                    fontSize: '0.88rem',
                     opacity: creatingDoc ? 0.75 : 1,
                   }}
                 >
-                  {creatingDoc ? 'Launching Studio...' : 'Launch Studio'}
+                  {creatingDoc ? 'Launching Studio...' : 'Launch Studio 🚀'}
                 </button>
               </div>
             </div>
@@ -1033,10 +1035,10 @@ export default function FlipexStudio() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', background: '#090d16', color: '#f8fafc', overflow: 'hidden', userSelect: 'none' }}>
-      {/* TOP STUDIO TOOLBAR - Single line, non-wrapping, clean layout */}
-      <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', zIndex: 30, flexWrap: 'nowrap', overflowX: 'auto' }}>
-        {/* Left: Back & Document Metadata */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+      {/* TOP STUDIO TOOLBAR - Single line, non-wrapping, clean layout with 3-Gradients */}
+      <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'nowrap', overflowX: 'auto' }}>
+        {/* Left: Back, Sidebar Toggle & Document Metadata */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <button
             type="button"
             onClick={() => {
@@ -1060,6 +1062,29 @@ export default function FlipexStudio() {
           >
             ← Back
           </button>
+
+          {/* Toggle Left Tools Sidebar */}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{
+              padding: '6px 11px',
+              borderRadius: '8px',
+              background: sidebarCollapsed ? 'rgba(99, 102, 241, 0.2)' : '#1e293b',
+              border: sidebarCollapsed ? '1px solid #818cf8' : '1px solid #334155',
+              color: sidebarCollapsed ? '#c7d2fe' : '#94a3b8',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+            title={sidebarCollapsed ? "Expand Tools Sidebar" : "Collapse Tools Sidebar to Expand Canvas Workspace"}
+          >
+            {sidebarCollapsed ? '⇥ Tools' : '⇤ Tools'}
+          </button>
+
           <div style={{ height: '18px', width: '1px', background: '#334155' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap' }}>
@@ -1076,7 +1101,7 @@ export default function FlipexStudio() {
           )}
         </div>
 
-        {/* Center: Page Switcher, Zoom, Bleed & Auto Tools */}
+        {/* Center: Page Switcher, Zoom & Fit, Bleed, Snap & Auto Tools */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           {/* Page Switcher */}
           <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '2px', fontSize: '12px' }}>
@@ -1101,12 +1126,13 @@ export default function FlipexStudio() {
             </button>
           </div>
 
-          {/* Zoom */}
-          <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}>
+          {/* Zoom & Fit Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px', padding: '1px' }}>
             <button
               type="button"
-              onClick={() => setZoom(Math.max(40, zoom - 15))}
+              onClick={() => setZoom(Math.max(30, zoom - 15))}
               style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              title="Zoom Out"
             >
               -
             </button>
@@ -1115,10 +1141,29 @@ export default function FlipexStudio() {
             </span>
             <button
               type="button"
-              onClick={() => setZoom(Math.min(180, zoom + 15))}
+              onClick={() => setZoom(Math.min(200, zoom + 15))}
               style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              title="Zoom In"
             >
               +
+            </button>
+            <button
+              type="button"
+              onClick={handleFitToScreen}
+              style={{
+                padding: '3px 8px',
+                marginRight: '2px',
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(168,85,247,0.25) 100%)',
+                border: '1px solid rgba(168,85,247,0.4)',
+                color: '#f5d0fe',
+                borderRadius: '6px',
+                fontSize: '10px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+              title="Auto-Fit Canvas to Screen View"
+            >
+              Fit
             </button>
           </div>
 
@@ -1130,8 +1175,8 @@ export default function FlipexStudio() {
               borderRadius: '8px',
               fontSize: '11px',
               fontWeight: 600,
-              border: showBleed ? '1px solid rgba(236, 72, 153, 0.5)' : '1px solid #334155',
-              background: showBleed ? 'rgba(236, 72, 153, 0.2)' : '#1e293b',
+              border: showBleed ? '1px solid rgba(236, 72, 153, 0.6)' : '1px solid #334155',
+              background: showBleed ? 'linear-gradient(135deg, rgba(236,72,153,0.2) 0%, rgba(168,85,247,0.2) 100%)' : '#1e293b',
               color: showBleed ? '#f472b6' : '#94a3b8',
               cursor: 'pointer',
             }}
@@ -1148,8 +1193,8 @@ export default function FlipexStudio() {
               borderRadius: '8px',
               fontSize: '11px',
               fontWeight: 600,
-              border: gridSnap ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid #334155',
-              background: gridSnap ? 'rgba(99, 102, 241, 0.2)' : '#1e293b',
+              border: gridSnap ? '1px solid rgba(99, 102, 241, 0.6)' : '1px solid #334155',
+              background: gridSnap ? 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(6,182,212,0.2) 100%)' : '#1e293b',
               color: gridSnap ? '#a5b4fc' : '#94a3b8',
               cursor: 'pointer',
             }}
@@ -1161,15 +1206,11 @@ export default function FlipexStudio() {
           <button
             type="button"
             onClick={handleAddRunningFolio}
+            className="studio-gradient-btn cosmic"
             style={{
-              padding: '5px 10px',
-              borderRadius: '8px',
+              padding: '5px 11px',
               fontSize: '11px',
-              fontWeight: 600,
-              background: '#1e293b',
-              border: '1px solid #334155',
-              color: '#cbd5e1',
-              cursor: 'pointer',
+              borderRadius: '8px',
             }}
             title="Add Running Header & Page Number Folio to this page"
           >
@@ -1179,41 +1220,30 @@ export default function FlipexStudio() {
           <button
             type="button"
             onClick={handleAutoGenerateToc}
+            className="studio-gradient-btn sunset"
             style={{
-              padding: '5px 10px',
-              borderRadius: '8px',
+              padding: '5px 11px',
               fontSize: '11px',
-              fontWeight: 600,
-              background: 'rgba(245, 158, 11, 0.15)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              color: '#fbbf24',
-              cursor: 'pointer',
+              borderRadius: '8px',
             }}
             title="Scan document pages and generate Table of Contents"
           >
-            Auto TOC
+            📑 Auto TOC
           </button>
         </div>
 
-        {/* Right: Save, Print Export & Publish Action */}
+        {/* Right: Print PDF, Save, Publish Action & Inspector Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <a
             href={`/api/v1/studio/documents/${currentDoc?.id}/export-pdf?print=1`}
             target="_blank"
             rel="noreferrer"
+            className="studio-gradient-btn orchid"
             style={{
-              padding: '6px 12px',
-              background: '#1e293b',
-              border: '1px solid #334155',
-              color: '#f1f5f9',
-              borderRadius: '8px',
+              padding: '6px 14px',
               fontSize: '12px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              borderRadius: '8px',
               textDecoration: 'none',
-              cursor: 'pointer',
             }}
             title="Export Vector 300 DPI Print PDF"
           >
@@ -1223,47 +1253,71 @@ export default function FlipexStudio() {
             type="button"
             onClick={handleSavePage}
             disabled={saving}
+            className="studio-gradient-btn ocean"
             style={{
               padding: '6px 14px',
-              borderRadius: '8px',
-              background: '#1e293b',
-              border: '1px solid #475569',
-              color: '#f8fafc',
               fontSize: '12px',
-              fontWeight: 600,
-              cursor: saving ? 'not-allowed' : 'pointer',
+              borderRadius: '8px',
             }}
           >
-            {saving ? 'Saving…' : 'Save'}
+            <span>💾</span> {saving ? 'Saving…' : 'Save'}
           </button>
           <button
             type="button"
             onClick={handlePublish}
             disabled={saving}
+            className="studio-gradient-btn emerald"
             style={{
               padding: '6px 16px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              border: 'none',
-              color: '#ffffff',
               fontSize: '12px',
-              fontWeight: 700,
-              cursor: saving ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              borderRadius: '8px',
             }}
           >
             <span>🚀</span> Publish to Flipbook
+          </button>
+
+          {/* Toggle Right Inspector */}
+          <button
+            type="button"
+            onClick={() => setInspectorCollapsed(!inspectorCollapsed)}
+            style={{
+              padding: '6px 11px',
+              borderRadius: '8px',
+              background: inspectorCollapsed ? 'rgba(6, 182, 212, 0.2)' : '#1e293b',
+              border: inspectorCollapsed ? '1px solid #06b6d4' : '1px solid #334155',
+              color: inspectorCollapsed ? '#bae6fd' : '#94a3b8',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              marginLeft: '4px',
+            }}
+            title={inspectorCollapsed ? "Expand Inspector Panel" : "Collapse Inspector to Expand Canvas Workspace"}
+          >
+            {inspectorCollapsed ? 'Inspector ⇤' : 'Inspector ⇥'}
           </button>
         </div>
       </header>
 
       {/* WORKSPACE BODY: LEFT TOOLBAR + CENTER CANVAS + RIGHT INSPECTOR */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* LEFT TOOLBAR TABS */}
-        <aside style={{ width: '290px', minWidth: '290px', background: '#090d16', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        {/* LEFT TOOLBAR TABS (Collapsible) */}
+        <aside
+          style={{
+            width: sidebarCollapsed ? '0px' : '290px',
+            minWidth: sidebarCollapsed ? '0px' : '290px',
+            maxWidth: sidebarCollapsed ? '0px' : '290px',
+            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+            overflow: 'hidden',
+            background: '#090d16',
+            borderRight: sidebarCollapsed ? 'none' : '1px solid #1e293b',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 20,
+          }}
+        >
           <div className="flex items-center border-b border-slate-800 text-xs overflow-x-auto p-1 bg-slate-900/60">
             {[
               { id: 'products', label: '🛒 Products' },
@@ -1278,11 +1332,25 @@ export default function FlipexStudio() {
               <button
                 key={tab.id}
                 onClick={() => setActiveToolTab(tab.id as any)}
-                className={`px-2.5 py-1.5 font-semibold rounded-lg transition-colors whitespace-nowrap text-[11px] ${
-                  activeToolTab === tab.id
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '11px',
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  border: 'none',
+                  transition: 'all 0.2s ease',
+                  background:
+                    activeToolTab === tab.id
+                      ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)'
+                      : 'transparent',
+                  color: activeToolTab === tab.id ? '#ffffff' : '#94a3b8',
+                  boxShadow:
+                    activeToolTab === tab.id
+                      ? '0 2px 10px rgba(168, 85, 247, 0.4)'
+                      : 'none',
+                }}
               >
                 {tab.label}
               </button>
@@ -1293,7 +1361,7 @@ export default function FlipexStudio() {
             {/* TAB: PRODUCTS (CATALOGUE CREATOR) */}
             {activeToolTab === 'products' && (
               <div className="space-y-4">
-                <div className="studio-info-callout indigo">
+                <div className="studio-info-callout cosmic">
                   <p className="font-bold mb-1">🛒 Interactive Product Cards</p>
                   <p className="text-[11px] leading-relaxed opacity-90">
                     Insert pre-formatted price badges, strike-through original prices, and direct WhatsApp 1-tap buy buttons.
@@ -1303,7 +1371,7 @@ export default function FlipexStudio() {
                 <div className="space-y-2">
                   <button
                     type="button"
-                    className="studio-tool-btn"
+                    className="studio-tool-btn cosmic"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -1324,7 +1392,7 @@ export default function FlipexStudio() {
 
                   <button
                     type="button"
-                    className="studio-tool-btn amber"
+                    className="studio-tool-btn sunset"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -1372,7 +1440,7 @@ export default function FlipexStudio() {
             {/* TAB: MAGAZINE (EDITORIAL & PUBLISHING) */}
             {activeToolTab === 'magazine' && (
               <div className="space-y-3">
-                <div className="studio-info-callout blue">
+                <div className="studio-info-callout ocean">
                   <p className="font-bold mb-1">📖 Editorial Articles &amp; Layouts</p>
                   <p className="text-[11px] leading-relaxed opacity-90">
                     Balanced 2-column &amp; 3-column articles, decorative Drop-Caps, and author bylines for glossy print and digital reading.
@@ -1381,7 +1449,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn blue"
+                  className="studio-tool-btn ocean"
                   onClick={() =>
                     addElement({
                       type: 'column_text',
@@ -1401,7 +1469,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn blue"
+                  className="studio-tool-btn ocean"
                   onClick={() =>
                     addElement({
                       type: 'column_text',
@@ -1420,7 +1488,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn"
+                  className="studio-tool-btn orchid"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1442,7 +1510,7 @@ export default function FlipexStudio() {
             {/* TAB: YEARBOOK (SCHOOL & UNIVERSITY) */}
             {activeToolTab === 'yearbook' && (
               <div className="space-y-3">
-                <div className="studio-info-callout purple">
+                <div className="studio-info-callout orchid">
                   <p className="font-bold mb-1">🎓 School &amp; Class Yearbooks</p>
                   <p className="text-[11px] leading-relaxed opacity-90">
                     Graduate portrait rosters, academic awards, leadership tags, and senior memorable quotes.
@@ -1451,7 +1519,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn purple"
+                  className="studio-tool-btn orchid"
                   onClick={() =>
                     addElement({
                       type: 'yearbook_grid',
@@ -1493,7 +1561,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn"
+                  className="studio-tool-btn sunset"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1521,7 +1589,7 @@ export default function FlipexStudio() {
             {/* TAB: ALBUM (KEEPSAKE PHOTO ALBUM) */}
             {activeToolTab === 'album' && (
               <div className="space-y-3">
-                <div className="studio-info-callout purple">
+                <div className="studio-info-callout orchid">
                   <p className="font-bold mb-1">📷 Keepsake Photo Albums</p>
                   <p className="text-[11px] leading-relaxed opacity-90">
                     Romantic scrapbooks, polaroid photo frames with tilt rotation, and memory captions.
@@ -1530,7 +1598,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn purple"
+                  className="studio-tool-btn orchid"
                   onClick={() =>
                     addElement({
                       type: 'album_spread',
@@ -1560,7 +1628,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn purple"
+                  className="studio-tool-btn cosmic"
                   onClick={() =>
                     addElement({
                       type: 'album_spread',
@@ -1598,7 +1666,7 @@ export default function FlipexStudio() {
               <div className="space-y-2.5">
                 <button
                   type="button"
-                  className="studio-tool-btn"
+                  className="studio-tool-btn cosmic"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1614,7 +1682,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn"
+                  className="studio-tool-btn ocean"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1646,7 +1714,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn"
+                  className="studio-tool-btn sunset"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1713,7 +1781,7 @@ export default function FlipexStudio() {
               <div className="space-y-3">
                 <button
                   type="button"
-                  className="studio-tool-btn red"
+                  className="studio-tool-btn sunset"
                   onClick={() =>
                     addElement({
                       type: 'badge',
@@ -1736,7 +1804,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn amber"
+                  className="studio-tool-btn sunset"
                   onClick={() =>
                     addElement({
                       type: 'badge',
@@ -1759,7 +1827,7 @@ export default function FlipexStudio() {
 
                 <button
                   type="button"
-                  className="studio-tool-btn blue"
+                  className="studio-tool-btn ocean"
                   onClick={() =>
                     addElement({
                       type: 'shape',
@@ -1785,7 +1853,7 @@ export default function FlipexStudio() {
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-bold text-white">Import Mode</span>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1.5">
                       <button
                         onClick={() => {
                           setCsvMode('products');
@@ -1795,8 +1863,10 @@ export default function FlipexStudio() {
                             'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01'
                           );
                         }}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          csvMode === 'products' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                          csvMode === 'products'
+                            ? 'studio-gradient-btn cosmic'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
                         Products
@@ -1810,8 +1880,10 @@ export default function FlipexStudio() {
                             'Jone Naivalu,https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400,Head Boy,"Honor our elders",Student Council'
                           );
                         }}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          csvMode === 'yearbook' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                          csvMode === 'yearbook'
+                            ? 'studio-gradient-btn orchid'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
                         Yearbook Rosters
@@ -1832,18 +1904,12 @@ export default function FlipexStudio() {
                   <button
                     type="button"
                     onClick={handleImportCsv}
+                    className="studio-gradient-btn cosmic"
                     style={{
                       width: '100%',
                       marginTop: '8px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      background: '#6366f1',
-                      border: 'none',
-                      color: '#ffffff',
+                      padding: '9px 14px',
                       fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
                     }}
                   >
                     🚀 Auto-Generate on Page {activePageIndex + 1}
@@ -1860,15 +1926,11 @@ export default function FlipexStudio() {
               <button
                 type="button"
                 onClick={handleAddPage}
+                className="studio-gradient-btn cosmic"
                 style={{
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  background: '#1e293b',
-                  border: '1px solid #475569',
-                  color: '#f8fafc',
+                  padding: '6px 14px',
                   fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
+                  borderRadius: '6px',
                 }}
               >
                 + Add Page
@@ -1877,7 +1939,7 @@ export default function FlipexStudio() {
                 <button
                   type="button"
                   onClick={() => handleDeletePage(activePage?.id || 0)}
-                  className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded"
+                  className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded cursor-pointer"
                   title="Delete current page"
                 >
                   🗑️
@@ -1889,13 +1951,98 @@ export default function FlipexStudio() {
 
         {/* CENTER INTERACTIVE CANVAS WORKSPACE */}
         <main
-          style={{ flex: 1, background: '#0f172a', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 16px', position: 'relative' }}
+          ref={mainRef}
+          style={{
+            flex: 1,
+            background: 'radial-gradient(ellipse at center, #172033 0%, #090d16 100%)',
+            overflow: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '36px 20px',
+            position: 'relative',
+          }}
           onClick={(e) => {
             if (e.target === canvasRef.current || (e.target as HTMLElement)?.id === 'canvas-board') {
               setSelectedElementId(null);
             }
           }}
         >
+          {/* Floating Expand Sidebar Button when collapsed */}
+          {sidebarCollapsed && (
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(false)}
+              className="studio-gradient-btn cosmic"
+              style={{
+                position: 'absolute',
+                top: '16px',
+                left: '16px',
+                zIndex: 35,
+                padding: '6px 12px',
+                fontSize: '11px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+              }}
+              title="Expand Tools Sidebar"
+            >
+              <span>▶</span> Tools
+            </button>
+          )}
+
+          {/* Floating Expand Inspector Button when collapsed */}
+          {inspectorCollapsed && (
+            <button
+              type="button"
+              onClick={() => setInspectorCollapsed(false)}
+              className="studio-gradient-btn ocean"
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                zIndex: 35,
+                padding: '6px 12px',
+                fontSize: '11px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+              }}
+              title="Expand Property Inspector"
+            >
+              Inspector <span>◀</span>
+            </button>
+          )}
+
+          {/* Floating Bottom Canvas Viewport Status Indicator */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '12px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '4px 14px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              color: '#94a3b8',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              zIndex: 30,
+              pointerEvents: 'none',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+            }}
+          >
+            <span style={{ color: '#cbd5e1', fontWeight: 600 }}>
+              {currentDoc?.orientation === 'portrait' ? '↕ Portrait' : '↔ Landscape'} ({Math.round(docW)} × {Math.round(docH)} pt)
+            </span>
+            <span>•</span>
+            <span style={{ color: '#a5b4fc', fontWeight: 700 }}>{zoom}% Zoom</span>
+            <span>•</span>
+            <span>Page {activePageIndex + 1} of {pages.length}</span>
+          </div>
+
           {/* THE PAGE CANVAS */}
           <div
             id="canvas-board"
@@ -1906,7 +2053,7 @@ export default function FlipexStudio() {
               transform: `scale(${scale})`,
               transformOrigin: 'center center',
               backgroundColor: activePage?.background?.value || '#FFFFFF',
-              boxShadow: '0 25px 60px -15px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08)',
+              boxShadow: '0 25px 65px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
             }}
             className="relative transition-transform duration-75 select-none rounded-sm overflow-hidden"
           >
@@ -1944,12 +2091,13 @@ export default function FlipexStudio() {
                     width: `${el.w}px`,
                     height: `${el.h}px`,
                     cursor: 'move',
-                    zIndex: isSelected ? 30 : 10,
-                    outline: isSelected ? '2px solid #6366F1' : 'none',
-                    boxShadow: isSelected ? '0 0 0 4px rgba(99, 102, 241, 0.25)' : 'none',
+                    zIndex: isSelected ? 35 : (el.style?.zIndex || 10),
+                    outline: isSelected ? '2px solid #a855f7' : 'none',
+                    boxShadow: isSelected ? '0 0 0 4px rgba(168, 85, 247, 0.3)' : 'none',
                     borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined,
                     backgroundColor: el.style?.backgroundColor,
                     opacity: el.style?.opacity,
+                    fontFamily: el.style?.fontFamily,
                   }}
                   onMouseDown={(e) => {
                     e.stopPropagation();
@@ -2169,7 +2317,7 @@ export default function FlipexStudio() {
                       <div className="mt-2">
                         <button
                           type="button"
-                          className="w-full py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
+                          className="w-full py-1.5 studio-gradient-btn emerald rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
                         >
                           <span>💬</span> WhatsApp Order
                         </button>
@@ -2218,8 +2366,22 @@ export default function FlipexStudio() {
           </div>
         </main>
 
-        {/* RIGHT PROPERTY INSPECTOR */}
-        <aside style={{ width: '280px', background: '#090d16', borderLeft: '1px solid #1e293b', padding: '16px', overflowY: 'auto', fontSize: '0.78rem', zIndex: 20, color: '#f8fafc' }}>
+        {/* RIGHT PROPERTY INSPECTOR (Collapsible) */}
+        <aside
+          style={{
+            width: inspectorCollapsed ? '0px' : '285px',
+            minWidth: inspectorCollapsed ? '0px' : '285px',
+            maxWidth: inspectorCollapsed ? '0px' : '285px',
+            padding: inspectorCollapsed ? '0px' : '16px',
+            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+            overflow: 'hidden',
+            background: '#090d16',
+            borderLeft: inspectorCollapsed ? 'none' : '1px solid #1e293b',
+            fontSize: '0.78rem',
+            zIndex: 20,
+            color: '#f8fafc',
+          }}
+        >
           {selectedElement ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -2228,7 +2390,7 @@ export default function FlipexStudio() {
                 </span>
                 <button
                   onClick={deleteSelectedElement}
-                  className="text-red-400 hover:text-red-300 font-bold"
+                  className="text-rose-400 hover:text-white hover:bg-rose-950/60 font-bold px-2 py-0.5 rounded cursor-pointer transition-colors"
                   title="Delete element"
                 >
                   Delete ✕
@@ -2278,6 +2440,39 @@ export default function FlipexStudio() {
                 </div>
               </div>
 
+              {/* Layer Ordering */}
+              <div>
+                <label className="block text-[10px] text-slate-400 font-bold mb-1">Layer Ordering</label>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentZ = selectedElement.style?.zIndex || 10;
+                      updateSelectedElement({
+                        style: { ...selectedElement.style, zIndex: Math.min(100, currentZ + 5) },
+                      });
+                    }}
+                    className="studio-tool-btn cosmic"
+                    style={{ flex: 1, padding: '5px 0', fontSize: '11px' }}
+                  >
+                    ▲ Bring Forward
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentZ = selectedElement.style?.zIndex || 10;
+                      updateSelectedElement({
+                        style: { ...selectedElement.style, zIndex: Math.max(1, currentZ - 5) },
+                      });
+                    }}
+                    className="studio-tool-btn ocean"
+                    style={{ flex: 1, padding: '5px 0', fontSize: '11px' }}
+                  >
+                    ▼ Send Backward
+                  </button>
+                </div>
+              </div>
+
               {/* Magazine Column Properties */}
               {selectedElement.type === 'column_text' && (
                 <div className="space-y-3">
@@ -2287,7 +2482,7 @@ export default function FlipexStudio() {
                       <select
                         value={selectedElement.columns || 2}
                         onChange={(e) => updateSelectedElement({ columns: parseInt(e.target.value, 10) })}
-                        className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
+                        className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs text-slate-200"
                       >
                         <option value={1}>1 Column</option>
                         <option value={2}>2 Columns</option>
@@ -2298,8 +2493,8 @@ export default function FlipexStudio() {
                       <label className="block text-[10px] text-slate-500 mb-0.5">Drop-Cap</label>
                       <button
                         onClick={() => updateSelectedElement({ dropCap: !selectedElement.dropCap })}
-                        className={`w-full py-1 rounded font-bold text-xs ${
-                          selectedElement.dropCap ? 'bg-indigo-600 text-white' : 'bg-slate-900 border border-slate-800'
+                        className={`w-full py-1.5 rounded font-bold text-xs ${
+                          selectedElement.dropCap ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-800 text-slate-300'
                         }`}
                       >
                         {selectedElement.dropCap ? 'Drop-Cap ON' : 'Drop-Cap OFF'}
@@ -2318,8 +2513,64 @@ export default function FlipexStudio() {
                       rows={3}
                       value={selectedElement.content || ''}
                       onChange={(e) => updateSelectedElement({ content: e.target.value })}
-                      className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-800 text-xs"
+                      className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-800 text-xs text-slate-100"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-0.5">Font Family</label>
+                    <select
+                      value={selectedElement.style?.fontFamily || 'Inter, sans-serif'}
+                      onChange={(e) =>
+                        updateSelectedElement({
+                          style: { ...selectedElement.style, fontFamily: e.target.value },
+                        })
+                      }
+                      className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-800 text-xs text-slate-200"
+                    >
+                      <option value="Inter, sans-serif">Modern Sans (Inter)</option>
+                      <option value="'Playfair Display', Georgia, serif">Editorial Serif (Playfair)</option>
+                      <option value="'Courier New', monospace">Technical Mono</option>
+                      <option value="'Dancing Script', cursive">Handwritten Script</option>
+                      <option value="'Oswald', sans-serif">Impact Display (Oswald)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-0.5">Text Alignment</label>
+                    <div className="flex gap-1">
+                      {(['left', 'center', 'right', 'justify'] as const).map((align) => (
+                        <button
+                          key={align}
+                          type="button"
+                          onClick={() =>
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, textAlign: align },
+                            })
+                          }
+                          style={{
+                            flex: 1,
+                            padding: '4px 0',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background:
+                              (selectedElement.style?.textAlign || 'left') === align
+                                ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
+                                : '#1e293b',
+                            color:
+                              (selectedElement.style?.textAlign || 'left') === align
+                                ? '#ffffff'
+                                : '#94a3b8',
+                            border:
+                              (selectedElement.style?.textAlign || 'left') === align
+                                ? 'none'
+                                : '1px solid #334155',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {align === 'left' ? '⇤' : align === 'center' ? '≡' : align === 'right' ? '⇥' : '↔'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -2412,6 +2663,25 @@ export default function FlipexStudio() {
                       className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs text-emerald-400 font-mono"
                     />
                   </div>
+                  {selectedElement.whatsappNumber && (
+                    <a
+                      href={`https://wa.me/${selectedElement.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                        `Bula! I would like to order: ${selectedElement.name || 'Product'} (${selectedElement.price || ''}) SKU: ${selectedElement.sku || 'N/A'}`
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="studio-gradient-btn emerald"
+                      style={{
+                        width: '100%',
+                        marginTop: '6px',
+                        padding: '7px 12px',
+                        fontSize: '11px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <span>💬</span> Test WhatsApp Ordering Link ↗
+                    </a>
+                  )}
                 </div>
               )}
             </div>
@@ -2446,7 +2716,7 @@ export default function FlipexStudio() {
                         backgroundColor: bg.color,
                         height: '32px',
                         borderRadius: '6px',
-                        border: activePage?.background?.value === bg.color ? '2px solid #6366f1' : '1px solid #475569',
+                        border: activePage?.background?.value === bg.color ? '2px solid #a855f7' : '1px solid #475569',
                         cursor: 'pointer',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                       }}
@@ -2492,21 +2762,21 @@ export default function FlipexStudio() {
                   navigator.clipboard.writeText(`${window.location.origin}${publishModal.url}`);
                   alert('Copied reader link to clipboard!');
                 }}
-                className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-bold text-white ml-2"
+                className="px-3.5 py-1.5 studio-gradient-btn cosmic rounded-lg text-xs font-bold text-white ml-2"
               >
                 Copy
               </button>
             </div>
 
             <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" onClick={() => setPublishModal(null)} className="border-slate-700 text-slate-300">
+              <Button variant="outline" onClick={() => setPublishModal(null)} className="border-slate-700 text-slate-300 hover:text-white">
                 Keep Editing
               </Button>
               <a
                 href={publishModal.url}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-primary bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-lg shadow-emerald-600/20"
+                className="studio-gradient-btn emerald text-white font-bold py-2.5 px-6 rounded-xl text-sm"
               >
                 Open Live Reader ↗
               </a>
