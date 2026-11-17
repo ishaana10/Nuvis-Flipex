@@ -648,44 +648,56 @@ export default function FlipexStudio() {
     });
 
     return (
-      <div className="container py-8 max-w-7xl mx-auto px-4">
-        {/* Header Banner */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 rounded-3xl p-8 mb-8 shadow-xl text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="studio-container">
+        {/* Header Banner - High-contrast Deep Indigo / Slate */}
+        <div className="studio-hero-banner">
+          <div style={{ position: 'absolute', top: 0, right: 0, width: '380px', height: '380px', background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
             <div>
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-semibold tracking-wider uppercase border border-indigo-500/30">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                <span className="studio-pill-tag">
                   ✨ Canva-Like Visual Creation Engine
                 </span>
-                <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full text-xs font-medium">
+                <span className="studio-pill-tag green">
                   Direct Vector &amp; Print PDF
                 </span>
-                <span className="px-2.5 py-0.5 bg-purple-500/20 text-purple-300 rounded-full text-xs font-medium">
+                <span className="studio-pill-tag purple">
                   WhatsApp 1-Tap Ordering
                 </span>
               </div>
-              <h1 className="text-3xl font-extrabold tracking-tight mb-2">Flipex Studio</h1>
-              <p className="text-slate-300 max-w-2xl text-sm leading-relaxed">
+              <h1 className="studio-hero-title">Flipex Studio</h1>
+              <p className="studio-hero-desc">
                 Design stunning promotional catalogues, school &amp; university yearbooks, community editorial magazines, and luxury photo albums from scratch. Publish directly into your responsive interactive flipbook reader with 1-tap WhatsApp ordering.
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="primary"
-                size="lg"
+            <div>
+              <button
+                type="button"
                 onClick={() => setShowNewDocModal(true)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 font-bold px-6 py-3 rounded-xl flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
               >
                 <span>➕</span> Create New Document
-              </Button>
+              </button>
             </div>
           </div>
         </div>
 
         {/* Filter Pills & Search */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
             {[
               { id: 'all', label: 'All Documents' },
               { id: 'catalogue', label: '🛒 Product Catalogues' },
@@ -696,50 +708,57 @@ export default function FlipexStudio() {
               <button
                 key={f.id}
                 onClick={() => setFilterType(f.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  filterType === f.id
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                }`}
+                className={`studio-filter-pill ${filterType === f.id ? 'active' : ''}`}
               >
                 {f.label}
               </button>
             ))}
           </div>
 
-          <div className="relative w-full sm:w-72">
+          <div className="studio-search-wrap">
+            <span className="studio-search-icon">🔍</span>
             <input
               type="text"
               placeholder="Search documents…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 pl-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="studio-search-input"
             />
-            <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
           </div>
         </div>
 
         {/* Documents Grid */}
         {loading ? (
-          <div className="text-center py-20 text-slate-500">Loading your studio workspace…</div>
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#64748b' }}>Loading your studio workspace…</div>
         ) : filteredDocs.length === 0 ? (
-          <div className="text-center py-16 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-8">
-            <div className="text-5xl mb-3">🎨</div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">No Documents Found</h3>
-            <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+          <div className="studio-empty-state">
+            <div style={{ fontSize: '48px', marginBottom: '10px' }}>🎨</div>
+            <h3 className="studio-empty-title">No Documents Found</h3>
+            <p className="studio-empty-desc">
               Get started by launching a prebuilt supermarket catalogue, high-school yearbook, or island lifestyle magazine.
             </p>
-            <Button variant="primary" onClick={() => setShowNewDocModal(true)}>
-              Create Your First Document
-            </Button>
+            <button
+              type="button"
+              onClick={() => setShowNewDocModal(true)}
+              style={{
+                background: '#6366f1',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                padding: '10px 22px',
+                borderRadius: '10px',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)',
+              }}
+            >
+              + Create Your First Document
+            </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '22px' }}>
             {filteredDocs.map((doc) => (
-              <div
-                key={doc.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all group flex flex-col justify-between"
-              >
+              <div key={doc.id} className="studio-doc-card">
                 <div>
                   {/* Preview Thumbnail */}
                   <div
@@ -747,30 +766,40 @@ export default function FlipexStudio() {
                       setActiveDocId(doc.id);
                       navigate(`/studio/${doc.id}`);
                     }}
-                    className="h-52 bg-slate-100 dark:bg-slate-800 cursor-pointer overflow-hidden relative flex items-center justify-center border-b border-slate-100 dark:border-slate-800"
+                    style={{
+                      height: '210px',
+                      background: '#f1f5f9',
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderBottom: '1px solid #e2e8f0',
+                    }}
                   >
                     {doc.cover_thumb ? (
                       <img
                         src={doc.cover_thumb}
                         alt={doc.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
-                      <div className="text-center p-4">
-                        <span className="text-4xl block mb-2">
+                      <div style={{ textAlign: 'center', padding: '16px' }}>
+                        <span style={{ fontSize: '38px', display: 'block', marginBottom: '6px' }}>
                           {doc.doc_type === 'catalogue' ? '🛒' : doc.doc_type === 'magazine' ? '📖' : '📷'}
                         </span>
-                        <span className="text-xs font-semibold text-slate-400">Blank Canvas Page</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>Blank Canvas Page</span>
                       </div>
                     )}
-                    <div className="absolute top-3 left-3">
-                      <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md text-white rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                    <div style={{ position: 'absolute', top: '10px', left: '10px' }}>
+                      <span style={{ padding: '3px 8px', background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)', color: '#ffffff', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         {doc.doc_type}
                       </span>
                     </div>
                     {doc.status === 'published' && (
-                      <div className="absolute top-3 right-3">
-                        <span className="px-2 py-0.5 bg-emerald-500 text-white rounded-md text-[10px] font-bold">
+                      <div style={{ position: 'absolute', top: '10px', right: '10px' }}>
+                        <span style={{ padding: '3px 8px', background: '#10b981', color: '#ffffff', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 700 }}>
                           Live Reader ✓
                         </span>
                       </div>
@@ -778,17 +807,17 @@ export default function FlipexStudio() {
                   </div>
 
                   {/* Body Content */}
-                  <div className="p-4">
+                  <div style={{ padding: '16px' }}>
                     <h3
                       onClick={() => {
                         setActiveDocId(doc.id);
                         navigate(`/studio/${doc.id}`);
                       }}
-                      className="font-bold text-base text-slate-900 dark:text-slate-100 mb-1 hover:text-indigo-600 cursor-pointer line-clamp-1"
+                      className="studio-doc-card-title"
                     >
                       {doc.title}
                     </h3>
-                    <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
+                    <div className="studio-doc-card-meta">
                       <span>📄 {doc.page_count} {doc.page_count === 1 ? 'Page' : 'Pages'}</span>
                       <span>•</span>
                       <span>{doc.orientation === 'portrait' ? '↕ Portrait' : '↔ Landscape'}</span>
@@ -797,10 +826,20 @@ export default function FlipexStudio() {
                 </div>
 
                 {/* Card Actions */}
-                <div className="p-4 pt-0 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 mt-2">
+                <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <Link
                     to={`/studio/${doc.id}`}
-                    className="flex-1 text-center py-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-semibold text-xs rounded-xl hover:bg-indigo-100 transition-colors"
+                    style={{
+                      flex: 1,
+                      textAlign: 'center',
+                      padding: '8px 12px',
+                      background: '#eef2ff',
+                      color: '#4f46e5',
+                      fontWeight: 600,
+                      fontSize: '0.78rem',
+                      borderRadius: '8px',
+                      textDecoration: 'none',
+                    }}
                   >
                     Open Canvas
                   </Link>
@@ -808,7 +847,16 @@ export default function FlipexStudio() {
                     href={`/api/v1/studio/documents/${doc.id}/export-pdf`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-2.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-200"
+                    style={{
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      color: '#475569',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      textDecoration: 'none',
+                    }}
                     title="Export Print PDF"
                   >
                     🖨️
@@ -818,7 +866,16 @@ export default function FlipexStudio() {
                       href={`/v/${doc.flipbook_slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-xl hover:bg-emerald-100"
+                      style={{
+                        padding: '8px 14px',
+                        background: '#ecfdf5',
+                        color: '#059669',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        borderRadius: '8px',
+                        border: '1px solid #a7f3d0',
+                        textDecoration: 'none',
+                      }}
                       title="Open in Live Reader"
                     >
                       Reader
@@ -832,38 +889,38 @@ export default function FlipexStudio() {
 
         {/* New Document Modal */}
         {showNewDocModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative">
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div style={{ background: '#ffffff', borderRadius: '20px', maxWidth: '560px', width: '100%', padding: '28px', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', position: 'relative', border: '1px solid #e2e8f0', color: '#0f172a' }}>
               <button
                 onClick={() => setShowNewDocModal(false)}
-                className="absolute top-5 right-5 text-slate-400 hover:text-slate-600"
+                style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', fontSize: '18px', color: '#94a3b8', cursor: 'pointer' }}
               >
                 ✕
               </button>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">Create Studio Document</h2>
-              <p className="text-xs text-slate-500 mb-5">
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>Create Studio Document</h2>
+              <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 20px 0' }}>
                 Select your document layout and pick a starter preset to accelerate creation.
               </p>
 
-              <div className="space-y-4">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Document Title</label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Document Title</label>
                   <input
                     type="text"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="e.g. Suva Weekly Supermarket Specials"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontSize: '0.88rem', outline: 'none' }}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Document Type</label>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Document Type</label>
                     <select
                       value={newDocType}
                       onChange={(e) => setNewDocType(e.target.value as DocType)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm"
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontSize: '0.85rem' }}
                     >
                       <option value="catalogue">🛒 Product Catalogue</option>
                       <option value="magazine">📖 Editorial Magazine / Yearbook</option>
@@ -872,11 +929,11 @@ export default function FlipexStudio() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Orientation</label>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Orientation</label>
                     <select
                       value={newOrientation}
                       onChange={(e) => setNewOrientation(e.target.value as 'portrait' | 'landscape')}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm"
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontSize: '0.85rem' }}
                     >
                       <option value="portrait">↕ Portrait (A4 Standard)</option>
                       <option value="landscape">↔ Landscape (Spread)</option>
@@ -885,47 +942,64 @@ export default function FlipexStudio() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
                     Starter Template (Optional)
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
                     <div
                       onClick={() => setNewTemplateId(null)}
-                      className={`p-3 rounded-xl border-2 cursor-pointer text-center text-xs font-semibold ${
-                        newTemplateId === null
-                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                      }`}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: newTemplateId === null ? '2px solid #6366f1' : '1px solid #cbd5e1',
+                        background: newTemplateId === null ? '#eef2ff' : '#ffffff',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: newTemplateId === null ? '#4f46e5' : '#334155',
+                      }}
                     >
-                      <span className="text-2xl block mb-1">📄</span>
+                      <span style={{ fontSize: '26px', display: 'block', marginBottom: '4px' }}>📄</span>
                       Blank Canvas
                     </div>
                     {templates.map((tpl) => (
                       <div
                         key={tpl.id}
                         onClick={() => setNewTemplateId(tpl.id)}
-                        className={`p-2 rounded-xl border-2 cursor-pointer text-left text-xs ${
-                          newTemplateId === tpl.id
-                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                        }`}
+                        style={{
+                          padding: '8px',
+                          borderRadius: '10px',
+                          border: newTemplateId === tpl.id ? '2px solid #6366f1' : '1px solid #cbd5e1',
+                          background: newTemplateId === tpl.id ? '#eef2ff' : '#ffffff',
+                          cursor: 'pointer',
+                          fontSize: '0.72rem',
+                        }}
                       >
-                        <img src={tpl.thumbnail_url} alt={tpl.name} className="h-16 w-full object-cover rounded-lg mb-1" />
-                        <span className="font-bold line-clamp-1 text-[11px]">{tpl.name}</span>
-                        <span className="text-[10px] text-slate-500 uppercase">{tpl.category.replace('_', ' ')}</span>
+                        <img src={tpl.thumbnail_url} alt={tpl.name} style={{ height: '55px', width: '100%', objectFit: 'cover', borderRadius: '6px', marginBottom: '4px' }} />
+                        <span style={{ fontWeight: 700, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0f172a' }}>{tpl.name}</span>
+                        <span style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase' }}>{tpl.category.replace('_', ' ')}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <Button variant="outline" onClick={() => setShowNewDocModal(false)}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowNewDocModal(false)}
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                >
                   Cancel
-                </Button>
-                <Button variant="primary" onClick={handleCreateDocument} className="bg-indigo-600 font-bold px-5">
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateDocument}
+                  style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#6366f1', color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)' }}
+                >
                   Launch Studio
-                </Button>
+                </button>
               </div>
             </div>
           </div>
@@ -942,9 +1016,9 @@ export default function FlipexStudio() {
   const scale = zoom / 100;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-900 text-slate-100 overflow-hidden select-none">
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', background: '#090d16', color: '#f8fafc', overflow: 'hidden', userSelect: 'none' }}>
       {/* TOP STUDIO TOOLBAR */}
-      <header className="h-14 bg-slate-950 border-b border-slate-800 px-4 flex items-center justify-between gap-4 z-30 flex-wrap">
+      <header style={{ height: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'wrap' }}>
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
@@ -1088,9 +1162,9 @@ export default function FlipexStudio() {
       </header>
 
       {/* WORKSPACE BODY: LEFT TOOLBAR + CENTER CANVAS + RIGHT INSPECTOR */}
-      <div className="flex-1 flex overflow-hidden">
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* LEFT TOOLBAR TABS */}
-        <aside className="w-80 bg-slate-950 border-r border-slate-800 flex flex-col z-20">
+        <aside style={{ width: '320px', background: '#090d16', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
           <div className="flex items-center border-b border-slate-800 text-xs overflow-x-auto p-1 bg-slate-900/60">
             {[
               { id: 'products', label: '🛒 Products' },
@@ -1696,7 +1770,7 @@ export default function FlipexStudio() {
 
         {/* CENTER INTERACTIVE CANVAS WORKSPACE */}
         <main
-          className="flex-1 bg-slate-950 overflow-auto flex items-center justify-center p-12 relative"
+          style={{ flex: 1, background: '#0f172a', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative' }}
           onClick={(e) => {
             if (e.target === canvasRef.current || (e.target as HTMLElement)?.id === 'canvas-board') {
               setSelectedElementId(null);
@@ -2026,7 +2100,7 @@ export default function FlipexStudio() {
         </main>
 
         {/* RIGHT PROPERTY INSPECTOR */}
-        <aside className="w-72 bg-slate-950 border-l border-slate-800 p-4 overflow-y-auto text-xs z-20">
+        <aside style={{ width: '280px', background: '#090d16', borderLeft: '1px solid #1e293b', padding: '16px', overflowY: 'auto', fontSize: '0.78rem', zIndex: 20, color: '#f8fafc' }}>
           {selectedElement ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
