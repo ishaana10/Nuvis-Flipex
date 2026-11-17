@@ -196,6 +196,7 @@ export default function FlipexStudio() {
   const [newDocType, setNewDocType] = useState<DocType>('catalogue');
   const [newOrientation, setNewOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [newTemplateId, setNewTemplateId] = useState<number | null>(null);
+  const [creatingDoc, setCreatingDoc] = useState<boolean>(false);
 
   // CSV Bulk Import state (Products vs Yearbook Rosters)
   const [csvMode, setCsvMode] = useState<'products' | 'yearbook'>('products');
@@ -289,7 +290,8 @@ export default function FlipexStudio() {
 
   // Create new document
   const handleCreateDocument = async () => {
-    if (!newTitle.trim()) return;
+    if (!newTitle.trim() || creatingDoc) return;
+    setCreatingDoc(true);
     try {
       const body: any = {
         title: newTitle.trim(),
@@ -306,7 +308,9 @@ export default function FlipexStudio() {
       navigate(`/studio/${res.document_id}`);
       setActiveDocId(res.document_id);
     } catch (e: any) {
-      alert('Failed to create document: ' + e.message);
+      alert('Failed to create document: ' + (e?.message || 'Server error'));
+    } finally {
+      setCreatingDoc(false);
     }
   };
 
@@ -995,10 +999,22 @@ export default function FlipexStudio() {
                 </button>
                 <button
                   type="button"
+                  disabled={creatingDoc}
                   onClick={handleCreateDocument}
-                  style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#6366f1', color: '#ffffff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)' }}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: creatingDoc ? '#818cf8' : '#6366f1',
+                    color: '#ffffff',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: creatingDoc ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+                    opacity: creatingDoc ? 0.75 : 1,
+                  }}
                 >
-                  Launch Studio
+                  {creatingDoc ? 'Launching Studio...' : 'Launch Studio'}
                 </button>
               </div>
             </div>

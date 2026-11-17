@@ -15,11 +15,16 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 final class StudioController
 {
+    private static bool $schemaEnsured = false;
+
     /**
      * Auto-ensure schema tables exist.
      */
     private function ensureSchema(): void
     {
+        if (self::$schemaEnsured) {
+            return;
+        }
         Db::pdo()->exec("
             CREATE TABLE IF NOT EXISTS studio_documents (
               id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -101,6 +106,7 @@ final class StudioController
         ");
 
         $this->seedDefaultTemplates();
+        self::$schemaEnsured = true;
     }
 
     /**
@@ -354,7 +360,11 @@ final class StudioController
 
             Db::pdo()->commit();
 
-            Audit::log($u['id'], 'studio_document_create', 'studio_document', $docId, ['title' => $title, 'doc_type' => $docType]);
+            try {
+                Audit::log('studio_document.create', 'studio_document', $docId, ['title' => $title, 'doc_type' => $docType]);
+            } catch (\Throwable $ae) {
+                error_log('Audit log error on studio_document.create: ' . $ae->getMessage());
+            }
 
             return Http::json($res, [
                 'ok' => true,
@@ -362,7 +372,9 @@ final class StudioController
                 'message' => 'Document initialized successfully'
             ], 201);
         } catch (\Throwable $e) {
-            Db::pdo()->rollBack();
+            if (Db::pdo()->inTransaction()) {
+                Db::pdo()->rollBack();
+            }
             return Http::error($res, 'Failed to create studio document: ' . $e->getMessage(), 500);
         }
     }
@@ -449,7 +461,11 @@ final class StudioController
         }
 
         Db::run('UPDATE studio_documents SET status = "archived", updated_at = NOW() WHERE id = ?', [$id]);
-        Audit::log($u['id'], 'studio_document_archive', 'studio_document', $id);
+        try {
+            Audit::log('studio_document.archive', 'studio_document', $id);
+        } catch (\Throwable $ae) {
+            error_log('Audit log error on studio_document.archive: ' . $ae->getMessage());
+        }
 
         return Http::json($res, ['ok' => true, 'message' => 'Document archived']);
     }
@@ -593,6 +609,11 @@ final class StudioController
 
         Db::pdo()->beginTransaction();
         try {
+            // Temporary offset to prevent unique key collisions during re-indexing
+            $offset = 10000;
+            foreach ($pageIds as $idx => $pid) {
+                Db::run('UPDATE studio_document_pages SET page_number = ? WHERE id = ? AND document_id = ?', [$offset + $idx, (int) $pid, $docId]);
+            }
             $num = 1;
             foreach ($pageIds as $pid) {
                 Db::run('UPDATE studio_document_pages SET page_number = ? WHERE id = ? AND document_id = ?', [$num++, (int) $pid, $docId]);
@@ -600,7 +621,9 @@ final class StudioController
             Db::pdo()->commit();
             return Http::json($res, ['ok' => true, 'message' => 'Pages reordered successfully']);
         } catch (\Throwable $e) {
-            Db::pdo()->rollBack();
+            if (Db::pdo()->inTransaction()) {
+                Db::pdo()->rollBack();
+            }
             return Http::error($res, 'Reorder failed: ' . $e->getMessage(), 500);
         }
     }
@@ -858,7 +881,11 @@ final class StudioController
 
             Db::pdo()->commit();
 
-            Audit::log($u['id'], 'studio_document_publish', 'flipbook', $flipbookId, ['document_id' => $docId]);
+            try {
+                Audit::log('studio_document.publish', 'flipbook', $flipbookId, ['document_id' => $docId]);
+            } catch (\Throwable $ae) {
+                error_log('Audit log error on studio_document.publish: ' . $ae->getMessage());
+            }
 
             $fb = Db::one('SELECT slug FROM flipbooks WHERE id = ?', [$flipbookId]);
 
@@ -871,7 +898,9 @@ final class StudioController
                 'message' => 'Published successfully as an interactive flipbook!'
             ]);
         } catch (\Throwable $e) {
-            Db::pdo()->rollBack();
+            if (Db::pdo()->inTransaction()) {
+                Db::pdo()->rollBack();
+            }
             return Http::error($res, 'Publishing failed: ' . $e->getMessage(), 500);
         }
     }
