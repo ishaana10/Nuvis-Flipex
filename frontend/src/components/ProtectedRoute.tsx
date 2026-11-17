@@ -209,6 +209,7 @@ export function ProtectedRoute() {
     location.pathname.startsWith('/flipbooks') ||
     location.pathname.startsWith('/dashboard/preview') ||
     location.pathname.startsWith('/dashboard/editor');
+  const isStudio = location.pathname.startsWith('/studio');
   const isLeads = location.pathname.startsWith('/leads');
   const isAnalytics = location.pathname.startsWith('/dashboard/analytics');
   const isIntegrations = location.pathname.startsWith('/integrations');
@@ -276,7 +277,20 @@ export function ProtectedRoute() {
             <span className="sidebar-label">Flipbooks</span>
           </Link>
 
-          {/* 3. Commercial Storefront & Customer Leads */}
+          {/* 3. Flipex Studio (Catalogues, Magazines, Yearbooks, Keepsake Albums) */}
+          <Link
+            to="/studio"
+            className={`sidebar-item ${isStudio && !activeModuleHub ? 'active' : ''}`}
+            onClick={() => setActiveModuleHub(null)}
+            title="Flipex Studio: Visual Document Creation Engine"
+          >
+            <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <span className="sidebar-label">Studio</span>
+          </Link>
+
+          {/* 4. Commercial Storefront & Customer Leads */}
           <Link
             to="/leads"
             className={`sidebar-item ${isLeads && !activeModuleHub ? 'active' : ''}`}

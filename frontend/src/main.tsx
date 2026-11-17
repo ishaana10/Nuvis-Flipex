@@ -26,6 +26,7 @@ const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const IntegrationsHub = lazy(() => import('./pages/IntegrationsHub'));
 const BillingPortal = lazy(() => import('./pages/BillingPortal'));
 const DevOpsCenter = lazy(() => import('./pages/DevOpsCenter'));
+const FlipexStudio = lazy(() => import('./pages/FlipexStudio'));
 
 /** One loading boundary per area so a slow chunk only blanks its own region. */
 function Boundary({ area, children }: { area: string; children: ReactNode }) {
@@ -54,6 +55,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Boundary area="dashboard"><Dashboard view="overview" /></Boundary>} />
             <Route path="/flipbooks" element={<Boundary area="dashboard"><Dashboard view="flipbooks" /></Boundary>} />
+            <Route path="/studio" element={<Boundary area="Flipex Studio"><FlipexStudio /></Boundary>} />
+            <Route path="/studio/:id" element={<Boundary area="Flipex Studio Canvas"><FlipexStudio /></Boundary>} />
             <Route path="/leads" element={<Boundary area="commercial leads"><Dashboard view="leads" /></Boundary>} />
             <Route path="/integrations" element={<Boundary area="integrations"><IntegrationsHub /></Boundary>} />
             <Route path="/billing" element={<Boundary area="billing"><BillingPortal /></Boundary>} />

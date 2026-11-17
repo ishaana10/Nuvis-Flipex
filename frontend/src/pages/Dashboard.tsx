@@ -535,7 +535,19 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                 ref={input}
                 onChange={(e) => e.target.files?.length && uploadFiles(e.target.files)}
               />
-              <button disabled={uploading} onClick={() => input.current?.click()} className="btn-primary">
+              <Link
+                to="/studio"
+                className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5 shadow-sm text-white"
+                style={{
+                  background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                  border: 'none',
+                  textDecoration: 'none',
+                }}
+                title="Launch Flipex Studio: Create Catalogues, Magazines, Yearbooks & Keepsake Albums from scratch"
+              >
+                <span>✨</span> Flipex Studio
+              </Link>
+              <button disabled={uploading} onClick={() => input.current?.click()} className="btn-secondary">
                 {uploading ? 'Uploading PDF…' : '+ Upload PDF'}
               </button>
               {featuredBook && can('hotspot.manage') && (

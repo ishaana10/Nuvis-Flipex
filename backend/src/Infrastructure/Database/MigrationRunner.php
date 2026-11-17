@@ -570,6 +570,90 @@ final class MigrationRunner
             'downSql' => 'DROP TABLE IF EXISTS ad_events; DROP TABLE IF EXISTS sponsored_placements; DROP TABLE IF EXISTS regional_directory_entries;',
             'reversible' => true,
         ],
+        '2026_11_17_000013_flipex_studio_schema' => [
+            'description' => 'Flipex Studio core schema: documents, pages, templates, assets, publications',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS studio_documents (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  created_by BIGINT UNSIGNED NOT NULL,
+                  title VARCHAR(255) NOT NULL,
+                  doc_type ENUM('catalogue', 'magazine', 'album', 'custom') NOT NULL DEFAULT 'catalogue',
+                  page_count INT NOT NULL DEFAULT 1,
+                  width_pt DECIMAL(8,2) NOT NULL DEFAULT 595.28,
+                  height_pt DECIMAL(8,2) NOT NULL DEFAULT 841.89,
+                  orientation ENUM('portrait', 'landscape') NOT NULL DEFAULT 'portrait',
+                  bleed_pt DECIMAL(5,2) NOT NULL DEFAULT 9.00,
+                  palette JSON NULL,
+                  settings JSON NULL,
+                  flipbook_id BIGINT UNSIGNED NULL,
+                  status ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft',
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  INDEX idx_studio_doc_tenant (tenant_id, status),
+                  INDEX idx_studio_doc_type (doc_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS studio_document_pages (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  document_id BIGINT UNSIGNED NOT NULL,
+                  page_number INT NOT NULL,
+                  background JSON NULL,
+                  elements JSON NOT NULL,
+                  thumbnail_url VARCHAR(500) NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  UNIQUE KEY uq_doc_page_num (document_id, page_number),
+                  INDEX idx_studio_page_doc (document_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS studio_templates (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  category VARCHAR(60) NOT NULL,
+                  doc_type ENUM('catalogue', 'magazine', 'album', 'custom') NOT NULL,
+                  name VARCHAR(200) NOT NULL,
+                  description TEXT NULL,
+                  thumbnail_url VARCHAR(500) NOT NULL,
+                  preview_images JSON NULL,
+                  canvas_spec JSON NOT NULL,
+                  is_system TINYINT(1) NOT NULL DEFAULT 1,
+                  tenant_id BIGINT UNSIGNED NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_template_cat (category, doc_type),
+                  INDEX idx_template_tenant (tenant_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS studio_assets (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  tenant_id BIGINT UNSIGNED NOT NULL,
+                  uploaded_by BIGINT UNSIGNED NOT NULL,
+                  asset_name VARCHAR(255) NOT NULL,
+                  asset_type ENUM('image', 'logo', 'sticker', 'font', 'icon', 'background') NOT NULL DEFAULT 'image',
+                  mime_type VARCHAR(100) NOT NULL,
+                  file_url VARCHAR(500) NOT NULL,
+                  file_size BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                  width INT NULL,
+                  height INT NULL,
+                  tags VARCHAR(255) NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_asset_tenant (tenant_id, asset_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE TABLE IF NOT EXISTS studio_publications (
+                  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  document_id BIGINT UNSIGNED NOT NULL,
+                  flipbook_id BIGINT UNSIGNED NOT NULL,
+                  version INT NOT NULL DEFAULT 1,
+                  rendered_pdf_url VARCHAR(500) NULL,
+                  status ENUM('generating', 'completed', 'failed') NOT NULL DEFAULT 'completed',
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX idx_pub_doc (document_id),
+                  INDEX idx_pub_flipbook (flipbook_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
+            'downSql' => 'DROP TABLE IF EXISTS studio_publications; DROP TABLE IF EXISTS studio_assets; DROP TABLE IF EXISTS studio_templates; DROP TABLE IF EXISTS studio_document_pages; DROP TABLE IF EXISTS studio_documents;',
+            'reversible' => true,
+        ],
     ];
 
     private static function executeStatements(string $sql): void

@@ -21,6 +21,7 @@ use App\Controllers\MeController;
 use App\Controllers\PacificExpansionController;
 use App\Controllers\PublicController;
 use App\Controllers\RoleController;
+use App\Controllers\StudioController;
 use App\Infrastructure\Logging\CentralExceptionReporter;
 use App\Middleware\Auth;
 use App\Middleware\Cors;
@@ -169,6 +170,23 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $bk->put('/{id:[0-9]+}', [BrandKitController::class, 'update']);
         $bk->delete('/{id:[0-9]+}', [BrandKitController::class, 'delete']);
         $bk->post('/{id:[0-9]+}/apply/{flipbookId:[0-9]+}', [BrandKitController::class, 'apply']);
+    })->add(new TenantScope())->add(new Auth());
+
+    // Flipex Studio: Visual Document Creation Engine (Catalogues, Magazines, Yearbooks, Keepsake Albums)
+    $g->group('/studio', function (RouteCollectorProxy $st) {
+        $st->get('/documents', [StudioController::class, 'listDocuments']);
+        $st->post('/documents', [StudioController::class, 'createDocument']);
+        $st->get('/documents/{id:[0-9]+}', [StudioController::class, 'getDocument']);
+        $st->put('/documents/{id:[0-9]+}', [StudioController::class, 'updateDocument']);
+        $st->delete('/documents/{id:[0-9]+}', [StudioController::class, 'deleteDocument']);
+        $st->post('/documents/{id:[0-9]+}/pages', [StudioController::class, 'addPage']);
+        $st->put('/documents/{id:[0-9]+}/pages/{pageId:[0-9]+}', [StudioController::class, 'updatePage']);
+        $st->delete('/documents/{id:[0-9]+}/pages/{pageId:[0-9]+}', [StudioController::class, 'deletePage']);
+        $st->post('/documents/{id:[0-9]+}/pages/reorder', [StudioController::class, 'reorderPages']);
+        $st->post('/documents/{id:[0-9]+}/publish', [StudioController::class, 'publishDocument']);
+        $st->get('/templates', [StudioController::class, 'listTemplates']);
+        $st->get('/assets', [StudioController::class, 'listAssets']);
+        $st->post('/assets/upload', [StudioController::class, 'uploadAsset']);
     })->add(new TenantScope())->add(new Auth());
 
     // Phase 3: Commercial Leads & Storefront Management
