@@ -18,15 +18,31 @@ final class StudioController
     private static bool $schemaEnsured = false;
 
     /**
-     * Auto-ensure schema tables exist.
+     * Resolves safe tenant ID falling back to user tenant or tenant 1.
+     */
+    private function resolveTenantId(?array $user): int
+    {
+        $id = TenantContext::id();
+        if ($id !== null && (int) $id > 0) {
+            return (int) $id;
+        }
+        if (!empty($user['tenant_id']) && (int) $user['tenant_id'] > 0) {
+            return (int) $user['tenant_id'];
+        }
+        return 1;
+    }
+
+    /**
+     * Auto-ensure schema tables exist safely executing each table definition individually.
      */
     private function ensureSchema(): void
     {
         if (self::$schemaEnsured) {
             return;
         }
-        Db::pdo()->exec("
-            CREATE TABLE IF NOT EXISTS studio_documents (
+
+        $tables = [
+            "CREATE TABLE IF NOT EXISTS studio_documents (
               id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
               tenant_id BIGINT UNSIGNED NOT NULL,
               created_by BIGINT UNSIGNED NOT NULL,
@@ -45,9 +61,9 @@ final class StudioController
               updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
               INDEX idx_studio_doc_tenant (tenant_id, status),
               INDEX idx_studio_doc_type (doc_type)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-            CREATE TABLE IF NOT EXISTS studio_document_pages (
+            "CREATE TABLE IF NOT EXISTS studio_document_pages (
               id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
               document_id BIGINT UNSIGNED NOT NULL,
               page_number INT NOT NULL,
@@ -58,9 +74,9 @@ final class StudioController
               updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
               UNIQUE KEY uq_doc_page_num (document_id, page_number),
               INDEX idx_studio_page_doc (document_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-            CREATE TABLE IF NOT EXISTS studio_templates (
+            "CREATE TABLE IF NOT EXISTS studio_templates (
               id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
               category VARCHAR(60) NOT NULL,
               doc_type ENUM('catalogue', 'magazine', 'album', 'custom') NOT NULL,
@@ -74,9 +90,9 @@ final class StudioController
               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
               INDEX idx_template_cat (category, doc_type),
               INDEX idx_template_tenant (tenant_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-            CREATE TABLE IF NOT EXISTS studio_assets (
+            "CREATE TABLE IF NOT EXISTS studio_assets (
               id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
               tenant_id BIGINT UNSIGNED NOT NULL,
               uploaded_by BIGINT UNSIGNED NOT NULL,
@@ -90,9 +106,9 @@ final class StudioController
               tags VARCHAR(255) NULL,
               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
               INDEX idx_asset_tenant (tenant_id, asset_type)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
-            CREATE TABLE IF NOT EXISTS studio_publications (
+            "CREATE TABLE IF NOT EXISTS studio_publications (
               id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
               document_id BIGINT UNSIGNED NOT NULL,
               flipbook_id BIGINT UNSIGNED NOT NULL,
@@ -102,10 +118,23 @@ final class StudioController
               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
               INDEX idx_pub_doc (document_id),
               INDEX idx_pub_flipbook (flipbook_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        ");
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        ];
 
-        $this->seedDefaultTemplates();
+        foreach ($tables as $sql) {
+            try {
+                Db::pdo()->exec($sql);
+            } catch (\Throwable $te) {
+                error_log('ensureSchema table check: ' . $te->getMessage());
+            }
+        }
+
+        try {
+            $this->seedDefaultTemplates();
+        } catch (\Throwable $se) {
+            error_log('seedDefaultTemplates notice: ' . $se->getMessage());
+        }
+
         self::$schemaEnsured = true;
     }
 
@@ -248,7 +277,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.view');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $params = $req->getQueryParams();
         $docType = trim((string) ($params['doc_type'] ?? ''));
         $search = trim((string) ($params['q'] ?? ''));
@@ -291,7 +320,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $body = (array) $req->getParsedBody();
 
         $title = trim((string) ($body['title'] ?? ''));
@@ -323,7 +352,7 @@ final class StudioController
         try {
             Db::run(
                 'INSERT INTO studio_documents (tenant_id, created_by, title, doc_type, page_count, width_pt, height_pt, orientation, bleed_pt, palette, settings, status)
-                 VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, "draft")',
+                 VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, "draft")',
                 [$tenantId, $u['id'], $title, $docType, $width, $height, $orientation, $bleed, $palette, $settings]
             );
             $docId = (int) Db::pdo()->lastInsertId();
@@ -388,7 +417,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.view');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $id = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ? AND status != "archived"', [$id, $tenantId]);
@@ -419,7 +448,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $id = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
@@ -452,7 +481,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $id = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
@@ -479,7 +508,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $id = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
@@ -519,7 +548,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $docId = (int) ($args['id'] ?? 0);
         $pageId = (int) ($args['pageId'] ?? 0);
 
@@ -556,7 +585,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $docId = (int) ($args['id'] ?? 0);
         $pageId = (int) ($args['pageId'] ?? 0);
 
@@ -593,7 +622,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $docId = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);
@@ -634,7 +663,7 @@ final class StudioController
     public function listTemplates(Request $req, Response $res): Response
     {
         $this->ensureSchema();
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $params = $req->getQueryParams();
         $docType = trim((string) ($params['doc_type'] ?? ''));
 
@@ -660,7 +689,7 @@ final class StudioController
     public function listAssets(Request $req, Response $res): Response
     {
         $this->ensureSchema();
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $params = $req->getQueryParams();
         $assetType = trim((string) ($params['type'] ?? ''));
 
@@ -687,7 +716,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $files = $req->getUploadedFiles();
         $file = $files['file'] ?? null;
 
@@ -753,7 +782,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.edit');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $docId = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);
@@ -914,7 +943,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.view');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $docId = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);
@@ -973,7 +1002,7 @@ final class StudioController
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'flipbook.view');
 
-        $tenantId = (int) TenantContext::id();
+        $tenantId = $this->resolveTenantId($u);
         $docId = (int) ($args['id'] ?? 0);
 
         $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);

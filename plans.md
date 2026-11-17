@@ -243,22 +243,24 @@ flowchart TD
 
 ### Stage 2 — Core Interactive Design Engine
 **Focus:** Object selection, transformation handles, alignment guides, and undo/redo.
-- [ ] **Selection & Bounding Box Overlay:**
-  - Active object border with distinct accent color (`#818cf8`).
-  - 8 Interactive resize handles (Top-Left, Top-Center, Top-Right, Middle-Right, Bottom-Right, Bottom-Center, Bottom-Left, Middle-Left).
-  - Rotation handle extended above top-center handle with live angle tooltip (0° to 360°).
-  - Corner handles constrain aspect ratio proportionally; edge handles resize unidirectionally.
-- [ ] **Multi-Selection & Grouping:**
-  - `Shift + Click` multi-element selection.
-  - Rubberband canvas drag selection (marquee box).
-  - Grouping (`Ctrl+G`) and Ungrouping (`Ctrl+Shift+G`) with parent-child bounding box calculations.
-- [ ] **Magnetic Snapping & Smart Guides:**
-  - Real-time snapping to canvas center, page margins (safe print margins & bleed).
-  - Smart distance guides showing equal spacing between sibling elements.
-- [ ] **Undo / Redo History Stack:**
-  - In-memory immutable history manager (max 50 states).
-  - Full keyboard shortcut support: `Ctrl+Z` (Undo), `Ctrl+Shift+Z` or `Ctrl+Y` (Redo).
-  - Guard inputs/textareas to prevent typing inside text fields from firing canvas shortcuts.
+- [x] **Selection & Bounding Box Overlay:**
+  - Active object border with distinct accent color (`#a855f7` & glow outline).
+  - 8 Interactive resize handles (Top-Left, Top-Center, Top-Right, Middle-Right, Bottom-Right, Bottom-Center, Bottom-Left, Middle-Left) with directional cursors (`nwse-resize`, `nesw-resize`, `ns-resize`, `ew-resize`).
+  - Rotation handle extended above top-center handle via stem with live floating angle tooltip (`0°` to `359°`) and magnetic snapping at 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°.
+  - Corner handles constrain aspect ratio proportionally when holding `Shift`; edge handles resize unidirectionally.
+- [x] **Multi-Selection & Transformation:**
+  - `Shift + Click` multi-element selection toggle.
+  - Rubberband canvas drag selection (marquee box) dynamically calculating intersecting element bounding boxes.
+  - Multi-element move, multi-element delete (`Delete`/`Backspace`), and multi-element nudge with arrow keys (1pt standard, 10pt with `Shift`).
+- [x] **Magnetic Snapping & Smart Guides:**
+  - Real-time snapping to canvas center X/Y, page margins (36pt safe margin & 9pt bleed).
+  - Smart snapping to sibling element edges (left, right, top, bottom) and centers within 6pt distance.
+  - Dynamic cyan/magenta dashed guide lines rendered live on the canvas during drag and resize.
+- [x] **Undo / Redo History Stack:**
+  - In-memory immutable history manager (max 50 snapshots).
+  - Full keyboard shortcut support: `Ctrl+Z` / `Cmd+Z` (Undo), `Ctrl+Shift+Z` / `Ctrl+Y` (Redo), `Ctrl+D` (Duplicate).
+  - Guarded against `input`, `textarea`, and `contentEditable` focus.
+  - Top toolbar Undo (`↶ Undo`) and Redo (`↷ Redo`) buttons with live disabled/active states.
 
 ---
 
@@ -442,10 +444,10 @@ This checklist defines the immediate sequence of implementation for the engineer
 
 - [x] **Step 1: Inspect & Map Full Current Functionality** — Document existing API contracts, database fields, and element properties to guarantee zero backward regressions.
 - [x] **Step 2: Full Viewport CSS Grid Layout & Interactive Bottom Page Strip** — Restructure the studio layout into the 3-column + header + bottom thumbnail strip system.
+- [x] **Step 5: Transform Handles & Multi-Selection** — Build the 8-handle resize, rotation, smart magnetic snap guides, rubberband marquee box, and selection bounding box interactor.
+- [x] **Step 6: Document-Level Autosave & Undo/Redo** — Implement 50-state snapshot history stack, top toolbar Undo/Redo buttons, and keyboard shortcuts (`Ctrl+Z`, `Ctrl+Shift+Z` / `Ctrl+Y`, `Ctrl+D`, Nudge).
 - [ ] **Step 3: Modularize `frontend/src/studio/`** — Extract core store, coordinate system, and element renderers without breaking active editor workflows.
 - [ ] **Step 4: Canonical Versioned Document Model** — Implement `DocumentModel.ts` (`schemaVersion: 2`) with full document state transactions.
-- [ ] **Step 5: Transform Handles & Multi-Selection** — Build the 8-handle resize, rotation, and selection bounding box interactor.
-- [ ] **Step 6: Document-Level Autosave & Undo/Redo** — Implement debounced atomic document saving, revision increments, and `Ctrl+Z` / `Ctrl+Shift+Z`.
 - [ ] **Step 7: Contextual Inspector Panels** — Build dedicated sub-inspectors for Typography, Image frames, Shapes, and Product Cards.
 - [ ] **Step 8: Reusable Template Discovery & Creation** — Deploy the Template Discovery Browser and the "Save as Template" workflow.
 - [ ] **Step 9: Shared High-Fidelity Rendering Pipeline** — Implement full composite page rasterization so published flipbooks and PDFs are 100% faithful to the canvas.

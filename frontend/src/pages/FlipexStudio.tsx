@@ -58,6 +58,9 @@ export interface CanvasElement {
   y: number;
   w: number;
   h: number;
+  rotation?: number; // 0-359 degrees (Stage 2)
+  locked?: boolean;
+  groupId?: string;
   content?: string;
   name?: string;
   price?: string;
@@ -216,7 +219,54 @@ export default function FlipexStudio() {
   const [currentDoc, setCurrentDoc] = useState<StudioDocument | null>(null);
   const [pages, setPages] = useState<StudioPage[]>([]);
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+
+  // Multi-Selection State & backward-compatible single-element getter
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const selectedElementId = selectedElementIds[0] || null;
+  const setSelectedElementId = useCallback((id: string | null) => {
+    setSelectedElementIds(id ? [id] : []);
+  }, []);
+
+  // Stage 2: 8 Resize Handles, Rotation, Magnetic Snap & History Stack
+  const [rotatingElementId, setRotatingElementId] = useState<string | null>(null);
+  const [activeGuides, setActiveGuides] = useState<{ type: 'x' | 'y'; pos: number }[]>([]);
+  const [rubberbandBox, setRubberbandBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [history, setHistory] = useState<StudioPage[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  // Undo / Redo Stack Management
+  const pushHistory = useCallback((newPages: StudioPage[]) => {
+    setHistory((prev) => {
+      const sliced = historyIndex >= 0 ? prev.slice(0, historyIndex + 1) : [];
+      const next = [...sliced, JSON.parse(JSON.stringify(newPages))];
+      if (next.length > 50) next.shift();
+      return next;
+    });
+    setHistoryIndex((prev) => Math.min(prev + 1, 49));
+  }, [historyIndex]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const nextIdx = historyIndex - 1;
+      const targetSnapshot = history[nextIdx];
+      if (targetSnapshot) {
+        setPages(JSON.parse(JSON.stringify(targetSnapshot)));
+        setHistoryIndex(nextIdx);
+      }
+    }
+  }, [history, historyIndex]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const nextIdx = historyIndex + 1;
+      const targetSnapshot = history[nextIdx];
+      if (targetSnapshot) {
+        setPages(JSON.parse(JSON.stringify(targetSnapshot)));
+        setHistoryIndex(nextIdx);
+      }
+    }
+  }, [history, historyIndex]);
+
   const [zoom, setZoom] = useState<number>(75);
   const [showBleed, setShowBleed] = useState<boolean>(true);
   const [gridSnap, setGridSnap] = useState<boolean>(true);
@@ -342,9 +392,12 @@ export default function FlipexStudio() {
       const res = await api<{ document: StudioDocument }>(`/studio/documents/${docId}`);
       if (res.document) {
         setCurrentDoc(res.document);
-        setPages(res.document.pages || []);
+        const docPages = res.document.pages || [];
+        setPages(docPages);
+        setHistory([JSON.parse(JSON.stringify(docPages))]);
+        setHistoryIndex(0);
         setActivePageIndex(0);
-        setSelectedElementId(null);
+        setSelectedElementIds([]);
         // Set default tab based on doc_type
         if (res.document.doc_type === 'magazine') setActiveToolTab('magazine');
         else if (res.document.doc_type === 'album') setActiveToolTab('album');
@@ -553,6 +606,7 @@ export default function FlipexStudio() {
       y: snap(elPartial.y ?? 70),
       w: elPartial.w ?? 240,
       h: elPartial.h ?? 160,
+      rotation: elPartial.rotation || 0,
       content: elPartial.content,
       name: elPartial.name,
       price: elPartial.price,
@@ -587,11 +641,12 @@ export default function FlipexStudio() {
     const updatedPages = [...pages];
     updatedPages[activePageIndex].elements.push(newElement);
     setPages(updatedPages);
-    setSelectedElementId(newId);
+    setSelectedElementIds([newId]);
+    pushHistory(updatedPages);
   };
 
   // Update selected element
-  const updateSelectedElement = (updates: Partial<CanvasElement>) => {
+  const updateSelectedElement = (updates: Partial<CanvasElement>, recordHistory = false) => {
     if (!activePage || !selectedElementId) return;
     const updatedPages = [...pages];
     const elIdx = updatedPages[activePageIndex].elements.findIndex((e) => e.id === selectedElementId);
@@ -605,34 +660,415 @@ export default function FlipexStudio() {
         },
       };
       setPages(updatedPages);
+      if (recordHistory) {
+        pushHistory(updatedPages);
+      }
     }
   };
 
-  // Delete selected element
-  const deleteSelectedElement = () => {
-    if (!activePage || !selectedElementId) return;
+  // Delete all selected elements (Multi-delete)
+  const deleteSelectedElements = () => {
+    if (!activePage || selectedElementIds.length === 0) return;
     const updatedPages = [...pages];
     updatedPages[activePageIndex].elements = updatedPages[activePageIndex].elements.filter(
-      (e) => e.id !== selectedElementId
+      (e) => !selectedElementIds.includes(e.id)
     );
     setPages(updatedPages);
-    setSelectedElementId(null);
+    setSelectedElementIds([]);
+    pushHistory(updatedPages);
   };
 
-  // Keyboard shortcut delete
+  const deleteSelectedElement = deleteSelectedElements;
+
+  // Duplicate selected elements
+  const duplicateSelectedElements = () => {
+    if (!activePage || selectedElementIds.length === 0) return;
+    const toClone = activePage.elements.filter((e) => selectedElementIds.includes(e.id));
+    if (toClone.length === 0) return;
+    const newIds: string[] = [];
+    const clones: CanvasElement[] = toClone.map((el) => {
+      const newId = 'el_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+      newIds.push(newId);
+      return {
+        ...el,
+        id: newId,
+        x: el.x + 20,
+        y: el.y + 20,
+        style: { ...el.style },
+      };
+    });
+    const updatedPages = [...pages];
+    updatedPages[activePageIndex].elements = [...updatedPages[activePageIndex].elements, ...clones];
+    setPages(updatedPages);
+    setSelectedElementIds(newIds);
+    pushHistory(updatedPages);
+  };
+
+  // Nudge selected elements with arrow keys
+  const nudgeSelectedElements = (dx: number, dy: number) => {
+    if (!activePage || selectedElementIds.length === 0) return;
+    const updatedPages = [...pages];
+    updatedPages[activePageIndex].elements = updatedPages[activePageIndex].elements.map((el) => {
+      if (selectedElementIds.includes(el.id)) {
+        return {
+          ...el,
+          x: Math.max(0, el.x + dx),
+          y: Math.max(0, el.y + dy),
+        };
+      }
+      return el;
+    });
+    setPages(updatedPages);
+  };
+
+  // 8-Handle Resize
+  const handleResizeMouseDown = (
+    e: React.MouseEvent,
+    el: CanvasElement,
+    handle: 'tl' | 'tc' | 'tr' | 'mr' | 'br' | 'bc' | 'bl' | 'ml'
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = el.x;
+    const origY = el.y;
+    const origW = el.w;
+    const origH = el.h;
+    const aspectRatio = origW / Math.max(1, origH);
+    const docW = currentDoc?.width_pt || 595.28;
+    const docH = currentDoc?.height_pt || 841.89;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const dx = (ev.clientX - startX) / (zoom / 100);
+      const dy = (ev.clientY - startY) / (zoom / 100);
+      let newX = origX;
+      let newY = origY;
+      let newW = origW;
+      let newH = origH;
+
+      if (handle.includes('r')) newW = Math.max(20, origW + dx);
+      if (handle.includes('l')) {
+        const rawW = origW - dx;
+        if (rawW >= 20) {
+          newW = rawW;
+          newX = origX + dx;
+        }
+      }
+      if (handle.includes('b')) newH = Math.max(20, origH + dy);
+      if (handle.includes('t')) {
+        const rawH = origH - dy;
+        if (rawH >= 20) {
+          newH = rawH;
+          newY = origY + dy;
+        }
+      }
+
+      // Proportional resize when shift key held on corner handles
+      if (ev.shiftKey && ['tl', 'tr', 'br', 'bl'].includes(handle)) {
+        newH = Math.max(20, Math.round(newW / aspectRatio));
+      }
+
+      // Compute magnetic guide lines
+      const guides: { type: 'x' | 'y'; pos: number }[] = [];
+      const threshold = 6;
+      const snapPointsX = [9, 36, docW / 2, docW - 36, docW - 9];
+      const snapPointsY = [9, 36, docH / 2, docH - 36, docH - 9];
+
+      for (const sp of snapPointsX) {
+        if (Math.abs(newX + newW - sp) < threshold) {
+          newW = sp - newX;
+          guides.push({ type: 'x', pos: sp });
+        } else if (Math.abs(newX - sp) < threshold) {
+          newX = sp;
+          guides.push({ type: 'x', pos: sp });
+        }
+      }
+      for (const sp of snapPointsY) {
+        if (Math.abs(newY + newH - sp) < threshold) {
+          newH = sp - newY;
+          guides.push({ type: 'y', pos: sp });
+        } else if (Math.abs(newY - sp) < threshold) {
+          newY = sp;
+          guides.push({ type: 'y', pos: sp });
+        }
+      }
+      setActiveGuides(guides);
+
+      updateSelectedElement({
+        x: Math.round(newX),
+        y: Math.round(newY),
+        w: Math.round(newW),
+        h: Math.round(newH),
+      });
+    };
+
+    const onMouseUp = () => {
+      setActiveGuides([]);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      pushHistory(pages);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Rotation Knob Interaction
+  const handleRotateMouseDown = (e: React.MouseEvent, el: CanvasElement) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setRotatingElementId(el.id);
+
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    if (!canvasRect) return;
+
+    const scale = zoom / 100;
+    const elemCenterX = canvasRect.left + (el.x + el.w / 2) * scale;
+    const elemCenterY = canvasRect.top + (el.y + el.h / 2) * scale;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const radians = Math.atan2(ev.clientY - elemCenterY, ev.clientX - elemCenterX);
+      let deg = Math.round((radians * 180) / Math.PI) + 90;
+      if (deg < 0) deg += 360;
+      deg = deg % 360;
+
+      // Magnetic snap to primary angles (0, 45, 90, 135, 180, 225, 270, 315)
+      const snapAngles = [0, 45, 90, 135, 180, 225, 270, 315, 360];
+      for (const sa of snapAngles) {
+        if (Math.abs(deg - sa) <= 4) {
+          deg = sa === 360 ? 0 : sa;
+          break;
+        }
+      }
+
+      if (ev.shiftKey) {
+        deg = Math.round(deg / 15) * 15;
+      }
+
+      updateSelectedElement({ rotation: deg });
+    };
+
+    const onMouseUp = () => {
+      setRotatingElementId(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      pushHistory(pages);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Element Drag & Snap Interaction
+  const handleElementMouseDown = (e: React.MouseEvent, el: CanvasElement) => {
+    e.stopPropagation();
+    if (e.shiftKey) {
+      if (selectedElementIds.includes(el.id)) {
+        setSelectedElementIds(selectedElementIds.filter((id) => id !== el.id));
+      } else {
+        setSelectedElementIds([...selectedElementIds, el.id]);
+      }
+      return;
+    }
+
+    if (!selectedElementIds.includes(el.id)) {
+      setSelectedElementIds([el.id]);
+    }
+
+    isDraggingRef.current = true;
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+    const scale = zoom / 100;
+    const docW = currentDoc?.width_pt || 595.28;
+    const docH = currentDoc?.height_pt || 841.89;
+
+    const initialPositions = activePage?.elements
+      .filter((item) => selectedElementIds.includes(item.id) || item.id === el.id)
+      .map((item) => ({ id: item.id, x: item.x, y: item.y, w: item.w, h: item.h })) || [];
+
+    const otherElements = activePage?.elements.filter(
+      (item) => !initialPositions.some((p) => p.id === item.id)
+    ) || [];
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const dx = (ev.clientX - startClientX) / scale;
+      const dy = (ev.clientY - startClientY) / scale;
+
+      const primaryInitial = initialPositions.find((p) => p.id === el.id);
+      if (!primaryInitial) return;
+
+      let targetX = primaryInitial.x + dx;
+      let targetY = primaryInitial.y + dy;
+
+      if (gridSnap) {
+        targetX = Math.round(targetX / 10) * 10;
+        targetY = Math.round(targetY / 10) * 10;
+      }
+
+      // Magnetic Snapping Guides
+      const guides: { type: 'x' | 'y'; pos: number }[] = [];
+      const threshold = 6;
+      const snapX = [9, 36, docW / 2, docW - 36, docW - 9];
+      const snapY = [9, 36, docH / 2, docH - 36, docH - 9];
+
+      for (const o of otherElements) {
+        snapX.push(o.x, o.x + o.w, o.x + o.w / 2);
+        snapY.push(o.y, o.y + o.h, o.y + o.h / 2);
+      }
+
+      const halfW = primaryInitial.w / 2;
+      for (const sp of snapX) {
+        if (Math.abs(targetX - sp) < threshold) {
+          targetX = sp;
+          guides.push({ type: 'x', pos: sp });
+        } else if (Math.abs(targetX + halfW - sp) < threshold) {
+          targetX = sp - halfW;
+          guides.push({ type: 'x', pos: sp });
+        } else if (Math.abs(targetX + primaryInitial.w - sp) < threshold) {
+          targetX = sp - primaryInitial.w;
+          guides.push({ type: 'x', pos: sp });
+        }
+      }
+
+      const halfH = primaryInitial.h / 2;
+      for (const sp of snapY) {
+        if (Math.abs(targetY - sp) < threshold) {
+          targetY = sp;
+          guides.push({ type: 'y', pos: sp });
+        } else if (Math.abs(targetY + halfH - sp) < threshold) {
+          targetY = sp - halfH;
+          guides.push({ type: 'y', pos: sp });
+        } else if (Math.abs(targetY + primaryInitial.h - sp) < threshold) {
+          targetY = sp - primaryInitial.h;
+          guides.push({ type: 'y', pos: sp });
+        }
+      }
+
+      setActiveGuides(guides);
+
+      const appliedDx = targetX - primaryInitial.x;
+      const appliedDy = targetY - primaryInitial.y;
+
+      const updatedPages = [...pages];
+      updatedPages[activePageIndex].elements = updatedPages[activePageIndex].elements.map((item) => {
+        const init = initialPositions.find((p) => p.id === item.id);
+        if (init) {
+          return {
+            ...item,
+            x: Math.round(Math.max(0, init.x + appliedDx)),
+            y: Math.round(Math.max(0, init.y + appliedDy)),
+          };
+        }
+        return item;
+      });
+      setPages(updatedPages);
+    };
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false;
+      setActiveGuides([]);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      pushHistory(pages);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Canvas Empty Space MouseDown (Rubberband Selection Marquee)
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (!e.shiftKey) {
+      setSelectedElementIds([]);
+    }
+
+    const canvasRect = canvasRef.current?.getBoundingClientRect();
+    if (!canvasRect) return;
+
+    const scale = zoom / 100;
+    const startX = (e.clientX - canvasRect.left) / scale;
+    const startY = (e.clientY - canvasRect.top) / scale;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const curX = (ev.clientX - canvasRect.left) / scale;
+      const curY = (ev.clientY - canvasRect.top) / scale;
+
+      const boxX = Math.min(startX, curX);
+      const boxY = Math.min(startY, curY);
+      const boxW = Math.abs(curX - startX);
+      const boxH = Math.abs(curY - startY);
+
+      setRubberbandBox({ x: boxX, y: boxY, w: boxW, h: boxH });
+
+      if (boxW > 5 && boxH > 5 && activePage) {
+        const intersectingIds = activePage.elements
+          .filter((item) => {
+            const elRight = item.x + item.w;
+            const elBottom = item.y + item.h;
+            const boxRight = boxX + boxW;
+            const boxBottom = boxY + boxH;
+            return !(elRight < boxX || item.x > boxRight || elBottom < boxY || item.y > boxBottom);
+          })
+          .map((item) => item.id);
+        setSelectedElementIds(intersectingIds);
+      }
+    };
+
+    const onMouseUp = () => {
+      setRubberbandBox(null);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Keyboard Shortcuts: Undo (Ctrl+Z), Redo (Ctrl+Shift+Z / Ctrl+Y), Duplicate (Ctrl+D), Nudge (Arrows), Delete
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId) {
-        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-        if (tag !== 'input' && tag !== 'textarea') {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isEditable = (e.target as HTMLElement)?.isContentEditable;
+      if (tag === 'input' || tag === 'textarea' || isEditable) return;
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      if (cmdOrCtrl && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if (cmdOrCtrl && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        handleRedo();
+      } else if (cmdOrCtrl && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        duplicateSelectedElements();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedElementIds.length > 0) {
           e.preventDefault();
-          deleteSelectedElement();
+          deleteSelectedElements();
+        }
+      } else if (e.key === 'Escape') {
+        setSelectedElementIds([]);
+      } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (selectedElementIds.length > 0) {
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+          const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+          nudgeSelectedElements(dx, dy);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElementId, activePage, pages, activePageIndex]);
+  }, [selectedElementIds, activePage, pages, activePageIndex, handleUndo, handleRedo, historyIndex, history]);
 
   // Automated Table of Contents Generator
   const handleAutoGenerateToc = async () => {
@@ -1296,6 +1732,49 @@ export default function FlipexStudio() {
               title="Auto-Fit Canvas to Screen View"
             >
               Fit
+            </button>
+          </div>
+
+          {/* Undo / Redo History Controls (Stage 2) */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '11px', padding: '1px' }}>
+            <button
+              type="button"
+              disabled={historyIndex <= 0}
+              onClick={handleUndo}
+              style={{
+                padding: '4px 8px',
+                background: 'transparent',
+                border: 'none',
+                color: historyIndex > 0 ? '#f5d0fe' : '#64748b',
+                cursor: historyIndex > 0 ? 'pointer' : 'not-allowed',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+              }}
+              title="Undo (Ctrl+Z)"
+            >
+              ↶ Undo
+            </button>
+            <div style={{ height: '14px', width: '1px', background: '#334155' }} />
+            <button
+              type="button"
+              disabled={historyIndex >= history.length - 1}
+              onClick={handleRedo}
+              style={{
+                padding: '4px 8px',
+                background: 'transparent',
+                border: 'none',
+                color: historyIndex < history.length - 1 ? '#f5d0fe' : '#64748b',
+                cursor: historyIndex < history.length - 1 ? 'pointer' : 'not-allowed',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+              }}
+              title="Redo (Ctrl+Shift+Z / Ctrl+Y)"
+            >
+              ↷ Redo
             </button>
           </div>
 
@@ -2190,6 +2669,7 @@ export default function FlipexStudio() {
           <div
             id="canvas-board"
             ref={canvasRef}
+            onMouseDown={handleCanvasMouseDown}
             style={{
               width: `${docW}px`,
               height: `${docH}px`,
@@ -2198,8 +2678,30 @@ export default function FlipexStudio() {
               background: activePage?.background?.value || '#FFFFFF',
               boxShadow: '0 25px 65px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
             }}
-            className="relative transition-transform duration-75 select-none rounded-sm overflow-hidden"
+            className="relative transition-transform duration-75 select-none rounded-sm"
           >
+            {/* Smart Magnetic Snap Guide Lines (Stage 2) */}
+            {activeGuides.map((g, idx) => (
+              <div
+                key={idx}
+                className={`studio-guide-line ${g.type === 'x' ? 'vertical' : 'horizontal'}`}
+                style={g.type === 'x' ? { left: `${g.pos}px` } : { top: `${g.pos}px` }}
+              />
+            ))}
+
+            {/* Rubberband Marquee Selection Box (Stage 2) */}
+            {rubberbandBox && (
+              <div
+                className="studio-rubberband-box"
+                style={{
+                  left: `${rubberbandBox.x}px`,
+                  top: `${rubberbandBox.y}px`,
+                  width: `${rubberbandBox.w}px`,
+                  height: `${rubberbandBox.h}px`,
+                }}
+              />
+            )}
+
             {/* 3mm Print Bleed Guides (pink dashed outline) */}
             {showBleed && (
               <div
@@ -2222,7 +2724,7 @@ export default function FlipexStudio() {
 
             {/* RENDER ELEMENTS */}
             {activePage?.elements.map((el) => {
-              const isSelected = el.id === selectedElementId;
+              const isSelected = selectedElementIds.includes(el.id);
 
               return (
                 <div
@@ -2241,40 +2743,37 @@ export default function FlipexStudio() {
                     backgroundColor: el.style?.backgroundColor,
                     opacity: el.style?.opacity,
                     fontFamily: el.style?.fontFamily,
+                    transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
+                    transformOrigin: 'center center',
                   }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setSelectedElementId(el.id);
-                    isDraggingRef.current = true;
-                    dragStartRef.current = {
-                      x: e.clientX,
-                      y: e.clientY,
-                      elX: el.x,
-                      elY: el.y,
-                    };
-
-                    const onMouseMove = (ev: MouseEvent) => {
-                      if (!isDraggingRef.current || !dragStartRef.current) return;
-                      const dx = (ev.clientX - dragStartRef.current.x) / scale;
-                      const dy = (ev.clientY - dragStartRef.current.y) / scale;
-                      const snap = (val: number) => (gridSnap ? Math.round(val / 10) * 10 : val);
-                      updateSelectedElement({
-                        x: snap(Math.max(0, dragStartRef.current.elX + dx)),
-                        y: snap(Math.max(0, dragStartRef.current.elY + dy)),
-                      });
-                    };
-
-                    const onMouseUp = () => {
-                      isDraggingRef.current = false;
-                      dragStartRef.current = null;
-                      window.removeEventListener('mousemove', onMouseMove);
-                      window.removeEventListener('mouseup', onMouseUp);
-                    };
-
-                    window.addEventListener('mousemove', onMouseMove);
-                    window.addEventListener('mouseup', onMouseUp);
-                  }}
+                  onMouseDown={(e) => handleElementMouseDown(e, el)}
                 >
+                  {/* Stage 2: 8 Resize Handles & Rotation Stem/Knob when Selected */}
+                  {isSelected && (
+                    <>
+                      <div className="studio-transform-handle tl" onMouseDown={(e) => handleResizeMouseDown(e, el, 'tl')} />
+                      <div className="studio-transform-handle tc" onMouseDown={(e) => handleResizeMouseDown(e, el, 'tc')} />
+                      <div className="studio-transform-handle tr" onMouseDown={(e) => handleResizeMouseDown(e, el, 'tr')} />
+                      <div className="studio-transform-handle mr" onMouseDown={(e) => handleResizeMouseDown(e, el, 'mr')} />
+                      <div className="studio-transform-handle br" onMouseDown={(e) => handleResizeMouseDown(e, el, 'br')} />
+                      <div className="studio-transform-handle bc" onMouseDown={(e) => handleResizeMouseDown(e, el, 'bc')} />
+                      <div className="studio-transform-handle bl" onMouseDown={(e) => handleResizeMouseDown(e, el, 'bl')} />
+                      <div className="studio-transform-handle ml" onMouseDown={(e) => handleResizeMouseDown(e, el, 'ml')} />
+
+                      {/* Rotation Stem & Knob */}
+                      <div className="studio-rotate-stem" />
+                      <div
+                        className="studio-rotate-handle"
+                        onMouseDown={(e) => handleRotateMouseDown(e, el)}
+                        title="Rotate Element (Hold Shift for 15° steps)"
+                      />
+                      {rotatingElementId === el.id && (
+                        <div className="studio-rotate-tooltip">
+                          {Math.round(el.rotation || 0)}°
+                        </div>
+                      )}
+                    </>
+                  )}
                   {/* TEXT ELEMENT */}
                   {el.type === 'text' && (
                     <div
@@ -2623,6 +3122,103 @@ export default function FlipexStudio() {
                         className="studio-prop-input"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Stage 2: Rotation & Transformation */}
+                <div>
+                  <label className="studio-prop-label">Rotation & Angle</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={359}
+                      value={selectedElement.rotation || 0}
+                      onChange={(e) => updateSelectedElement({ rotation: parseInt(e.target.value, 10) || 0 })}
+                      style={{ flex: 1, accentColor: '#a855f7' }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '70px' }}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={359}
+                        value={selectedElement.rotation || 0}
+                        onChange={(e) => updateSelectedElement({ rotation: (parseInt(e.target.value, 10) || 0) % 360 })}
+                        className="studio-prop-input"
+                        style={{ padding: '4px 6px', textAlign: 'center' }}
+                      />
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>°</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedElement({ rotation: ((selectedElement.rotation || 0) + 90) % 360 })}
+                      className="studio-tool-btn cosmic"
+                      style={{ padding: '5px 8px', fontSize: '11px', whiteSpace: 'nowrap' }}
+                      title="Rotate 90 degrees clockwise"
+                    >
+                      ↺ 90°
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stage 2: Page Alignment */}
+                <div>
+                  <label className="studio-prop-label">Align to Canvas</label>
+                  <div className="grid grid-cols-3 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedElement({ x: 36 })}
+                      className="studio-tool-btn cosmic"
+                      style={{ padding: '4px 2px', fontSize: '10px' }}
+                      title="Align Left (Margin)"
+                    >
+                      ⇤ Left
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedElement({ x: Math.round((docW - selectedElement.w) / 2) })}
+                      className="studio-tool-btn cosmic"
+                      style={{ padding: '4px 2px', fontSize: '10px' }}
+                      title="Align Center Horizontal"
+                    >
+                      ↔ Center
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedElement({ x: Math.round(docW - selectedElement.w - 36) })}
+                      className="studio-tool-btn cosmic"
+                      style={{ padding: '4px 2px', fontSize: '10px' }}
+                      title="Align Right (Margin)"
+                    >
+                      ⇥ Right
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedElement({ y: 36 })}
+                      className="studio-tool-btn ocean"
+                      style={{ padding: '4px 2px', fontSize: '10px' }}
+                      title="Align Top (Margin)"
+                    >
+                      ⤒ Top
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedElement({ y: Math.round((docH - selectedElement.h) / 2) })}
+                      className="studio-tool-btn ocean"
+                      style={{ padding: '4px 2px', fontSize: '10px' }}
+                      title="Align Middle Vertical"
+                    >
+                      ↕ Middle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedElement({ y: Math.round(docH - selectedElement.h - 36) })}
+                      className="studio-tool-btn ocean"
+                      style={{ padding: '4px 2px', fontSize: '10px' }}
+                      title="Align Bottom (Margin)"
+                    >
+                      ⤓ Bottom
+                    </button>
                   </div>
                 </div>
 

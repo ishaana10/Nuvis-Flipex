@@ -6060,4 +6060,142 @@ html[data-theme="dark"] .studio-empty-desc {
   color: #ffffff;
 }
 
+/* ==========================================================================
+   STAGE 2: CORE DESIGN ENGINE — 8 HANDLES, ROTATION & SMART SNAP GUIDES
+   ========================================================================== */
+
+.studio-transform-box {
+  position: absolute;
+  inset: -1px;
+  border: 1.5px solid #818cf8;
+  pointer-events: none;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25);
+}
+
+.studio-transform-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border: 1.5px solid #4f46e5;
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  z-index: 50;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+
+.studio-transform-handle:hover {
+  background: #a855f7;
+  border-color: #ffffff;
+  transform: scale(1.25);
+}
+
+.studio-transform-handle.tl { top: -4px; left: -4px; cursor: nwse-resize; }
+.studio-transform-handle.tc { top: -4px; left: calc(50% - 4px); cursor: ns-resize; }
+.studio-transform-handle.tr { top: -4px; right: -4px; cursor: nesw-resize; }
+.studio-transform-handle.mr { top: calc(50% - 4px); right: -4px; cursor: ew-resize; }
+.studio-transform-handle.br { bottom: -4px; right: -4px; cursor: nwse-resize; }
+.studio-transform-handle.bc { bottom: -4px; left: calc(50% - 4px); cursor: ns-resize; }
+.studio-transform-handle.bl { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.studio-transform-handle.ml { top: calc(50% - 4px); left: -4px; cursor: ew-resize; }
+
+/* Rotation Stem & Knob */
+.studio-rotate-stem {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  width: 1px;
+  height: 16px;
+  background: #818cf8;
+  pointer-events: none;
+  z-index: 48;
+}
+
+.studio-rotate-handle {
+  position: absolute;
+  top: -26px;
+  left: calc(50% - 6px);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid #818cf8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+  pointer-events: auto;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.studio-rotate-handle:hover,
+.studio-rotate-handle:active {
+  background: #ec4899;
+  border-color: #ffffff;
+  transform: scale(1.2);
+  cursor: grabbing;
+}
+
+.studio-rotate-tooltip {
+  position: absolute;
+  top: -46px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(4px);
+  border: 1px solid #475569;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 60;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* Smart Magnetic Snap Lines Overlay */
+.studio-guide-line {
+  position: absolute;
+  pointer-events: none;
+  z-index: 45;
+}
+
+.studio-guide-line.vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #ec4899;
+  box-shadow: 0 0 6px rgba(236, 72, 153, 0.8);
+}
+
+.studio-guide-line.horizontal {
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #ec4899;
+  box-shadow: 0 0 6px rgba(236, 72, 153, 0.8);
+}
+
+.studio-guide-line.center {
+  background: #06b6d4 !important;
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.8) !important;
+}
+
+/* Rubberband Marquee Drag Selection */
+.studio-rubberband-box {
+  position: absolute;
+  border: 1px dashed #818cf8;
+  background: rgba(99, 102, 241, 0.12);
+  pointer-events: none;
+  z-index: 40;
+}
+
+
 
