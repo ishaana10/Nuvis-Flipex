@@ -57,11 +57,15 @@ final class CommercialController
 
         $tenantId = (int) $storefront['tenant_id'];
 
-        // Fetch public published publications for this business
+        // Fetch public published publications for this business (strictly ready, published, and public)
         $flipbooks = Db::all(
             "SELECT id, title, slug, description, page_count, status, workflow_status, settings, created_at
              FROM flipbooks
-             WHERE tenant_id = ? AND status = 'ready' AND visibility != 'password'
+             WHERE tenant_id = ?
+               AND status = 'ready'
+               AND visibility = 'public'
+               AND published_at IS NOT NULL
+               AND (workflow_status IS NULL OR workflow_status = 'approved')
              ORDER BY created_at DESC",
             [$tenantId]
         );
@@ -111,9 +115,14 @@ final class CommercialController
     {
         $this->ensureSchema();
         $slug = trim((string) ($args['slug'] ?? ''));
-        $flipbook = Db::one('SELECT id, tenant_id, title FROM flipbooks WHERE slug = ?', [$slug]);
-        if (!$flipbook) {
-            return Http::error($res, 'Publication not found', 404);
+        $flipbook = Db::one(
+            "SELECT id, tenant_id, title, status, visibility, published_at, workflow_status
+             FROM flipbooks
+             WHERE slug = ?",
+            [$slug]
+        );
+        if (!$flipbook || $flipbook['status'] !== 'ready' || $flipbook['visibility'] !== 'public' || empty($flipbook['published_at'])) {
+            return Http::error($res, 'Publication not found or not eligible for public inquiries', 404);
         }
 
         $b = (array) $req->getParsedBody();

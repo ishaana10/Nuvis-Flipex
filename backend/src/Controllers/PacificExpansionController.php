@@ -340,7 +340,12 @@ class PacificExpansionController
         $country = strtoupper(trim((string) ($params['country'] ?? 'ALL')));
         $limit = min(10, max(1, (int) ($params['limit'] ?? 3)));
 
-        $where = ["status = 'active'"];
+        $where = [
+            "status = 'active'",
+            "(start_date IS NULL OR start_date <= UTC_TIMESTAMP())",
+            "(end_date IS NULL OR end_date >= UTC_TIMESTAMP())",
+            "(budget_amount <= 0.00 OR spent_amount < budget_amount)",
+        ];
         $bindings = [];
 
         if ($placementType !== '') {
@@ -411,6 +416,7 @@ class PacificExpansionController
 
         if ($eventType === 'click') {
             Db::run('UPDATE sponsored_placements SET clicks = clicks + 1, spent_amount = spent_amount + cost_per_click WHERE id = ?', [$placementId]);
+            Db::run("UPDATE sponsored_placements SET status = 'completed' WHERE id = ? AND budget_amount > 0 AND spent_amount >= budget_amount", [$placementId]);
         } else {
             Db::run('UPDATE sponsored_placements SET impressions = impressions + 1 WHERE id = ?', [$placementId]);
         }

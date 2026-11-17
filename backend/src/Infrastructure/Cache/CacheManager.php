@@ -14,6 +14,7 @@ final class CacheManager
 {
     private static ?\Redis $redisClient = null;
     private static bool $redisAttempted = false;
+    private static array $heldLocks = [];
 
     private static function cacheDir(): string
     {
@@ -67,10 +68,10 @@ final class CacheManager
         $connected = ($r !== null);
 
         return [
-            'activeDriver' => $connected ? 'redis' : 'atomic_file_redis_compatible',
+            'activeDriver' => $connected ? 'redis' : 'atomic_file_fallback',
             'redisConfiguredHost' => "{$redisHost}:{$redisPort}",
             'redisConnected' => $connected,
-            'distributedLocksSupported' => true,
+            'distributedLocksSupported' => $connected,
             'cacheDirectory' => self::cacheDir(),
         ];
     }
@@ -143,15 +144,17 @@ final class CacheManager
      * Acquire a distributed / atomic lock for worker or billing concurrency protection.
      * Uses atomic Redis SET key token NX EX ttl when Redis is available, or flock on file.
      */
-    public static function acquireLock(string $lockName, int $ttlSeconds = 60): bool
+    public static function acquireLock(string $lockName, int $ttlSeconds = 60, ?string &$acquiredToken = null): bool
     {
+        $token = bin2hex(random_bytes(16));
         $r = self::redis();
         if ($r !== null) {
             try {
                 // Redis atomic lock pattern (SET resource token NX EX seconds)
-                $token = (string) getmypid() . '_' . microtime(true);
                 $acquired = (bool) $r->set('lock:' . $lockName, $token, ['nx', 'ex' => max(1, $ttlSeconds)]);
                 if ($acquired) {
+                    self::$heldLocks[$lockName] = $token;
+                    $acquiredToken = $token;
                     return true;
                 }
                 return false;
@@ -162,28 +165,49 @@ final class CacheManager
 
         $lockFile = self::cacheDir() . '/lock_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $lockName) . '.lock';
         if (is_file($lockFile)) {
-            $meta = json_decode((string) @file_get_contents($lockFile), true);
-            if (is_array($meta) && ($meta['expires_at'] ?? 0) > time()) {
+            $raw = @file_get_contents($lockFile);
+            $meta = $raw ? json_decode($raw, true) : null;
+            if (is_array($meta) && ($meta['expires_at'] ?? 0) <= time()) {
+                @unlink($lockFile);
+            } elseif (is_array($meta) && ($meta['expires_at'] ?? 0) > time()) {
                 return false;
             }
         }
 
-        $written = @file_put_contents($lockFile, json_encode([
-            'lock' => $lockName,
-            'pid' => getmypid(),
-            'acquired_at' => time(),
-            'expires_at' => time() + $ttlSeconds,
-        ]), LOCK_EX);
+        // Exclusive creation flag 'x' guarantees atomic create; fails if file exists
+        $fp = @fopen($lockFile, 'x');
+        if ($fp !== false) {
+            fwrite($fp, (string) json_encode([
+                'lock' => $lockName,
+                'token' => $token,
+                'pid' => getmypid(),
+                'acquired_at' => time(),
+                'expires_at' => time() + $ttlSeconds,
+            ]));
+            fclose($fp);
+            self::$heldLocks[$lockName] = $token;
+            $acquiredToken = $token;
+            return true;
+        }
 
-        return $written !== false;
+        return false;
     }
 
-    public static function releaseLock(string $lockName): void
+    public static function releaseLock(string $lockName, ?string $token = null): void
     {
+        $ownerToken = $token ?? (self::$heldLocks[$lockName] ?? null);
+        unset(self::$heldLocks[$lockName]);
+
         $r = self::redis();
         if ($r !== null) {
             try {
-                $r->del('lock:' . $lockName);
+                if ($ownerToken !== null) {
+                    // Atomic compare-and-delete Lua script
+                    $lua = 'if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end';
+                    $r->eval($lua, ['lock:' . $lockName, $ownerToken], 1);
+                } else {
+                    $r->del('lock:' . $lockName);
+                }
             } catch (\Throwable) {
                 // continue to file lock release
             }
@@ -191,7 +215,15 @@ final class CacheManager
 
         $lockFile = self::cacheDir() . '/lock_' . preg_replace('/[^a-zA-Z0-9_\-]/', '_', $lockName) . '.lock';
         if (is_file($lockFile)) {
-            @unlink($lockFile);
+            if ($ownerToken !== null) {
+                $raw = @file_get_contents($lockFile);
+                $meta = $raw ? json_decode($raw, true) : null;
+                if (is_array($meta) && isset($meta['token']) && $meta['token'] === $ownerToken) {
+                    @unlink($lockFile);
+                }
+            } else {
+                @unlink($lockFile);
+            }
         }
     }
 }

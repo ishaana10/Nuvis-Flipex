@@ -216,7 +216,6 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     if (workerBusyRef.current) return;
     workerBusyRef.current = true;
     try {
-      await api('/jobs/process-next', 'POST');
       await load();
       loadJobs();
     } catch {

@@ -33,7 +33,7 @@ final class Db
             ]
         );
         try {
-            self::$pdo->exec("SET time_zone = '+12:00'");
+            self::$pdo->exec("SET time_zone = '+00:00'");
         } catch (\Throwable) {
             // Non-critical fallback if timezone tables are unconfigured
         }

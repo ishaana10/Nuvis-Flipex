@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-// Set default timezone to Fiji Time (UTC+12)
-date_default_timezone_set('Pacific/Fiji');
+// Standardize server operations and database records in UTC
+date_default_timezone_set('UTC');
 
 require __DIR__ . '/../vendor/autoload.php';
 

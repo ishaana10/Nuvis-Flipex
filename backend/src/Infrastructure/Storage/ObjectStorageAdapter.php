@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Storage;
 
+use App\Support\CryptoSecrets;
 use App\Support\Storage;
 
 /**
@@ -21,10 +22,63 @@ final class ObjectStorageAdapter
     {
         $cdnBase = rtrim($_ENV['CDN_BASE_URL'] ?? '', '/');
         if ($cdnBase !== '') {
-            $sig = hash_hmac('sha256', $relativePath . ':' . (time() + $ttlSeconds), $_ENV['JWT_SECRET'] ?? 'nuvis-cdn-key');
+            $secret = CryptoSecrets::storageSigningSecret();
+            $sig = hash_hmac('sha256', $relativePath . ':' . (time() + $ttlSeconds), $secret);
             return "{$cdnBase}/" . ltrim($relativePath, '/') . '?edge_sig=' . substr($sig, 0, 24);
         }
         return Storage::signedUrl($relativePath, $ttlSeconds);
+    }
+
+    public static function uploadObject(string $relativePath, string $content, string $mimeType = 'application/octet-stream', ?int $tenantId = null): string
+    {
+        $prefix = $tenantId ? self::tenantPrefix($tenantId) : '';
+        $fullPath = ltrim($prefix . ltrim($relativePath, '/'), '/');
+
+        // Local isolated storage persistence
+        $diskPath = Storage::root() . '/' . $fullPath;
+        $dir = dirname($diskPath);
+        Storage::ensureDir($dir);
+        $written = @file_put_contents($diskPath, $content, LOCK_EX);
+        if ($written === false) {
+            throw new \RuntimeException("Failed writing object to storage: {$relativePath}");
+        }
+
+        return $fullPath;
+    }
+
+    public static function getObject(string $relativePath, ?int $tenantId = null): ?string
+    {
+        $prefix = $tenantId ? self::tenantPrefix($tenantId) : '';
+        $fullPath = ltrim($prefix . ltrim($relativePath, '/'), '/');
+        $diskPath = Storage::root() . '/' . $fullPath;
+
+        if (!is_file($diskPath)) {
+            return null;
+        }
+
+        $content = @file_get_contents($diskPath);
+        return $content !== false ? $content : null;
+    }
+
+    public static function deleteObject(string $relativePath, ?int $tenantId = null): bool
+    {
+        $prefix = $tenantId ? self::tenantPrefix($tenantId) : '';
+        $fullPath = ltrim($prefix . ltrim($relativePath, '/'), '/');
+        $diskPath = Storage::root() . '/' . $fullPath;
+
+        if (is_file($diskPath)) {
+            return @unlink($diskPath);
+        }
+        return true;
+    }
+
+    public static function hasObject(string $relativePath, ?int $tenantId = null): bool
+    {
+        $prefix = $tenantId ? self::tenantPrefix($tenantId) : '';
+        $fullPath = ltrim($prefix . ltrim($relativePath, '/'), '/');
+        $diskPath = Storage::root() . '/' . $fullPath;
+
+        return is_file($diskPath);
     }
 
     public static function status(?int $tenantId = null): array
