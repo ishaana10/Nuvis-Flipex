@@ -998,19 +998,92 @@ HTML;
 
     private function resolveCountry(Request $req, array $body = []): string
     {
+        // 1. Explicit valid country override from verified client
         if (!empty($body['country']) && preg_match('/^[A-Z]{2}$/i', (string) $body['country'])) {
-            return strtoupper((string) $body['country']);
+            $c = strtoupper((string) $body['country']);
+            if ($c !== 'XX' && $c !== 'ZZ') {
+                return $c;
+            }
         }
-        foreach (['CF-IPCountry', 'X-Country-Code', 'X-Geo-Country'] as $hdr) {
+
+        // 2. Cloudflare or Edge CDN Geo Headers (trustworthy proxy headers)
+        foreach (['CF-IPCountry', 'X-Country-Code', 'X-Geo-Country', 'CloudFront-Viewer-Country'] as $hdr) {
             $val = trim($req->getHeaderLine($hdr));
-            if (preg_match('/^[A-Z]{2}$/i', $val) && strtoupper($val) !== 'XX') {
+            if (preg_match('/^[A-Z]{2}$/i', $val) && strtoupper($val) !== 'XX' && strtoupper($val) !== 'T1') {
                 return strtoupper($val);
             }
         }
-        $lang = $req->getHeaderLine('Accept-Language');
-        if (preg_match('/[a-z]{2}-([A-Z]{2})/', $lang, $m)) {
-            return strtoupper($m[1]);
+
+        // 3. Client timezone mapping (reliable browser-reported geographic indicator)
+        $tz = trim((string) ($body['timezone'] ?? $req->getHeaderLine('X-Timezone')));
+        if ($tz !== '') {
+            $tzMap = [
+                'Pacific/Fiji' => 'FJ',
+                'Pacific/Tongatapu' => 'TO',
+                'Pacific/Apia' => 'WS',
+                'Pacific/Port_Moresby' => 'PG',
+                'Pacific/Guadalcanal' => 'SB',
+                'Pacific/Efate' => 'VU',
+                'Pacific/Tarawa' => 'KI',
+                'Pacific/Kiritimati' => 'KI',
+                'Pacific/Enderbury' => 'KI',
+                'Pacific/Funafuti' => 'TV',
+                'Pacific/Noumea' => 'NC',
+                'Pacific/Tahiti' => 'PF',
+                'Pacific/Rarotonga' => 'CK',
+                'Pacific/Pago_Pago' => 'AS',
+                'Pacific/Niue' => 'NU',
+                'Pacific/Norfolk' => 'NF',
+                'Pacific/Nauru' => 'NR',
+                'Pacific/Majuro' => 'MH',
+                'Pacific/Kwajalein' => 'MH',
+                'Pacific/Palau' => 'PW',
+                'Pacific/Chuuk' => 'FM',
+                'Pacific/Pohnpei' => 'FM',
+                'Pacific/Kosrae' => 'FM',
+                'Pacific/Saipan' => 'MP',
+                'Pacific/Guam' => 'GU',
+                'Pacific/Auckland' => 'NZ',
+                'Pacific/Chatham' => 'NZ',
+                'Pacific/Wallis' => 'WF',
+            ];
+            if (isset($tzMap[$tz])) {
+                return $tzMap[$tz];
+            }
+            if (str_starts_with($tz, 'Australia/')) {
+                return 'AU';
+            }
+            if (str_starts_with($tz, 'America/')) {
+                return 'US';
+            }
+            if (str_starts_with($tz, 'Europe/London')) {
+                return 'GB';
+            }
+            if (str_starts_with($tz, 'Asia/Kolkata') || str_starts_with($tz, 'Asia/Calcutta')) {
+                return 'IN';
+            }
+            if (str_starts_with($tz, 'Asia/Singapore')) {
+                return 'SG';
+            }
+            if (str_starts_with($tz, 'Asia/Tokyo')) {
+                return 'JP';
+            }
         }
-        return 'FJ'; // Default Nuvis Technologies Fiji region fallback
+
+        // 4. Localhost or private loopback developer IP: default to Fiji HQ
+        $server = $req->getServerParams();
+        $ip = trim((string) ($server['REMOTE_ADDR'] ?? '127.0.0.1'));
+        if (
+            $ip === '127.0.0.1' ||
+            $ip === '::1' ||
+            str_starts_with($ip, '10.') ||
+            str_starts_with($ip, '192.168.') ||
+            preg_match('/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $ip)
+        ) {
+            return 'FJ';
+        }
+
+        // 5. Default fallback to Fiji ('FJ')
+        return 'FJ';
     }
 }

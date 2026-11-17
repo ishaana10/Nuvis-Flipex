@@ -400,7 +400,7 @@ final class AnalyticsController
                     This report covers the past <b>{$days} day(s)</b> ({$freq} digest). The raw data export has been compiled and attached as <b>" . htmlspecialchars($csvFilename) . "</b> for your records.
                 </p>
                 <div style=\"margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;display:flex;justify-content:space-between;\">
-                    <span>Generated: {$generatedAt} UTC</span>
+                    <span>Generated: {$generatedAt} FJT (Fiji Time)</span>
                     <span>Nuvis Flipex Enterprise Analytics</span>
                 </div>
             </div>

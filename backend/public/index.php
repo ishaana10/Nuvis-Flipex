@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+// Set default timezone to Fiji Time (UTC+12)
+date_default_timezone_set('Pacific/Fiji');
+
 require __DIR__ . '/../vendor/autoload.php';
 
 use App\Controllers\AdminController;

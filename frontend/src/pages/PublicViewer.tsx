@@ -129,6 +129,8 @@ export default function PublicViewer() {
           body: JSON.stringify({
             sessionId,
             referrer: document.referrer || undefined,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timezoneOffset: new Date().getTimezoneOffset(),
             utmSource: utmParams.utm_source || undefined,
             utmMedium: utmParams.utm_medium || undefined,
             utmCampaign: utmParams.utm_campaign || undefined,

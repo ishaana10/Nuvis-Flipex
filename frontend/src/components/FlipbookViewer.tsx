@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { PageFlip } from 'page-flip';
 import { playPageFlipSound, unlockAudio } from '../utils/sound';
 import { getCanvasDpr, getReaderProfile, pagesToLoad } from './viewer/adaptiveLoading';
@@ -579,6 +580,8 @@ export default function FlipbookViewer({
       const bodyStr = JSON.stringify({
         sessionId,
         eventType,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezoneOffset: new Date().getTimezoneOffset(),
         utmSource: utmParams.utm_source || undefined,
         utmMedium: utmParams.utm_medium || undefined,
         utmCampaign: utmParams.utm_campaign || undefined,
@@ -3276,7 +3279,7 @@ export default function FlipbookViewer({
                 <SvgList />
                 <span>Contents</span>
                 <span className="hz-drawer-tab-badge">
-                  {effectiveToc.length}
+                  ({effectiveToc.length})
                 </span>
               </button>
               <button
@@ -3288,33 +3291,37 @@ export default function FlipbookViewer({
                 <SvgBookmark filled={bookmarks.length > 0} />
                 <span>Bookmarks</span>
                 <span className="hz-drawer-tab-badge">
-                  {bookmarks.length}
+                  ({bookmarks.length})
                 </span>
               </button>
-              <button
-                type="button"
-                onClick={() => { setShowEduResources(true); setShowToc(false); setShowBookmarks(false); setShowStudyNotes(false); }}
-                className={`hz-drawer-tab ${showEduResources ? 'active' : ''}`}
-                title="Lesson Worksheets & Syllabus"
-              >
-                <SvgGraduation />
-                <span>Resources</span>
-                <span className="hz-drawer-tab-badge">
-                  {eduResources.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowStudyNotes(true); setShowToc(false); setShowBookmarks(false); setShowEduResources(false); }}
-                className={`hz-drawer-tab ${showStudyNotes ? 'active' : ''}`}
-                title="Student Revision Notes"
-              >
-                <SvgNote />
-                <span>Notes</span>
-                <span className="hz-drawer-tab-badge">
-                  {studyNotes.length}
-                </span>
-              </button>
+              {(eduResources.length > 0 || showEduResources) && (
+                <button
+                  type="button"
+                  onClick={() => { setShowEduResources(true); setShowToc(false); setShowBookmarks(false); setShowStudyNotes(false); }}
+                  className={`hz-drawer-tab ${showEduResources ? 'active' : ''}`}
+                  title="Lesson Worksheets & Syllabus"
+                >
+                  <SvgGraduation />
+                  <span>Resources</span>
+                  <span className="hz-drawer-tab-badge">
+                    ({eduResources.length})
+                  </span>
+                </button>
+              )}
+              {(studyNotes.length > 0 || showStudyNotes) && (
+                <button
+                  type="button"
+                  onClick={() => { setShowStudyNotes(true); setShowToc(false); setShowBookmarks(false); setShowEduResources(false); }}
+                  className={`hz-drawer-tab ${showStudyNotes ? 'active' : ''}`}
+                  title="Student Revision Notes"
+                >
+                  <SvgNote />
+                  <span>Notes</span>
+                  <span className="hz-drawer-tab-badge">
+                    ({studyNotes.length})
+                  </span>
+                </button>
+              )}
             </div>
 
             <button
@@ -3363,7 +3370,6 @@ export default function FlipbookViewer({
               ) : (
                 filteredToc.map((item, idx) => {
                   const isActive = current + 1 === item.page;
-                  const displayNum = (idx + 1).toString().padStart(2, '0');
                   return (
                     <button
                       key={`${item.page}-${idx}`}
@@ -3375,10 +3381,7 @@ export default function FlipbookViewer({
                       className={`hz-toc-item ${isActive ? 'hz-toc-active' : ''}`}
                       title={`${item.title} (Page ${item.page})`}
                     >
-                      <div className="hz-toc-item-left">
-                        <span className="hz-toc-idx">{displayNum}</span>
-                        <span className="hz-toc-title">{item.title}</span>
-                      </div>
+                      <span className="hz-toc-title">{item.title}</span>
                       <span className="hz-toc-badge">
                         p. {item.page}
                       </span>
@@ -4978,23 +4981,56 @@ export default function FlipbookViewer({
       )}
 
       {/* Phase 4: Classroom Whiteboard / Presentation Mode Overlay & Laser Pointer */}
-      {presentationMode && (
-        <>
+      {presentationMode && typeof document !== 'undefined' && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            pointerEvents: 'none',
+            zIndex: 2147483647,
+            overflow: 'visible',
+          }}
+        >
           {laserPointer && (
             <div
-              className="pointer-events-none fixed z-[9999] transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
               style={{
-                left: pointerPos.x,
-                top: pointerPos.y,
-                width: '16px',
-                height: '16px',
+                position: 'fixed',
+                left: `${pointerPos.x}px`,
+                top: `${pointerPos.y}px`,
+                width: '18px',
+                height: '18px',
                 borderRadius: '50%',
-                backgroundColor: '#ef4444',
-                boxShadow: '0 0 12px 4px rgba(239, 68, 68, 0.85), 0 0 24px 8px rgba(239, 68, 68, 0.45)',
+                backgroundColor: '#ff2222',
+                boxShadow: '0 0 0 2.5px rgba(255, 255, 255, 0.95), 0 0 16px 6px #ff0000, 0 0 32px 10px rgba(255, 0, 0, 0.65)',
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none',
+                zIndex: 2147483647,
               }}
-            />
+            >
+              <div
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  margin: '6px auto',
+                  borderRadius: '50%',
+                  backgroundColor: '#ffffff',
+                }}
+              />
+            </div>
           )}
-          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9998] bg-slate-900/90 text-white backdrop-blur-md px-4 py-2 rounded-full border border-slate-700/80 shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-medium">
+          <div
+            style={{
+              position: 'fixed',
+              top: '16px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 2147483647,
+              pointerEvents: 'auto',
+            }}
+            className="bg-slate-900/90 text-white backdrop-blur-md px-4 py-2 rounded-full border border-slate-700/80 shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-medium"
+          >
             <span className="flex items-center gap-1.5 text-amber-400 font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               Classroom Presentation Mode
@@ -5018,7 +5054,8 @@ export default function FlipbookViewer({
               Exit (P / Esc)
             </button>
           </div>
-        </>
+        </div>,
+        (document.fullscreenElement as HTMLElement) || document.body
       )}
     </div>
   );

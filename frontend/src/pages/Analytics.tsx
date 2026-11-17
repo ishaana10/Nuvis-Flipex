@@ -825,7 +825,7 @@ export default function Analytics() {
               <table className="activity-table">
                 <thead>
                   <tr>
-                    <th>Date & Time</th>
+                    <th>Date & Time (Fiji Time · FJT)</th>
                     <th>Country</th>
                     <th>Device</th>
                     <th>Duration</th>
@@ -834,25 +834,54 @@ export default function Analytics() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.recent.map((ev) => (
-                    <tr key={ev.id}>
-                      <td>{ev.created_at}</td>
-                      <td>🌍 {ev.country || 'FJ'}</td>
-                      <td>{ev.device}</td>
-                      <td>{formatDuration(Number(ev.duration_seconds || 0))}</td>
-                      <td>
-                        Page {ev.max_page_reached || 1}
-                        {Number(ev.completed) === 1 && (
-                          <Badge variant="success" className="ml-1">Completed</Badge>
-                        )}
-                      </td>
-                      <td>
-                        {ev.utm_campaign
+                  {data.recent.map((ev) => {
+                    let formattedTime = ev.created_at;
+                    try {
+                      formattedTime = new Date(ev.created_at).toLocaleString('en-GB', {
+                        timeZone: 'Pacific/Fiji',
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true,
+                      }) + ' (FJT)';
+                    } catch {
+                      // fallback to raw
+                    }
+                    return (
+                      <tr key={ev.id}>
+                        <td>
+                          <span className="font-mono text-xs">{formattedTime}</span>
+                        </td>
+                        <td>
+                          <span className="inline-flex items-center gap-1.5 font-medium">
+                            {ev.country === 'FJ' ? '🇫🇯 Fiji' :
+                             ev.country === 'AU' ? '🇦🇺 Australia' :
+                             ev.country === 'NZ' ? '🇳🇿 New Zealand' :
+                             ev.country === 'US' ? '🇺🇸 United States' :
+                             ev.country === 'GB' ? '🇬🇧 United Kingdom' :
+                             ev.country === 'IN' ? '🇮🇳 India' :
+                             `🌍 ${ev.country || 'FJ'}`}
+                          </span>
+                        </td>
+                        <td>{ev.device}</td>
+                        <td>{formatDuration(Number(ev.duration_seconds || 0))}</td>
+                        <td>
+                          Page {ev.max_page_reached || 1}
+                          {Number(ev.completed) === 1 && (
+                            <Badge variant="success" className="ml-1">Completed</Badge>
+                          )}
+                        </td>
+                        <td>
+                          {ev.utm_campaign
                           ? `${ev.utm_source || 'direct'} / ${ev.utm_campaign}`
                           : ev.referrer || 'Direct'}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

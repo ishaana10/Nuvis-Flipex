@@ -22,7 +22,7 @@ final class Db
         $rawPass = $_ENV['DB_PASS'] ?? $_SERVER['DB_PASS'] ?? getenv('DB_PASS');
         $pass = ($rawPass !== false && $rawPass !== null) ? (string) $rawPass : '';
 
-        return self::$pdo = new PDO(
+        self::$pdo = new PDO(
             sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $host, $port, $name),
             $user,
             $pass,
@@ -32,6 +32,12 @@ final class Db
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]
         );
+        try {
+            self::$pdo->exec("SET time_zone = '+12:00'");
+        } catch (\Throwable) {
+            // Non-critical fallback if timezone tables are unconfigured
+        }
+        return self::$pdo;
     }
 
     public static function one(string $sql, array $params = []): ?array
