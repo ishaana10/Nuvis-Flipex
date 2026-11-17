@@ -260,6 +260,19 @@ The following notable updates, bug fixes, and architectural hardening milestones
   - **Apply to All Pages:** 1-click batch application synchronizing background styling across the entire publication.
 - **Backend Print & PDF Export Support:** Upgraded `StudioController.php` print generator to render CSS gradients and solid backgrounds seamlessly in print previews and vector PDFs.
 
+### Release `ea2bc35` — Flipex Studio Stage 3: Complete Contextual Inspector Suite
+- **Typography & Web-Fonts:** Embedded 9 curated Google Web-Fonts (`Inter`, `Playfair Display`, `Montserrat`, `Lora`, `Cinzel`, `Oswald`, `Dancing Script`, `Fira Code`, `Bebas Neue`) with B/I/U/S/TT formatting action bar, line-height, letter-spacing, text-shadow presets, multi-column count, and decorative drop-caps.
+- **Image Frame & Creative Filters:** Integrated object-fit modes (`cover`, `contain`, `fill`), real-time 300 DPI print quality validator badge, creative filter sliders (brightness, contrast, saturation, soft blur, grayscale monochrome toggle), and Unsplash photo presets.
+- **Vector Geometry & 3-Gradient Fills:** Implemented vector shape geometry (rectangle, pill, circle), solid vs 3-gradient fill mode with 8-direction compass presets (0°, 45°, 90°, 135°, 180°, 225°, 270°, radial), border styles (solid, dashed, dotted), border color, and corner radius.
+- **Commercial Product Card Specs:** Deconstructed product card editor with selling price, was-price, promo splash badges, stock status tags (`In Stock`, `Low Stock`, `Sold Out`), 5-star customer rating selector, WhatsApp 1-tap ordering link builder, and direct QR code toggle.
+
+### Release `65c7d21` — Flipex Studio Stage 2: Core Design Engine & Workspace Rebuild
+- **8-Handle Transform & Proportional Resizing:** Added full directional resize handles (`tl`, `tc`, `tr`, `mr`, `br`, `bc`, `bl`, `ml`) with aspect ratio preservation via Shift-drag.
+- **Interactive Rotation & Snap Guides:** Integrated rotation stem & knob with live degree tooltip and 45° angle snapping, complemented by cyan magnetic snap guidelines across page margins and sibling elements.
+- **Multi-Selection & Undo/Redo Stack:** Added multi-element selection via Shift-click and empty-canvas rubberband marquee box, paired with a 50-state undo/redo history engine (`Ctrl+Z`, `Ctrl+Y`).
+- **Full Viewport Expansion:** Eliminated desktop sidebar whitespace with unconstrained `.app-main-studio` flex layout and high-contrast dark indigo inspector inputs.
+- **Backend Document Creation Fix:** Corrected PDO prepared statement parameter count in `StudioController.php` `INSERT INTO studio_documents` and hardened `ensureSchema()` sequence execution.
+
 ### Release `753034c` — Light Mode Visibility & Contrast Polish
 - **Color Contrast Enforcement:** Resolved text and icon visibility issues across Flipex Studio gallery and canvas workspace in Light Mode.
 - **Border & Background Refinements:** Added explicit border and background variables ensuring crisp element boundaries against white backdrops.
