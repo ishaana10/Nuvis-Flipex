@@ -22,7 +22,15 @@ import {
   AlertCircle,
   Download,
   FolderKanban,
+  Lock,
 } from './ui/icons';
+
+const GraduationCap = (p: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+    <path d="M6 12v5c3 3 9 3 12 0v-5" />
+  </svg>
+);
 
 export interface FlipbookVersionItem {
   id: number;
@@ -56,7 +64,7 @@ interface LifecycleModalProps {
   collections: CollectionItem[];
   onClose: () => void;
   onUpdated: () => void;
-  initialTab?: 'workflow' | 'versions' | 'seo';
+  initialTab?: 'workflow' | 'versions' | 'seo' | 'education';
 }
 
 const WORKFLOW_STAGES = [
@@ -77,7 +85,7 @@ export default function PublicationLifecycleModal({
   onUpdated,
   initialTab = 'workflow',
 }: LifecycleModalProps) {
-  const [tab, setTab] = useState<'workflow' | 'versions' | 'seo'>(initialTab);
+  const [tab, setTab] = useState<'workflow' | 'versions' | 'seo' | 'education'>(initialTab);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -109,6 +117,117 @@ export default function PublicationLifecycleModal({
   const [seoKeywords, setSeoKeywords] = useState<string>(book.seoMeta?.keywords || '');
   const [canonicalUrl, setCanonicalUrl] = useState<string>(book.seoMeta?.canonicalUrl || '');
   const [noindex, setNoindex] = useState<boolean>(Boolean(book.seoMeta?.noindex));
+
+  // Educational & Academic Publishing state
+  const bookSettings = book.settings || {};
+  const [eduCategory, setEduCategory] = useState<string>(bookSettings.educationalCategory || 'general');
+  const [academicTerm, setAcademicTerm] = useState<string>(bookSettings.academicTerm || '');
+  const [teacherReviewer, setTeacherReviewer] = useState<string>(bookSettings.teacherReviewer || '');
+  const [pinProtection, setPinProtection] = useState<boolean>(!!bookSettings.pinProtection);
+  const [pinCode, setPinCode] = useState<string>(bookSettings.pinCode || '');
+  const [pinHint, setPinHint] = useState<string>(bookSettings.pinHint || '');
+  const [domainRestrictionEnabled, setDomainRestrictionEnabled] = useState<boolean>(!!bookSettings.domainRestrictionEnabled);
+  const [allowedDomains, setAllowedDomains] = useState<string>(bookSettings.allowedDomains || '');
+
+  // Attached worksheets & lesson resources
+  const [modalResources, setModalResources] = useState<any[]>([]);
+  const [loadingResources, setLoadingResources] = useState(false);
+  const [newResTitle, setNewResTitle] = useState('');
+  const [newResType, setNewResType] = useState('worksheet');
+  const [newResPage, setNewResPage] = useState<string>('');
+  const [newResFileUrl, setNewResFileUrl] = useState('');
+  const [newResDesc, setNewResDesc] = useState('');
+  const [creatingRes, setCreatingRes] = useState(false);
+
+  const loadEducationalResources = async () => {
+    setLoadingResources(true);
+    try {
+      const res = await api<any>(`/education/resources?flipbook_id=${book.id}`, 'GET');
+      if (res?.resources && Array.isArray(res.resources)) {
+        setModalResources(res.resources);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingResources(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'education') {
+      loadEducationalResources();
+    }
+  }, [tab, book.id]);
+
+  const handleSaveEducationalSettings = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setMsg(null);
+    try {
+      const updatedSettings = {
+        ...(book.settings || {}),
+        educationalCategory: eduCategory,
+        academicTerm: academicTerm.trim(),
+        teacherReviewer: teacherReviewer.trim(),
+        pinProtection,
+        pinCode: pinCode.trim(),
+        pinHint: pinHint.trim(),
+        domainRestrictionEnabled,
+        allowedDomains: allowedDomains.trim(),
+      };
+      await api(`/flipbooks/${book.id}`, 'PATCH', {
+        settings: updatedSettings,
+      });
+      book.settings = updatedSettings;
+      setMsg({ type: 'ok', text: 'School & academic publishing settings saved.' });
+      onUpdated();
+    } catch (e: any) {
+      setMsg({ type: 'err', text: e instanceof ApiError ? e.message : 'Failed to save educational settings' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateResource = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newResTitle.trim() || !newResFileUrl.trim()) {
+      setMsg({ type: 'err', text: 'Title and Resource File / Link URL are required' });
+      return;
+    }
+    setCreatingRes(true);
+    setMsg(null);
+    try {
+      await api('/education/resources', 'POST', {
+        flipbook_id: book.id,
+        page_number: newResPage ? parseInt(newResPage, 10) : null,
+        title: newResTitle.trim(),
+        resource_type: newResType,
+        external_url: newResFileUrl.trim(),
+        description: newResDesc.trim(),
+      });
+      setNewResTitle('');
+      setNewResPage('');
+      setNewResFileUrl('');
+      setNewResDesc('');
+      setMsg({ type: 'ok', text: 'Lesson resource attached successfully.' });
+      loadEducationalResources();
+    } catch (e: any) {
+      setMsg({ type: 'err', text: e instanceof ApiError ? e.message : 'Failed to attach resource' });
+    } finally {
+      setCreatingRes(false);
+    }
+  };
+
+  const handleDeleteResource = async (id: number) => {
+    if (!confirm('Remove this attached lesson resource?')) return;
+    try {
+      await api(`/education/resources/${id}`, 'DELETE');
+      setModalResources((prev) => prev.filter((r) => r.id !== id));
+      setMsg({ type: 'ok', text: 'Resource removed.' });
+    } catch (e: any) {
+      setMsg({ type: 'err', text: e instanceof ApiError ? e.message : 'Failed to remove resource' });
+    }
+  };
 
   const loadVersions = async () => {
     setLoadingVersions(true);
@@ -315,6 +434,18 @@ export default function PublicationLifecycleModal({
           >
             <Globe className="h-4 w-4" />
             3. Custom URL, Taxonomy & SEO
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTab('education'); setMsg(null); }}
+            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
+              tab === 'education'
+                ? 'border-amber-400 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+            }`}
+          >
+            <GraduationCap className="h-4 w-4" />
+            4. School & Academic Publishing
           </button>
         </div>
 
@@ -734,6 +865,294 @@ export default function PublicationLifecycleModal({
                 </div>
               </div>
             </form>
+          )}
+
+          {tab === 'education' && (
+            <div className="space-y-6">
+              {/* Card 1: School & Academic Metadata */}
+              <form onSubmit={handleSaveEducationalSettings} className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                  <GraduationCap className="h-4 w-4 text-amber-500" />
+                  Institutional Classification & Governance
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Publication Academic Type
+                    </label>
+                    <select
+                      value={eduCategory}
+                      onChange={(e) => setEduCategory(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm focus:border-amber-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    >
+                      <option value="general">General Academic</option>
+                      <option value="yearbook">School / University Yearbook</option>
+                      <option value="newsletter">School Newsletter / Bulletin</option>
+                      <option value="syllabus">Curriculum Syllabus & Course Outline</option>
+                      <option value="exam_paper">Past Exam Paper / Revision Guide</option>
+                      <option value="sports_program">Sports Fixtures & Carnival Program</option>
+                      <option value="handbook">Student / Faculty Handbook</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Academic Term / Cohort
+                    </label>
+                    <Input
+                      value={academicTerm}
+                      onChange={(e) => setAcademicTerm(e.target.value)}
+                      placeholder="e.g. Term 1 2026, Semester 1, Class of 2026"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Teacher / Faculty Reviewer Sign-off
+                  </label>
+                  <Input
+                    value={teacherReviewer}
+                    onChange={(e) => setTeacherReviewer(e.target.value)}
+                    placeholder="e.g. Dr. H. Henderson (Head of Science)"
+                  />
+                </div>
+
+                {/* Card 2: Student & Classroom Access Protection */}
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Student & Classroom Access Controls
+                  </div>
+
+                  {/* Quick PIN Code */}
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3.5 dark:border-slate-800/80 dark:bg-slate-900/60 space-y-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pinProtection}
+                        onChange={(e) => setPinProtection(e.target.checked)}
+                        className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                      />
+                      <span>Enable Quick 4-6 Digit Student/Parent PIN Access</span>
+                    </label>
+
+                    {pinProtection && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                            PIN Code (4-6 digits)
+                          </label>
+                          <Input
+                            value={pinCode}
+                            onChange={(e) => setPinCode(e.target.value)}
+                            placeholder="e.g. 2026"
+                            maxLength={8}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                            PIN Hint for Students
+                          </label>
+                          <Input
+                            value={pinHint}
+                            onChange={(e) => setPinHint(e.target.value)}
+                            placeholder="e.g. Distributed in classroom agenda"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Institutional Email Domain restriction */}
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3.5 dark:border-slate-800/80 dark:bg-slate-900/60 space-y-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={domainRestrictionEnabled}
+                        onChange={(e) => setDomainRestrictionEnabled(e.target.checked)}
+                        className="rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                      />
+                      <span>Restrict Access to Institutional Email Domains</span>
+                    </label>
+
+                    {domainRestrictionEnabled && (
+                      <div className="pl-6">
+                        <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                          Allowed School Domains (comma-separated)
+                        </label>
+                        <Input
+                          value={allowedDomains}
+                          onChange={(e) => setAllowedDomains(e.target.value)}
+                          placeholder="e.g. school.edu, students.school.edu"
+                        />
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          Students and teachers must authenticate with their official school email matching these domains.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" variant="primary" size="sm" disabled={saving}>
+                    {saving ? 'Saving…' : 'Save Academic Settings'}
+                  </Button>
+                </div>
+              </form>
+
+              {/* Card 3: Attached Lesson Resources & Worksheets Drawer Manager */}
+              <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                    <Download className="h-4 w-4 text-sky-500" />
+                    Lesson Worksheets & Syllabus Attachments ({modalResources.length})
+                  </div>
+                  <Badge variant="default">Drawer Tab</Badge>
+                </div>
+
+                {/* List of existing resources */}
+                {loadingResources ? (
+                  <div className="py-4 text-center text-xs text-slate-500">Loading attached resources…</div>
+                ) : modalResources.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500 dark:border-slate-700">
+                    No classroom worksheets or past papers attached yet. Use the form below to attach one.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {modalResources.map((res: any) => (
+                      <div
+                        key={res.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-sky-500 dark:text-sky-300">
+                              {res.resource_type || res.resourceType}
+                            </span>
+                            {res.page_number || res.pageNumber ? (
+                              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                Page {res.page_number || res.pageNumber}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">All pages</span>
+                            )}
+                          </div>
+                          <div className="truncate text-xs font-semibold text-slate-900 dark:text-white mt-1">
+                            {res.title}
+                          </div>
+                          {(res.description) && (
+                            <div className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                              {res.description}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <a
+                            href={res.file_url || res.fileUrl || res.external_url || res.externalUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded p-1 text-slate-500 hover:text-amber-500 dark:text-slate-400"
+                            title="Open link"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteResource(res.id)}
+                            className="rounded p-1 text-slate-400 hover:text-red-500"
+                            title="Remove attachment"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Form to attach a new resource */}
+                <form onSubmit={handleCreateResource} className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    Attach New Worksheet, Past Paper or Syllabus Link
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Resource Title *
+                      </label>
+                      <Input
+                        value={newResTitle}
+                        onChange={(e) => setNewResTitle(e.target.value)}
+                        placeholder="e.g. Physics Lab 3 Worksheet, 2025 Mid-Year Paper"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Resource Type
+                      </label>
+                      <select
+                        value={newResType}
+                        onChange={(e) => setNewResType(e.target.value)}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm focus:border-amber-400 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      >
+                        <option value="worksheet">Classroom Worksheet</option>
+                        <option value="past_paper">Past Exam Paper</option>
+                        <option value="syllabus">Course Syllabus</option>
+                        <option value="homework">Homework Assignment</option>
+                        <option value="guide">Study & Revision Guide</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Download / External URL *
+                      </label>
+                      <Input
+                        value={newResFileUrl}
+                        onChange={(e) => setNewResFileUrl(e.target.value)}
+                        placeholder="https://... PDF, Google Drive link, or worksheet URL"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                        Associated Page # (optional)
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={newResPage}
+                        onChange={(e) => setNewResPage(e.target.value)}
+                        placeholder="e.g. 5"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                      Instructions / Description
+                    </label>
+                    <Input
+                      value={newResDesc}
+                      onChange={(e) => setNewResDesc(e.target.value)}
+                      placeholder="e.g. Complete questions 1 to 10 before Thursday lecture."
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <Button type="submit" variant="outline" size="sm" disabled={creatingRes}>
+                      {creatingRes ? 'Attaching…' : 'Attach Lesson Resource'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -10,6 +10,7 @@ use App\Controllers\BillingController;
 use App\Controllers\BrandKitController;
 use App\Controllers\CommercialController;
 use App\Controllers\DevOpsController;
+use App\Controllers\EducationalController;
 use App\Controllers\FlipbookController;
 use App\Controllers\HotspotController;
 use App\Controllers\IntegrationController;
@@ -175,10 +176,28 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $bs->post('', [CommercialController::class, 'updateStorefrontSettings']);
     })->add(new TenantScope())->add(new Auth());
 
+    // Phase 4: Educational Institution Profile & Attached Lesson Resources
+    $g->group('/education', function (RouteCollectorProxy $edu) {
+        $edu->get('/profile', [EducationalController::class, 'getProfile']);
+        $edu->post('/profile', [EducationalController::class, 'updateProfile']);
+        $edu->get('/resources/{flipbookId:[0-9]+}', [EducationalController::class, 'listResources']);
+        $edu->post('/resources', [EducationalController::class, 'createResource']);
+        $edu->delete('/resources/{id:[0-9]+}', [EducationalController::class, 'deleteResource']);
+    })->add(new TenantScope())->add(new Auth());
+
     // Phase 3: Public Business Profile & Hotspot Commercial Inquiries
     $g->get('/public/biz/{slug}', [CommercialController::class, 'publicBizProfile']);
     $g->post('/public/biz/{slug}/contact', [CommercialController::class, 'publicBizContact'])->add(new RateLimit('contact', 10, 300));
     $g->post('/public/{slug}/inquire', [CommercialController::class, 'publicInquire'])->add(new RateLimit('inquire', 20, 300));
+
+    // Phase 4: Public Educational School Portal, Worksheets, Student Notes, PIN & Domain Verification
+    $g->get('/public/edu/{slug}', [EducationalController::class, 'publicSchoolPortal']);
+    $g->get('/public/{slug}/resources', [EducationalController::class, 'publicResources']);
+    $g->get('/public/{slug}/annotations', [EducationalController::class, 'listAnnotations']);
+    $g->post('/public/{slug}/annotations', [EducationalController::class, 'saveAnnotation']);
+    $g->delete('/public/{slug}/annotations/{id:[0-9]+}', [EducationalController::class, 'deleteAnnotation']);
+    $g->post('/public/{slug}/verify-pin', [EducationalController::class, 'verifyPin'])->add(new RateLimit('verify_pin', 20, 300));
+    $g->post('/public/{slug}/verify-domain', [EducationalController::class, 'verifyDomain'])->add(new RateLimit('verify_domain', 20, 300));
 
     $g->get('/public/{slug}', [PublicController::class, 'show']);
     $g->get('/public/{slug}/cover', [PublicController::class, 'cover']);

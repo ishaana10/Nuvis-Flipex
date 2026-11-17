@@ -106,7 +106,69 @@ export default function Settings() {
         }));
       }
     }).catch(() => {});
+
+    api<{ profile: any }>('/education/profile').then((d) => {
+      if (d?.profile) {
+        setEduProfile((prev) => ({
+          ...prev,
+          ...d.profile,
+        }));
+      }
+    }).catch(() => {});
   }, []);
+
+  // Educational Institution Profile State (Phase 4)
+  const [eduProfile, setEduProfile] = useState<{
+    institutionName: string;
+    motto: string;
+    academicYear: string;
+    institutionType: string;
+    principalName: string;
+    campusAddress: string;
+    contactEmail: string;
+    contactPhone: string;
+    allowedEmailDomains: string;
+    crestUrl: string;
+    bannerUrl: string;
+    portalSlug: string;
+  }>({
+    institutionName: '',
+    motto: '',
+    academicYear: '2026-2027',
+    institutionType: 'secondary',
+    principalName: '',
+    campusAddress: '',
+    contactEmail: '',
+    contactPhone: '',
+    allowedEmailDomains: '',
+    crestUrl: '',
+    bannerUrl: '',
+    portalSlug: '',
+  });
+  const [eduMsg, setEduMsg] = useState('');
+  const [eduBusy, setEduBusy] = useState(false);
+  const [copiedEduLink, setCopiedEduLink] = useState(false);
+
+  const handleSaveEduProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEduBusy(true);
+    setEduMsg('');
+    try {
+      const res = await api<{ profile: any }>('/education/profile', 'POST', eduProfile);
+      if (res?.profile) {
+        setEduProfile((prev) => ({
+          ...prev,
+          ...res.profile,
+        }));
+      }
+      setEduMsg('Educational institution profile saved successfully!');
+      setTimeout(() => setEduMsg(''), 4000);
+    } catch (err: any) {
+      setEduMsg(`Failed: ${err.message}`);
+    } finally {
+      setEduBusy(false);
+    }
+  };
 
   const handleSaveStorefront = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -874,6 +936,234 @@ export default function Settings() {
               style={{ padding: '8px 20px', fontSize: '13px' }}
             >
               {storefrontBusy ? 'Saving Storefront…' : 'Save Storefront Settings'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Phase 4: School & Educational Institution Workspace Profile */}
+      <div className="card" id="education">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ margin: 0 }}>🎓 School &amp; Educational Workspace</h2>
+              <span style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
+                Academic Edition
+              </span>
+            </div>
+            <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
+              Configure your institutional credentials, academic year, campus address, allowed student email domains, and public school reading portal.
+            </p>
+          </div>
+          {eduProfile.portalSlug && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <a
+                href={`/edu/${eduProfile.portalSlug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+                style={{ fontSize: '12px', padding: '6px 12px', textDecoration: 'none' }}
+              >
+                View School Portal ↗
+              </a>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ fontSize: '12px', padding: '6px 12px' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/edu/${eduProfile.portalSlug}`);
+                  setCopiedEduLink(true);
+                  setTimeout(() => setCopiedEduLink(false), 2500);
+                }}
+              >
+                {copiedEduLink ? '✓ Copied Link' : '📋 Copy Portal Link'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {eduMsg && (
+          <div style={{
+            background: eduMsg.startsWith('Failed') ? '#fef2f2' : '#eff6ff',
+            border: `1px solid ${eduMsg.startsWith('Failed') ? '#fecaca' : '#bfdbfe'}`,
+            color: eduMsg.startsWith('Failed') ? '#b91c1c' : '#1e40af',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '13px',
+            marginBottom: '14px'
+          }}>
+            {eduMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSaveEduProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Institution / School Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={eduProfile.institutionName}
+                onChange={(e) => setEduProfile({ ...eduProfile, institutionName: e.target.value })}
+                placeholder="e.g. Marist Brothers High School"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Academic Year
+              </label>
+              <input
+                type="text"
+                value={eduProfile.academicYear}
+                onChange={(e) => setEduProfile({ ...eduProfile, academicYear: e.target.value })}
+                placeholder="2026-2027"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                School Portal Slug (URL)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRight: 'none', padding: '8px 10px', borderRadius: '8px 0 0 8px', fontSize: '12px', color: '#64748b' }}>
+                  /edu/
+                </span>
+                <input
+                  type="text"
+                  value={eduProfile.portalSlug}
+                  onChange={(e) => setEduProfile({ ...eduProfile, portalSlug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
+                  placeholder="marist-brothers"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '0 8px 8px 0', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Institution Type
+              </label>
+              <select
+                value={eduProfile.institutionType}
+                onChange={(e) => setEduProfile({ ...eduProfile, institutionType: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              >
+                <option value="secondary">Secondary / High School</option>
+                <option value="primary">Primary / Elementary School</option>
+                <option value="tertiary">University / Tertiary Institute</option>
+                <option value="college">Junior College / Pre-University</option>
+                <option value="vocational">Vocational / Technical College</option>
+                <option value="publisher">Educational Curriculum Publisher</option>
+              </select>
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                School Motto / Ethos
+              </label>
+              <input
+                type="text"
+                value={eduProfile.motto}
+                onChange={(e) => setEduProfile({ ...eduProfile, motto: e.target.value })}
+                placeholder="e.g. Fortiter in Re, Suaviter in Modo (Courageous in Action, Gentle in Manner)"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Principal / Head of School
+              </label>
+              <input
+                type="text"
+                value={eduProfile.principalName}
+                onChange={(e) => setEduProfile({ ...eduProfile, principalName: e.target.value })}
+                placeholder="e.g. Br. Luke Taylor FMS"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Administration Contact Email
+              </label>
+              <input
+                type="email"
+                value={eduProfile.contactEmail}
+                onChange={(e) => setEduProfile({ ...eduProfile, contactEmail: e.target.value })}
+                placeholder="admin@school.edu.fj"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                🏫 Allowed Student &amp; Faculty Email Domains (Comma-Separated)
+              </label>
+              <input
+                type="text"
+                value={eduProfile.allowedEmailDomains}
+                onChange={(e) => setEduProfile({ ...eduProfile, allowedEmailDomains: e.target.value })}
+                placeholder="e.g. mbhs.edu.fj, student.mbhs.edu.fj, usp.ac.fj"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+              <span className="muted" style={{ fontSize: '11px' }}>
+                When Domain Restriction is enabled on a publication, readers must have an email ending in one of these domains to unlock and read.
+              </span>
+            </div>
+
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Campus / Physical Address
+              </label>
+              <input
+                type="text"
+                value={eduProfile.campusAddress}
+                onChange={(e) => setEduProfile({ ...eduProfile, campusAddress: e.target.value })}
+                placeholder="e.g. Bau Street, Flagstaff, Suva, Fiji"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                School Crest / Emblem URL
+              </label>
+              <input
+                type="url"
+                value={eduProfile.crestUrl}
+                onChange={(e) => setEduProfile({ ...eduProfile, crestUrl: e.target.value })}
+                placeholder="https://.../school-crest.png"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                Campus Banner Image URL
+              </label>
+              <input
+                type="url"
+                value={eduProfile.bannerUrl}
+                onChange={(e) => setEduProfile({ ...eduProfile, bannerUrl: e.target.value })}
+                placeholder="https://.../campus-photo.jpg"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+            <button
+              type="submit"
+              disabled={eduBusy}
+              className="btn-primary"
+              style={{ padding: '8px 20px', fontSize: '13px' }}
+            >
+              {eduBusy ? 'Saving Profile…' : 'Save Educational Workspace'}
             </button>
           </div>
         </form>

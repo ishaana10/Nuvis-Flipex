@@ -26,6 +26,10 @@ interface PublicFlipbookData {
   workflowStatus?: string;
   isPreview?: boolean;
   locked: boolean;
+  lockType?: 'password' | 'pin' | 'domain';
+  pinHint?: string;
+  allowedDomains?: string;
+  educationalCategory?: string;
   settings?: ViewerSettings;
   seoMeta?: SeoMeta;
   toc?: TocItem[];
@@ -63,6 +67,8 @@ export default function PublicViewer() {
   const [missing, setMissing] = useState(false);
   const [lifecycleNotice, setLifecycleNotice] = useState<{ state: string; message: string; date?: string } | null>(null);
   const [pw, setPw] = useState('');
+  const [pin, setPin] = useState('');
+  const [studentEmail, setStudentEmail] = useState('');
   const [err, setErr] = useState('');
   const [token, setToken] = useState('');
   const [unlockExpiresAt, setUnlockExpiresAt] = useState<string | null>(null);
@@ -159,6 +165,60 @@ export default function PublicViewer() {
     load(unlockToken);
   };
 
+  const unlockPin = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr('');
+    try {
+      const r = await fetch(`/api/v1/public/${slug}/verify-pin`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        return setErr(body.error || 'Incorrect PIN code');
+      }
+      const body = await r.json();
+      const unlockToken = body.unlockToken || '';
+      setToken(unlockToken);
+      setPin('');
+      if (body.expiresAt) {
+        setUnlockExpiresAt(body.expiresAt);
+      }
+      load(unlockToken);
+    } catch {
+      setErr('Failed to verify PIN');
+    }
+  };
+
+  const unlockDomain = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr('');
+    try {
+      const r = await fetch(`/api/v1/public/${slug}/verify-domain`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: studentEmail }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        return setErr(body.error || 'Access restricted to approved institutional email domains');
+      }
+      const body = await r.json();
+      const unlockToken = body.unlockToken || '';
+      setToken(unlockToken);
+      setStudentEmail('');
+      if (body.expiresAt) {
+        setUnlockExpiresAt(body.expiresAt);
+      }
+      load(unlockToken);
+    } catch {
+      setErr('Failed to verify institutional domain');
+    }
+  };
+
   const lockSession = async () => {
     const headers: Record<string, string> = {};
     if (token) headers['X-Unlock-Token'] = token;
@@ -215,6 +275,71 @@ export default function PublicViewer() {
   if (!data) return <p className="center">Loading flipbook…</p>;
 
   if (data.locked) {
+    if (data.lockType === 'pin') {
+      return (
+        <div className="auth-wrap">
+          <form className="card" onSubmit={unlockPin}>
+            <div className="text-3xl mb-1">🔢</div>
+            <h1 style={{ fontSize: '18px', margin: '0 0 6px' }}>{data.title}</h1>
+            <p className="muted" style={{ fontSize: '13px', margin: '0 0 16px' }}>
+              This publication requires a school or parent access PIN.
+            </p>
+            <label className="field">
+              <span>Enter 4–6 Digit PIN</span>
+              <input
+                type="text"
+                pattern="[0-9]*"
+                inputMode="numeric"
+                maxLength={8}
+                autoFocus
+                placeholder="e.g. 2026"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
+                style={{ fontSize: '18px', letterSpacing: '4px', textAlign: 'center', fontWeight: 'bold' }}
+              />
+            </label>
+            {err && <p className="err">{err}</p>}
+            <button className="btn-primary" style={{ width: '100%', marginTop: '8px' }}>
+              Unlock Flipbook
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    if (data.lockType === 'domain') {
+      return (
+        <div className="auth-wrap">
+          <form className="card" onSubmit={unlockDomain}>
+            <div className="text-3xl mb-1">🎓</div>
+            <h1 style={{ fontSize: '18px', margin: '0 0 6px' }}>{data.title}</h1>
+            <p className="muted" style={{ fontSize: '13px', margin: '0 0 16px' }}>
+              Institutional Access Only. Please enter your student or faculty email address.
+            </p>
+            {data.allowedDomains && (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', marginBottom: '14px' }}>
+                Allowed domains: <b>{data.allowedDomains}</b>
+              </div>
+            )}
+            <label className="field">
+              <span>Your School Email</span>
+              <input
+                type="email"
+                autoFocus
+                placeholder="student@school.edu.fj"
+                value={studentEmail}
+                onChange={(e) => setStudentEmail(e.target.value)}
+              />
+            </label>
+            {err && <p className="err">{err}</p>}
+            <button className="btn-primary" style={{ width: '100%', marginTop: '8px' }}>
+              Verify &amp; Open
+            </button>
+          </form>
+        </div>
+      );
+    }
+
     return (
       <div className="auth-wrap">
         <form className="card" onSubmit={unlock}>

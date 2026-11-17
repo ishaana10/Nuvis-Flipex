@@ -104,8 +104,19 @@ final class PublicController
             'allowDownload' => !empty($settings['allowDownload']),
         ];
 
-        if (!$isPreview && $f['visibility'] === 'password' && !$this->unlocked($req, $f)) {
-            return Http::json($res, $meta + ['locked' => true]);
+        $isPinRequired = !empty($settings['pinProtection']);
+        $isDomainRequired = !empty($settings['domainRestrictionEnabled']);
+        $isLocked = ($f['visibility'] === 'password' || $isPinRequired || $isDomainRequired) && !$this->unlocked($req, $f);
+
+        if (!$isPreview && $isLocked) {
+            $lockType = $f['visibility'] === 'password' ? 'password' : ($isPinRequired ? 'pin' : 'domain');
+            return Http::json($res, $meta + [
+                'locked' => true,
+                'lockType' => $lockType,
+                'pinHint' => $settings['pinHint'] ?? null,
+                'allowedDomains' => $settings['allowedDomains'] ?? null,
+                'educationalCategory' => $settings['educationalCategory'] ?? null,
+            ]);
         }
 
         // Lightweight page manifest: excludes heavy text_content (full-text search uses dedicated search endpoint)
@@ -335,9 +346,11 @@ HTML;
             if (!empty($f['expires_at']) && strtotime((string) $f['expires_at']) <= time()) {
                 return Http::error($res, 'Publication expired', 410);
             }
-            // Allow Page 1 (Cover Page) to be viewable for link preview cards (WhatsApp / social) even if visibility is password
-            if ($pageNumber > 1 && $f['visibility'] === 'password' && !$this->unlocked($req, $f)) {
-                return Http::error($res, 'Password required', 403);
+            // Allow Page 1 (Cover Page) to be viewable for link preview cards (WhatsApp / social) even if locked
+            $fSettings = !empty($f['settings']) ? json_decode((string) $f['settings'], true) : [];
+            $reqLock = ($f['visibility'] === 'password' || !empty($fSettings['pinProtection']) || !empty($fSettings['domainRestrictionEnabled']));
+            if ($pageNumber > 1 && $reqLock && !$this->unlocked($req, $f)) {
+                return Http::error($res, 'Access verification required', 403);
             }
         }
 

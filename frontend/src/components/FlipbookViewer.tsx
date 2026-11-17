@@ -190,6 +190,18 @@ const SvgClose = () => (
     <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
+const SvgGraduation = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+    <path d="M6 12v5c3 3 9 3 12 0v-5" />
+  </svg>
+);
+const SvgNote = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
 
 export default function FlipbookViewer({
   pages,
@@ -364,6 +376,135 @@ export default function FlipbookViewer({
   const [productInquirySuccess, setProductInquirySuccess] = useState('');
   const [activeLightboxImage, setActiveLightboxImage] = useState<{ url: string; title: string } | null>(null);
   const [scrubPreviewPage, setScrubPreviewPage] = useState<number | null>(null);
+
+  // Phase 4: Educational Features State (Worksheets, Notes, Presentation Mode)
+  const [showEduResources, setShowEduResources] = useState(false);
+  const [eduResources, setEduResources] = useState<Array<{
+    id: number;
+    pageNumber: number | null;
+    title: string;
+    resourceType: string;
+    fileUrl: string;
+    externalUrl: string;
+    description: string;
+    downloadCount?: number;
+  }>>([]);
+  const [showStudyNotes, setShowStudyNotes] = useState(false);
+  const [studyNotes, setStudyNotes] = useState<Array<{
+    id?: number;
+    pageNumber: number;
+    studentName: string;
+    annotationType: string;
+    color: string;
+    noteText: string;
+    createdAt?: string;
+  }>>([]);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [newNoteColor, setNewNoteColor] = useState('#fef08a');
+  const [presentationMode, setPresentationMode] = useState(false);
+  const [laserPointer, setLaserPointer] = useState(true);
+  const [pointerPos, setPointerPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!presentationMode) return;
+    const handleMove = (e: MouseEvent) => {
+      setPointerPos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMove);
+    return () => window.removeEventListener('mousemove', handleMove);
+  }, [presentationMode]);
+
+  useEffect(() => {
+    if (!slug) return;
+    fetch(`/api/v1/public/${slug}/resources`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.resources && Array.isArray(d.resources)) setEduResources(d.resources);
+      })
+      .catch(() => {});
+
+    let studentId = '';
+    try {
+      studentId = localStorage.getItem('flipex_student_id') || '';
+      if (!studentId) {
+        studentId = 'std_' + Math.random().toString(36).slice(2, 9);
+        localStorage.setItem('flipex_student_id', studentId);
+      }
+    } catch {
+      studentId = 'default_student';
+    }
+
+    fetch(`/api/v1/public/${slug}/annotations?student=${encodeURIComponent(studentId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.annotations && Array.isArray(d.annotations)) setStudyNotes(d.annotations);
+      })
+      .catch(() => {});
+  }, [slug]);
+
+  const handleAddStudyNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoteText.trim() || !slug) return;
+    let studentId = 'default_student';
+    try {
+      studentId = localStorage.getItem('flipex_student_id') || 'default_student';
+    } catch {}
+    const pageNumber = current + 1;
+    const noteItem = {
+      pageNumber,
+      studentName: 'Student',
+      annotationType: 'note',
+      color: newNoteColor,
+      noteText: newNoteText.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setStudyNotes((prev) => [...prev, noteItem]);
+    setNewNoteText('');
+    try {
+      await fetch(`/api/v1/public/${slug}/annotations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pageNumber,
+          studentName: 'Student',
+          studentIdentifier: studentId,
+          annotationType: 'note',
+          color: newNoteColor,
+          noteText: noteItem.noteText,
+        }),
+      });
+    } catch {
+      // locally preserved
+    }
+  };
+
+  const handleDeleteStudyNote = async (noteId?: number, idx?: number) => {
+    if (noteId && slug) {
+      fetch(`/api/v1/public/${slug}/annotations/${noteId}`, { method: 'DELETE' }).catch(() => {});
+    }
+    setStudyNotes((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleExportStudyNotes = () => {
+    if (studyNotes.length === 0) {
+      alert('No study notes recorded yet for this publication.');
+      return;
+    }
+    const lines = studyNotes
+      .map(
+        (n) =>
+          `[Page ${n.pageNumber}] ${n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}\n${n.noteText}\n----------------------------------`
+      )
+      .join('\n\n');
+    const content = `STUDY REVISION NOTES\nPublication: ${title || 'Nuvis Flipex'}\nExported: ${new Date().toLocaleString()}\n==================================\n\n${lines}`;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = `Study-Notes-${slug || 'notes'}.txt`;
+    a.click();
+    URL.revokeObjectURL(u);
+  };
 
   // Zoom & Pan state
   const [zoom, setZoom] = useState(1);
@@ -2469,6 +2610,12 @@ export default function FlipbookViewer({
       } else if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         setReadingMode((m) => (m === 'flip' ? 'scroll' : m === 'scroll' ? 'reader' : 'flip'));
+      } else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        setPresentationMode((pm) => !pm);
+      } else if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        setLaserPointer((lp) => !lp);
       } else if (e.key === '?') {
         e.preventDefault();
         setShowShortcutsModal((s) => !s);
@@ -2841,6 +2988,103 @@ export default function FlipbookViewer({
             </button>
           )}
 
+          {/* Phase 4: Classroom Lesson Resources & Attached Worksheets */}
+          <button
+            type="button"
+            className={`hz-icon-btn ${showEduResources ? 'ring-2 ring-amber-400' : ''}`}
+            onClick={() => {
+              setShowEduResources(!showEduResources);
+              setShowStudyNotes(false);
+              setShowToc(false);
+              setShowBookmarks(false);
+              setShowSearch(false);
+            }}
+            title={
+              eduResources.length > 0
+                ? `Lesson Resources & Worksheets (${eduResources.length} available)`
+                : 'Lesson Resources & Worksheets'
+            }
+            aria-label="Classroom Resources"
+            style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+          >
+            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px' }}>📎</span>
+              {eduResources.length > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-8px',
+                    background: '#f59e0b',
+                    color: '#0f172a',
+                    borderRadius: '10px',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    padding: '0 4px',
+                    lineHeight: '14px',
+                  }}
+                >
+                  {eduResources.length}
+                </span>
+              )}
+            </span>
+          </button>
+
+          {/* Phase 4: Student Study Notes & Page Highlighting */}
+          <button
+            type="button"
+            className={`hz-icon-btn ${showStudyNotes ? 'ring-2 ring-amber-400' : ''}`}
+            onClick={() => {
+              setShowStudyNotes(!showStudyNotes);
+              setShowEduResources(false);
+              setShowToc(false);
+              setShowBookmarks(false);
+              setShowSearch(false);
+            }}
+            title={`Student Study Notes for Page ${current + 1}`}
+            aria-label="Student Notes"
+            style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+          >
+            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px' }}>📌</span>
+              {studyNotes.filter((n) => n.pageNumber === current + 1).length > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-8px',
+                    background: '#10b981',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    padding: '0 4px',
+                    lineHeight: '14px',
+                  }}
+                >
+                  {studyNotes.filter((n) => n.pageNumber === current + 1).length}
+                </span>
+              )}
+            </span>
+          </button>
+
+          {/* Phase 4: Classroom Whiteboard & Laser Pointer Presentation Mode */}
+          <button
+            type="button"
+            className={`hz-icon-btn hz-desktop-only ${presentationMode ? 'ring-2 ring-amber-400' : ''}`}
+            onClick={() => {
+              setPresentationMode(!presentationMode);
+              if (!presentationMode && !isFullscreen) {
+                toggleFullscreen();
+              }
+            }}
+            title="Classroom Presentation Mode (Shortcut: P · Laser Pointer: L)"
+            aria-label="Classroom Presentation Mode"
+            style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
+          >
+            <span style={{ fontSize: '13px' }}>📽️</span>
+          </button>
+
           {/* Offline Caching Toggle (Desktop) */}
           <button
             className="hz-icon-btn hz-desktop-only"
@@ -2996,20 +3240,21 @@ export default function FlipbookViewer({
         </aside>
       )}
 
-      {/* Slide-Out Modern Table of Contents & Bookmarks Panel */}
-      {(showToc || showBookmarks) && (
+      {/* Slide-Out Modern Table of Contents, Bookmarks, Resources & Study Notes Panel */}
+      {(showToc || showBookmarks || showEduResources || showStudyNotes) && (
         <aside
           className="hz-side-drawer"
           role="navigation"
-          aria-label="Table of Contents and Bookmarks"
+          aria-label="Table of Contents, Bookmarks, Resources and Notes"
         >
           {/* Header with Modern Segmented Pill Tabs */}
           <div className="hz-drawer-header">
             <div className="hz-drawer-tabs">
               <button
                 type="button"
-                onClick={() => { setShowToc(true); setShowBookmarks(false); }}
+                onClick={() => { setShowToc(true); setShowBookmarks(false); setShowEduResources(false); setShowStudyNotes(false); }}
                 className={`hz-drawer-tab ${showToc ? 'active' : ''}`}
+                title="Table of Contents"
               >
                 <SvgList />
                 <span>Contents</span>
@@ -3019,8 +3264,9 @@ export default function FlipbookViewer({
               </button>
               <button
                 type="button"
-                onClick={() => { setShowBookmarks(true); setShowToc(false); }}
+                onClick={() => { setShowBookmarks(true); setShowToc(false); setShowEduResources(false); setShowStudyNotes(false); }}
                 className={`hz-drawer-tab ${showBookmarks ? 'active' : ''}`}
+                title="Saved Bookmarks"
               >
                 <SvgBookmark filled={bookmarks.length > 0} />
                 <span>Bookmarks</span>
@@ -3028,11 +3274,35 @@ export default function FlipbookViewer({
                   {bookmarks.length}
                 </span>
               </button>
+              <button
+                type="button"
+                onClick={() => { setShowEduResources(true); setShowToc(false); setShowBookmarks(false); setShowStudyNotes(false); }}
+                className={`hz-drawer-tab ${showEduResources ? 'active' : ''}`}
+                title="Lesson Worksheets & Syllabus"
+              >
+                <SvgGraduation />
+                <span>Resources</span>
+                <span className="hz-drawer-tab-badge">
+                  {eduResources.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowStudyNotes(true); setShowToc(false); setShowBookmarks(false); setShowEduResources(false); }}
+                className={`hz-drawer-tab ${showStudyNotes ? 'active' : ''}`}
+                title="Student Revision Notes"
+              >
+                <SvgNote />
+                <span>Notes</span>
+                <span className="hz-drawer-tab-badge">
+                  {studyNotes.length}
+                </span>
+              </button>
             </div>
 
             <button
               type="button"
-              onClick={() => { setShowToc(false); setShowBookmarks(false); }}
+              onClick={() => { setShowToc(false); setShowBookmarks(false); setShowEduResources(false); setShowStudyNotes(false); }}
               className="hz-drawer-close"
               title="Close panel (Esc)"
               aria-label="Close"
@@ -3099,43 +3369,194 @@ export default function FlipbookViewer({
                   );
                 })
               )
-            ) : bookmarks.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 16px', textAlign: 'center' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '10px' }}>
-                  <SvgBookmark />
+            ) : showBookmarks ? (
+              bookmarks.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 16px', textAlign: 'center' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '10px' }}>
+                    <SvgBookmark />
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No bookmarks yet</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '220px', lineHeight: 1.4 }}>
+                    Click the bookmark icon in the top toolbar or press <kbd style={{ padding: '1px 5px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', fontSize: '10px' }}>B</kbd> to save any page.
+                  </div>
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No bookmarks yet</div>
-                <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '220px', lineHeight: 1.4 }}>
-                  Click the bookmark icon in the top toolbar or press <kbd style={{ padding: '1px 5px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', fontSize: '10px' }}>B</kbd> to save any page.
+              ) : (
+                bookmarks.map((bmPage) => (
+                  <div key={bmPage} className="hz-bookmark-item">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        goto(bmPage - 1);
+                        setShowBookmarks(false);
+                      }}
+                      className="hz-bookmark-jump"
+                    >
+                      <span style={{ color: '#f59e0b' }}>
+                        <SvgBookmark filled />
+                      </span>
+                      <span>Page {bmPage}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleBookmark(bmPage)}
+                      className="hz-bookmark-del"
+                      title="Remove bookmark"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))
+              )
+            ) : showEduResources ? (
+              eduResources.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 16px', textAlign: 'center' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '10px' }}>
+                    <SvgGraduation />
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No Lesson Resources Attached</div>
+                  <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '240px', lineHeight: 1.4 }}>
+                    Worksheets, past exam papers, and syllabus attachments published by your teachers will appear here.
+                  </div>
                 </div>
+              ) : (
+                <div className="space-y-2 p-2">
+                  {eduResources.map((res) => (
+                    <div
+                      key={res.id}
+                      className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-3 transition-colors hover:border-amber-400/50"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                              {res.resourceType.replace('_', ' ')}
+                            </span>
+                            {res.pageNumber && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  goto(res.pageNumber! - 1);
+                                  setShowEduResources(false);
+                                }}
+                                className="text-[10px] font-semibold text-sky-400 hover:underline"
+                              >
+                                Page {res.pageNumber} ↗
+                              </button>
+                            )}
+                          </div>
+                          <h4 className="mt-1 text-xs font-semibold text-slate-100">{res.title}</h4>
+                          {res.description && (
+                            <p className="mt-0.5 text-[11px] text-slate-400 line-clamp-2">{res.description}</p>
+                          )}
+                        </div>
+                        <a
+                          href={res.fileUrl || res.externalUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 rounded-lg bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-500/25"
+                        >
+                          Open ↗
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : showStudyNotes ? (
+              <div className="flex flex-col h-full">
+                {/* Note creation form */}
+                <form onSubmit={handleAddStudyNote} className="border-b border-slate-800 p-3 bg-slate-950/40">
+                  <div className="flex items-center justify-between mb-1.5 text-[11px]">
+                    <span className="font-semibold text-amber-400">Page {current + 1} Note</span>
+                    <div className="flex items-center gap-1">
+                      {['#fef08a', '#bbf7d0', '#fbcfe8', '#bae6fd', '#fed7aa'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewNoteColor(c)}
+                          className={`w-3.5 h-3.5 rounded-full border transition-transform ${newNoteColor === c ? 'scale-125 border-white ring-1 ring-white/40' : 'border-transparent opacity-70'}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    placeholder="Add student study note or revision takeaway..."
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/90 p-2 text-xs text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                  />
+                  <div className="mt-1.5 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={!newNoteText.trim()}
+                      className="rounded-lg bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-950 disabled:opacity-40 transition-colors hover:bg-amber-400"
+                    >
+                      Save Note
+                    </button>
+                  </div>
+                </form>
+
+                {/* Notes List */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  {studyNotes.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px 16px', textAlign: 'center' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '8px' }}>
+                        <SvgNote />
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No Study Notes Yet</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '220px', lineHeight: 1.4 }}>
+                        Annotate key terms, formulas, and homework questions above for quick exam revision.
+                      </div>
+                    </div>
+                  ) : (
+                    studyNotes.map((note, idx) => (
+                      <div
+                        key={note.id || idx}
+                        className="rounded-xl border border-slate-800 bg-slate-900/80 p-2.5 relative group"
+                        style={{ borderLeftWidth: '4px', borderLeftColor: note.color || '#fef08a' }}
+                      >
+                        <div className="flex items-center justify-between text-[11px] mb-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              goto(note.pageNumber - 1);
+                              setShowStudyNotes(false);
+                            }}
+                            className="font-bold text-amber-300 hover:underline"
+                          >
+                            Page {note.pageNumber} ↗
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStudyNote(note.id, idx)}
+                            className="text-[10px] text-slate-500 hover:text-red-400 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-200 whitespace-pre-wrap">{note.noteText}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Export button */}
+                {studyNotes.length > 0 && (
+                  <div className="p-2 border-t border-slate-800 bg-slate-950/60">
+                    <button
+                      type="button"
+                      onClick={handleExportStudyNotes}
+                      className="w-full py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <SvgDownload />
+                      Export Notes (.txt)
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : (
-              bookmarks.map((bmPage) => (
-                <div key={bmPage} className="hz-bookmark-item">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      goto(bmPage - 1);
-                      setShowBookmarks(false);
-                    }}
-                    className="hz-bookmark-jump"
-                  >
-                    <span style={{ color: '#f59e0b' }}>
-                      <SvgBookmark filled />
-                    </span>
-                    <span>Page {bmPage}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleBookmark(bmPage)}
-                    className="hz-bookmark-del"
-                    title="Remove bookmark"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))
-            )}
+            ) : null}
           </div>
 
           {/* Footer Info */}
@@ -4481,6 +4902,50 @@ export default function FlipbookViewer({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Phase 4: Classroom Whiteboard / Presentation Mode Overlay & Laser Pointer */}
+      {presentationMode && (
+        <>
+          {laserPointer && (
+            <div
+              className="pointer-events-none fixed z-[9999] transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
+              style={{
+                left: pointerPos.x,
+                top: pointerPos.y,
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: '#ef4444',
+                boxShadow: '0 0 12px 4px rgba(239, 68, 68, 0.85), 0 0 24px 8px rgba(239, 68, 68, 0.45)',
+              }}
+            />
+          )}
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9998] bg-slate-900/90 text-white backdrop-blur-md px-4 py-2 rounded-full border border-slate-700/80 shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-medium">
+            <span className="flex items-center gap-1.5 text-amber-400 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Classroom Presentation Mode
+            </span>
+            <button
+              type="button"
+              onClick={() => setLaserPointer(!laserPointer)}
+              className={`px-2.5 py-1 rounded-full text-xs transition-colors font-medium ${
+                laserPointer
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                  : 'bg-slate-800 text-slate-300'
+              }`}
+            >
+              {laserPointer ? '🔴 Laser ON (L)' : '⚪ Laser OFF (L)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresentationMode(false)}
+              className="px-2.5 py-1 rounded-full text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+            >
+              Exit (P / Esc)
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
