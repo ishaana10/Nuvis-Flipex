@@ -178,7 +178,7 @@ export default function FlipexStudio() {
   const [pages, setPages] = useState<StudioPage[]>([]);
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState<number>(100);
+  const [zoom, setZoom] = useState<number>(75);
   const [showBleed, setShowBleed] = useState<boolean>(true);
   const [gridSnap, setGridSnap] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -1033,112 +1033,162 @@ export default function FlipexStudio() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', background: '#090d16', color: '#f8fafc', overflow: 'hidden', userSelect: 'none' }}>
-      {/* TOP STUDIO TOOLBAR */}
-      <header style={{ height: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'wrap' }}>
-        <div className="flex items-center gap-3">
+      {/* TOP STUDIO TOOLBAR - Single line, non-wrapping, clean layout */}
+      <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', zIndex: 30, flexWrap: 'nowrap', overflowX: 'auto' }}>
+        {/* Left: Back & Document Metadata */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <button
+            type="button"
             onClick={() => {
               setActiveDocId(null);
               navigate('/studio');
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Return to Documents"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: '#1e293b',
+              color: '#f8fafc',
+              border: '1px solid #334155',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+            title="Return to Documents Hub"
           >
             ← Back
           </button>
-          <div className="h-4 w-px bg-slate-800" />
-          <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+          <div style={{ height: '18px', width: '1px', background: '#334155' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap' }}>
               {currentDoc?.title}
-              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded text-[10px] uppercase font-semibold">
-                {currentDoc?.doc_type}
-              </span>
-            </h2>
+            </span>
+            <span style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>
+              {currentDoc?.doc_type}
+            </span>
           </div>
           {saveMessage && (
-            <span className="text-xs text-emerald-400 font-medium ml-2 animate-pulse">
+            <span style={{ fontSize: '12px', color: '#34d399', fontWeight: 600, marginLeft: '6px' }}>
               {saveMessage}
             </span>
           )}
         </div>
 
         {/* Center: Page Switcher, Zoom, Bleed & Auto Tools */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5 text-xs">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {/* Page Switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '2px', fontSize: '12px' }}>
             <button
+              type="button"
               disabled={activePageIndex <= 0}
               onClick={() => setActivePageIndex(activePageIndex - 1)}
-              className="px-2 py-1 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800"
+              style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', opacity: activePageIndex <= 0 ? 0.3 : 1 }}
             >
               ◀
             </button>
-            <span className="px-2.5 font-semibold text-slate-200">
+            <span style={{ padding: '0 8px', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap' }}>
               Page {activePageIndex + 1} of {pages.length}
             </span>
             <button
+              type="button"
               disabled={activePageIndex >= pages.length - 1}
               onClick={() => setActivePageIndex(activePageIndex + 1)}
-              className="px-2 py-1 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800"
+              style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', opacity: activePageIndex >= pages.length - 1 ? 0.3 : 1 }}
             >
               ▶
             </button>
           </div>
 
-          <div className="h-4 w-px bg-slate-800" />
-
-          {/* Zoom Selector */}
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg text-xs">
+          {/* Zoom */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', fontSize: '12px' }}>
             <button
+              type="button"
               onClick={() => setZoom(Math.max(40, zoom - 15))}
-              className="px-2 py-1 text-slate-400 hover:text-white"
+              style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
             >
               -
             </button>
-            <span className="px-2 font-mono text-[11px] text-slate-300">{zoom}%</span>
+            <span style={{ padding: '0 6px', fontFamily: 'monospace', fontSize: '11px', color: '#cbd5e1' }}>
+              {zoom}%
+            </span>
             <button
+              type="button"
               onClick={() => setZoom(Math.min(180, zoom + 15))}
-              className="px-2 py-1 text-slate-400 hover:text-white"
+              style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
             >
               +
             </button>
           </div>
 
           <button
+            type="button"
             onClick={() => setShowBleed(!showBleed)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-              showBleed
-                ? 'bg-pink-500/20 text-pink-300 border-pink-500/40'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-            }`}
+            style={{
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              border: showBleed ? '1px solid rgba(236, 72, 153, 0.5)' : '1px solid #334155',
+              background: showBleed ? 'rgba(236, 72, 153, 0.2)' : '#1e293b',
+              color: showBleed ? '#f472b6' : '#94a3b8',
+              cursor: 'pointer',
+            }}
             title="Toggle 3mm Print Bleed Safe Margins"
           >
             Bleed 3mm
           </button>
 
           <button
+            type="button"
             onClick={() => setGridSnap(!gridSnap)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-              gridSnap
-                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-            }`}
+            style={{
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              border: gridSnap ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid #334155',
+              background: gridSnap ? 'rgba(99, 102, 241, 0.2)' : '#1e293b',
+              color: gridSnap ? '#a5b4fc' : '#94a3b8',
+              cursor: 'pointer',
+            }}
             title="Toggle Magnetic Snap-to-Grid"
           >
             Snap Grid
           </button>
 
-          {/* Quick Folio & TOC Generators */}
           <button
+            type="button"
             onClick={handleAddRunningFolio}
-            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700"
+            style={{
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              background: '#1e293b',
+              border: '1px solid #334155',
+              color: '#cbd5e1',
+              cursor: 'pointer',
+            }}
             title="Add Running Header & Page Number Folio to this page"
           >
             + Folio
           </button>
 
           <button
+            type="button"
             onClick={handleAutoGenerateToc}
-            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-900 text-amber-300 border border-slate-800 hover:text-amber-200 hover:border-amber-500/40"
+            style={{
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              color: '#fbbf24',
+              cursor: 'pointer',
+            }}
             title="Scan document pages and generate Table of Contents"
           >
             Auto TOC
@@ -1146,41 +1196,74 @@ export default function FlipexStudio() {
         </div>
 
         {/* Right: Save, Print Export & Publish Action */}
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <a
             href={`/api/v1/studio/documents/${currentDoc?.id}/export-pdf?print=1`}
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+            style={{
+              padding: '6px 12px',
+              background: '#1e293b',
+              border: '1px solid #334155',
+              color: '#f1f5f9',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
             title="Export Vector 300 DPI Print PDF"
           >
             <span>🖨️</span> Print PDF
           </a>
-          <Button
-            variant="outline"
-            size="sm"
+          <button
+            type="button"
             onClick={handleSavePage}
             disabled={saving}
-            className="text-xs bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200"
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              background: '#1e293b',
+              border: '1px solid #475569',
+              color: '#f8fafc',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: saving ? 'not-allowed' : 'pointer',
+            }}
           >
             {saving ? 'Saving…' : 'Save'}
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
+          </button>
+          <button
+            type="button"
             onClick={handlePublish}
             disabled={saving}
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 px-3.5"
+            style={{
+              padding: '6px 16px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: saving ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
           >
-            🚀 Publish to Flipbook
-          </Button>
+            <span>🚀</span> Publish to Flipbook
+          </button>
         </div>
       </header>
 
       {/* WORKSPACE BODY: LEFT TOOLBAR + CENTER CANVAS + RIGHT INSPECTOR */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* LEFT TOOLBAR TABS */}
-        <aside style={{ width: '320px', background: '#090d16', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
+        <aside style={{ width: '290px', minWidth: '290px', background: '#090d16', borderRight: '1px solid #1e293b', display: 'flex', flexDirection: 'column', zIndex: 20 }}>
           <div className="flex items-center border-b border-slate-800 text-xs overflow-x-auto p-1 bg-slate-900/60">
             {[
               { id: 'products', label: '🛒 Products' },
@@ -1210,17 +1293,17 @@ export default function FlipexStudio() {
             {/* TAB: PRODUCTS (CATALOGUE CREATOR) */}
             {activeToolTab === 'products' && (
               <div className="space-y-4">
-                <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3 text-xs text-indigo-300">
+                <div className="studio-info-callout indigo">
                   <p className="font-bold mb-1">🛒 Interactive Product Cards</p>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                  <p className="text-[11px] leading-relaxed opacity-90">
                     Insert pre-formatted price badges, strike-through original prices, and direct WhatsApp 1-tap buy buttons.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-indigo-500"
+                  <button
+                    type="button"
+                    className="studio-tool-btn"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -1237,11 +1320,11 @@ export default function FlipexStudio() {
                     }
                   >
                     <span>➕</span> Standard Retail Product Card
-                  </Button>
+                  </button>
 
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-amber-500"
+                  <button
+                    type="button"
+                    className="studio-tool-btn amber"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -1258,11 +1341,11 @@ export default function FlipexStudio() {
                     }
                   >
                     <span>⚡</span> Tech / Electronics Card with Specs
-                  </Button>
+                  </button>
 
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-emerald-500"
+                  <button
+                    type="button"
+                    className="studio-tool-btn emerald"
                     onClick={() =>
                       addElement({
                         type: 'whatsapp',
@@ -1281,7 +1364,7 @@ export default function FlipexStudio() {
                     }
                   >
                     <span>💬</span> Standalone WhatsApp 1-Tap Button
-                  </Button>
+                  </button>
                 </div>
               </div>
             )}
@@ -1289,16 +1372,16 @@ export default function FlipexStudio() {
             {/* TAB: MAGAZINE (EDITORIAL & PUBLISHING) */}
             {activeToolTab === 'magazine' && (
               <div className="space-y-3">
-                <div className="bg-sky-950/40 border border-sky-500/30 rounded-xl p-3 text-xs text-sky-300">
+                <div className="studio-info-callout blue">
                   <p className="font-bold mb-1">📖 Editorial Articles &amp; Layouts</p>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                  <p className="text-[11px] leading-relaxed opacity-90">
                     Balanced 2-column &amp; 3-column articles, decorative Drop-Caps, and author bylines for glossy print and digital reading.
                   </p>
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-sky-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn blue"
                   onClick={() =>
                     addElement({
                       type: 'column_text',
@@ -1314,11 +1397,11 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>📰</span> 2-Column Article with Drop-Cap
-                </Button>
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-sky-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn blue"
                   onClick={() =>
                     addElement({
                       type: 'column_text',
@@ -1333,11 +1416,11 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>🗞️</span> 3-Column Magazine Spread
-                </Button>
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2 px-3 bg-slate-900 border-slate-800 hover:border-sky-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1352,23 +1435,23 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>✍️</span> Author Byline with Tag
-                </Button>
+                </button>
               </div>
             )}
 
             {/* TAB: YEARBOOK (SCHOOL & UNIVERSITY) */}
             {activeToolTab === 'yearbook' && (
               <div className="space-y-3">
-                <div className="bg-purple-950/40 border border-purple-500/30 rounded-xl p-3 text-xs text-purple-300">
+                <div className="studio-info-callout purple">
                   <p className="font-bold mb-1">🎓 School &amp; Class Yearbooks</p>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                  <p className="text-[11px] leading-relaxed opacity-90">
                     Graduate portrait rosters, academic awards, leadership tags, and senior memorable quotes.
                   </p>
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-purple-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn purple"
                   onClick={() =>
                     addElement({
                       type: 'yearbook_grid',
@@ -1406,11 +1489,11 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>👥</span> 4-Student Graduate Portrait Grid
-                </Button>
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2 px-3 bg-slate-900 border-slate-800 hover:border-purple-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1431,23 +1514,23 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>📜</span> Principal’s Commendation Box
-                </Button>
+                </button>
               </div>
             )}
 
             {/* TAB: ALBUM (KEEPSAKE PHOTO ALBUM) */}
             {activeToolTab === 'album' && (
               <div className="space-y-3">
-                <div className="bg-pink-950/40 border border-pink-500/30 rounded-xl p-3 text-xs text-pink-300">
+                <div className="studio-info-callout purple">
                   <p className="font-bold mb-1">📷 Keepsake Photo Albums</p>
-                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                  <p className="text-[11px] leading-relaxed opacity-90">
                     Romantic scrapbooks, polaroid photo frames with tilt rotation, and memory captions.
                   </p>
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-pink-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn purple"
                   onClick={() =>
                     addElement({
                       type: 'album_spread',
@@ -1473,11 +1556,11 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>🎞️</span> Polaroid Pair with Handwritten Tilt
-                </Button>
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-pink-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn purple"
                   onClick={() =>
                     addElement({
                       type: 'album_spread',
@@ -1506,16 +1589,16 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>🖼️</span> 3-Photo Keepsake Collage
-                </Button>
+                </button>
               </div>
             )}
 
             {/* TAB: TEXT */}
             {activeToolTab === 'text' && (
               <div className="space-y-2.5">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-bold py-3 px-3 bg-slate-900 border-slate-800 hover:border-indigo-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1526,12 +1609,12 @@ export default function FlipexStudio() {
                     })
                   }
                 >
-                  <span className="text-lg font-extrabold mr-2">H1</span> Large Display Heading
-                </Button>
+                  <span style={{ fontSize: '18px', fontWeight: 800 }}>H1</span> Large Display Heading
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-indigo-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1542,12 +1625,12 @@ export default function FlipexStudio() {
                     })
                   }
                 >
-                  <span className="text-base font-bold mr-2">H2</span> Section Subheading
-                </Button>
+                  <span style={{ fontSize: '15px', fontWeight: 700 }}>H2</span> Section Subheading
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs py-2 px-3 bg-slate-900 border-slate-800 hover:border-indigo-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1558,12 +1641,12 @@ export default function FlipexStudio() {
                     })
                   }
                 >
-                  <span className="font-serif mr-2">¶</span> Editorial Body Text
-                </Button>
+                  <span style={{ fontFamily: 'serif', fontSize: '16px' }}>¶</span> Editorial Body Text
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs italic py-2 px-3 bg-slate-900 border-slate-800 hover:border-indigo-500"
+                <button
+                  type="button"
+                  className="studio-tool-btn"
                   onClick={() =>
                     addElement({
                       type: 'text',
@@ -1574,8 +1657,8 @@ export default function FlipexStudio() {
                     })
                   }
                 >
-                  <span className="italic mr-2">“ ”</span> Pull Quote / Memory Note
-                </Button>
+                  <span style={{ fontStyle: 'italic', fontSize: '16px' }}>“ ”</span> Pull Quote / Memory Note
+                </button>
               </div>
             )}
 
@@ -1628,9 +1711,9 @@ export default function FlipexStudio() {
             {/* TAB: SHAPES & BADGES */}
             {activeToolTab === 'shapes' && (
               <div className="space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-bold py-2 px-3 bg-red-950/40 border-red-500/40 text-red-300 hover:bg-red-900/50"
+                <button
+                  type="button"
+                  className="studio-tool-btn red"
                   onClick={() =>
                     addElement({
                       type: 'badge',
@@ -1649,11 +1732,11 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>🔥</span> Discount Splash Badge
-                </Button>
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-bold py-2 px-3 bg-amber-950/40 border-amber-500/40 text-amber-300 hover:bg-amber-900/50"
+                <button
+                  type="button"
+                  className="studio-tool-btn amber"
                   onClick={() =>
                     addElement({
                       type: 'badge',
@@ -1672,11 +1755,11 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>⭐</span> Best Seller Ribbon
-                </Button>
+                </button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-xs font-bold py-2 px-3 bg-indigo-950/40 border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/50"
+                <button
+                  type="button"
+                  className="studio-tool-btn blue"
                   onClick={() =>
                     addElement({
                       type: 'shape',
@@ -1692,7 +1775,7 @@ export default function FlipexStudio() {
                   }
                 >
                   <span>🔲</span> Container Box / Card Backdrop
-                </Button>
+                </button>
               </div>
             )}
 
@@ -1746,14 +1829,25 @@ export default function FlipexStudio() {
                     onChange={(e) => setCsvText(e.target.value)}
                     className="w-full p-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 focus:ring-1 focus:ring-indigo-500"
                   />
-                  <Button
-                    variant="primary"
-                    size="sm"
+                  <button
+                    type="button"
                     onClick={handleImportCsv}
-                    className="w-full mt-2 font-bold bg-indigo-600 hover:bg-indigo-500 text-xs py-2"
+                    style={{
+                      width: '100%',
+                      marginTop: '8px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: '#6366f1',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+                    }}
                   >
                     🚀 Auto-Generate on Page {activePageIndex + 1}
-                  </Button>
+                  </button>
                 </div>
               </div>
             )}
@@ -1763,16 +1857,25 @@ export default function FlipexStudio() {
           <div className="p-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs">
             <span className="text-slate-400 font-medium">Page {activePageIndex + 1} of {pages.length}</span>
             <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                type="button"
                 onClick={handleAddPage}
-                className="text-xs px-2.5 py-1 bg-slate-900 border-slate-700 hover:bg-slate-800"
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  background: '#1e293b',
+                  border: '1px solid #475569',
+                  color: '#f8fafc',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
               >
                 + Add Page
-              </Button>
+              </button>
               {pages.length > 1 && (
                 <button
+                  type="button"
                   onClick={() => handleDeletePage(activePage?.id || 0)}
                   className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/40 rounded"
                   title="Delete current page"
@@ -1786,7 +1889,7 @@ export default function FlipexStudio() {
 
         {/* CENTER INTERACTIVE CANVAS WORKSPACE */}
         <main
-          style={{ flex: 1, background: '#0f172a', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative' }}
+          style={{ flex: 1, background: '#0f172a', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 16px', position: 'relative' }}
           onClick={(e) => {
             if (e.target === canvasRef.current || (e.target as HTMLElement)?.id === 'canvas-board') {
               setSelectedElementId(null);
@@ -2320,25 +2423,49 @@ export default function FlipexStudio() {
               </span>
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-2">Page Background</label>
-                <div className="grid grid-cols-4 gap-2 mb-3">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '12px' }}>
                   {[
                     { name: 'White', color: '#FFFFFF' },
                     { name: 'Warm Cream', color: '#FDFBF7' },
                     { name: 'Slate Light', color: '#F1F5F9' },
                     { name: 'Dark Navy', color: '#0F172A' },
+                    { name: 'Midnight', color: '#090D16' },
+                    { name: 'Emerald Isle', color: '#064E3B' },
+                    { name: 'Royal Indigo', color: '#1E1B4B' },
+                    { name: 'Sunset Crimson', color: '#450A0A' },
                   ].map((bg, idx) => (
                     <button
                       key={idx}
+                      type="button"
                       onClick={() => {
                         const updated = [...pages];
                         updated[activePageIndex].background = { type: 'color', value: bg.color };
                         setPages(updated);
                       }}
-                      style={{ backgroundColor: bg.color }}
-                      className="h-8 rounded-lg border border-slate-700 hover:scale-105 transition-transform"
+                      style={{
+                        backgroundColor: bg.color,
+                        height: '32px',
+                        borderRadius: '6px',
+                        border: activePage?.background?.value === bg.color ? '2px solid #6366f1' : '1px solid #475569',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                      }}
                       title={bg.name}
                     />
                   ))}
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>Custom Color</label>
+                  <input
+                    type="color"
+                    value={activePage?.background?.value || '#FFFFFF'}
+                    onChange={(e) => {
+                      const updated = [...pages];
+                      updated[activePageIndex].background = { type: 'color', value: e.target.value };
+                      setPages(updated);
+                    }}
+                    style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid #334155', background: '#1e293b', cursor: 'pointer' }}
+                  />
                 </div>
               </div>
             </div>
