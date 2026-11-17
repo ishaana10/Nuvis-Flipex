@@ -5931,3 +5931,133 @@ html[data-theme="dark"] .studio-empty-desc {
   box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.4);
 }
 
+/* ==========================================================================
+   STAGE 1: FLIPEX STUDIO WORKSPACE GRID & INTERACTIVE BOTTOM PAGE STRIP
+   ========================================================================== */
+
+.flipex-studio-root {
+  display: grid;
+  height: calc(100vh - 58px);
+  width: 100%;
+  overflow: hidden;
+  background: #090d16;
+  color: #f8fafc;
+  user-select: none;
+}
+
+.studio-workspace-grid {
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Bottom Page Thumbnail Strip */
+.studio-bottom-page-strip {
+  background: #090d16;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 25;
+}
+
+.studio-thumb-scroll {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px 8px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #090d16;
+}
+
+.studio-page-thumb-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 2px;
+  border-radius: 8px;
+}
+
+.studio-page-thumb-card:hover {
+  transform: translateY(-2px);
+}
+
+.studio-page-thumb-preview {
+  border-radius: 5px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  border: 1px solid #334155;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.studio-page-thumb-card.active .studio-page-thumb-preview {
+  border: 2px solid #a855f7 !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.55), 0 4px 14px rgba(0,0,0,0.6) !important;
+}
+
+.studio-page-thumb-label {
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 4px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio-page-thumb-card.active .studio-page-thumb-label {
+  color: #f5d0fe;
+}
+
+/* Hover Action Bar on Page Thumbnail */
+.studio-thumb-actions {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: none;
+  gap: 2px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  padding: 2px;
+  border-radius: 4px;
+  z-index: 5;
+}
+
+.studio-page-thumb-card:hover .studio-thumb-actions {
+  display: flex;
+}
+
+.studio-thumb-btn {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-size: 9px;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.studio-thumb-btn:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.studio-thumb-btn.delete:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+

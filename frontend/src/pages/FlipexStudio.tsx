@@ -263,6 +263,9 @@ export default function FlipexStudio() {
   // Page Background Style Mode: 3-Color Gradient vs Solid Mono Color
   const [bgMode, setBgMode] = useState<'gradient' | 'solid'>('gradient');
 
+  // Collapse state for bottom page thumbnail strip (Stage 1)
+  const [bottomStripCollapsed, setBottomStripCollapsed] = useState<boolean>(false);
+
   // Auto-Fit Canvas to Screen Viewport
   const handleFitToScreen = useCallback(() => {
     if (!mainRef.current) return;
@@ -288,7 +291,24 @@ export default function FlipexStudio() {
       }, 120);
       return () => clearTimeout(timer);
     }
-  }, [currentDoc?.id, sidebarCollapsed, inspectorCollapsed, handleFitToScreen]);
+  }, [currentDoc?.id, sidebarCollapsed, inspectorCollapsed, bottomStripCollapsed, handleFitToScreen]);
+
+  // ResizeObserver on canvas viewport to adapt zoom automatically on any viewport change
+  useEffect(() => {
+    if (!mainRef.current || !currentDoc) return;
+    let resizeTimer: any = null;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        handleFitToScreen();
+      }, 100);
+    });
+    observer.observe(mainRef.current);
+    return () => {
+      clearTimeout(resizeTimer);
+      observer.disconnect();
+    };
+  }, [currentDoc?.id, handleFitToScreen]);
 
   // Load document list
   const loadDocuments = useCallback(async () => {
@@ -451,6 +471,52 @@ export default function FlipexStudio() {
     } catch (e: any) {
       alert('Delete failed: ' + e.message);
     }
+  };
+
+  // Duplicate page (Stage 1)
+  const handleDuplicatePage = async (pageIdx: number) => {
+    if (!currentDoc || !pages[pageIdx]) return;
+    const sourcePage = pages[pageIdx];
+    try {
+      const clonedElements = sourcePage.elements.map((el) => ({
+        ...el,
+        id: 'el_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+      }));
+      const res = await api<{ ok: boolean; page_id: number; page_number: number }>(
+        `/studio/documents/${currentDoc.id}/pages`,
+        'POST',
+        {
+          elements: clonedElements,
+          background: sourcePage.background ? { ...sourcePage.background } : { type: 'color', value: '#FFFFFF' },
+        }
+      );
+      const newPage: StudioPage = {
+        id: res.page_id,
+        document_id: currentDoc.id,
+        page_number: pageIdx + 2,
+        elements: clonedElements,
+        background: sourcePage.background ? { ...sourcePage.background } : { type: 'color', value: '#FFFFFF' },
+      };
+      const updated = [...pages];
+      updated.splice(pageIdx + 1, 0, newPage);
+      updated.forEach((p, idx) => (p.page_number = idx + 1));
+      setPages(updated);
+      setActivePageIndex(pageIdx + 1);
+      setSelectedElementId(null);
+    } catch (e: any) {
+      alert('Failed to duplicate page: ' + e.message);
+    }
+  };
+
+  // Reorder page position (Stage 1)
+  const handleMovePage = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= pages.length || fromIndex === toIndex) return;
+    const updated = [...pages];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    updated.forEach((p, idx) => (p.page_number = idx + 1));
+    setPages(updated);
+    setActivePageIndex(toIndex);
   };
 
   // Publish to interactive flipbook
@@ -1087,7 +1153,20 @@ export default function FlipexStudio() {
   const scale = zoom / 100;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', background: '#090d16', color: '#f8fafc', overflow: 'hidden', userSelect: 'none' }}>
+    <div
+      className="flipex-studio-root"
+      style={{
+        display: 'grid',
+        gridTemplateRows: bottomStripCollapsed ? '56px minmax(0, 1fr) 34px' : '56px minmax(0, 1fr) 115px',
+        height: 'calc(100vh - 58px)',
+        width: '100%',
+        overflow: 'hidden',
+        background: '#090d16',
+        color: '#f8fafc',
+        userSelect: 'none',
+        transition: 'grid-template-rows 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
       {/* TOP STUDIO TOOLBAR - Single line, non-wrapping, clean layout with 3-Gradients */}
       <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'nowrap', overflowX: 'auto' }}>
         {/* Left: Back, Sidebar Toggle & Document Metadata */}
@@ -1355,15 +1434,25 @@ export default function FlipexStudio() {
       </header>
 
       {/* WORKSPACE BODY: LEFT TOOLBAR + CENTER CANVAS + RIGHT INSPECTOR */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+      <div
+        className="studio-workspace-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `${sidebarCollapsed ? '0px' : '285px'} minmax(0, 1fr) ${inspectorCollapsed ? '0px' : '320px'}`,
+          minHeight: 0,
+          minWidth: 0,
+          overflow: 'hidden',
+          position: 'relative',
+          transition: 'grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
         {/* LEFT TOOLBAR TABS (Collapsible) */}
         <aside
           style={{
-            width: sidebarCollapsed ? '0px' : '290px',
-            minWidth: sidebarCollapsed ? '0px' : '290px',
-            maxWidth: sidebarCollapsed ? '0px' : '290px',
+            width: sidebarCollapsed ? '0px' : '285px',
+            minWidth: 0,
             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-            overflow: 'hidden',
+            overflowY: 'auto',
             background: '#090d16',
             borderRight: sidebarCollapsed ? 'none' : '1px solid #1e293b',
             display: 'flex',
@@ -2006,9 +2095,10 @@ export default function FlipexStudio() {
         <main
           ref={mainRef}
           style={{
-            flex: 1,
-            background: 'radial-gradient(ellipse at center, #172033 0%, #090d16 100%)',
+            minWidth: 0,
+            minHeight: 0,
             overflow: 'auto',
+            background: 'radial-gradient(ellipse at center, #172033 0%, #090d16 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -3339,6 +3429,200 @@ export default function FlipexStudio() {
           )}
         </aside>
       </div>
+
+      {/* 3. DEDICATED BOTTOM PAGE STRIP (Stage 1) */}
+      <footer
+        className="studio-bottom-page-strip"
+        style={{
+          height: bottomStripCollapsed ? '34px' : '115px',
+          minHeight: bottomStripCollapsed ? '34px' : '115px',
+          maxHeight: bottomStripCollapsed ? '34px' : '115px',
+          transition: 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        {/* Strip Header Bar */}
+        <div
+          style={{
+            height: '34px',
+            minHeight: '34px',
+            background: '#090d16',
+            borderBottom: bottomStripCollapsed ? 'none' : '1px solid #1e293b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 16px',
+            fontSize: '11px',
+          }}
+        >
+          {/* Left: Page count, active page info, and + Add Page */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span>📄</span> Pages ({pages.length})
+            </span>
+            <span style={{ height: '14px', width: '1px', background: '#334155' }} />
+            <span style={{ color: '#a5b4fc', fontWeight: 600, fontSize: '10px' }}>
+              Active: Page {activePageIndex + 1}
+            </span>
+            <button
+              type="button"
+              onClick={handleAddPage}
+              className="studio-gradient-btn cosmic"
+              style={{
+                padding: '3px 10px',
+                fontSize: '10px',
+                borderRadius: '6px',
+                fontWeight: 700,
+              }}
+              title="Add a new blank page to the end of document"
+            >
+              + Add Page
+            </button>
+          </div>
+
+          {/* Right: Toggle Collapse Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setBottomStripCollapsed(!bottomStripCollapsed)}
+              style={{
+                padding: '3px 9px',
+                borderRadius: '6px',
+                background: '#1e293b',
+                border: '1px solid #334155',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '10px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+              title={bottomStripCollapsed ? "Expand Page Thumbnails Strip" : "Minimize Strip to Expand Canvas Workspace"}
+            >
+              {bottomStripCollapsed ? '▲ Expand Strip' : '▼ Minimize Strip'}
+            </button>
+          </div>
+        </div>
+
+        {/* Thumbnail Carousel (when expanded) */}
+        {!bottomStripCollapsed && (
+          <div className="studio-thumb-scroll" style={{ height: '81px' }}>
+            {pages.map((p, idx) => {
+              const isActive = idx === activePageIndex;
+              const bgVal = p.background?.value || '#FFFFFF';
+              const thumbW = currentDoc?.orientation === 'landscape' ? 68 : 46;
+              const thumbH = currentDoc?.orientation === 'landscape' ? 46 : 64;
+
+              return (
+                <div
+                  key={p.id || idx}
+                  className={`studio-page-thumb-card ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    setActivePageIndex(idx);
+                    setSelectedElementId(null);
+                  }}
+                  title={`Go to Page ${idx + 1}`}
+                >
+                  {/* Miniature Live Preview Box */}
+                  <div
+                    className="studio-page-thumb-preview"
+                    style={{
+                      width: `${thumbW}px`,
+                      height: `${thumbH}px`,
+                      background: bgVal,
+                    }}
+                  >
+                    {/* Elements mini indicators */}
+                    <div style={{ pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', opacity: 0.85 }}>
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 800,
+                          color: bgVal.includes('0F172A') || bgVal.includes('090D16') || bgVal.includes('1E1B4B') || bgVal.includes('gradient') ? '#ffffff' : '#1e293b',
+                          background: 'rgba(0,0,0,0.25)',
+                          padding: '1px 4px',
+                          borderRadius: '3px',
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                    </div>
+
+                    {/* Hover Actions: Move Left, Move Right, Duplicate, Delete */}
+                    <div className="studio-thumb-actions" onClick={(e) => e.stopPropagation()}>
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          className="studio-thumb-btn"
+                          onClick={() => handleMovePage(idx, idx - 1)}
+                          title="Move page earlier"
+                        >
+                          ◀
+                        </button>
+                      )}
+                      {idx < pages.length - 1 && (
+                        <button
+                          type="button"
+                          className="studio-thumb-btn"
+                          onClick={() => handleMovePage(idx, idx + 1)}
+                          title="Move page later"
+                        >
+                          ▶
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="studio-thumb-btn"
+                        onClick={() => handleDuplicatePage(idx)}
+                        title="Duplicate this page"
+                      >
+                        ⧉
+                      </button>
+                      {pages.length > 1 && (
+                        <button
+                          type="button"
+                          className="studio-thumb-btn delete"
+                          onClick={() => handleDeletePage(p.id)}
+                          title="Delete page"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Page Label Below */}
+                  <span className="studio-page-thumb-label">
+                    Page {idx + 1}
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* Quick Add Blank Page End Card */}
+            <div
+              onClick={handleAddPage}
+              className="studio-page-thumb-card"
+              style={{
+                width: currentDoc?.orientation === 'landscape' ? '68px' : '46px',
+                height: currentDoc?.orientation === 'landscape' ? '46px' : '64px',
+                border: '1.5px dashed #475569',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#94a3b8',
+                fontSize: '18px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              title="Add a new page"
+            >
+              +
+            </div>
+          </div>
+        )}
+      </footer>
 
       {/* PUBLISHED SUCCESS MODAL */}
       {publishModal?.open && (

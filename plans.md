@@ -228,29 +228,16 @@ flowchart TD
 
 ### Stage 1 — Rebuild the Studio Workspace
 **Focus:** Complete viewport utilization, three-column layout, and responsive panels.
-- [ ] Implement full-viewport layout using CSS Grid:
-  ```css
-  .flipex-studio-root {
-    display: grid;
-    grid-template-rows: 56px minmax(0, 1fr) 115px;
-    height: 100vh;
-    width: 100vw;
-    overflow: hidden;
-  }
-  .studio-workspace-grid {
-    display: grid;
-    grid-template-columns: 280px minmax(0, 1fr) 320px;
-    min-height: 0;
-    min-width: 0;
-    overflow: hidden;
-  }
-  ```
-- [ ] Restructure Top Toolbar into functional zones:
-  - **Left Zone:** Back to Dashboard, Document Title, DocType Badge, Save status indicator (`Saving...`, `Saved`, `Offline`).
-  - **Center Zone:** Undo (`Ctrl+Z`), Redo (`Ctrl+Shift+Z`), Page Nav, Zoom (- / + / Fit to Viewport), Bleed & Snap toggles.
-  - **Right Zone:** Template Switcher, Print PDF Export, Save Snapshot, Publish to Flipbook.
-- [ ] Connect `ResizeObserver` on the central canvas viewport to automatically recalculate zoom and maintain proportional aspect ratios across resizing.
-- [ ] Implement bottom horizontal page strip with live page thumbnail previews, page number tags, drag-to-reorder, and quick "+ Add Page" button.
+- [x] **Full-Viewport CSS Grid Layout:**
+  - Implemented `.flipex-studio-root` with `grid-template-rows: 56px minmax(0, 1fr) 115px` (collapsible to 34px).
+  - Implemented `.studio-workspace-grid` with `grid-template-columns: [285px / 0px] minmax(0, 1fr) [320px / 0px]`.
+  - Guaranteed `min-height: 0` and `min-width: 0` on all grid items preventing blowout.
+- [x] **Top Toolbar Functional Zones:**
+  - Organized into distinct Left (Doc identity & save status), Center (Nav, Zoom, Fit, Bleed, Snap, Folio, TOC), and Right (Print PDF, Save, Publish, Inspector toggle).
+- [x] **Automated Viewport `ResizeObserver`:**
+  - Connected `ResizeObserver` on the central canvas viewport to automatically recalculate zoom and maintain proportional aspect ratios when viewport or panels resize.
+- [x] **Interactive Bottom Page Strip:**
+  - Dedicated bottom region with live page background previews, active page indicator ring, quick "+ Add Page" button, duplicate page, delete page, reorder left/right, and minimize/expand toggle.
 
 ---
 
@@ -453,8 +440,8 @@ CREATE TABLE IF NOT EXISTS studio_export_jobs (
 
 This checklist defines the immediate sequence of implementation for the engineering team:
 
-- [ ] **Step 1: Inspect & Map Full Current Functionality** — Document existing API contracts, database fields, and element properties to guarantee zero backward regressions.
-- [ ] **Step 2: Full Viewport CSS Grid Layout** — Restructure the studio layout into the 3-column + header + bottom thumbnail strip system.
+- [x] **Step 1: Inspect & Map Full Current Functionality** — Document existing API contracts, database fields, and element properties to guarantee zero backward regressions.
+- [x] **Step 2: Full Viewport CSS Grid Layout & Interactive Bottom Page Strip** — Restructure the studio layout into the 3-column + header + bottom thumbnail strip system.
 - [ ] **Step 3: Modularize `frontend/src/studio/`** — Extract core store, coordinate system, and element renderers without breaking active editor workflows.
 - [ ] **Step 4: Canonical Versioned Document Model** — Implement `DocumentModel.ts` (`schemaVersion: 2`) with full document state transactions.
 - [ ] **Step 5: Transform Handles & Multi-Selection** — Build the 8-handle resize, rotation, and selection bounding box interactor.
