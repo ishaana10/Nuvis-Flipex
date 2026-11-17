@@ -183,6 +183,8 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $st->put('/documents/{id:[0-9]+}/pages/{pageId:[0-9]+}', [StudioController::class, 'updatePage']);
         $st->delete('/documents/{id:[0-9]+}/pages/{pageId:[0-9]+}', [StudioController::class, 'deletePage']);
         $st->post('/documents/{id:[0-9]+}/pages/reorder', [StudioController::class, 'reorderPages']);
+        $st->get('/documents/{id:[0-9]+}/toc', [StudioController::class, 'generateToc']);
+        $st->get('/documents/{id:[0-9]+}/export-pdf', [StudioController::class, 'exportPdf']);
         $st->post('/documents/{id:[0-9]+}/publish', [StudioController::class, 'publishDocument']);
         $st->get('/templates', [StudioController::class, 'listTemplates']);
         $st->get('/assets', [StudioController::class, 'listAssets']);

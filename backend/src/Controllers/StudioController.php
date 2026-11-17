@@ -875,4 +875,226 @@ final class StudioController
             return Http::error($res, 'Publishing failed: ' . $e->getMessage(), 500);
         }
     }
+
+    /**
+     * GET /studio/documents/{id}/toc: Scan pages and auto-generate Table of Contents structure.
+     */
+    public function generateToc(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.view');
+
+        $tenantId = (int) TenantContext::id();
+        $docId = (int) ($args['id'] ?? 0);
+
+        $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);
+        if (!$doc) {
+            return Http::error($res, 'Document not found', 404);
+        }
+
+        $pages = Db::all('SELECT page_number, elements FROM studio_document_pages WHERE document_id = ? ORDER BY page_number ASC', [$docId]);
+        $toc = [];
+
+        foreach ($pages as $p) {
+            $pageNum = (int) $p['page_number'];
+            $elements = $p['elements'] ? json_decode($p['elements'], true) : [];
+
+            $foundHeading = null;
+            $foundSub = null;
+
+            foreach ($elements as $el) {
+                $type = $el['type'] ?? '';
+                $fontSize = (int) ($el['style']['fontSize'] ?? 14);
+                $content = trim((string) ($el['content'] ?? ''));
+
+                if ($content !== '' && ($type === 'text' || $type === 'column_text')) {
+                    if ($fontSize >= 20 && $foundHeading === null) {
+                        $foundHeading = $content;
+                    } elseif ($fontSize >= 15 && $foundSub === null && $foundHeading !== null) {
+                        $foundSub = $content;
+                    }
+                } elseif ($type === 'product' && $foundHeading === null && !empty($el['name'])) {
+                    $foundHeading = (string) $el['name'];
+                }
+            }
+
+            if ($foundHeading !== null) {
+                $toc[] = [
+                    'page_number' => $pageNum,
+                    'title' => $foundHeading,
+                    'subtitle' => $foundSub,
+                ];
+            }
+        }
+
+        return Http::json($res, [
+            'ok' => true,
+            'document_title' => $doc['title'],
+            'toc' => $toc
+        ]);
+    }
+
+    /**
+     * GET /studio/documents/{id}/export-pdf: Standalone printable HTML vector shell with print media CSS.
+     */
+    public function exportPdf(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.view');
+
+        $tenantId = (int) TenantContext::id();
+        $docId = (int) ($args['id'] ?? 0);
+
+        $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);
+        if (!$doc) {
+            return Http::error($res, 'Document not found', 404);
+        }
+
+        $pages = Db::all('SELECT * FROM studio_document_pages WHERE document_id = ? ORDER BY page_number ASC', [$docId]);
+        $widthPt = (float) $doc['width_pt'];
+        $heightPt = (float) $doc['height_pt'];
+        $bleedPt = (float) ($doc['bleed_pt'] ?? 9.0);
+
+        $params = $req->getQueryParams();
+        $autoPrint = isset($params['print']) && $params['print'] === '1';
+
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8">';
+        $html .= '<title>' . htmlspecialchars($doc['title']) . ' - Print Ready Document</title>';
+        $html .= '<style>
+            @page {
+                size: ' . $widthPt . 'pt ' . $heightPt . 'pt;
+                margin: 0;
+            }
+            * { box-sizing: border-box; }
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #525659;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .page-container {
+                position: relative;
+                width: ' . $widthPt . 'pt;
+                height: ' . $heightPt . 'pt;
+                margin: 20px auto;
+                background-color: #ffffff;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                page-break-after: always;
+                page-break-inside: avoid;
+                overflow: hidden;
+            }
+            @media print {
+                body { background: transparent; }
+                .page-container { margin: 0; box-shadow: none; }
+                .no-print { display: none !important; }
+            }
+            .bleed-guide {
+                position: absolute;
+                top: ' . $bleedPt . 'pt;
+                left: ' . $bleedPt . 'pt;
+                right: ' . $bleedPt . 'pt;
+                bottom: ' . $bleedPt . 'pt;
+                border: 0.5pt dashed rgba(236, 72, 153, 0.5);
+                pointer-events: none;
+            }
+            .print-controls {
+                position: fixed;
+                top: 15px;
+                right: 20px;
+                z-index: 9999;
+                background: rgba(15, 23, 42, 0.9);
+                backdrop-filter: blur(8px);
+                padding: 10px 18px;
+                border-radius: 12px;
+                border: 1px solid rgba(255,255,255,0.1);
+                color: #fff;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            }
+            .print-btn {
+                background: #6366f1;
+                color: #fff;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 13px;
+                cursor: pointer;
+            }
+            .print-btn:hover { background: #4f46e5; }
+        </style>';
+        $html .= '</head><body>';
+
+        $html .= '<div class="print-controls no-print">
+            <span style="font-size: 13px; font-weight: 600;">' . htmlspecialchars($doc['title']) . ' (' . count($pages) . ' Pages)</span>
+            <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        </div>';
+
+        foreach ($pages as $p) {
+            $pageNum = (int) $p['page_number'];
+            $bg = $p['background'] ? json_decode($p['background'], true) : null;
+            $elements = $p['elements'] ? json_decode($p['elements'], true) : [];
+            $bgColor = $bg['value'] ?? '#ffffff';
+
+            $html .= '<div class="page-container" style="background-color: ' . htmlspecialchars($bgColor) . ';">';
+
+            foreach ($elements as $el) {
+                $type = $el['type'] ?? 'generic';
+                $x = (float) ($el['x'] ?? 0);
+                $y = (float) ($el['y'] ?? 0);
+                $w = (float) ($el['w'] ?? 100);
+                $h = (float) ($el['h'] ?? 50);
+
+                $style = $el['style'] ?? [];
+                $css = 'position: absolute; left: ' . $x . 'px; top: ' . $y . 'px; width: ' . $w . 'px; height: ' . $h . 'px; overflow: hidden;';
+
+                if (!empty($style['fontSize'])) $css .= 'font-size: ' . (int)$style['fontSize'] . 'px;';
+                if (!empty($style['fontWeight'])) $css .= 'font-weight: ' . htmlspecialchars((string)$style['fontWeight']) . ';';
+                if (!empty($style['fontStyle'])) $css .= 'font-style: ' . htmlspecialchars((string)$style['fontStyle']) . ';';
+                if (!empty($style['color'])) $css .= 'color: ' . htmlspecialchars((string)$style['color']) . ';';
+                if (!empty($style['backgroundColor'])) $css .= 'background-color: ' . htmlspecialchars((string)$style['backgroundColor']) . ';';
+                if (!empty($style['textAlign'])) $css .= 'text-align: ' . htmlspecialchars((string)$style['textAlign']) . ';';
+                if (!empty($style['borderRadius'])) $css .= 'border-radius: ' . (int)$style['borderRadius'] . 'px;';
+                if (!empty($style['letterSpacing'])) $css .= 'letter-spacing: ' . htmlspecialchars((string)$style['letterSpacing']) . ';';
+                if (!empty($style['lineHeight'])) $css .= 'line-height: ' . (float)$style['lineHeight'] . ';';
+
+                if ($type === 'text') {
+                    $html .= '<div style="' . $css . '">' . nl2br(htmlspecialchars((string)($el['content'] ?? ''))) . '</div>';
+                } elseif ($type === 'image') {
+                    $src = htmlspecialchars((string)($el['src'] ?? ''));
+                    $html .= '<div style="' . $css . '"><img src="' . $src . '" style="width:100%;height:100%;object-fit:cover;" /></div>';
+                } elseif ($type === 'product') {
+                    $html .= '<div style="' . $css . ' background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px; display:flex; flex-direction:column; justify-content:space-between;">';
+                    if (!empty($el['image'])) {
+                        $html .= '<img src="' . htmlspecialchars((string)$el['image']) . '" style="height:60%;width:100%;object-fit:cover;border-radius:8px;" />';
+                    }
+                    $html .= '<div><strong style="font-size:12px;color:#1e293b;">' . htmlspecialchars((string)($el['name'] ?? '')) . '</strong>';
+                    $html .= '<div style="font-size:14px;color:#dc2626;font-weight:bold;margin-top:4px;">' . htmlspecialchars((string)($el['price'] ?? '')) . '</div></div>';
+                    $html .= '<div style="background:#16a34a;color:#fff;text-align:center;font-size:10px;font-weight:bold;padding:4px;border-radius:6px;">WhatsApp Order</div>';
+                    $html .= '</div>';
+                } elseif ($type === 'badge' || $type === 'whatsapp') {
+                    $html .= '<div style="' . $css . ' display:flex; align-items:center; justify-content:center;">' . htmlspecialchars((string)($el['content'] ?? '')) . '</div>';
+                } else {
+                    $html .= '<div style="' . $css . '">' . htmlspecialchars((string)($el['content'] ?? '')) . '</div>';
+                }
+            }
+
+            $html .= '</div>';
+        }
+
+        if ($autoPrint) {
+            $html .= '<script>window.onload = function() { window.print(); };</script>';
+        }
+
+        $html .= '</body></html>';
+
+        $res->getBody()->write($html);
+        return $res->withHeader('Content-Type', 'text/html; charset=utf-8');
+    }
 }

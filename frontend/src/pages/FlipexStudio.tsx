@@ -18,9 +18,42 @@ import {
 // --- Types ---
 export type DocType = 'catalogue' | 'magazine' | 'album' | 'custom';
 
+export interface StudentProfile {
+  name: string;
+  photoUrl: string;
+  award?: string;
+  quote?: string;
+  role?: string;
+}
+
+export interface PhotoFrameItem {
+  url: string;
+  caption?: string;
+  tilt?: number; // -5 to +5 deg
+  frameStyle?: 'polaroid' | 'classic' | 'rounded' | 'shadow';
+}
+
+export interface TocItem {
+  page_number: number;
+  title: string;
+  subtitle?: string;
+}
+
 export interface CanvasElement {
   id: string;
-  type: 'text' | 'image' | 'product' | 'shape' | 'badge' | 'button' | 'whatsapp';
+  type:
+    | 'text'
+    | 'image'
+    | 'product'
+    | 'shape'
+    | 'badge'
+    | 'button'
+    | 'whatsapp'
+    | 'column_text'
+    | 'yearbook_grid'
+    | 'album_spread'
+    | 'toc'
+    | 'folio';
   x: number;
   y: number;
   w: number;
@@ -37,6 +70,28 @@ export interface CanvasElement {
   description?: string;
   caption?: string;
   linkUrl?: string;
+
+  // Magazine & Editorial properties
+  columns?: number; // 2 or 3
+  columnGutter?: number;
+  dropCap?: boolean;
+  authorName?: string;
+  authorRole?: string;
+  authorAvatar?: string;
+
+  // Yearbook properties
+  students?: StudentProfile[];
+
+  // Photo Album properties
+  albumPhotos?: PhotoFrameItem[];
+
+  // Table of Contents
+  tocItems?: TocItem[];
+
+  // Running Folio (Header / Footer)
+  folioHeader?: string;
+  folioShowPage?: boolean;
+
   style?: {
     fontSize?: number;
     fontWeight?: string;
@@ -51,6 +106,8 @@ export interface CanvasElement {
     lineHeight?: number;
     boxShadow?: string;
     opacity?: number;
+    transform?: string;
+    padding?: string | number;
   };
 }
 
@@ -129,7 +186,9 @@ export default function FlipexStudio() {
   const [publishModal, setPublishModal] = useState<{ open: boolean; slug?: string; url?: string } | null>(null);
 
   // Left sidebar active tool tab
-  const [activeToolTab, setActiveToolTab] = useState<'templates' | 'products' | 'text' | 'media' | 'shapes' | 'csv'>('products');
+  const [activeToolTab, setActiveToolTab] = useState<
+    'products' | 'magazine' | 'yearbook' | 'album' | 'text' | 'media' | 'shapes' | 'csv'
+  >('products');
 
   // Modals
   const [showNewDocModal, setShowNewDocModal] = useState<boolean>(false);
@@ -138,7 +197,8 @@ export default function FlipexStudio() {
   const [newOrientation, setNewOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [newTemplateId, setNewTemplateId] = useState<number | null>(null);
 
-  // CSV Bulk Import state
+  // CSV Bulk Import state (Products vs Yearbook Rosters)
+  const [csvMode, setCsvMode] = useState<'products' | 'yearbook'>('products');
   const [csvText, setCsvText] = useState<string>(
     'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU\n' +
     'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10\n' +
@@ -187,6 +247,10 @@ export default function FlipexStudio() {
         setPages(res.document.pages || []);
         setActivePageIndex(0);
         setSelectedElementId(null);
+        // Set default tab based on doc_type
+        if (res.document.doc_type === 'magazine') setActiveToolTab('magazine');
+        else if (res.document.doc_type === 'album') setActiveToolTab('album');
+        else setActiveToolTab('products');
       }
     } catch (err: any) {
       alert('Could not load studio document: ' + err.message);
@@ -338,8 +402,8 @@ export default function FlipexStudio() {
     const newElement: CanvasElement = {
       id: newId,
       type: elPartial.type || 'text',
-      x: snap(elPartial.x ?? 60),
-      y: snap(elPartial.y ?? 80),
+      x: snap(elPartial.x ?? 50),
+      y: snap(elPartial.y ?? 70),
       w: elPartial.w ?? 240,
       h: elPartial.h ?? 160,
       content: elPartial.content,
@@ -354,8 +418,19 @@ export default function FlipexStudio() {
       description: elPartial.description,
       caption: elPartial.caption,
       linkUrl: elPartial.linkUrl,
+      columns: elPartial.columns,
+      columnGutter: elPartial.columnGutter,
+      dropCap: elPartial.dropCap,
+      authorName: elPartial.authorName,
+      authorRole: elPartial.authorRole,
+      authorAvatar: elPartial.authorAvatar,
+      students: elPartial.students,
+      albumPhotos: elPartial.albumPhotos,
+      tocItems: elPartial.tocItems,
+      folioHeader: elPartial.folioHeader,
+      folioShowPage: elPartial.folioShowPage,
       style: {
-        fontSize: 16,
+        fontSize: 15,
         color: '#0F172A',
         textAlign: 'left',
         ...elPartial.style,
@@ -401,7 +476,6 @@ export default function FlipexStudio() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId) {
-        // Only if not focused in an input/textarea
         const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
         if (tag !== 'input' && tag !== 'textarea') {
           e.preventDefault();
@@ -413,65 +487,131 @@ export default function FlipexStudio() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedElementId, activePage, pages, activePageIndex]);
 
-  // CSV Bulk Import processor
+  // Automated Table of Contents Generator
+  const handleAutoGenerateToc = async () => {
+    if (!currentDoc) return;
+    try {
+      const res = await api<{ ok: boolean; toc: TocItem[] }>(`/studio/documents/${currentDoc.id}/toc`);
+      if (res.toc && res.toc.length > 0) {
+        addElement({
+          type: 'toc',
+          x: 40,
+          y: 80,
+          w: 515,
+          h: Math.min(650, 100 + res.toc.length * 45),
+          content: 'TABLE OF CONTENTS',
+          tocItems: res.toc,
+        });
+        alert(`Inserted Table of Contents with ${res.toc.length} sections!`);
+      } else {
+        alert('No headings found across document pages yet. Add some H1 or section titles first!');
+      }
+    } catch (e: any) {
+      alert('TOC generation failed: ' + e.message);
+    }
+  };
+
+  // Automated Running Folio (Page Number & Header)
+  const handleAddRunningFolio = () => {
+    if (!currentDoc || !activePage) return;
+    const docW = currentDoc.width_pt || 595.28;
+    const docH = currentDoc.height_pt || 841.89;
+
+    addElement({
+      type: 'folio',
+      x: 35,
+      y: docH - 45,
+      w: docW - 70,
+      h: 24,
+      folioHeader: currentDoc.title.toUpperCase(),
+      folioShowPage: true,
+      style: {
+        fontSize: 10,
+        color: '#94A3B8',
+        letterSpacing: '1px',
+      },
+    });
+  };
+
+  // CSV Bulk Import processor (Products vs Yearbook Rosters)
   const handleImportCsv = () => {
     if (!csvText.trim()) return;
     const lines = csvText.trim().split('\n');
     if (lines.length <= 1) return;
 
-    // Skip header line
     const rows = lines.slice(1);
-    let x = 40;
-    let y = 140;
-    const cardW = 240;
-    const cardH = 300;
-    const gapX = 30;
-    const gapY = 25;
     const pageWidth = currentDoc?.width_pt || 595.28;
 
-    const importedElements: CanvasElement[] = [];
+    if (csvMode === 'products') {
+      let x = 40;
+      let y = 140;
+      const cardW = 240;
+      const cardH = 300;
+      const gapX = 30;
+      const gapY = 25;
 
-    rows.forEach((line, idx) => {
-      const parts = line.split(',').map((p) => p.trim());
-      if (parts.length < 2) return;
-      const name = parts[0] || 'Product ' + (idx + 1);
-      const price = parts[1] || '$0.00';
-      const originalPrice = parts[2] || undefined;
-      const badge = parts[3] || undefined;
-      const image = parts[4] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500';
-      const whatsapp = parts[5] || '+6799991234';
-      const sku = parts[6] || 'SKU-' + (idx + 1);
+      const importedElements: CanvasElement[] = [];
+      rows.forEach((line, idx) => {
+        const parts = line.split(',').map((p) => p.trim());
+        if (parts.length < 2) return;
+        importedElements.push({
+          id: 'prod_' + Date.now() + '_' + idx,
+          type: 'product',
+          x,
+          y,
+          w: cardW,
+          h: cardH,
+          name: parts[0] || 'Product ' + (idx + 1),
+          price: parts[1] || '$0.00',
+          originalPrice: parts[2] || undefined,
+          badge: parts[3] || undefined,
+          image: parts[4] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500',
+          whatsappNumber: parts[5] || '+6799991234',
+          sku: parts[6] || 'SKU-' + (idx + 1),
+        });
 
-      importedElements.push({
-        id: 'prod_' + Date.now() + '_' + idx,
-        type: 'product',
-        x,
-        y,
-        w: cardW,
-        h: cardH,
-        name,
-        price,
-        originalPrice,
-        badge,
-        image,
-        whatsappNumber: whatsapp,
-        sku,
+        x += cardW + gapX;
+        if (x + cardW > pageWidth - 30) {
+          x = 40;
+          y += cardH + gapY;
+        }
       });
 
-      // Shift position
-      x += cardW + gapX;
-      if (x + cardW > pageWidth - 30) {
-        x = 40;
-        y += cardH + gapY;
+      if (importedElements.length > 0 && activePage) {
+        const updatedPages = [...pages];
+        updatedPages[activePageIndex].elements = [...updatedPages[activePageIndex].elements, ...importedElements];
+        setPages(updatedPages);
+        alert(`Successfully added ${importedElements.length} products to Page ${activePageIndex + 1}!`);
+        setActiveToolTab('products');
       }
-    });
+    } else {
+      // Yearbook Roster Mode
+      const students: StudentProfile[] = [];
+      rows.forEach((line) => {
+        const parts = line.split(',').map((p) => p.trim());
+        if (parts.length >= 1 && parts[0]) {
+          students.push({
+            name: parts[0],
+            photoUrl: parts[1] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+            award: parts[2] || undefined,
+            quote: parts[3] || undefined,
+            role: parts[4] || undefined,
+          });
+        }
+      });
 
-    if (importedElements.length > 0 && activePage) {
-      const updatedPages = [...pages];
-      updatedPages[activePageIndex].elements = [...updatedPages[activePageIndex].elements, ...importedElements];
-      setPages(updatedPages);
-      alert(`Successfully added ${importedElements.length} products to Page ${activePageIndex + 1}!`);
-      setActiveToolTab('products');
+      if (students.length > 0 && activePage) {
+        addElement({
+          type: 'yearbook_grid',
+          x: 40,
+          y: 120,
+          w: 515,
+          h: 600,
+          students,
+        });
+        alert(`Added Senior Class Roster with ${students.length} graduates!`);
+        setActiveToolTab('yearbook');
+      }
     }
   };
 
@@ -514,12 +654,15 @@ export default function FlipexStudio() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-semibold tracking-wider uppercase border border-indigo-500/30">
                   ✨ Canva-Like Visual Creation Engine
                 </span>
                 <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full text-xs font-medium">
-                  Zero PDF Required
+                  Direct Vector &amp; Print PDF
+                </span>
+                <span className="px-2.5 py-0.5 bg-purple-500/20 text-purple-300 rounded-full text-xs font-medium">
+                  WhatsApp 1-Tap Ordering
                 </span>
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight mb-2">Flipex Studio</h1>
@@ -661,12 +804,21 @@ export default function FlipexStudio() {
                   >
                     Open Canvas
                   </Link>
+                  <a
+                    href={`/api/v1/studio/documents/${doc.id}/export-pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-200"
+                    title="Export Print PDF"
+                  >
+                    🖨️
+                  </a>
                   {doc.flipbook_slug && (
                     <a
                       href={`/v/${doc.flipbook_slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-200"
+                      className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-xl hover:bg-emerald-100"
                       title="Open in Live Reader"
                     >
                       Reader
@@ -714,7 +866,7 @@ export default function FlipexStudio() {
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm"
                     >
                       <option value="catalogue">🛒 Product Catalogue</option>
-                      <option value="magazine">📖 Editorial Magazine</option>
+                      <option value="magazine">📖 Editorial Magazine / Yearbook</option>
                       <option value="album">📷 Keepsake Photo Album</option>
                       <option value="custom">🎨 Custom Document</option>
                     </select>
@@ -792,7 +944,7 @@ export default function FlipexStudio() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-900 text-slate-100 overflow-hidden select-none">
       {/* TOP STUDIO TOOLBAR */}
-      <header className="h-14 bg-slate-950 border-b border-slate-800 px-4 flex items-center justify-between gap-4 z-30">
+      <header className="h-14 bg-slate-950 border-b border-slate-800 px-4 flex items-center justify-between gap-4 z-30 flex-wrap">
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
@@ -820,23 +972,23 @@ export default function FlipexStudio() {
           )}
         </div>
 
-        {/* Center: Page Switcher & Zoom */}
-        <div className="flex items-center gap-3">
+        {/* Center: Page Switcher, Zoom, Bleed & Auto Tools */}
+        <div className="flex items-center gap-2.5">
           <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5 text-xs">
             <button
               disabled={activePageIndex <= 0}
               onClick={() => setActivePageIndex(activePageIndex - 1)}
-              className="px-2.5 py-1 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800"
+              className="px-2 py-1 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800"
             >
               ◀
             </button>
-            <span className="px-3 font-semibold text-slate-200">
+            <span className="px-2.5 font-semibold text-slate-200">
               Page {activePageIndex + 1} of {pages.length}
             </span>
             <button
               disabled={activePageIndex >= pages.length - 1}
               onClick={() => setActivePageIndex(activePageIndex + 1)}
-              className="px-2.5 py-1 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800"
+              className="px-2 py-1 text-slate-400 hover:text-white disabled:opacity-30 rounded hover:bg-slate-800"
             >
               ▶
             </button>
@@ -868,10 +1020,11 @@ export default function FlipexStudio() {
                 ? 'bg-pink-500/20 text-pink-300 border-pink-500/40'
                 : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
             }`}
-            title="Toggle 3mm Print Bleed Guides"
+            title="Toggle 3mm Print Bleed Safe Margins"
           >
             Bleed 3mm
           </button>
+
           <button
             onClick={() => setGridSnap(!gridSnap)}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
@@ -883,10 +1036,36 @@ export default function FlipexStudio() {
           >
             Snap Grid
           </button>
+
+          {/* Quick Folio & TOC Generators */}
+          <button
+            onClick={handleAddRunningFolio}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-800 hover:text-white hover:border-slate-700"
+            title="Add Running Header & Page Number Folio to this page"
+          >
+            + Folio
+          </button>
+
+          <button
+            onClick={handleAutoGenerateToc}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-900 text-amber-300 border border-slate-800 hover:text-amber-200 hover:border-amber-500/40"
+            title="Scan document pages and generate Table of Contents"
+          >
+            Auto TOC
+          </button>
         </div>
 
-        {/* Right: Save & Publish Action */}
-        <div className="flex items-center gap-2.5">
+        {/* Right: Save, Print Export & Publish Action */}
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/v1/studio/documents/${currentDoc?.id}/export-pdf?print=1`}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+            title="Export Vector 300 DPI Print PDF"
+          >
+            <span>🖨️</span> Print PDF
+          </a>
           <Button
             variant="outline"
             size="sm"
@@ -915,6 +1094,9 @@ export default function FlipexStudio() {
           <div className="flex items-center border-b border-slate-800 text-xs overflow-x-auto p-1 bg-slate-900/60">
             {[
               { id: 'products', label: '🛒 Products' },
+              { id: 'magazine', label: '📖 Magazine' },
+              { id: 'yearbook', label: '🎓 Yearbook' },
+              { id: 'album', label: '📷 Album' },
               { id: 'text', label: '🔤 Text' },
               { id: 'media', label: '🖼️ Media' },
               { id: 'shapes', label: '⭐ Badges' },
@@ -923,7 +1105,7 @@ export default function FlipexStudio() {
               <button
                 key={tab.id}
                 onClick={() => setActiveToolTab(tab.id as any)}
-                className={`px-3 py-2 font-semibold rounded-lg transition-colors whitespace-nowrap ${
+                className={`px-2.5 py-1.5 font-semibold rounded-lg transition-colors whitespace-nowrap text-[11px] ${
                   activeToolTab === tab.id
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
@@ -948,7 +1130,7 @@ export default function FlipexStudio() {
                 <div className="space-y-2">
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-indigo-500 hover:bg-slate-850"
+                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-indigo-500"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -969,7 +1151,7 @@ export default function FlipexStudio() {
 
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-amber-500 hover:bg-slate-850"
+                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-amber-500"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -990,7 +1172,7 @@ export default function FlipexStudio() {
 
                   <Button
                     variant="outline"
-                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-emerald-500 hover:bg-slate-850"
+                    className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-emerald-500"
                     onClick={() =>
                       addElement({
                         type: 'whatsapp',
@@ -1011,6 +1193,230 @@ export default function FlipexStudio() {
                     <span>💬</span> Standalone WhatsApp 1-Tap Button
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: MAGAZINE (EDITORIAL & PUBLISHING) */}
+            {activeToolTab === 'magazine' && (
+              <div className="space-y-3">
+                <div className="bg-sky-950/40 border border-sky-500/30 rounded-xl p-3 text-xs text-sky-300">
+                  <p className="font-bold mb-1">📖 Editorial Articles &amp; Layouts</p>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Balanced 2-column &amp; 3-column articles, decorative Drop-Caps, and author bylines for glossy print and digital reading.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-sky-500"
+                  onClick={() =>
+                    addElement({
+                      type: 'column_text',
+                      content:
+                        'The warm afternoon breeze drifted across the coral reef, carrying the sound of gentle waves breaking over the outer barrier. In recent years, local marine conservation reserves have revived coral biodiversity across the island coastlines.\n\nVisitors and researchers from around the world gather to witness firsthand how community-led ecological stewardship creates sustainable balance. Every participant contributes to coral planting nurseries guided by village elders.',
+                      columns: 2,
+                      columnGutter: 24,
+                      dropCap: true,
+                      w: 500,
+                      h: 220,
+                      style: { fontSize: 13, color: '#334155', lineHeight: 1.6 },
+                    })
+                  }
+                >
+                  <span>📰</span> 2-Column Article with Drop-Cap
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-sky-500"
+                  onClick={() =>
+                    addElement({
+                      type: 'column_text',
+                      content:
+                        'Pacific trade networks are experiencing unprecedented digital connectivity. Mobile payment systems and instant inventory sync allow artisans to reach global markets without leaving village shores.\n\nEco-friendly transport and cold-chain solar hubs ensure fresh harvests arrive at five-star resorts within hours of morning picking.',
+                      columns: 3,
+                      columnGutter: 18,
+                      w: 515,
+                      h: 200,
+                      style: { fontSize: 12, color: '#334155', lineHeight: 1.55 },
+                    })
+                  }
+                >
+                  <span>🗞️</span> 3-Column Magazine Spread
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-xs font-semibold py-2 px-3 bg-slate-900 border-slate-800 hover:border-sky-500"
+                  onClick={() =>
+                    addElement({
+                      type: 'text',
+                      content: 'BY ALISI TAVUA • SENIOR ENVIRONMENTAL FELLOW',
+                      authorName: 'Alisi Tavua',
+                      authorRole: 'Senior Environmental Fellow',
+                      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+                      w: 360,
+                      h: 40,
+                      style: { fontSize: 11, fontWeight: 'bold', color: '#0284C7', letterSpacing: '1px' },
+                    })
+                  }
+                >
+                  <span>✍️</span> Author Byline with Tag
+                </Button>
+              </div>
+            )}
+
+            {/* TAB: YEARBOOK (SCHOOL & UNIVERSITY) */}
+            {activeToolTab === 'yearbook' && (
+              <div className="space-y-3">
+                <div className="bg-purple-950/40 border border-purple-500/30 rounded-xl p-3 text-xs text-purple-300">
+                  <p className="font-bold mb-1">🎓 School &amp; Class Yearbooks</p>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Graduate portrait rosters, academic awards, leadership tags, and senior memorable quotes.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-purple-500"
+                  onClick={() =>
+                    addElement({
+                      type: 'yearbook_grid',
+                      x: 40,
+                      y: 120,
+                      w: 515,
+                      h: 440,
+                      students: [
+                        {
+                          name: 'Alisi Tavua',
+                          award: 'Dux of School',
+                          quote: '"Wisdom begins in quiet curiosity."',
+                          photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+                        },
+                        {
+                          name: 'Jone Naivalu',
+                          award: 'Head Boy',
+                          quote: '"Lead through service and resilience."',
+                          photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
+                        },
+                        {
+                          name: 'Mereani Koroi',
+                          award: 'Head Girl',
+                          quote: '"Honor our roots wherever we travel."',
+                          photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
+                        },
+                        {
+                          name: 'Timoci Ravuvu',
+                          award: 'Sports Captain',
+                          quote: '"Clear eyes and courageous hearts."',
+                          photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
+                        },
+                      ],
+                    })
+                  }
+                >
+                  <span>👥</span> 4-Student Graduate Portrait Grid
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-xs font-semibold py-2 px-3 bg-slate-900 border-slate-800 hover:border-purple-500"
+                  onClick={() =>
+                    addElement({
+                      type: 'text',
+                      content:
+                        'Principal’s Address: "To the graduating cohort of 2026, you represent the highest aspirations of our academy. May your integrity guide your endeavors across higher learning and our island communities."',
+                      w: 500,
+                      h: 90,
+                      style: {
+                        fontSize: 13,
+                        lineHeight: 1.6,
+                        fontStyle: 'italic',
+                        color: '#334155',
+                        backgroundColor: '#F8FAFC',
+                        borderRadius: 12,
+                        padding: '12px',
+                      },
+                    })
+                  }
+                >
+                  <span>📜</span> Principal’s Commendation Box
+                </Button>
+              </div>
+            )}
+
+            {/* TAB: ALBUM (KEEPSAKE PHOTO ALBUM) */}
+            {activeToolTab === 'album' && (
+              <div className="space-y-3">
+                <div className="bg-pink-950/40 border border-pink-500/30 rounded-xl p-3 text-xs text-pink-300">
+                  <p className="font-bold mb-1">📷 Keepsake Photo Albums</p>
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    Romantic scrapbooks, polaroid photo frames with tilt rotation, and memory captions.
+                  </p>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-pink-500"
+                  onClick={() =>
+                    addElement({
+                      type: 'album_spread',
+                      x: 40,
+                      y: 120,
+                      w: 515,
+                      h: 360,
+                      albumPhotos: [
+                        {
+                          url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=500',
+                          caption: 'The First Dance',
+                          tilt: -2,
+                          frameStyle: 'polaroid',
+                        },
+                        {
+                          url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=500',
+                          caption: 'Sunset on the Lagoon',
+                          tilt: 3,
+                          frameStyle: 'polaroid',
+                        },
+                      ],
+                    })
+                  }
+                >
+                  <span>🎞️</span> Polaroid Pair with Handwritten Tilt
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-xs font-semibold py-2.5 px-3 bg-slate-900 border-slate-800 hover:border-pink-500"
+                  onClick={() =>
+                    addElement({
+                      type: 'album_spread',
+                      x: 40,
+                      y: 100,
+                      w: 515,
+                      h: 420,
+                      albumPhotos: [
+                        {
+                          url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
+                          caption: 'Panoramic Island Coastline',
+                          frameStyle: 'shadow',
+                        },
+                        {
+                          url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
+                          caption: 'Reef Exploration',
+                          frameStyle: 'rounded',
+                        },
+                        {
+                          url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400',
+                          caption: 'Celebration',
+                          frameStyle: 'rounded',
+                        },
+                      ],
+                    })
+                  }
+                >
+                  <span>🖼️</span> 3-Photo Keepsake Collage
+                </Button>
               </div>
             )}
 
@@ -1071,14 +1477,14 @@ export default function FlipexStudio() {
                   onClick={() =>
                     addElement({
                       type: 'text',
-                      content: '"A memorable quote or yearbook memory commemorating our journey."',
+                      content: '"From this day forward, our journeys are woven together like coconut sennit along the pacific tide."',
                       w: 400,
                       h: 50,
                       style: { fontSize: 16, fontStyle: 'italic', color: '#64748B', textAlign: 'center' },
                     })
                   }
                 >
-                  <span className="italic mr-2">“ ”</span> Pull Quote / Yearbook Note
+                  <span className="italic mr-2">“ ”</span> Pull Quote / Memory Note
                 </Button>
               </div>
             )}
@@ -1204,9 +1610,45 @@ export default function FlipexStudio() {
             {activeToolTab === 'csv' && (
               <div className="space-y-3">
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs">
-                  <p className="font-bold text-white mb-1">Batch Import from Spreadsheet</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-white">Import Mode</span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => {
+                          setCsvMode('products');
+                          setCsvText(
+                            'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU\n' +
+                            'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10\n' +
+                            'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01'
+                          );
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          csvMode === 'products' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                        }`}
+                      >
+                        Products
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCsvMode('yearbook');
+                          setCsvText(
+                            'Name,PhotoUrl,Award,Quote,Role\n' +
+                            'Alisi Tavua,https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400,Dux of School,"Lead with integrity",Prefect\n' +
+                            'Jone Naivalu,https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400,Head Boy,"Honor our elders",Student Council'
+                          );
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          csvMode === 'yearbook' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'
+                        }`}
+                      >
+                        Yearbook Rosters
+                      </button>
+                    </div>
+                  </div>
                   <p className="text-slate-400 text-[11px] leading-relaxed mb-2">
-                    Paste your product inventory CSV below. Cards will automatically populate on this page in an aligned grid!
+                    {csvMode === 'products'
+                      ? 'Paste product rows (Name, Price, WasPrice, Badge, Image, WhatsApp, SKU).'
+                      : 'Paste class graduates (Name, PhotoUrl, Award, Quote, Role).'}
                   </p>
                   <textarea
                     rows={6}
@@ -1220,7 +1662,7 @@ export default function FlipexStudio() {
                     onClick={handleImportCsv}
                     className="w-full mt-2 font-bold bg-indigo-600 hover:bg-indigo-500 text-xs py-2"
                   >
-                    🚀 Auto-Generate Cards on Canvas
+                    🚀 Auto-Generate on Page {activePageIndex + 1}
                   </Button>
                 </div>
               </div>
@@ -1273,7 +1715,7 @@ export default function FlipexStudio() {
               backgroundColor: activePage?.background?.value || '#FFFFFF',
               boxShadow: '0 25px 60px -15px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08)',
             }}
-            className="relative transition-transform duration-75 select-none rounded-sm"
+            className="relative transition-transform duration-75 select-none rounded-sm overflow-hidden"
           >
             {/* 3mm Print Bleed Guides (pink dashed outline) */}
             {showBleed && (
@@ -1369,6 +1811,126 @@ export default function FlipexStudio() {
                       onBlur={(e) => updateSelectedElement({ content: e.currentTarget.innerText })}
                     >
                       {el.content || 'Double click to edit text'}
+                    </div>
+                  )}
+
+                  {/* MULTI-COLUMN ARTICLE WITH DROP-CAP (MAGAZINE) */}
+                  {el.type === 'column_text' && (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        columnCount: el.columns || 2,
+                        columnGap: `${el.columnGutter || 20}px`,
+                        fontSize: `${el.style?.fontSize || 13}px`,
+                        color: el.style?.color || '#334155',
+                        lineHeight: el.style?.lineHeight || 1.6,
+                        overflow: 'hidden',
+                        textAlign: 'justify',
+                      }}
+                    >
+                      {el.dropCap && el.content ? (
+                        <>
+                          <span
+                            style={{
+                              float: 'left',
+                              fontSize: '48px',
+                              lineHeight: '40px',
+                              paddingTop: '4px',
+                              paddingRight: '8px',
+                              fontWeight: 'bold',
+                              color: '#0F172A',
+                              fontFamily: 'serif',
+                            }}
+                          >
+                            {el.content.charAt(0)}
+                          </span>
+                          {el.content.slice(1)}
+                        </>
+                      ) : (
+                        el.content
+                      )}
+                    </div>
+                  )}
+
+                  {/* YEARBOOK GRADUATE PORTRAIT GRID */}
+                  {el.type === 'yearbook_grid' && (
+                    <div className="w-full h-full grid grid-cols-2 gap-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200">
+                      {(el.students || []).map((s, idx) => (
+                        <div key={idx} className="flex gap-2.5 items-center p-2 bg-white rounded-xl shadow-xs border border-slate-100">
+                          <img src={s.photoUrl} alt={s.name} className="w-16 h-16 rounded-lg object-cover" />
+                          <div className="flex-1 overflow-hidden">
+                            <h5 className="font-bold text-xs text-slate-900 truncate">{s.name}</h5>
+                            {s.award && (
+                              <span className="inline-block px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[9px] font-bold rounded">
+                                {s.award}
+                              </span>
+                            )}
+                            {s.quote && (
+                              <p className="text-[10px] text-slate-500 italic line-clamp-2 mt-0.5">{s.quote}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* PHOTO ALBUM KEEPSAKE SPREAD */}
+                  {el.type === 'album_spread' && (
+                    <div className="w-full h-full flex items-center justify-around p-3">
+                      {(el.albumPhotos || []).map((pic, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            transform: `rotate(${pic.tilt || 0}deg)`,
+                          }}
+                          className={`bg-white p-2.5 shadow-md transition-transform duration-200 ${
+                            pic.frameStyle === 'rounded'
+                              ? 'rounded-2xl'
+                              : pic.frameStyle === 'shadow'
+                              ? 'rounded-lg shadow-xl'
+                              : 'rounded-sm pb-6'
+                          }`}
+                        >
+                          <img src={pic.url} alt={pic.caption || 'Album'} className="h-44 w-44 object-cover rounded-xs" />
+                          {pic.caption && (
+                            <p className="text-[11px] text-slate-700 font-serif italic text-center mt-2 truncate max-w-[176px]">
+                              {pic.caption}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* TABLE OF CONTENTS ELEMENT */}
+                  {el.type === 'toc' && (
+                    <div className="w-full h-full bg-white/90 p-6 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 tracking-wider mb-4 border-b pb-2">
+                          {el.content || 'TABLE OF CONTENTS'}
+                        </h3>
+                        <div className="space-y-3">
+                          {(el.tocItems || []).map((item, idx) => (
+                            <div key={idx} className="flex items-baseline justify-between text-xs">
+                              <span className="font-semibold text-slate-800">{item.title}</span>
+                              <span className="flex-1 mx-2 border-b border-dotted border-slate-300" />
+                              <span className="font-mono font-bold text-slate-900">{item.page_number}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest">
+                        Nuvis Flipex Publishing
+                      </div>
+                    </div>
+                  )}
+
+                  {/* RUNNING FOLIO (PAGE NUMBER & HEADER) */}
+                  {el.type === 'folio' && (
+                    <div className="w-full h-full flex items-center justify-between text-[10px] font-mono text-slate-400 border-t border-slate-200 pt-1">
+                      <span>{el.folioHeader || currentDoc?.title}</span>
+                      {el.folioShowPage && <span>Page {activePageIndex + 1}</span>}
                     </div>
                   )}
 
@@ -1523,13 +2085,44 @@ export default function FlipexStudio() {
                 </div>
               </div>
 
+              {/* Magazine Column Properties */}
+              {selectedElement.type === 'column_text' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-0.5">Columns</label>
+                      <select
+                        value={selectedElement.columns || 2}
+                        onChange={(e) => updateSelectedElement({ columns: parseInt(e.target.value, 10) })}
+                        className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-800 text-xs"
+                      >
+                        <option value={1}>1 Column</option>
+                        <option value={2}>2 Columns</option>
+                        <option value={3}>3 Columns</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-0.5">Drop-Cap</label>
+                      <button
+                        onClick={() => updateSelectedElement({ dropCap: !selectedElement.dropCap })}
+                        className={`w-full py-1 rounded font-bold text-xs ${
+                          selectedElement.dropCap ? 'bg-indigo-600 text-white' : 'bg-slate-900 border border-slate-800'
+                        }`}
+                      >
+                        {selectedElement.dropCap ? 'Drop-Cap ON' : 'Drop-Cap OFF'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Text Properties */}
-              {(selectedElement.type === 'text' || selectedElement.type === 'badge') && (
+              {(selectedElement.type === 'text' || selectedElement.type === 'badge' || selectedElement.type === 'column_text') && (
                 <div className="space-y-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 mb-1">Content</label>
-                    <input
-                      type="text"
+                    <textarea
+                      rows={3}
                       value={selectedElement.content || ''}
                       onChange={(e) => updateSelectedElement({ content: e.target.value })}
                       className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-800 text-xs"
@@ -1672,7 +2265,7 @@ export default function FlipexStudio() {
             </div>
             <h2 className="text-2xl font-black mb-2">Published to Interactive Flipbook!</h2>
             <p className="text-slate-300 text-sm mb-6">
-              Your document canvas has been compiled into a high-performance vector flipbook with active WhatsApp buying hotspots and mobile zoom.
+              Your document canvas has been compiled into a high-performance vector flipbook with active WhatsApp buying hotspots, senior rosters, and mobile zoom.
             </p>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between mb-6">
