@@ -7,8 +7,8 @@
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6.svg)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Bundler-Vite%205-646cff.svg)](https://vitejs.dev/)
-[![Design System](https://img.shields.io/badge/Design%20System-BoardUI%20%2B%203--Gradient-ff007f.svg)](https://github.com/BoardUI/boardui)
-[![Visual Studio](https://img.shields.io/badge/Flipex%20Studio-Native%20Canva--Like%20Engine-9333ea.svg)](#-flipex-studio--native-visual-creation-engine)
+[![Design System](https://img.shields.io/badge/Design%20System-BoardUI%20%2B%203--Gradient-0284c7.svg)](https://github.com/BoardUI/boardui)
+[![Visual Studio](https://img.shields.io/badge/Flipex%20Studio-Developer%20Alpha%20Preview-0284c7.svg)](#-flipex-studio--native-visual-creation-engine)
 [![Security Invariants](https://img.shields.io/badge/Security-24%20Invariants%20Verified-brightgreen.svg)](#-enterprise-security--cryptographic-hardening)
 
 > **PROPRIETARY & CONFIDENTIAL**  
@@ -23,10 +23,10 @@
 ## 📑 Table of Contents
 
 1. [Executive Overview](#-executive-overview)
-2. [Visual Identity, BoardUI Standard & 3-Gradient Palette](#-visual-identity-boardui-standard--3-gradient-palette)
+2. [Visual Identity, BoardUI Standard & Dynamic Palette](#-visual-identity-boardui-standard--dynamic-palette)
 3. [Core Feature Matrix](#-core-feature-matrix)
-   - [1. Flipex Studio — Native Visual Creation Engine](#1-flipex-studio--native-visual-creation-engine)
-   - [2. High-Attraction 3-Gradient System & Canvas Workspace](#2-high-attraction-3-gradient-system--canvas-workspace)
+   - [1. Flipex Studio — Native Visual Creation Engine (Developer Alpha)](#1-flipex-studio--native-visual-creation-engine-developer-alpha)
+   - [2. Dynamic 3-Gradient System & Canvas Workspace](#2-dynamic-3-gradient-system--canvas-workspace)
    - [3. Interactive 3D Flipbook Reader](#3-interactive-3d-flipbook-reader)
    - [4. Commercial Business Storefronts & Lead Engine](#4-commercial-business-storefronts--lead-engine)
    - [5. Educational Publishing & Classroom Presentation Suite](#5-educational-publishing--classroom-presentation-suite)
@@ -36,9 +36,10 @@
    - [9. High-Concurrency Job Queue & Worker Daemon](#9-high-concurrency-job-queue--worker-daemon)
    - [10. Multi-Tenant Customer Isolation Architecture](#10-multi-tenant-customer-isolation-architecture)
    - [11. Enterprise Security, Cryptographic Hardening & Production Gates](#11-enterprise-security-cryptographic-hardening--production-gates)
-   - [12. Enterprise Integrations Hub](#12-enterprise-integrations-hub)
-   - [13. Commercial Billing, Tax Invoicing & Fiji Bank Reconciliation](#13-commercial-billing-tax-invoicing--fiji-bank-reconciliation)
-   - [14. DevOps Telemetry, Health Monitoring & Backups](#14-devops-telemetry-health-monitoring--backups)
+   - [12. Developer Session Security & Inactivity Center](#12-developer-session-security--inactivity-center)
+   - [13. Enterprise Integrations Hub](#13-enterprise-integrations-hub)
+   - [14. Commercial Billing, Tax Invoicing & Fiji Bank Reconciliation](#14-commercial-billing-tax-invoicing--fiji-bank-reconciliation)
+   - [15. DevOps Telemetry, Health Monitoring & Backups](#15-devops-telemetry-health-monitoring--backups)
 4. [Recent System Updates, Fixes & Hardening (Changelog)](#-recent-system-updates-fixes--hardening-changelog)
 5. [System Architecture & Technology Stack](#-system-architecture--technology-stack)
 6. [Directory Layout](#-directory-layout)
@@ -58,42 +59,57 @@
 **Nuvis Flipex** is an all-in-one enterprise digital publishing ecosystem. Originating as a high-performance interactive 3D HTML5 flipbook reader for PDFs, Flipex has evolved into a complete, native browser-based design, marketing, educational, and commercial publishing powerhouse.
 
 Designed specifically for corporate annual reports, luxury retail catalogues, academic newsletters, product brochures, school yearbooks, and digital magazines, Nuvis Flipex unifies creation, conversion, monetization, and reading into a single frictionless pipeline:
-- **Native Visual Authoring (Flipex Studio):** Create documents from scratch with Canva-like visual tools, specialized e-commerce product cards, multi-column magazine articles, yearbook rosters, and keepsake albums.
+- **Native Visual Authoring (Flipex Studio):** Create documents from scratch with Canva-like visual tools, specialized e-commerce product cards, multi-column magazine articles, yearbook rosters, and keepsake albums. (Currently in Developer Alpha Preview).
 - **Direct Dual-Path Publishing:** One-click compilation of studio canvases directly into interactive vector flipbooks, or instant export to vector 300 DPI Print PDFs.
 - **Commercial & E-Commerce Suite:** Direct WhatsApp 1-tap ordering, public storefront directories (`/b/:tenant_slug`), hotspot inquiry forms, and lead generation tracking.
 - **Educational Publishing:** School portals (`/edu/:tenant_slug`), student interactive study notes, and high-visibility classroom presentation modes with laser pointer overlay.
 - **Pacific Regional Localization:** Precision Fiji & Pacific IP geolocation, Fiji Time (`Pacific/Fiji`) timezone alignment, M-PAiSA / MyCash billing, and local bank reconciliation (BSP, ANZ, Westpac).
-- **Enterprise Isolation & Zero-Trust Security:** Strict multi-tenant partitioning, atomic job queues with `SKIP LOCKED`, token replay defense, and 24 certified security invariants.
+- **Enterprise Isolation & Zero-Trust Security:** Strict multi-tenant partitioning, atomic job queues with `SKIP LOCKED`, token replay defense, configurable session lifetime security, and 24 certified security invariants.
 
 ---
 
-## 🎨 Visual Identity, BoardUI Standard & 3-Gradient Palette
+## 🎨 Visual Identity, BoardUI Standard & Dynamic Palette
 
-Nuvis Flipex adheres to the **BoardUI Standard** ([boardui/boardui](https://github.com/BoardUI/boardui)) elevated with a luxurious **3-Gradient High-Attraction Color System**:
+Nuvis Flipex adheres to the **BoardUI Standard** ([boardui/boardui](https://github.com/BoardUI/boardui)) elevated with a modern **Dynamic 3-Gradient High-Attraction Color System**:
 
-### 1. High-Attraction 3-Gradient Color Architecture
-Flat, plain blue buttons have been eliminated throughout the application in favor of five distinctive, vibrant 3-stop linear gradients paired with soft drop glows:
-- **Cosmic Aurora** (`linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)`): Primary creation actions, including *Create New Document*, *Launch Studio 🚀*, active document filter pills, active tool categories, *+ Folio*, and CSV auto-generation.
-- **Tropical Emerald** (`linear-gradient(135deg, #059669 0%, #10b981 50%, #06b6d4 100%)`): Commerce and publishing actions, including *Publish to Flipbook 🚀*, *Open Live Reader*, card *Reader* badges, Product Card WhatsApp ordering, and standalone WhatsApp chat buttons.
-- **Sunset Radiance** (`linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)`): Promotional and highlight callouts, including *Auto TOC 📑*, *Discount Splash Badges*, *Best Seller Ribbons*, and *Principal's Commendation Notes*.
-- **Royal Orchid** (`linear-gradient(135deg, #7c3aed 0%, #c026d3 50%, #f43f5e 100%)`): High-end export and keepsakes, including *Print PDF 🖨️*, author bylines, senior graduate rosters, and Polaroid scrapbook frames.
-- **Ocean Teal Glow** (`linear-gradient(135deg, #0d9488 0%, #06b6d4 50%, #6366f1 100%)`): Structural operations, including *Save 💾*, card containers, and inspector toggle controls.
+### 1. Zero-Purple High-Attraction Brand Architecture
+In strict adherence to brand standards, all purple color tones have been eliminated across the platform in favor of clean **Nuvis Dynamic Ocean Blue**, **Emerald**, **Warm Amber**, and **Titanium Slate**:
+- **Pacific Azure / Dynamic Ocean** (`linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0c4a6e 100%)`): Primary creation actions, including *Create New Document*, *Launch Studio 🚀*, active document filter pills, active tool categories, *+ Folio*, and CSV auto-generation.
+- **Tropical Emerald** (`linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)`): Commerce and publishing actions, including *Publish to Flipbook 🚀*, *Open Live Reader*, card *Reader* badges, Product Card WhatsApp ordering, and standalone WhatsApp chat buttons.
+- **Sunset Ember** (`linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #b91c1c 100%)`): Promotional and highlight callouts, including *Auto TOC 📑*, *Discount Splash Badges*, *Best Seller Ribbons*, and *Principal's Commendation Notes*.
+- **Nordic Slate / Titanium** (`linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)`): High-end export and keepsakes, including *Print PDF 🖨️*, author bylines, senior graduate rosters, and Polaroid scrapbook frames.
+- **Ocean Teal Glow** (`linear-gradient(135deg, #0d9488 0%, #06b6d4 50%, #0284c7 100%)`): Structural operations, including *Save 💾*, card containers, and inspector toggle controls.
 
-### 2. High-Contrast Light & Dark Mode Compatibility
-Every button, card, modal, and tool swatch maintains WCAG-compliant contrast ratios across both Dark Mode (`#090d16` / `#0f172a`) and Light Mode (`#f8fafc` / `#ffffff`). Page background swatches use structured CSS grid layouts, preventing text overlay or button wrapping.
+### 2. Curated 3-Gradient Document Presets
+Flipex Studio includes 8 curated 3-gradient presets matching the clean corporate aesthetic:
+1. **Pacific Azure:** `#0284c7` (0%) ➔ `#0369a1` (50%) ➔ `#0c4a6e` (100%)
+2. **Sunset Ember:** `#f59e0b` (0%) ➔ `#ea580c` (50%) ➔ `#b91c1c` (100%)
+3. **Tropical Emerald:** `#064e3b` (0%) ➔ `#059669` (50%) ➔ `#10b981` (100%)
+4. **Ocean Abyss:** `#0f172a` (0%) ➔ `#0e7490` (50%) ➔ `#14b8a6` (100%)
+5. **Nordic Slate:** `#1e293b` (0%) ➔ `#334155` (50%) ➔ `#475569` (100%)
+6. **Clean Frost:** `#f8fafc` (0%) ➔ `#e2e8f0` (50%) ➔ `#cbd5e1` (100%)
+7. **Warm Parchment:** `#fffbeb` (0%) ➔ `#fef3c7` (50%) ➔ `#fed7aa` (100%)
+8. **Midnight Noir:** `#020617` (0%) ➔ `#0f172a` (50%) ➔ `#1e293b` (100%)
+
+### 3. High-Contrast Light & Dark Mode Compatibility
+Every button, card, modal, and tool swatch maintains WCAG-compliant contrast ratios across both Dark Mode (`#090d16` / `#0f172a`) and Light Mode (`#f8fafc` / `#ffffff`). Input fields use high-contrast white text on dark slate backgrounds (`#0f172a`) with blue focus outlines (`#0284c7`), ensuring crisp readability for all dimensional and property controls.
 
 ---
 
 ## 🚀 Core Feature Matrix
 
-### 1. Flipex Studio — Native Visual Creation Engine
-A complete, browser-based visual layout engine allowing users to author professional publications without third-party desktop tools:
+### 1. Flipex Studio — Native Visual Creation Engine (Developer Alpha)
+A complete, browser-based visual layout engine allowing users to author professional publications without third-party desktop tools.
+> [!NOTE]
+> Flipex Studio is currently in **Developer Alpha Preview** (`user.role === 'admin'`) and restricted from general workspaces while undergoing final feature hardening. Non-admin tenants see a descriptive Developer Preview notification card.
+
 - **Document Hub & Starter Templates:** Instant document bootstrapping with blank canvases or prebuilt templates for retail supermarket specials, electronic showcases, school yearbooks, lifestyle magazines, and luxury photo albums.
 - **Catalogue & WhatsApp E-Commerce Mode:**
   - Standard and tech product cards with price badges, original strike-through prices, SKU tags, and specifications callouts.
   - Direct 1-tap WhatsApp buy buttons pre-populated with localized phone numbers (`+679...`) and order inquiry text.
 - **Editorial Magazine Mode:**
   - Balanced 2-column and 3-column article layouts with customizable column gaps.
+  - Linked text frames with character overflow streaming across consecutive pages (`linkedNextId` / `linkedPrevId`).
   - Decorative Drop-Caps and highlighted author bylines with avatar badges.
 - **School & Class Yearbook Mode:**
   - 4-student graduate portrait matrices with academic awards (*Dux of School*, *Sports Captain*, *Head Boy/Girl*), leadership roles, and senior quotes.
@@ -102,27 +118,26 @@ A complete, browser-based visual layout engine allowing users to author professi
   - Romantic polaroid frames with natural handwritten tilt angles (-5° to +5°).
   - Multi-photo collages, shadow frame styles, and memory note caption ribbons.
 - **Automated Publishing Utilities:**
-  - **Auto Running Folio:** Injects running header text and page numbers across spreads.
+  - **Auto Running Folio:** Injects running header text and page numbers across spreads with dynamic token resolution (`{page}`, `{total}`, `{title}`, `{section}`, `{date}`).
   - **Auto Table of Contents (TOC):** Scans document pages and compiles a Table of Contents with dot leaders and jump targets.
   - **CSV Batch Importer:** Rapidly generates entire product catalogues or yearbook graduate rosters from uploaded or pasted CSV data.
 - **Direct Dual-Path Output:**
   - **High-Resolution 300 DPI Print PDF:** Direct vector PDF export endpoint (`/api/v1/studio/documents/{id}/export-pdf?print=1`).
   - **1-Click Flipbook Publishing:** Compiles studio vector DOM/SVG directly into an interactive, mobile-optimized live reader (`/v/:slug`).
 
-### 2. High-Attraction 3-Gradient System & Canvas Workspace
-- **Maximized Center Canvas:**
-  - Collapsible Left Tools sidebar (`⇤ Tools`) and Right Property Inspector (`Inspector ⇥`) free over **575px+** of horizontal space.
-  - Floating quick-restore handles (`▶ Tools` and `Inspector ◀`) on the canvas perimeter permit distraction-free authoring.
+### 2. Dynamic 3-Gradient System & Canvas Workspace
+- **Deduplicated Background Controls (Right Panel Only):**
+  - All background controls reside **exclusively in the right Inspector panel** under `🎨 Page & 3-Gradient`. The left tools drawer contains a clean quick-link to open the Page Inspector, eliminating redundant UI.
+  - **Full 9-Angle Alignment Compass:** Interactive compass supporting `↖ 315°`, `⬆ 0°`, `↗ 45°`, `⬅ 270°`, `⊙ Radial Glow`, `➔ 90°`, `↙ 225°`, `⬇ 180°`, and `↘ 135°`.
+  - **Batch Synchronisation:** 1-click *Apply to All Pages* button instantly applies background styling across the entire publication.
+- **Maximized Desktop Canvas:**
+  - Full widescreen canvas (`100vw` by `100vh`) with collapsible Left Tools sidebar (`⇤ Tools`) and Right Property Inspector (`Inspector ⇥`).
+  - Automatically hides general dashboard rail navigation when inside the Studio canvas.
 - **Auto "Fit to Screen" Scaler:**
   - Integrated **Fit** button calculates container dimensions minus safe margins, automatically framing document spreads at optimal zoom without clipping.
   - Quick zoom presets (`-`, `+`, `Fit`, and 30% to 200% scale).
-- **Radial Velvet Canvas Stage:**
-  - Canvas board floats on an elevated stage (`radial-gradient(ellipse, #172033 0%, #090d16 100%)`) with multi-layer shadow elevation (`0 25px 65px -12px rgba(0,0,0,0.8)`).
-  - Floating bottom status indicator displaying page orientation, point dimensions, active scale, and page counter.
-- **Contextual Property Inspector:**
-  - **Layer Ordering:** Real-time z-index controls (*▲ Bring Forward* / *▼ Send Backward*).
-  - **Typography Selector:** Instant switching between Modern Sans (*Inter*), Editorial Serif (*Playfair Display*), Technical Mono (*Courier New*), Handwritten Script (*Dancing Script*), and Impact Display (*Oswald*), with 4-way text alignment (`⇤`, `≡`, `⇥`, `↔`).
-  - **Live WhatsApp Testing:** Active *Test WhatsApp Ordering Link ↗* generator verifying URL encoding, product name, price, and SKU in a live test tab.
+- **High-Contrast Inspector Inputs:**
+  - Form inputs (`X`, `Y`, `W`, `H`, rotation, font size) feature pure white typography (`#ffffff`, font-weight 700) on `#0f172a` slate inputs with `#0284c7` focus rings.
 
 ### 3. Interactive 3D Flipbook Reader
 - **Physics-Based Page Turns:** Realistic 3D mesh curvature and hardcover simulation powered by StPageFlip with custom crease, spine, and shadow highlights.
@@ -181,51 +196,54 @@ A complete, browser-based visual layout engine allowing users to author professi
   - ⚡ **Poppler pdftoppm CLI:** Ultra-fast vector renderer for dedicated Linux cloud servers.
   - 🔄 *Automatic Failover:* Detects installed binaries and seamlessly routes through available drivers.
 - **Strict PDF Pre-Flight Validation:**
-  - Validates `%PDF-` magic header bytes.
-  - Independently validates the `%%EOF` trailer marker to reject truncated uploads.
+  - Validates `%PDF-` magic header bytes and `%%EOF` trailer marker.
   - Detects and rejects password-encrypted PDFs.
-  - Enforces plan limits against both metadata and the actual rendered page count to prevent limit bypasses.
+  - Enforces plan limits against both metadata and the actual rendered page count.
 - **On-Demand Level 3 High-Resolution Rendering:**
-  - 280 DPI ultra-high-resolution zooms rendered on demand.
-  - Protected with non-blocking per-page file locks (`flock(LOCK_EX | LOCK_NB)`).
+  - 280 DPI ultra-high-resolution zooms rendered on demand with non-blocking per-page file locks (`flock(LOCK_EX | LOCK_NB)`).
 
 ### 9. High-Concurrency Job Queue & Worker Daemon
 - **Atomic Queue Claiming:** MySQL 8 `SKIP LOCKED` (with transaction fallback for MariaDB) guarantees workers never claim duplicate jobs.
-- **Renewable 5-Minute Leases & Heartbeats:** Every job is bound to a `worker_id` and given a 5-minute lease. Long conversions issue progress heartbeats that renew `lease_expires_at`, preventing stale lock takeover.
-- **Tenant Fairness:** Enforces `JOB_MAX_PER_TENANT` (default: 2 concurrent conversions per tenant), preventing queue starvation.
+- **Renewable 5-Minute Leases & Heartbeats:** Every job is bound to a `worker_id` and given a 5-minute lease. Long conversions issue progress heartbeats renewing `lease_expires_at`.
+- **Tenant Fairness:** Enforces `JOB_MAX_PER_TENANT` (default: 2 concurrent conversions per tenant).
 - **Graceful Shutdown:** Handles `SIGTERM` and `SIGINT` signals, finishing the current page conversion before cleanly exiting.
 
 ### 10. Multi-Tenant Customer Isolation Architecture
 - **Strict Database Scoping:** All queries touching publications, pages, hotspots, or API keys are validated against `tenant_id` via `TenantScope` middleware and `TenantContext::requireId()`.
 - **Zero Default Fallback:** Prohibits implicit fallback to `tenant_id = 1` or unauthenticated defaults.
 - **Filesystem Isolation:** All files are strictly partitioned under `/storage/tenants/{tenant_id}/publications/{flipbook_id}/`.
-- **Storage Registry:** Real-time tracking of file sizes, SHA-256 hashes, and verification timestamps in `tenant_storage_objects`.
-- **Transactional Outbox Pattern:** Application state changes and webhook events are committed atomically within one transaction via `outbox_events` and drained by `outbox_worker.php`.
+- **Transactional Outbox Pattern:** Application state changes and webhook events are committed atomically via `outbox_events` and drained by `outbox_worker.php`.
 
 ### 11. Enterprise Security, Cryptographic Hardening & Production Gates
-- **Automated Runtime CSPRNG Secrets:** Automatically provisions 256-bit cryptographically secure secrets via `bin2hex(random_bytes(32))` stored in protected `.crypto_secrets.json`, rejecting weak placeholders.
+- **Automated Runtime CSPRNG Secrets:** Automatically provisions 256-bit cryptographically secure secrets via `bin2hex(random_bytes(32))` stored in protected `.crypto_secrets.json`.
 - **Scoped API Key Enforcement:** SHA-256 hashed API keys enforced through RBAC permissions (`flipbooks:read`, `flipbooks:write`, `erp:publish`, `analytics:read`).
-- **Session Families & Token Replay Defense:** Replay of an already-consumed refresh token immediately revokes that device's entire session family and logs a critical security alert.
 - **Two-Factor Authentication (2FA):** RFC 6238 TOTP Authenticator apps and transactional Email OTP.
-- **Production Hardening Gates:**
-  - Strict database transaction rollback handling (`if (Db::pdo()->inTransaction())`).
-  - Atomic Redis cache locks via UUID tokens and atomic Lua script releases.
-  - Atomic filesystem lock fallbacks (`flock(LOCK_EX | LOCK_NB)`).
-  - Cloudflare R2 / AWS S3 cloud storage adapters with stream chunking.
 
-### 12. Enterprise Integrations Hub
+### 12. Developer Session Security & Inactivity Center
+- **Configurable JWT Access Token Lifetime:**
+  - Managed dynamically via `SessionSecurity.php` and persisted in `system_settings`.
+  - Default: **1 hour (3600s)**. Presets available: 15 min (Strict), 1 hour (Balanced), 4 hours (Studio), 24 hours (Extended).
+- **Token Rotation Grace Window (30s):**
+  - Solves autosave race conditions. When multiple asynchronous requests (e.g., debounced studio saves) fire concurrently, tokens refreshed within the 30-second window are honored without false replay revoking.
+- **Automated Keep-Alive Heartbeat:**
+  - Active 4-minute heartbeat in `AuthContext.tsx` pinging `/api/v1/auth/keepalive`, renewing tokens and preventing drops during intense authoring sessions.
+- **DevOps Management Tab (`/devops`):**
+  - Dedicated **Session Security & Expiration** sub-tab showing live metrics for Active Token Grants, Session Families, Replay Revocations, Cookie SameSite policies, and Inactivity Idle Timeouts.
+  - Emergency One-Click Action: *Revoke All Platform Sessions*.
+
+### 13. Enterprise Integrations Hub
 - **RESTful API Keys:** Create, rotate, and revoke scoped API keys with rate-limiting.
 - **Webhooks Engine:** Real-time outbound HTTP webhooks signed with `HMAC-SHA256` in the `X-Flipex-Signature` header.
 - **Directory & SSO Connectors:** LDAP / Active Directory and SAML 2.0 Single Sign-On configurations.
 - **WordPress Integration:** Bundled official Nuvis Flipex WordPress plugin for embedding flipbooks via shortcode `[flipex id="..."]`.
 - **ERP Catalogue Synchronization:** Automated ingestion endpoint for corporate catalogues (`/api/v1/integrations/erp/publish-catalogue`).
 
-### 13. Commercial Billing, Tax Invoicing & Fiji Bank Reconciliation
+### 14. Commercial Billing, Tax Invoicing & Fiji Bank Reconciliation
 - **Tenant Subscription Portal:** Self-service plan upgrades, billing cycles (Monthly, Quarterly, Annual), and usage meter tracking.
 - **Three-Stage Secure Payment Architecture:** Customer Payment Submission $\rightarrow$ Verification (Webhook or Finance Confirmation) $\rightarrow$ Atomic Subscription Activation.
 - **Fiji Commercial Invoicing:** TIN/VAT registration compliance (`FJ-TIN`), official PDF tax invoice generation, and bank payment reconciliation (BSP, ANZ, Westpac).
 
-### 14. DevOps Telemetry, Health Monitoring & Backups
+### 15. DevOps Telemetry, Health Monitoring & Backups
 - **System Telemetry:** Live CPU utilization, system memory, disk quotas, and document conversion latency.
 - **Dead Letter Queue (DLQ):** Failed job inspection, payload review, error stack traces, and manual/automatic retry.
 - **Central Exception Reporter:** Structured JSONL logging (`backend/storage/logs/flipex.jsonl`) capturing stack traces and tenant context.
@@ -237,29 +255,47 @@ A complete, browser-based visual layout engine allowing users to author professi
 
 The following notable updates, bug fixes, and architectural hardening milestones have been deployed across recent release cycles:
 
+### Release `2ad0a38` — Developer Session Security Suite, Background Deduplication, Alpha Access Governance & Zero-Purple UI Standard
+- **Developer Tab Session Security & Expiration Policies:**
+  - Built `SessionSecurity.php` providing configurable JWT access token TTL (default: 3600s / 1 hr), refresh token retention (30 days), and inactivity timeouts (24h).
+  - Integrated a **30-second token rotation grace window** in `AuthController.php`, preventing false-positive token replay lockouts caused by rapid asynchronous autosave requests during studio editing.
+  - Added `GET /api/v1/auth/keepalive` endpoint and an active 4-minute keepalive heartbeat in `AuthContext.tsx`.
+  - Added a dedicated **🔐 Session Security & Expiration** sub-tab in `DevOpsCenter.tsx` with live telemetry counters (Active Token Grants, Session Families, Replay-Protected Revocations), parameter configuration, and an emergency platform session revocation action.
+- **Deduplication of Background Controls (Right Panel Only):**
+  - Completely removed the duplicated 370-line background generator section from the left magazine drawer in `FlipexStudio.tsx`.
+  - Background controls (3-Gradient generator with all 9 alignment angles + solid color swatches) now reside **exclusively in the right Inspector panel** under `🎨 Page & 3-Gradient`.
+  - Added a clean, compact quick-link in the left magazine drawer allowing users to jump directly to the right inspector tab.
+- **Developer Alpha Access Governance:**
+  - Restricted `/studio` and `/studio/:id` to platform developers and administrators (`user.role === 'admin'`) in `ProtectedRoute.tsx`.
+  - Studio link in the sidebar rail is only visible to admin accounts. Non-admin users attempting access are blocked with an informative Developer Alpha Preview card.
+  - Studio topbar badge updated to `🛠️ DEVELOPER PREVIEW (ALPHA)`.
+- **100% Purple Color Elimination:**
+  - Systematically purged all purple hex codes (`#a855f7`, `#7c3aed`, `#6366f1`, `#c084fc`, etc.) across `FlipexStudio.tsx` and `styles.css`.
+  - Replaced all buttons, active outlines, focus rings, sliders, and badges with **Nuvis Dynamic Ocean Blue (`#0284c7`, `#0369a1`)**, **Emerald (`#059669`)**, and **Titanium Slate (`#1e293b`)**.
+  - Replaced purple gradient presets with clean palettes: `Pacific Azure`, `Sunset Ember`, `Tropical Emerald`, `Ocean Abyss`, `Nordic Slate`, `Clean Frost`, `Warm Parchment`, and `Midnight Noir`.
+- **High-Contrast Inspector Input Readability:**
+  - Standardized `.studio-prop-input` and `.studio-prop-select` styling with pure white text (`#ffffff`, font-weight 700) on `#0f172a` slate inputs with `#0284c7` focus rings, ensuring high visibility for all position and dimensional coordinates.
+
 ### Release `e276426` — High-Attraction 3-Gradient UI & Studio Canvas Expansion
-- **Eliminated Flat Blue Buttons:** Converted all primary, secondary, and tertiary action buttons across the Studio to 5 high-attraction 3-stop linear gradient variants (*Cosmic Aurora*, *Tropical Emerald*, *Sunset Radiance*, *Royal Orchid*, *Ocean Teal Glow*).
-- **Collapsible Studio Panels:** Added collapsible Left Tools (`⇤ Tools`) and Right Property Inspector (`Inspector ⇥`) panels, increasing center canvas width from ~600px to over 1,200px+ with floating edge re-open handles.
+- **Eliminated Flat Blue Buttons:** Converted all primary, secondary, and tertiary action buttons across the Studio to 5 high-attraction 3-stop linear gradient variants.
+- **Collapsible Studio Panels:** Added collapsible Left Tools (`⇤ Tools`) and Right Property Inspector (`Inspector ⇥`) panels, increasing center canvas width to over 1,200px+ with floating edge re-open handles.
 - **Auto "Fit to Screen" Scaler:** Added dynamic viewport calculation in the studio header zoom bar, auto-scaling document spreads to fit the available container cleanly.
 - **Contextual Inspector Upgrades:** Added Layer Z-Index ordering (*▲ Bring Forward* / *▼ Send Backward*), Typography Selector (5 curated font families), 4-way text alignment, and a live WhatsApp test link generator.
 
 ### Release `276ba17` & `ed76be6` — PHP 8.3 Strict Typing & Transaction Safety
-- **Strict Audit Parameter Fix:** Corrected parameter ordering in `Audit::log($action, $entityType, $entityId, ...)` inside `StudioController.php` to resolve PHP 8.3 `strict_types=1` `TypeError` where integer tenant IDs were passed in place of action strings.
+- **Strict Audit Parameter Fix:** Corrected parameter ordering in `Audit::log($action, $entityType, $entityId, ...)` inside `StudioController.php` to resolve PHP 8.3 `strict_types=1` `TypeError`.
 - **Transaction Rollback Safety:** Wrapped all database rollback calls in `if (Db::pdo()->inTransaction())` to eliminate uncaught `PDOException: There is no active transaction` during error handling.
 - **Studio Header Wrap Fix:** Removed `flexWrap: 'wrap'` from the studio header, ensuring single-line desktop layout without button overlapping.
 - **Background Swatch Grid:** Replaced full-width white bars with clean 4-column color swatch grids.
 
 ### Release `2026-11-18` — Expansive Desktop Workspace, High-Contrast Inspector & 3-Gradient Studio Suite
-- **Full-Width Desktop Canvas Workspace (Zero Margins):** Unconstrained the studio route from container limits (`.studio-shell`, `.studio-body`, `.app-main-studio` at `100vw` by `100vh`), automatically hiding the general dashboard sidebar rail and topbar when in studio canvas mode. Eliminates all side whitespace on desktop widescreen displays and maximizes creative canvas workspace.
+- **Full-Width Desktop Canvas Workspace (Zero Margins):** Unconstrained the studio route from container limits (`.studio-shell`, `.studio-body`, `.app-main-studio` at `100vw` by `100vh`), automatically hiding the general dashboard sidebar rail and topbar when in studio canvas mode. Eliminates all side whitespace on desktop widescreen displays.
 - **Auto-Fit Viewport Scaling:** Automatically scales canvas zoom on document load and panel collapse, maximizing document preview and visual ergonomics.
-- **High-Contrast Inspector Inputs & Typography:** Standardized `.studio-prop-input`, `.studio-prop-select`, `.studio-prop-textarea` with `-webkit-text-fill-color: #ffffff !important` and `#0f172a` slate background to prevent browser autofill or light mode darkening. Added a 1-tap `🌓 Flip Light/Dark` text contrast toggle, bright bold coordinate labels (`X (pt)`, `Y (pt)`, `W (pt)`, `H (pt)`), and 7 instant high-contrast text color swatches.
-- **3-Gradient Page Background Suite (Directly in Magazine Tab & Inspector):**
-  - **Embedded in Magazine Tools:** Instant access directly inside the `📖 Magazine` sidebar tab without needing to switch tabs or deselect elements.
+- **3-Gradient Page Background Suite (Directly in Inspector):**
   - **All 9 Gradient Alignment Options:** 3x3 interactive compass grid (`↖ 315°`, `⬆ 0°`, `↗ 45°`, `⬅ 270°`, `⊙ Radial Glow`, `➔ 90°`, `↙ 225°`, `⬇ 180°`, `↘ 135°`).
   - **3 Color Gradient Stops:** Independent color pickers and hex inputs for Stop 1 (0%), Stop 2 (50%), and Stop 3 (100%).
-  - **8 Curated Presets:** Instant 1-click palettes (Tropical Emerald, Cosmic Aurora, Sunset Radiance, Ocean Abyss, Royal Orchid, Clean Frost, Warm Parchment, Midnight Obsidian).
   - **Apply to All Pages:** 1-click batch application synchronizing background styling across the entire publication.
-  - **Adaptive High-Contrast Article Text:** Automatically defaults multi-column magazine articles and text blocks to crisp pure white (`#F8FAFC`) on dark/gradient backgrounds instead of hardcoded charcoal.
+  - **Adaptive High-Contrast Article Text:** Automatically defaults multi-column magazine articles and text blocks to crisp pure white (`#F8FAFC`) on dark/gradient backgrounds.
 - **Backend Print & PDF Export Support:** Upgraded `StudioController.php` print generator to render CSS gradients and solid backgrounds seamlessly in print previews and vector PDFs.
 
 ### Release Stage 6 — Specialized Magazine Creator & Publish/Preview Healing
@@ -270,104 +306,45 @@ The following notable updates, bug fixes, and architectural hardening milestones
 - **Publish & Live Reader Auto-Heal Fix:** Synchronized `status = 'ready'`, `workflow_status = 'published'`, and `published_at = IFNULL(published_at, NOW())` in `StudioController.php` and `PublicController.php` to prevent preview/reader 404 errors.
 
 ### Release Stages 7, 8 & 9 — Specialized Album & Yearbook Creator, Publishing Pipeline & Brand Kits
-- **Bulk Photo Ingestion & Keepsake Albums (Stage 7):**
-  - Multi-file drag-and-drop dropzone in the Album tab with staged memory thumbnail gallery.
-  - **4 Instant Collage Generators:** *Polaroid Scatter* (randomized -3° to +3° tilts, drop-shadows, white borders, handwritten captions), *Modern Mosaic* (asymmetric masonry hero + stacked cells), *Clean 3x3 Photo Grid* (balanced 9-photo memory grid), and *Full-Bleed Photo Hero Spread*.
-- **Graduate & Student Roster Engine (Stage 7):**
-  - Instant graduate portrait roster presets: 4-Student Classic (2x2), 6-Student Standard (2x3), 8-Student Compact (2x4), and 12-Student Directory (3x4).
-  - High-contrast student cards with portrait photo, academic award badges (`Dux`, `Valedictorian`, `Leadership`, `Top in STEM`, `Arts Excellence`), student name, leadership role, and senior quote.
-  - Multi-page paginated CSV bulk roster import with automatic pagination (4, 6, 8, 12 cards/page) that auto-creates continuation pages.
-- **Print Resolution Protection (DPI Guard - Stage 7):**
-  - Real-time element DPI calculation (`dpi = Math.round(naturalW / (w / 72))`).
-  - Overlay warning badges directly on canvas images scaled beyond safe print thresholds (`⚠️ <150 DPI`).
-  - Pre-Flight `🛡️ DPI Guard` Inspection Modal in top toolbar scanning all document images, showing pixel dimensions, print size in inches, calculated DPI, and 1-click jump to element.
-- **Debounced Document-Wide Autosave & Crash Recovery (Stage 8):**
-  - Atomic document-wide saving debounced at 1.5 seconds after user inactivity with revision incrementing (`/studio/documents/{id}/autosave`).
-  - Real-time `localStorage` recovery snapshot with automatic crash recovery banner and 1-click "Restore Draft".
-  - Topbar autosave status indicator: `☁️ Saved` / `⏳ Saving…` / `⚠️ Offline`.
-- **Unified High-Fidelity Rendering Pipeline (Stage 8):**
-  - Canonical `renderPageToSvg()` vector compositor compiling full-fidelity composite SVG pages (gradients, typography, drop caps, multi-column articles, polaroids, rosters, and products) directly into the flipbook publication pipeline.
-- **Background Export Queue & Jobs (Stage 8):**
-  - Asynchronous background export queue table `studio_export_jobs` with `/studio/export/queue` and `/studio/export/status` endpoints.
-  - Export modal offering Instant Vector Print Dialog (Browser Print) and 300 DPI Background Worker Job with progress bar and download links.
-- **Brand Kits & Design Tokens (Stage 9):**
-  - Workspace Brand Kits integration via `/api/brand-kits` with dedicated modal.
-  - 1-Click "Apply Brand Kit to Publication" dynamically re-theming fonts, accent colors, and background gradients across all pages.
-  - "Save Publication Style as Brand Kit" allowing authors to save custom publication design tokens directly to the workspace.
-- **Commercial Tier Packaging (Stage 9):**
-  - Commercial tier badge `[🏢 ENTERPRISE]` in top toolbar with plan entitlement inspection.
-- **Master Pages & Dynamic Headers:** 3 prebuilt Master Page suites (Glossy Editorial, Modern Minimalist, Spread Alternating Folios) with real-time token resolution engine replacing `{page}`, `{total}`, `{title}`, `{section}`, and `{date}`.
-- **Automated Dynamic Table of Contents (TOC):** Scans editorial headings across all document pages and generates an editorial TOC with dotted leaders, in-studio jump clicks, and automatic flipbook `page` hotspot generation.
-- **Studio Publishing / Preview Auto-Heal Fix:** Fixed the 404 `"This flipbook doesn't exist or isn't published"` error by synchronizing `workflow_status = 'published'`, auto-healing legacy `approved` flipbooks with `published_at` timestamps, streaming external URLs/data URIs directly, and enhancing the publish modal with dual "Dashboard Preview 👁️" and "Open Live Reader ↗" 3-gradient action buttons.
-- **High-Contrast Typography & Desktop Layout Expansion:** Rebuilt studio input styling and desktop container hierarchy, ensuring zero wasted whitespace on wide displays and high-contrast, visible text across Position & Dimensions (X, Y, W, H), color hex pickers, and property controls.
+- **Bulk Photo Ingestion & Keepsake Albums (Stage 7):** Multi-file drag-and-drop dropzone in the Album tab with staged memory thumbnail gallery and 4 instant collage generators (*Polaroid Scatter*, *Modern Mosaic*, *Clean 3x3 Photo Grid*, *Full-Bleed Photo Hero Spread*).
+- **Graduate & Student Roster Engine (Stage 7):** Instant graduate portrait roster presets (4, 6, 8, 12 cards/page) with portrait photo, academic award badges, student name, leadership role, senior quote, and multi-page CSV bulk import.
+- **Print Resolution Protection (DPI Guard - Stage 7):** Real-time element DPI calculation (`dpi = Math.round(naturalW / (w / 72))`), canvas warning badges (`⚠️ <150 DPI`), and pre-flight `🛡️ DPI Guard` Inspection Modal.
+- **Debounced Document-Wide Autosave & Crash Recovery (Stage 8):** Atomic document-wide saving debounced at 1.5 seconds with revision incrementing, real-time `localStorage` recovery snapshot, crash recovery banner, and topbar status indicator (`☁️ Saved` / `⏳ Saving…` / `⚠️ Offline`).
+- **Unified High-Fidelity Rendering Pipeline (Stage 8):** Canonical `renderPageToSvg()` vector compositor compiling full-fidelity composite SVG pages directly into the flipbook publication pipeline.
+- **Background Export Queue & Jobs (Stage 8):** Asynchronous background export queue table `studio_export_jobs` with `/studio/export/queue` and `/studio/export/status` endpoints.
+- **Brand Kits & Design Tokens (Stage 9):** Workspace Brand Kits integration via `/api/brand-kits` with 1-click styling synchronization and custom brand token saving.
 
 ### Release Stage 5 — Specialized Catalogue Creator & Dynamic Inventory Sync
-- **1-Tap Product Grid Generators:** 5 commercial layout generators: 1-Product Hero Showcase (specs, trust guarantees & QR code), 2-Product Split Spread (dual flagship comparisons), 3-Product Balanced Tier (top hero + dual companion accessories), 4-Product Standard Grid (2x2 symmetrical commercial specials), and 6-Product Supermarket Specials (2x3 FMCG grocery flyer with discount badges).
-- **Live Inventory CSV Integration & Auto-Pagination:** Paginated multi-page catalogue generation from CSV data with layout density selection (4 or 6 products per page), automatically provisioning pages across the document.
+- **1-Tap Product Grid Generators:** 5 commercial layout generators: 1-Product Hero Showcase, 2-Product Split Spread, 3-Product Balanced Tier, 4-Product Standard Grid, and 6-Product Supermarket Specials.
+- **Live Inventory CSV Integration & Auto-Pagination:** Paginated multi-page catalogue generation from CSV data with layout density selection (4 or 6 products per page).
 - **Dynamic Flash Markdown Tool:** Instant percentage price markdowns across active page or entire catalogue (10%, 15%, 20%, 25%, 30%, 50%) with 1-click pricing restoration.
-- **In-Place SKU Price Sync:** Dynamic inventory sync from CSV (`SKU,Price,WasPrice,Badge,StockStatus`) that matches products across all pages and updates pricing and badges in-place without disturbing layout, fonts, or graphic compositions.
-- **Normalized Reader Hotspots:** Studio publish pipeline compiles product elements and WhatsApp buttons into normalized percentage reader coordinates (`0.0%` - `100.0%`) for responsive alignment, embedding pre-filled WhatsApp click-to-chat links with SKU and product details.
+- **In-Place SKU Price Sync:** Dynamic inventory sync from CSV that matches products across all pages and updates pricing and badges in-place without disturbing layout, fonts, or graphic compositions.
+- **Normalized Reader Hotspots:** Studio publish pipeline compiles product elements and WhatsApp buttons into normalized percentage reader coordinates (`0.0%` - `100.0%`) for responsive alignment.
 
 ### Release Stage 4 — Flipex Studio Template Platform & Discovery Browser
 - **10 Commercial Template Categories:** Integrated prebuilt multi-page templates across Retail/Supermarkets, Tech/Electronics, Food/Menus, Real Estate, School Yearbooks, Lifestyle Magazines, Wedding Albums, Annual Reports, Marketing Brochures, and Creative Portfolios.
 - **Template Discovery Hub:** Dedicated browser with category filter pills, keyword search, format selection, and official vs. custom team template scoping.
 - **Interactive Multi-Page Preview Modal:** Interactive page-by-page inspection sheet with thumbnail carousel, commercial layout specifications, and 1-click document bootstrapping.
-- **Save as Reusable Template Workflow:** Direct API endpoint (`POST /studio/templates`) and in-editor modal allowing users to save custom publications as organization templates with commercial category tagging.
-
-### Release `ea2bc35` — Flipex Studio Stage 3: Complete Contextual Inspector Suite
-- **Typography & Web-Fonts:** Embedded 9 curated Google Web-Fonts (`Inter`, `Playfair Display`, `Montserrat`, `Lora`, `Cinzel`, `Oswald`, `Dancing Script`, `Fira Code`, `Bebas Neue`) with B/I/U/S/TT formatting action bar, line-height, letter-spacing, text-shadow presets, multi-column count, and decorative drop-caps.
-- **Image Frame & Creative Filters:** Integrated object-fit modes (`cover`, `contain`, `fill`), real-time 300 DPI print quality validator badge, creative filter sliders (brightness, contrast, saturation, soft blur, grayscale monochrome toggle), and Unsplash photo presets.
-- **Vector Geometry & 3-Gradient Fills:** Implemented vector shape geometry (rectangle, pill, circle), solid vs 3-gradient fill mode with 8-direction compass presets (0°, 45°, 90°, 135°, 180°, 225°, 270°, radial), border styles (solid, dashed, dotted), border color, and corner radius.
-- **Commercial Product Card Specs:** Deconstructed product card editor with selling price, was-price, promo splash badges, stock status tags (`In Stock`, `Low Stock`, `Sold Out`), 5-star customer rating selector, WhatsApp 1-tap ordering link builder, and direct QR code toggle.
-
-### Release `65c7d21` — Flipex Studio Stage 2: Core Design Engine & Workspace Rebuild
-- **8-Handle Transform & Proportional Resizing:** Added full directional resize handles (`tl`, `tc`, `tr`, `mr`, `br`, `bc`, `bl`, `ml`) with aspect ratio preservation via Shift-drag.
-- **Interactive Rotation & Snap Guides:** Integrated rotation stem & knob with live degree tooltip and 45° angle snapping, complemented by cyan magnetic snap guidelines across page margins and sibling elements.
-- **Multi-Selection & Undo/Redo Stack:** Added multi-element selection via Shift-click and empty-canvas rubberband marquee box, paired with a 50-state undo/redo history engine (`Ctrl+Z`, `Ctrl+Y`).
-- **Full Viewport Expansion:** Eliminated desktop sidebar whitespace with unconstrained `.app-main-studio` flex layout and high-contrast dark indigo inspector inputs.
-- **Backend Document Creation Fix:** Corrected PDO prepared statement parameter count in `StudioController.php` `INSERT INTO studio_documents` and hardened `ensureSchema()` sequence execution.
-
-### Release `753034c` — Light Mode Visibility & Contrast Polish
-- **Color Contrast Enforcement:** Resolved text and icon visibility issues across Flipex Studio gallery and canvas workspace in Light Mode.
-- **Border & Background Refinements:** Added explicit border and background variables ensuring crisp element boundaries against white backdrops.
-
-### Release `7762184` & `746ff36` — Flipex Studio Creation Modes & Vector PDF Export
-- **Specialized Creation Modes:** Built Catalogue Mode, Magazine Mode, Yearbook Mode, and Keepsake Album Mode with dedicated layout components.
-- **Auto-Folio & Auto-TOC:** Implemented automated running headers and dynamic Table of Contents compilation.
-- **300 DPI Vector PDF Export:** Implemented standalone vector PDF export endpoint (`/studio/documents/{id}/export-pdf?print=1`).
-- **Direct Flipbook Publishing:** Integrated 1-click publishing compiling Studio DOM/SVG documents directly into interactive flipbooks.
-
-### Release `0a8ea67` & `ff45dae` — Production Hardening, Geographics & Viewer Layering
-- **Precision Fiji Geolocation:** Refined IP geolocation resolver to accurately identify Fiji and South Pacific visitors, eliminating false US country classifications.
-- **Fiji Timezone Standardization:** Defaulted display timestamps to Fiji Time (`Pacific/Fiji`) while standardizing backend database records in UTC.
-- **Laser Pointer Z-Index Overlay:** Fixed Virtual Laser Pointer layering in Classroom Presentation Mode so the laser beam remains visible over 3D page meshes.
-- **Drawer Overlap Resolution:** Corrected side-navigation z-index preventing clipping on Table of Contents and Study Note modals.
-- **Atomic Cache Locks:** Implemented UUID ownership validation and Lua script release for Redis locks, paired with atomic `flock` filesystem fallback.
-- **Cloud Storage (S3/R2):** Deployed complete native S3/Cloudflare R2 storage adapter with chunked streaming and zero hardcoded secret fallbacks.
-
-### Release `9e5d64c`, `274806b` & `6bf9837` — Commercial, Educational & Pacific Expansion
-- **Pacific Regional Directory:** Deployed `/directory` portal with multi-category search and verified merchant profiles.
-- **Commercial Storefronts:** Deployed public business profiles (`/b/:tenant_slug`) and commercial lead inquiry modals.
-- **Educational Publishing:** Deployed school portals (`/edu/:tenant_slug`), student study notes drawer, and classroom presentation mode.
+- **Save as Reusable Template Workflow:** Direct API endpoint (`POST /studio/templates`) and in-editor modal allowing users to save custom publications as organization templates.
 
 ---
 
 ## 🏛️ System Architecture & Technology Stack
 
 ```
-                               +-------------------------------------------+
-                               |              Nuvis Flipex Web             |
-                               |   React 18 · TypeScript · Vite · BoardUI  |
-                               +---------------------+---------------------+
-                                                     | REST API (JSON)
-                                                     v
-                               +-------------------------------------------+
-                               |           PHP 8.3 Slim 4 Gateway          |
-                               |  Controllers · Auth · TenantScope · Mailer|
-                               +----------+--------------------+-----------+
-                                          |                    |
-                  +-----------------------+                    +-----------------------+
-                  v                                                                    v
+                              +-------------------------------------------+
+                              |              Nuvis Flipex Web             |
+                              |   React 18 · TypeScript · Vite · BoardUI  |
+                              +---------------------+---------------------+
+                                                    | REST API (JSON)
+                                                    v
+                              +-------------------------------------------+
+                              |           PHP 8.3 Slim 4 Gateway          |
+                              |  Controllers · Auth · TenantScope · Mailer|
+                              +----------+--------------------+-----------+
+                                         |                    |
+                  +----------------------+                    +----------------------+
+                  v                                                                  v
 +------------------------------------+                               +------------------------------------+
 |          MySQL 8.4 Database        |                               |        Background Workers          |
 |  - Multi-Tenant Data Isolation     |                               |  - JobRunner (SKIP LOCKED Leases)  |
@@ -380,13 +357,14 @@ The following notable updates, bug fixes, and architectural hardening milestones
 | Component | Technology | Description |
 |---|---|---|
 | **Frontend Framework** | React 18.3, TypeScript 5.5 | SPA built on BoardUI primitives, React Router 6, and Vite 5. |
-| **Creation Engine** | Flipex Studio (DOM/SVG Canvas) | Browser-based visual layout engine with drag-and-drop, snap-to-grid, and print bleeds. |
+| **Creation Engine** | Flipex Studio (DOM/SVG Canvas) | Browser-based visual layout engine with drag-and-drop, snap-to-grid, and print bleeds (Developer Alpha). |
 | **Viewer Engine** | StPageFlip + Canvas 2D | 3D physics-based book-turn simulation with adaptive DPR and sliding image windowing. |
 | **Backend Framework** | PHP 8.3+, Slim 4, PSR-7 / PSR-15 | RESTful API gateway with token auth, tenant isolation, and rate-limiting. |
 | **Database** | MySQL 8.0 / 8.4 Enterprise | InnoDB with composite foreign keys, JSON coordinate columns, and `SKIP LOCKED`. |
 | **PDF Rasterization** | Ghostscript (`gs`), Poppler (`pdftoppm`), Imagick | Multi-engine high-fidelity rasterizer producing WebP, AVIF, and high-res JPEG assets. |
 | **Print PDF Generation** | Vector Headless Compiler | Direct vector 300 DPI PDF generation for commercial print readiness. |
 | **Cryptographic Security** | Argon2id, CSPRNG, RFC 6238 TOTP | Password hashing, token encryption, and HMAC-SHA256 signature verification. |
+| **Session Security** | SessionSecurity Service, HS256 JWT, Keepalive Heartbeat | Configurable JWT lifetime, 30s token rotation grace window, and active keepalive. |
 | **Transactional Mail** | PHPMailer 6.9, SMTP SSL/TLS | Responsive HTML transactional emails with local file logging fallbacks. |
 
 ---
@@ -413,11 +391,11 @@ Nuvis-Flipex/
 │   │   ├── index.php                  # API gateway entry point & SSR OpenGraph router
 │   │   └── .htaccess                  # Slim URL rewrite rules
 │   ├── src/
-│   │   ├── Controllers/               # StudioController, CommercialController, EduController, etc.
+│   │   ├── Controllers/               # StudioController, DevOpsController, AuthController, etc.
 │   │   ├── Database/                  # Migration classes and schema builders
 │   │   ├── Infrastructure/            # MigrationRunner, ObjectStorageAdapter, Central Exception Reporter
 │   │   ├── Middleware/                # Auth, Cors, RateLimit, TenantScope
-│   │   └── Support/                   # Audit, CryptoSecrets, Db, JobRunner, PdfRenderer, Storage, etc.
+│   │   └── Support/                   # Audit, CryptoSecrets, Db, JobRunner, SessionSecurity, Storage, etc.
 │   ├── storage/
 │   │   ├── .crypto_secrets.json       # Protected 256-bit provisioned encryption secrets
 │   │   ├── logs/                      # Structured JSONL application logs
@@ -427,12 +405,12 @@ Nuvis-Flipex/
 └── frontend/
     ├── src/
     │   ├── api/                       # API client with token interceptors
-    │   ├── auth/                      # Authentication provider & 2FA state
-    │   ├── components/                # BoardUI primitives, FlipbookViewer, HotspotEditor, Studio
+    │   ├── auth/                      # Authentication provider, 2FA state & keepalive heartbeat
+    │   ├── components/                # BoardUI primitives, FlipbookViewer, HotspotEditor, ProtectedRoute
     │   │   └── viewer/adaptiveLoading # Memory & network-aware image preloading & DPR clamping
-    │   ├── pages/                     # FlipexStudio, Dashboard, PublicViewer, PublicDirectory, EduPortal, etc.
+    │   ├── pages/                     # FlipexStudio, DevOpsCenter, Dashboard, PublicViewer, EduPortal, etc.
     │   ├── main.tsx                   # Lazy-loaded route boundaries & Suspense wrappers
-    │   └── styles.css                 # BoardUI tokens & 3-Gradient High-Attraction suite
+    │   └── styles.css                 # BoardUI tokens & Dynamic 3-Gradient High-Attraction suite
     ├── package.json                   # NPM dependencies
     └── vite.config.ts                 # Vite bundler configuration & manual chunking
 ```
@@ -457,7 +435,7 @@ Nuvis Flipex features a fully managed, versioned migration pipeline tracked in `
 | **`2026_11_17_000010_commercial_leads_and_biz_storefront`** | Public business storefronts (`business_profiles`) and commercial buyer lead inquiries (`inquiries`). |
 | **`2026_11_17_000011_educational_publishing`** | Educational institutional portals, classroom curriculum modules, and student study notes. |
 | **`2026_11_17_000012_pacific_directory_and_ads`** | Pacific business directory listings and self-serve advertising campaign marketplace. |
-| **`2026_11_17_000013_flipex_studio_schema`** | Complete Flipex Studio schema: `studio_documents`, `studio_document_pages`, `studio_templates`, `studio_assets`, `studio_publications`. |
+| **`2026_11_17_000013_flipex_studio_schema`** | Complete Flipex Studio schema: `studio_documents`, `studio_document_pages`, `studio_templates`, `studio_assets`, `studio_publications`, `studio_export_jobs`. |
 
 To run all pending migrations:
 ```bash
@@ -571,7 +549,7 @@ php backend/bin/outbox_worker.php
 
 ### 3. Analytics Maintenance & Cleanup
 Maintains high-volume event tables and prunes stale temporary records:
-```bash
+```cron
 0 2 * * * php /home/username/flipex.ict-fj.com/backend/bin/tenant_maintenance.php >/dev/null 2>&1
 ```
 
@@ -583,7 +561,7 @@ Nuvis Flipex includes an automated security regression test suite validating **2
 - Universal route-level IDOR validation across publications, categories, and invoices.
 - Strict isolation of filesystem assets in `/storage/tenants/{tenant_id}/`.
 - Scoped API key permissions (`flipbooks:read`, `flipbooks:write`, `erp:publish`, `analytics:read`).
-- Refresh token replay detection and session family revocation.
+- Refresh token replay detection, 30s race-condition grace windows, and session family revocation.
 - Cryptographic secret entropy enforcement and placeholder rejection.
 - Independent `%%EOF` trailer verification and page limit bypass prevention.
 - Renewable job leases and atomic worker `SKIP LOCKED` concurrency.
