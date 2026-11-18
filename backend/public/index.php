@@ -186,6 +186,10 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $st->get('/documents/{id:[0-9]+}/toc', [StudioController::class, 'generateToc']);
         $st->get('/documents/{id:[0-9]+}/export-pdf', [StudioController::class, 'exportPdf']);
         $st->post('/documents/{id:[0-9]+}/publish', [StudioController::class, 'publishDocument']);
+        $st->post('/documents/{id:[0-9]+}/autosave', [StudioController::class, 'autosaveDocument']);
+        $st->get('/documents/{id:[0-9]+}/revisions', [StudioController::class, 'getRevisions']);
+        $st->post('/export/queue', [StudioController::class, 'queueExportJob']);
+        $st->get('/export/status/{jobId:[0-9]+}', [StudioController::class, 'getExportStatus']);
         $st->get('/templates', [StudioController::class, 'listTemplates']);
         $st->get('/templates/{id:[0-9]+}', [StudioController::class, 'getTemplate']);
         $st->post('/templates', [StudioController::class, 'saveTemplate']);

@@ -263,6 +263,37 @@ The following notable updates, bug fixes, and architectural hardening milestones
 ### Release Stage 6 — Specialized Magazine Creator & Publish/Preview Healing
 - **Linked Text Frames (Overflow Streaming):** Connected multi-column article and text frames with automatic capacity calculation and character overflow forwarding (`linkedNextId` / `linkedPrevId`). When an article exceeds its frame capacity on Page N, the overflow text streams into the designated frame on Page N+1 with interactive `🔗 Flowing →` and `🔗 Flow In` indicators.
 - **Facing-Pages & 2-Page Spreads:** Added `📖 2-Page Spread` toggle in top studio toolbar with realistic magazine centerfold binding spine, live facing-page preview, and 1-tap spread navigation.
+- **Master Pages & Dynamic Headers:** Automated Master Page presets (Glossy Editorial, Modern Minimalist, Spread Alternating Folios) with real-time dynamic token substitution (`{page}`, `{total}`, `{title}`, `{section}`, `{date}`).
+- **Automated Dynamic TOC:** Scans editorial headings across pages, generates dotted-leader indexes with in-studio jump clicks and reader `page` hotspots.
+- **Publish & Live Reader Auto-Heal Fix:** Synchronized `status = 'ready'`, `workflow_status = 'published'`, and `published_at = IFNULL(published_at, NOW())` in `StudioController.php` and `PublicController.php` to prevent preview/reader 404 errors.
+
+### Release Stages 7, 8 & 9 — Specialized Album & Yearbook Creator, Publishing Pipeline & Brand Kits
+- **Bulk Photo Ingestion & Keepsake Albums (Stage 7):**
+  - Multi-file drag-and-drop dropzone in the Album tab with staged memory thumbnail gallery.
+  - **4 Instant Collage Generators:** *Polaroid Scatter* (randomized -3° to +3° tilts, drop-shadows, white borders, handwritten captions), *Modern Mosaic* (asymmetric masonry hero + stacked cells), *Clean 3x3 Photo Grid* (balanced 9-photo memory grid), and *Full-Bleed Photo Hero Spread*.
+- **Graduate & Student Roster Engine (Stage 7):**
+  - Instant graduate portrait roster presets: 4-Student Classic (2x2), 6-Student Standard (2x3), 8-Student Compact (2x4), and 12-Student Directory (3x4).
+  - High-contrast student cards with portrait photo, academic award badges (`Dux`, `Valedictorian`, `Leadership`, `Top in STEM`, `Arts Excellence`), student name, leadership role, and senior quote.
+  - Multi-page paginated CSV bulk roster import with automatic pagination (4, 6, 8, 12 cards/page) that auto-creates continuation pages.
+- **Print Resolution Protection (DPI Guard - Stage 7):**
+  - Real-time element DPI calculation (`dpi = Math.round(naturalW / (w / 72))`).
+  - Overlay warning badges directly on canvas images scaled beyond safe print thresholds (`⚠️ <150 DPI`).
+  - Pre-Flight `🛡️ DPI Guard` Inspection Modal in top toolbar scanning all document images, showing pixel dimensions, print size in inches, calculated DPI, and 1-click jump to element.
+- **Debounced Document-Wide Autosave & Crash Recovery (Stage 8):**
+  - Atomic document-wide saving debounced at 1.5 seconds after user inactivity with revision incrementing (`/studio/documents/{id}/autosave`).
+  - Real-time `localStorage` recovery snapshot with automatic crash recovery banner and 1-click "Restore Draft".
+  - Topbar autosave status indicator: `☁️ Saved` / `⏳ Saving…` / `⚠️ Offline`.
+- **Unified High-Fidelity Rendering Pipeline (Stage 8):**
+  - Canonical `renderPageToSvg()` vector compositor compiling full-fidelity composite SVG pages (gradients, typography, drop caps, multi-column articles, polaroids, rosters, and products) directly into the flipbook publication pipeline.
+- **Background Export Queue & Jobs (Stage 8):**
+  - Asynchronous background export queue table `studio_export_jobs` with `/studio/export/queue` and `/studio/export/status` endpoints.
+  - Export modal offering Instant Vector Print Dialog (Browser Print) and 300 DPI Background Worker Job with progress bar and download links.
+- **Brand Kits & Design Tokens (Stage 9):**
+  - Workspace Brand Kits integration via `/api/brand-kits` with dedicated modal.
+  - 1-Click "Apply Brand Kit to Publication" dynamically re-theming fonts, accent colors, and background gradients across all pages.
+  - "Save Publication Style as Brand Kit" allowing authors to save custom publication design tokens directly to the workspace.
+- **Commercial Tier Packaging (Stage 9):**
+  - Commercial tier badge `[🏢 ENTERPRISE]` in top toolbar with plan entitlement inspection.
 - **Master Pages & Dynamic Headers:** 3 prebuilt Master Page suites (Glossy Editorial, Modern Minimalist, Spread Alternating Folios) with real-time token resolution engine replacing `{page}`, `{total}`, `{title}`, `{section}`, and `{date}`.
 - **Automated Dynamic Table of Contents (TOC):** Scans editorial headings across all document pages and generates an editorial TOC with dotted leaders, in-studio jump clicks, and automatic flipbook `page` hotspot generation.
 - **Studio Publishing / Preview Auto-Heal Fix:** Fixed the 404 `"This flipbook doesn't exist or isn't published"` error by synchronizing `workflow_status = 'published'`, auto-healing legacy `approved` flipbooks with `published_at` timestamps, streaming external URLs/data URIs directly, and enhancing the publish modal with dual "Dashboard Preview 👁️" and "Open Live Reader ↗" 3-gradient action buttons.

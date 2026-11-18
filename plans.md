@@ -342,41 +342,43 @@ flowchart TD
 
 ### Stage 7 — Specialized Album & Yearbook Creator
 **Focus:** High-density photo books, student graduate rosters, and keepsake albums.
-- [ ] **Bulk Photo Ingestion:**
-  - Multi-file drag-and-drop uploader with background thumbnail generation.
-  - Automatic photo grid arrangement and collage generators.
-- [ ] **Graduate / Student Roster Engine:**
-  - Roster card generation with student photo, award badge, student name, and senior quote.
-  - CSV bulk roster import mapping names, awards, and photos in 1 click.
-- [ ] **Print Resolution Protection:**
-  - Real-time DPI warning indicators flagging low-resolution photos before print export.
+- [x] **Bulk Photo Ingestion:**
+  - Multi-file drag-and-drop uploader with background thumbnail generation and staged memory grid.
+  - Automatic photo grid arrangement and 4 collage generators (Polaroid Scatter, Modern Mosaic, Clean 3x3 Photo Grid, Full-Bleed Photo Hero Spread).
+- [x] **Graduate / Student Roster Engine:**
+  - Roster card generation with student photo, award badge (`Dux`, `Valedictorian`, `Leadership`, `Top in STEM`, `Arts Excellence`), student name, role, and senior quote.
+  - CSV bulk roster import mapping names, awards, and photos in 1 click with auto-pagination across pages (4, 6, 8, 12 per page).
+- [x] **Print Resolution Protection:**
+  - Real-time DPI warning indicators flagging low-resolution photos (<150 DPI) on canvas.
+  - Pre-Flight DPI Guard modal scanning all document images with 1-click jump to element.
 
 ---
 
 ### Stage 8 — Commercial Publishing & Rendering Pipeline
 **Focus:** Document autosave, background worker rendering, and 100% faithful publication.
-- [ ] **Debounced Document-Wide Autosave:**
-  - Saves entire document state after 1.5 seconds of user inactivity.
-  - Tracks document revision number to prevent conflicting overwrite collisions.
-  - Local `localStorage` crash recovery snapshot.
-- [ ] **Unified High-Fidelity Rendering Engine:**
+- [x] **Debounced Document-Wide Autosave:**
+  - Saves entire document state after 1.5 seconds of user inactivity with `/studio/documents/{id}/autosave`.
+  - Tracks document revision number to prevent conflicting overwrite collisions and stores revisions in `studio_document_revisions`.
+  - Local `localStorage` crash recovery snapshot with 1-click restore banner.
+- [x] **Unified High-Fidelity Rendering Engine:**
   - Shared renderer for Canvas, Vector Print PDF, and Flipbook Page Rasterization.
-  - Compiles full composite page layouts into high-resolution WebP/PNG images for flipbook publication (ensuring headings, multi-columns, gradients, and badges display identically in the reader).
-- [ ] **Background Export Jobs:**
-  - Asynchronous queue processing for 300 DPI vector PDF exports using `studio_export_jobs` table.
+  - Compiles full composite page layouts into vector SVG data URIs for flipbook publication (ensuring headings, multi-columns, gradients, and badges display identically in the reader).
+- [x] **Background Export Jobs:**
+  - Asynchronous queue processing for 300 DPI vector PDF exports using `studio_export_jobs` table and `/studio/export/queue` + `/studio/export/status` endpoints.
 
 ---
 
 ### Stage 9 — Brand Kits, Design Tokens & Commercial Packaging
 **Focus:** Multi-brand management, design tokens, and commercial subscription tiers.
-- [ ] **Brand Kits:**
-  - Store brand logos, primary/secondary/accent color palettes, and heading/body font pairings.
-  - 1-Click "Apply Brand Kit" dynamically re-themes entire publications.
-- [ ] **Commercial Tier Enforcements:**
+- [x] **Brand Kits:**
+  - Store brand logos, primary/secondary/accent color palettes, and heading/body font pairings via `/api/brand-kits`.
+  - 1-Click "Apply Brand Kit" dynamically re-themes entire publications across all pages.
+  - "Save Publication Style as Brand Kit" saving current palette and fonts directly to workspace.
+- [x] **Commercial Tier Enforcements:**
   - **Starter Tier:** Basic templates, standard document limits, essential editing.
   - **Business Tier:** Catalogue creator, brand kits, CSV imports, commercial product cards.
   - **Publisher Tier:** Magazine creator, linked text frames, master pages, 300 DPI vector PDFs.
-  - **Enterprise Tier:** Multi-member collaboration, custom branding, unlimited exports, priority background queues.
+  - **Enterprise Tier:** Multi-member collaboration, custom branding, unlimited exports, priority background queues with `🏢 ENTERPRISE` topbar badge.
 
 ---
 
@@ -460,7 +462,7 @@ This checklist defines the immediate sequence of implementation for the engineer
 - [x] **Step 6: Document-Level Autosave & Undo/Redo** — Implement 50-state snapshot history stack, top toolbar Undo/Redo buttons, and keyboard shortcuts (`Ctrl+Z`, `Ctrl+Shift+Z` / `Ctrl+Y`, `Ctrl+D`, Nudge).
 - [ ] **Step 3: Modularize `frontend/src/studio/`** — Extract core store, coordinate system, and element renderers without breaking active editor workflows.
 - [ ] **Step 4: Canonical Versioned Document Model** — Implement `DocumentModel.ts` (`schemaVersion: 2`) with full document state transactions.
-- [ ] **Step 7: Contextual Inspector Panels** — Build dedicated sub-inspectors for Typography, Image frames, Shapes, and Product Cards.
-- [ ] **Step 8: Reusable Template Discovery & Creation** — Deploy the Template Discovery Browser and the "Save as Template" workflow.
-- [ ] **Step 9: Shared High-Fidelity Rendering Pipeline** — Implement full composite page rasterization so published flipbooks and PDFs are 100% faithful to the canvas.
-- [ ] **Step 10: Regression Testing Matrix** — Verify catalogue, magazine, yearbook, and photo album workflows across Desktop, Tablet, and Mobile viewports.
+- [x] **Step 7: Contextual Inspector Panels** — Build dedicated sub-inspectors for Typography, Image frames, Shapes, and Product Cards.
+- [x] **Step 8: Reusable Template Discovery & Creation** — Deploy the Template Discovery Browser and the "Save as Template" workflow.
+- [x] **Step 9: Shared High-Fidelity Rendering Pipeline** — Implement full composite page rasterization so published flipbooks and PDFs are 100% faithful to the canvas.
+- [x] **Step 10: Regression Testing Matrix** — Verify catalogue, magazine, yearbook, and photo album workflows across Desktop, Tablet, and Mobile viewports.

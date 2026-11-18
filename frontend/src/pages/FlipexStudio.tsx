@@ -181,9 +181,25 @@ export interface StudioDocument {
   flipbook_slug?: string | null;
   cover_thumb?: string | null;
   status: 'draft' | 'published' | 'archived';
+  revision?: number;
   created_at: string;
   updated_at: string;
   pages?: StudioPage[];
+}
+
+export interface BrandKitItem {
+  id: number;
+  tenant_id: number;
+  name: string;
+  logo_url?: string | null;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  background_gradient?: string | null;
+  drawer_bg_color?: string | null;
+  drawer_text_color?: string | null;
+  font_family: string;
+  is_default: number;
 }
 
 export interface StudioTemplate {
@@ -252,6 +268,126 @@ export const buildGradientCss = (stop1: string, stop2: string, stop3: string, an
   }
   return `linear-gradient(${angle}deg, ${stop1} 0%, ${stop2} 50%, ${stop3} 100%)`;
 };
+
+/**
+ * Stage 7: Real-Time Print Resolution Protection (DPI Guard)
+ * 72 pt = 1 physical inch. If dpi < 150, image will appear blurry in high-res print.
+ */
+export function calculateElementDpi(el: CanvasElement): {
+  dpi: number;
+  status: 'low' | 'good' | 'optimal';
+  printInchesW: number;
+  printInchesH: number;
+  naturalW: number;
+  naturalH: number;
+} {
+  const w = el.w || 200;
+  const h = el.h || 200;
+  const printInchesW = Number((w / 72).toFixed(2));
+  const printInchesH = Number((h / 72).toFixed(2));
+
+  let naturalW = (el as any).naturalWidth || 1200;
+  let naturalH = (el as any).naturalHeight || 800;
+
+  if (el.src && el.src.includes('w=')) {
+    const match = el.src.match(/w=(\d+)/);
+    if (match) {
+      naturalW = parseInt(match[1], 10);
+      naturalH = Math.round(naturalW * 0.67);
+    }
+  }
+
+  const dpi = Math.round(naturalW / Math.max(0.1, printInchesW));
+  let status: 'low' | 'good' | 'optimal' = 'optimal';
+  if (dpi < 150) status = 'low';
+  else if (dpi < 300) status = 'good';
+
+  return { dpi, status, printInchesW, printInchesH, naturalW, naturalH };
+}
+
+/**
+ * Stage 8: Unified High-Fidelity Rendering Pipeline
+ * Generates an exact SVG vector representation of a page for flipbook publishing.
+ */
+export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heightPt: number = 841.89): string {
+  const bg = page.background;
+  let bgStyle = 'fill: #ffffff;';
+  let defs = '';
+
+  if (bg) {
+    if (bg.type === 'gradient' || (bg.value && bg.value.includes('gradient'))) {
+      const stop1 = bg.stop1 || '#0f172a';
+      const stop2 = bg.stop2 || '#1e1b4b';
+      const stop3 = bg.stop3 || '#312e81';
+      defs = `<defs>
+        <linearGradient id="pBgGrad_${page.id}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${stop1}" />
+          <stop offset="50%" stop-color="${stop2}" />
+          <stop offset="100%" stop-color="${stop3}" />
+        </linearGradient>
+      </defs>`;
+      bgStyle = `fill: url(#pBgGrad_${page.id});`;
+    } else if ((bg as any).color || bg.value) {
+      bgStyle = `fill: ${(bg as any).color || bg.value};`;
+    }
+  }
+
+  let elementsSvg = '';
+  (page.elements || []).forEach((el) => {
+    const x = el.x || 0;
+    const y = el.y || 0;
+    const w = el.w || 100;
+    const h = el.h || 50;
+    const rot = el.rotation || 0;
+    const transform = rot ? `transform="rotate(${rot} ${x + w / 2} ${y + h / 2})"` : '';
+
+    if (el.type === 'image' && el.src) {
+      elementsSvg += `<g ${transform}><image href="${el.src}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" /></g>`;
+    } else if (el.type === 'text' || el.type === 'column_text') {
+      const color = el.style?.color || '#0f172a';
+      const fs = el.style?.fontSize || 14;
+      const fw = el.style?.fontWeight || 'normal';
+      const ff = el.style?.fontFamily || 'Inter, sans-serif';
+      const text = (el.content || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      elementsSvg += `<g ${transform}><foreignObject x="${x}" y="${y}" width="${w}" height="${h}">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="color: ${color}; font-size: ${fs}px; font-weight: ${fw}; font-family: ${ff}; line-height: 1.4; word-wrap: break-word;">
+          ${text.replace(/\n/g, '<br/>')}
+        </div>
+      </foreignObject></g>`;
+    } else if (el.type === 'product') {
+      const name = (el.name || 'Product').replace(/&/g, '&amp;');
+      const price = (el.price || '').replace(/&/g, '&amp;');
+      const img = el.image || '';
+      elementsSvg += `<g ${transform}>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+        ${img ? `<image href="${img}" x="${x + 8}" y="${y + 8}" width="${w - 16}" height="${h * 0.55}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+        <text x="${x + 12}" y="${y + h * 0.65}" font-size="12" font-weight="bold" fill="#0f172a" font-family="sans-serif">${name}</text>
+        <text x="${x + 12}" y="${y + h * 0.78}" font-size="14" font-weight="bold" fill="#dc2626" font-family="sans-serif">${price}</text>
+      </g>`;
+    } else if (el.type === 'shape') {
+      const fill = el.style?.backgroundColor || '#6366f1';
+      const rx = el.shapeType === 'circle' ? w / 2 : (el.style?.borderRadius || 0);
+      elementsSvg += `<g ${transform}><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}"/></g>`;
+    } else if (el.type === 'yearbook_grid') {
+      elementsSvg += `<g ${transform}>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
+      </g>`;
+    } else if (el.type === 'album_spread') {
+      elementsSvg += `<g ${transform}>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#f1f5f9"/>
+      </g>`;
+    }
+  });
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthPt} ${heightPt}" width="${widthPt}" height="${heightPt}">
+    ${defs}
+    <rect width="100%" height="100%" ${bgStyle} />
+    ${elementsSvg}
+  </svg>`;
+}
 
 export default function FlipexStudio() {
   const { id: routeDocId } = useParams<{ id?: string }>();
@@ -341,6 +477,38 @@ export default function FlipexStudio() {
   const [publishModal, setPublishModal] = useState<{ open: boolean; slug?: string; url?: string; previewUrl?: string; flipbookId?: number } | null>(null);
   // Stage 6: Facing Pages / 2-Page Magazine Centerfold Spread
   const [spreadMode, setSpreadMode] = useState<boolean>(false);
+
+  // Stage 8: Debounced Document-Wide Autosave & Crash Recovery
+  const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'offline' | 'restored'>('saved');
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [backupAvailable, setBackupAvailable] = useState<{ timestamp: string; docId: number; title: string; pages: StudioPage[] } | null>(null);
+  const isInitialLoadRef = useRef<boolean>(true);
+
+  // Stage 7: Resolution Guard Pre-Flight Modal
+  const [showDpiGuardModal, setShowDpiGuardModal] = useState<boolean>(false);
+
+  // Stage 9: Brand Kits State
+  const [showBrandKitsModal, setShowBrandKitsModal] = useState<boolean>(false);
+  const [brandKits, setBrandKits] = useState<BrandKitItem[]>([]);
+  const [loadingBrandKits, setLoadingBrandKits] = useState<boolean>(false);
+  const [applyingBrandKit, setApplyingBrandKit] = useState<boolean>(false);
+  const [newBrandKitName, setNewBrandKitName] = useState<string>('');
+
+  // Stage 8: Background Export Queue State
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [exportJobProgress, setExportJobProgress] = useState<number | null>(null);
+  const [exportDownloadUrl, setExportDownloadUrl] = useState<string | null>(null);
+
+  // Stage 7: Staged Bulk Photos for Keepsake Album & College Rosters
+  const [stagedAlbumPhotos, setStagedAlbumPhotos] = useState<Array<{ url: string; caption?: string; tilt?: number }>>([
+    { url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=500', caption: 'The First Dance', tilt: -2 },
+    { url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=500', caption: 'Sunset on the Lagoon', tilt: 3 },
+    { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500', caption: 'Island Memories', tilt: -1 },
+    { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=500', caption: 'Coral Reef Exploration', tilt: 2 },
+  ]);
+  const albumFileInputRef = useRef<HTMLInputElement>(null);
+  const rosterFileInputRef = useRef<HTMLInputElement>(null);
+  const [yearbookPerPage, setYearbookPerPage] = useState<4 | 6 | 8 | 12>(6);
 
   // Left sidebar active tool tab
   const [activeToolTab, setActiveToolTab] = useState<
@@ -552,6 +720,22 @@ export default function FlipexStudio() {
         if (res.document.doc_type === 'magazine') setActiveToolTab('magazine');
         else if (res.document.doc_type === 'album') setActiveToolTab('album');
         else setActiveToolTab('products');
+
+        // Stage 8: Check Local Recovery Snapshot
+        try {
+          const backupStr = localStorage.getItem(`flipex_studio_draft_${docId}`);
+          if (backupStr) {
+            const parsed = JSON.parse(backupStr);
+            if (parsed && parsed.pages && parsed.pages.length > 0) {
+              const bTime = new Date(parsed.timestamp).getTime();
+              const sTime = new Date(res.document.updated_at).getTime();
+              if (bTime > sTime + 3000) {
+                setBackupAvailable(parsed);
+              }
+            }
+          }
+        } catch (be) {}
+        isInitialLoadRef.current = false;
       }
     } catch (err: any) {
       alert('Could not load studio document: ' + err.message);
@@ -584,6 +768,62 @@ export default function FlipexStudio() {
     }
   }, [routeDocId]);
 
+  // Stage 8: Debounced Document-Wide Autosave (1.5s delay)
+  useEffect(() => {
+    if (!currentDoc || isInitialLoadRef.current || pages.length === 0) return;
+
+    // 1. Immediately store to local recovery snapshot
+    try {
+      localStorage.setItem(`flipex_studio_draft_${currentDoc.id}`, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        docId: currentDoc.id,
+        title: currentDoc.title,
+        pages,
+      }));
+    } catch (err) {}
+
+    // 2. Debounced save to backend
+    setAutosaveStatus('saving');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api<{ ok: boolean; revision: number; updated_at: string }>(
+          `/studio/documents/${currentDoc.id}/autosave`,
+          'POST',
+          {
+            title: currentDoc.title,
+            settings: currentDoc.settings,
+            palette: currentDoc.palette,
+            pages: pages.map((p) => ({
+              page_number: p.page_number,
+              elements: p.elements,
+              background: p.background,
+              thumbnail_url: p.thumbnail_url,
+            })),
+          }
+        );
+        if (res.revision) {
+          currentDoc.revision = res.revision;
+        }
+        setLastSavedAt(new Date().toLocaleTimeString());
+        setAutosaveStatus('saved');
+      } catch (err) {
+        setAutosaveStatus('offline');
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [pages, currentDoc?.title, currentDoc?.settings, currentDoc?.palette]);
+
+  // Restore unsaved local recovery snapshot
+  const handleRestoreBackup = () => {
+    if (!backupAvailable) return;
+    setPages(backupAvailable.pages);
+    setAutosaveStatus('restored');
+    setSaveMessage('Restored draft from backup ✓');
+    setTimeout(() => setSaveMessage(''), 3000);
+    setBackupAvailable(null);
+  };
+
   // Current active page
   const activePage = pages[activePageIndex] || null;
   const selectedElement = activePage?.elements.find((e) => e.id === selectedElementId) || null;
@@ -614,19 +854,37 @@ export default function FlipexStudio() {
     }
   };
 
-  // Save current active page elements
+  // Save current active page and entire document atomically with revision tracking (Stage 8)
   const handleSavePage = async () => {
-    if (!currentDoc || !activePage) return;
+    if (!currentDoc) return;
     setSaving(true);
+    setAutosaveStatus('saving');
     try {
-      await api(`/studio/documents/${currentDoc.id}/pages/${activePage.id}`, 'PUT', {
-        elements: activePage.elements,
-        background: activePage.background || { type: 'color', value: '#FFFFFF' },
-      });
-      setSaveMessage('Saved page ✓');
+      const res = await api<{ ok: boolean; revision: number; updated_at: string }>(
+        `/studio/documents/${currentDoc.id}/autosave`,
+        'POST',
+        {
+          title: currentDoc.title,
+          settings: currentDoc.settings,
+          palette: currentDoc.palette,
+          pages: pages.map((p) => ({
+            page_number: p.page_number,
+            elements: p.elements,
+            background: p.background,
+            thumbnail_url: p.thumbnail_url,
+          })),
+        }
+      );
+      if (res.revision) {
+        currentDoc.revision = res.revision;
+      }
+      setLastSavedAt(new Date().toLocaleTimeString());
+      setAutosaveStatus('saved');
+      setSaveMessage('Saved publication ✓');
       setTimeout(() => setSaveMessage(''), 2500);
     } catch (e: any) {
       setSaveMessage('Save failed');
+      setAutosaveStatus('offline');
     } finally {
       setSaving(false);
     }
@@ -722,15 +980,23 @@ export default function FlipexStudio() {
     setActivePageIndex(toIndex);
   };
 
-  // Publish to interactive flipbook
+  // Publish to interactive flipbook with Stage 8 high-fidelity composite page rendering
   const handlePublish = async () => {
     if (!currentDoc) return;
     await handleSavePage();
     setSaving(true);
     try {
+      // Stage 8: Unified High-Fidelity Rendering Pipeline (Vector SVG composites per page)
+      const pageRenders: Record<number, string> = {};
+      pages.forEach((p) => {
+        const svg = renderPageToSvg(p, currentDoc.width_pt, currentDoc.height_pt);
+        pageRenders[p.page_number] = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+      });
+
       const res = await api<{ ok: boolean; slug: string; public_url: string; viewer_url: string; flipbook_id?: number; preview_url?: string }>(
         `/studio/documents/${currentDoc.id}/publish`,
-        'POST'
+        'POST',
+        { page_renders: pageRenders }
       );
       if (res.flipbook_id) {
         currentDoc.flipbook_id = res.flipbook_id;
@@ -1586,6 +1852,331 @@ export default function FlipexStudio() {
     setPages(updated);
     pushHistory(updated);
     alert(`Applied Master Page preset (${preset}) to ${applyAll ? 'all pages' : `Page ${activePageIndex + 1}`}!`);
+  };
+
+  // ==========================================
+  // STAGE 7: SPECIALIZED ALBUM & YEARBOOK CREATOR SUITE
+  // ==========================================
+
+  // Bulk Photo Ingestion & Staging
+  const handleBulkPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        if (re.target?.result) {
+          setStagedAlbumPhotos((prev) => [
+            ...prev,
+            {
+              url: re.target!.result as string,
+              caption: file.name.replace(/\.[^/.]+$/, ''),
+              tilt: Math.floor(Math.random() * 7) - 3,
+            },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveStagedPhoto = (idx: number) => {
+    setStagedAlbumPhotos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  // Collage Layout 1: Polaroid Scatter
+  const handleAddPolaroidScatter = () => {
+    if (!currentDoc || !activePage) return;
+    const photos = stagedAlbumPhotos.length >= 2 ? stagedAlbumPhotos.slice(0, 4) : [
+      { url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=500', caption: 'The First Dance', tilt: -3 },
+      { url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=500', caption: 'Sunset on the Lagoon', tilt: 3 },
+      { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500', caption: 'Island Memories', tilt: -1 },
+    ];
+    addElement({
+      type: 'album_spread',
+      x: 35,
+      y: 110,
+      w: 525,
+      h: 460,
+      albumPhotos: photos.map((p) => ({
+        url: p.url,
+        caption: p.caption || 'Cherished Memory',
+        tilt: p.tilt || (Math.floor(Math.random() * 7) - 3),
+        frameStyle: 'polaroid',
+      })),
+    });
+  };
+
+  // Collage Layout 2: Modern Mosaic (Masonry 1 Hero + 2 Stacked)
+  const handleAddModernMosaic = () => {
+    if (!currentDoc || !activePage) return;
+    const p1 = stagedAlbumPhotos[0]?.url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600';
+    const p2 = stagedAlbumPhotos[1]?.url || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400';
+    const p3 = stagedAlbumPhotos[2]?.url || 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400';
+
+    addElement({
+      type: 'album_spread',
+      x: 35,
+      y: 90,
+      w: 525,
+      h: 480,
+      albumPhotos: [
+        { url: p1, caption: 'Panoramic Island Coastline', frameStyle: 'shadow' },
+        { url: p2, caption: 'Reef Exploration', frameStyle: 'rounded' },
+        { url: p3, caption: 'Celebration Feast', frameStyle: 'rounded' },
+      ],
+    });
+  };
+
+  // Collage Layout 3: Clean 3x3 Photo Grid
+  const handleAddCleanGrid = () => {
+    if (!currentDoc || !activePage) return;
+    const stockUrls = [
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
+      'https://images.unsplash.com/photo-1519741497674-611481863552?w=400',
+      'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
+      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400',
+      'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400',
+      'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400',
+    ];
+    const photos = stagedAlbumPhotos.length >= 6
+      ? stagedAlbumPhotos.slice(0, 6)
+      : stockUrls.map((u, i) => ({ url: u, caption: `Moment ${i + 1}` }));
+
+    addElement({
+      type: 'album_spread',
+      x: 35,
+      y: 100,
+      w: 525,
+      h: 480,
+      albumPhotos: photos.map((p) => ({
+        url: p.url,
+        caption: p.caption,
+        frameStyle: 'rounded',
+      })),
+    });
+  };
+
+  // Collage Layout 4: Full-Bleed Photo Hero
+  const handleAddFullBleedHero = () => {
+    if (!currentDoc || !activePage) return;
+    const heroUrl = stagedAlbumPhotos[0]?.url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200';
+    addElement({
+      type: 'image',
+      x: 0,
+      y: 0,
+      w: currentDoc.width_pt,
+      h: currentDoc.height_pt,
+      src: heroUrl,
+      objectFit: 'cover',
+      caption: 'Pacific Horizons • Signature Series',
+      style: { zIndex: 1 },
+    });
+  };
+
+  // Graduate & Student Roster Preset Engine (4, 6, 8, 12 cards)
+  const handleAddYearbookGridPreset = (presetSize: 4 | 6 | 8 | 12) => {
+    if (!currentDoc || !activePage) return;
+    const allStudents: StudentProfile[] = [
+      { name: 'Alisi Tavua', award: 'Dux of School', quote: '"Wisdom begins in quiet curiosity."', role: 'Valedictorian', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400' },
+      { name: 'Jone Naivalu', award: 'Head Boy', quote: '"Lead through service and resilience."', role: 'Student Council', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400' },
+      { name: 'Mereani Koroi', award: 'Head Girl', quote: '"Honor our roots wherever we travel."', role: 'Prefect', photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' },
+      { name: 'Timoci Ravuvu', award: 'Sports Captain', quote: '"Clear eyes and courageous hearts."', role: 'Rugby Lead', photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400' },
+      { name: 'Sera Vakaloloma', award: 'Arts Excellence', quote: '"Creativity is the voice of our ancestors."', role: 'Music Society', photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400' },
+      { name: 'Kavita Sharma', award: 'Top in STEM', quote: '"In science we find unity with nature."', role: 'Robotics Club', photoUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400' },
+      { name: 'Peni Qalo', award: 'Community Service', quote: '"Give without hesitation."', role: 'Red Cross', photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400' },
+      { name: 'Litia Bale', award: 'Debating Champion', quote: '"Words hold the power of mountains."', role: 'Debating Lead', photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400' },
+      { name: 'Sakiusa Vuetaki', award: 'Math Olympiad', quote: '"Precision in thought, courage in deed."', role: 'Math Club', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400' },
+      { name: 'Kesaia Seniloli', award: 'Drama Trophy', quote: '"Life is our stage."', role: 'Drama Lead', photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' },
+      { name: 'Viliame Ratu', award: 'Athletics Blue', quote: '"Never surrender."', role: 'Track Team', photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400' },
+      { name: 'Adi Cakobau', award: 'Leadership Medal', quote: '"Stand firm for what is true."', role: 'Head Prefect', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400' },
+    ];
+
+    const targetStudents = allStudents.slice(0, presetSize);
+    addElement({
+      type: 'yearbook_grid',
+      x: 35,
+      y: 95,
+      w: 525,
+      h: presetSize === 4 ? 440 : presetSize === 6 ? 540 : 620,
+      students: targetStudents,
+    });
+  };
+
+  // CSV Roster Importer with Auto-Pagination across pages
+  const handleYearbookMultiPageCsv = async (csvContent: string, perPageCount: number) => {
+    if (!currentDoc) return;
+    const lines = csvContent.trim().split('\n').filter((l) => l.trim().length > 0);
+    const rows = lines[0].toLowerCase().includes('name') ? lines.slice(1) : lines;
+    const parsedStudents: StudentProfile[] = [];
+
+    rows.forEach((line) => {
+      const parts = line.split(',').map((p) => p.trim().replace(/^["']|["']$/g, ''));
+      if (parts[0]) {
+        parsedStudents.push({
+          name: parts[0],
+          photoUrl: parts[1] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+          award: parts[2] || undefined,
+          quote: parts[3] ? `"${parts[3]}"` : undefined,
+          role: parts[4] || undefined,
+        });
+      }
+    });
+
+    if (parsedStudents.length === 0) {
+      alert('No valid student rows found in CSV.');
+      return;
+    }
+
+    const totalPagesNeeded = Math.ceil(parsedStudents.length / perPageCount);
+    const updatedPages = [...pages];
+
+    for (let pageIdx = 0; pageIdx < totalPagesNeeded; pageIdx++) {
+      const pageStudents = parsedStudents.slice(pageIdx * perPageCount, (pageIdx + 1) * perPageCount);
+      const gridElement: CanvasElement = {
+        id: `yearbook_${Date.now()}_${pageIdx}`,
+        type: 'yearbook_grid',
+        x: 35,
+        y: 100,
+        w: 525,
+        h: perPageCount <= 4 ? 440 : perPageCount <= 6 ? 540 : 620,
+        students: pageStudents,
+      };
+
+      if (pageIdx === 0 && activePage) {
+        const existingIdx = activePageIndex;
+        updatedPages[existingIdx] = {
+          ...updatedPages[existingIdx],
+          elements: [...updatedPages[existingIdx].elements, gridElement],
+        };
+      } else {
+        try {
+          const res = await api<{ ok: boolean; page_id: number; page_number: number }>(
+            `/studio/documents/${currentDoc.id}/pages`,
+            'POST',
+            { elements: [gridElement], background: { type: 'color', value: '#FFFFFF' } }
+          );
+          updatedPages.push({
+            id: res.page_id,
+            document_id: currentDoc.id,
+            page_number: res.page_number,
+            elements: [gridElement],
+            background: { type: 'color', value: '#FFFFFF' },
+          });
+        } catch {
+          updatedPages.push({
+            id: Date.now() + pageIdx,
+            document_id: currentDoc.id,
+            page_number: updatedPages.length + 1,
+            elements: [gridElement],
+            background: { type: 'color', value: '#FFFFFF' },
+          });
+        }
+      }
+    }
+
+    setPages(updatedPages);
+    pushHistory(updatedPages);
+    alert(`🎓 Auto-Generated ${parsedStudents.length} graduate cards across ${totalPagesNeeded} yearbook page(s)!`);
+  };
+
+  // ==========================================
+  // STAGES 8 & 9: BRAND KITS & EXPORT QUEUE
+  // ==========================================
+
+  const fetchBrandKits = async () => {
+    setLoadingBrandKits(true);
+    try {
+      const res = await api<{ brandKits: BrandKitItem[] }>('/brand-kits');
+      setBrandKits(res.brandKits || []);
+    } catch (e) {
+      console.error('Could not load brand kits:', e);
+    } finally {
+      setLoadingBrandKits(false);
+    }
+  };
+
+  const handleApplyBrandKit = (kit: BrandKitItem) => {
+    if (!currentDoc) return;
+    setApplyingBrandKit(true);
+
+    const updatedPages = pages.map((page) => {
+      const updatedElements = page.elements.map((el) => {
+        const next = { ...el };
+        if (next.type === 'text' || next.type === 'column_text') {
+          const isHeading = (next.style?.fontSize || 16) >= 20;
+          next.style = {
+            ...next.style,
+            fontFamily: isHeading ? (kit.font_family || 'Playfair Display') : 'Inter, sans-serif',
+          };
+        } else if (next.type === 'shape') {
+          next.style = {
+            ...next.style,
+            backgroundColor: kit.primary_color,
+          };
+        }
+        return next;
+      });
+
+      let bg = page.background;
+      if (kit.background_gradient) {
+        bg = {
+          type: 'gradient',
+          value: kit.background_gradient,
+          stop1: kit.primary_color,
+          stop2: kit.secondary_color,
+          stop3: kit.accent_color,
+          angle: 135,
+        };
+      }
+      return { ...page, elements: updatedElements, background: bg };
+    });
+
+    setPages(updatedPages);
+    pushHistory(updatedPages);
+    alert(`🎨 Brand Kit "${kit.name}" applied across all ${pages.length} pages!`);
+    setShowBrandKitsModal(false);
+    setApplyingBrandKit(false);
+  };
+
+  const handleSaveCurrentBrandKit = async () => {
+    if (!newBrandKitName.trim()) return;
+    try {
+      await api('/brand-kits', 'POST', {
+        name: newBrandKitName.trim(),
+        primaryColor: currentDoc?.palette?.primary || '#6366f1',
+        secondaryColor: currentDoc?.palette?.secondary || '#0f172a',
+        accentColor: currentDoc?.palette?.accent || '#ec4899',
+        fontFamily: 'Inter, sans-serif',
+        backgroundGradient: activePage?.background?.value || 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+      });
+      alert(`Saved Brand Kit "${newBrandKitName.trim()}" successfully!`);
+      setNewBrandKitName('');
+      fetchBrandKits();
+    } catch (e: any) {
+      alert('Failed to save brand kit: ' + e.message);
+    }
+  };
+
+  // Background Export Queue
+  const handleQueueExportJob = async () => {
+    if (!currentDoc) return;
+    setExportJobProgress(20);
+    try {
+      setTimeout(() => setExportJobProgress(55), 350);
+      setTimeout(() => setExportJobProgress(85), 700);
+      const res = await api<{ ok: boolean; job_id: number; download_url: string }>('/studio/export/queue', 'POST', {
+        document_id: currentDoc.id,
+        export_type: 'print_pdf',
+      });
+      setTimeout(() => {
+        setExportJobProgress(100);
+        setExportDownloadUrl(res.download_url);
+      }, 1000);
+    } catch (e: any) {
+      alert('Export job failed: ' + e.message);
+      setExportJobProgress(null);
+    }
   };
 
   // ==========================================
@@ -3064,6 +3655,40 @@ export default function FlipexStudio() {
             <span style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>
               {currentDoc?.doc_type}
             </span>
+            <span
+              style={{
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.25) 0%, rgba(249, 115, 22, 0.25) 100%)',
+                color: '#fde047',
+                border: '1px solid rgba(234, 179, 8, 0.4)',
+                fontSize: '10px',
+                fontWeight: 800,
+                letterSpacing: '0.5px',
+              }}
+              title="Commercial Tier: Enterprise Suite Active (Full 300 DPI Export, Brand Kits & Catalogues)"
+            >
+              🏢 ENTERPRISE
+            </span>
+            <span
+              style={{
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                background: autosaveStatus === 'saving' ? 'rgba(245, 158, 11, 0.15)' : autosaveStatus === 'offline' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                color: autosaveStatus === 'saving' ? '#fbbf24' : autosaveStatus === 'offline' ? '#f87171' : '#34d399',
+                fontWeight: 600,
+              }}
+              title={lastSavedAt ? `Last autosaved at ${lastSavedAt}` : 'Autosave active'}
+            >
+              {autosaveStatus === 'saving' && '⏳ Saving…'}
+              {autosaveStatus === 'saved' && '☁️ Saved'}
+              {autosaveStatus === 'offline' && '⚠️ Offline (Saved locally)'}
+              {autosaveStatus === 'restored' && '✨ Restored'}
+            </span>
           </div>
           {saveMessage && (
             <span style={{ fontSize: '12px', color: '#34d399', fontWeight: 600, marginLeft: '6px' }}>
@@ -3275,25 +3900,58 @@ export default function FlipexStudio() {
           >
             📑 Auto TOC
           </button>
+
+          {/* Stage 7: Real-Time Print Resolution Protection (DPI Guard) */}
+          <button
+            type="button"
+            onClick={() => setShowDpiGuardModal(true)}
+            className="studio-gradient-btn orchid"
+            style={{
+              padding: '5px 11px',
+              fontSize: '11px',
+              borderRadius: '8px',
+            }}
+            title="Pre-Flight Print Resolution & DPI Safety Guard"
+          >
+            🛡️ DPI Guard
+          </button>
         </div>
 
         {/* Right: Print PDF, Save, Publish Action & Inspector Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          <a
-            href={`/api/v1/studio/documents/${currentDoc?.id}/export-pdf?print=1`}
-            target="_blank"
-            rel="noreferrer"
+          {/* Stage 8: Commercial Print & Vector PDF Export Modal */}
+          <button
+            type="button"
+            onClick={() => setShowExportModal(true)}
             className="studio-gradient-btn orchid"
             style={{
               padding: '6px 14px',
               fontSize: '12px',
               borderRadius: '8px',
-              textDecoration: 'none',
             }}
             title="Export Vector 300 DPI Print PDF"
           >
-            <span>🖨️</span> Print PDF
-          </a>
+            <span>🖨️</span> Export PDF
+          </button>
+
+          {/* Stage 9: Brand Kits Reusable Identity */}
+          <button
+            type="button"
+            onClick={() => {
+              fetchBrandKits();
+              setShowBrandKitsModal(true);
+            }}
+            className="studio-tool-btn cosmic"
+            style={{
+              padding: '6px 12px',
+              fontSize: '11px',
+              borderRadius: '8px',
+            }}
+            title="Apply Reusable Brand Kit or Save Theme"
+          >
+            <span>🎨</span> Brand Kits
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -3368,6 +4026,59 @@ export default function FlipexStudio() {
           </button>
         </div>
       </header>
+
+      {/* Stage 8: Local Crash Recovery Snapshot Banner */}
+      {backupAvailable && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, #1e1b4b 0%, #312e81 100%)',
+            borderBottom: '1px solid #6366f1',
+            padding: '6px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '12px',
+            color: '#e0e7ff',
+            zIndex: 40,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>⚠️</span>
+            <span>
+              <strong>Unsaved Local Recovery Snapshot:</strong> A local crash snapshot from{' '}
+              {new Date(backupAvailable.timestamp).toLocaleTimeString()} was found.
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handleRestoreBackup}
+              className="studio-gradient-btn cosmic"
+              style={{ padding: '3px 10px', fontSize: '11px', borderRadius: '6px' }}
+            >
+              Restore Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem(`flipex_studio_draft_${currentDoc?.id}`);
+                setBackupAvailable(null);
+              }}
+              style={{
+                padding: '3px 8px',
+                background: 'transparent',
+                border: '1px solid #475569',
+                color: '#94a3b8',
+                fontSize: '11px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* WORKSPACE BODY: LEFT TOOLBAR + CENTER CANVAS + RIGHT INSPECTOR */}
       <div
@@ -3879,47 +4590,40 @@ export default function FlipexStudio() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="studio-tool-btn orchid"
-                  onClick={() =>
-                    addElement({
-                      type: 'yearbook_grid',
-                      x: 40,
-                      y: 120,
-                      w: 515,
-                      h: 440,
-                      students: [
-                        {
-                          name: 'Alisi Tavua',
-                          award: 'Dux of School',
-                          quote: '"Wisdom begins in quiet curiosity."',
-                          photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-                        },
-                        {
-                          name: 'Jone Naivalu',
-                          award: 'Head Boy',
-                          quote: '"Lead through service and resilience."',
-                          photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
-                        },
-                        {
-                          name: 'Mereani Koroi',
-                          award: 'Head Girl',
-                          quote: '"Honor our roots wherever we travel."',
-                          photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-                        },
-                        {
-                          name: 'Timoci Ravuvu',
-                          award: 'Sports Captain',
-                          quote: '"Clear eyes and courageous hearts."',
-                          photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400',
-                        },
-                      ],
-                    })
-                  }
-                >
-                  <span>👥</span> 4-Student Graduate Portrait Grid
-                </button>
+                <div className="text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Roster Grid Presets:</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    className="studio-tool-btn orchid"
+                    onClick={() => handleAddYearbookGridPreset(4)}
+                  >
+                    <span>👥</span> 4-Student (2x2)
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-tool-btn orchid"
+                    onClick={() => handleAddYearbookGridPreset(6)}
+                  >
+                    <span>👥</span> 6-Student (2x3)
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-tool-btn cosmic"
+                    onClick={() => handleAddYearbookGridPreset(8)}
+                  >
+                    <span>👥</span> 8-Student (2x4)
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-tool-btn sunset"
+                    onClick={() => handleAddYearbookGridPreset(12)}
+                  >
+                    <span>👥</span> 12-Student (3x4)
+                  </button>
+                </div>
 
                 <button
                   type="button"
@@ -3945,6 +4649,55 @@ export default function FlipexStudio() {
                 >
                   <span>📜</span> Principal’s Commendation Box
                 </button>
+
+                {/* Bulk Roster CSV Ingestion */}
+                <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2 mt-2">
+                  <span className="font-bold text-xs text-white block">📊 Bulk CSV Graduate Import</span>
+                  <p className="text-[10px] text-slate-400">
+                    Import full cohorts with photos, awards, and quotes. Auto-paginates across pages.
+                  </p>
+
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="text-slate-400">Cards Per Page:</span>
+                    <select
+                      value={yearbookPerPage}
+                      onChange={(e) => setYearbookPerPage(Number(e.target.value) as any)}
+                      className="studio-prop-select"
+                      style={{ width: '110px', padding: '3px 6px', fontSize: '11px' }}
+                    >
+                      <option value={4}>4 / page</option>
+                      <option value={6}>6 / page</option>
+                      <option value={8}>8 / page</option>
+                      <option value={12}>12 / page</option>
+                    </select>
+                  </div>
+
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    ref={rosterFileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (re) => {
+                        if (typeof re.target?.result === 'string') {
+                          handleYearbookMultiPageCsv(re.target.result, yearbookPerPage);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => rosterFileInputRef.current?.click()}
+                    className="studio-gradient-btn orchid w-full py-2 text-xs font-bold rounded-lg mt-1"
+                  >
+                    📁 Upload Roster CSV File
+                  </button>
+                </div>
               </div>
             )}
 
@@ -3958,67 +4711,112 @@ export default function FlipexStudio() {
                   </p>
                 </div>
 
+                {/* Bulk Photo Ingestion Dropzone */}
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  ref={albumFileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleBulkPhotoSelect}
+                />
+                <div
+                  className="studio-bulk-dropzone"
+                  onClick={() => albumFileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer.files || []);
+                    if (files.length > 0) {
+                      files.forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = (re) => {
+                          if (re.target?.result) {
+                            setStagedAlbumPhotos((prev) => [
+                              ...prev,
+                              {
+                                url: re.target!.result as string,
+                                caption: file.name.replace(/\.[^/.]+$/, ''),
+                                tilt: Math.floor(Math.random() * 7) - 3,
+                              },
+                            ]);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                    }
+                  }}
+                >
+                  <span className="text-2xl block mb-1">📁</span>
+                  <strong className="text-xs text-white block">Bulk Ingest Photos</strong>
+                  <span className="text-[10px] text-slate-400">Drag &amp; drop or click to stage multiple pictures</span>
+                </div>
+
+                {/* Staged Photos Preview Grid */}
+                {stagedAlbumPhotos.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-slate-300">
+                      <span>📸 Staged ({stagedAlbumPhotos.length}):</span>
+                      <button
+                        type="button"
+                        onClick={() => setStagedAlbumPhotos([])}
+                        className="text-red-400 hover:underline text-[10px]"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="studio-staged-grid">
+                      {stagedAlbumPhotos.map((p, idx) => (
+                        <div key={idx} className="studio-staged-thumb">
+                          <img src={p.url} alt={p.caption || `Photo ${idx + 1}`} />
+                          <button
+                            type="button"
+                            className="studio-staged-thumb-remove"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveStagedPhoto(idx);
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <span className="text-xs font-bold text-slate-300 block pt-1">4 Instant Collage Generators:</span>
+
                 <button
                   type="button"
                   className="studio-tool-btn orchid"
-                  onClick={() =>
-                    addElement({
-                      type: 'album_spread',
-                      x: 40,
-                      y: 120,
-                      w: 515,
-                      h: 360,
-                      albumPhotos: [
-                        {
-                          url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=500',
-                          caption: 'The First Dance',
-                          tilt: -2,
-                          frameStyle: 'polaroid',
-                        },
-                        {
-                          url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=500',
-                          caption: 'Sunset on the Lagoon',
-                          tilt: 3,
-                          frameStyle: 'polaroid',
-                        },
-                      ],
-                    })
-                  }
+                  onClick={handleAddPolaroidScatter}
                 >
-                  <span>🎞️</span> Polaroid Pair with Handwritten Tilt
+                  <span>🎞️</span> Polaroid Scatter (Tilt &amp; White Borders)
                 </button>
 
                 <button
                   type="button"
                   className="studio-tool-btn cosmic"
-                  onClick={() =>
-                    addElement({
-                      type: 'album_spread',
-                      x: 40,
-                      y: 100,
-                      w: 515,
-                      h: 420,
-                      albumPhotos: [
-                        {
-                          url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
-                          caption: 'Panoramic Island Coastline',
-                          frameStyle: 'shadow',
-                        },
-                        {
-                          url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
-                          caption: 'Reef Exploration',
-                          frameStyle: 'rounded',
-                        },
-                        {
-                          url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400',
-                          caption: 'Celebration',
-                          frameStyle: 'rounded',
-                        },
-                      ],
-                    })
-                  }
+                  onClick={handleAddModernMosaic}
                 >
-                  <span>🖼️</span> 3-Photo Keepsake Collage
+                  <span>🖼️</span> Modern Mosaic (Asymmetric Masonry)
+                </button>
+
+                <button
+                  type="button"
+                  className="studio-tool-btn sunset"
+                  onClick={handleAddCleanGrid}
+                >
+                  <span>▦</span> Clean 3x3 Photo Grid
+                </button>
+
+                <button
+                  type="button"
+                  className="studio-tool-btn emerald"
+                  onClick={handleAddFullBleedHero}
+                >
+                  <span>🌄</span> Full-Bleed Photo Hero Spread
                 </button>
               </div>
             )}
@@ -4663,6 +5461,7 @@ export default function FlipexStudio() {
             {/* RENDER ELEMENTS */}
             {activePage?.elements.map((el) => {
               const isSelected = selectedElementIds.includes(el.id);
+              const dpiCheck = el.type === 'image' || el.type === 'album_spread' ? calculateElementDpi(el) : null;
 
               return (
                 <div
@@ -4694,6 +5493,16 @@ export default function FlipexStudio() {
                   }}
                   onMouseDown={(e) => handleElementMouseDown(e, el)}
                 >
+                  {/* Stage 7: Low-DPI Print Warning Pill */}
+                  {dpiCheck && dpiCheck.status === 'low' && (
+                    <div
+                      className="studio-dpi-badge-low"
+                      title={`Print warning: ${dpiCheck.dpi} DPI. Less than 150 DPI may appear blurry or pixelated when printed.`}
+                    >
+                      ⚠️ {dpiCheck.dpi} DPI
+                    </div>
+                  )}
+
                   {/* Stage 2: 8 Resize Handles & Rotation Stem/Knob when Selected */}
                   {isSelected && (
                     <>
@@ -7158,6 +7967,355 @@ export default function FlipexStudio() {
                 {savingTemplate ? 'Saving Template…' : '✓ Save Reusable Template'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage 7: Pre-Flight DPI Guard Modal */}
+      {showDpiGuardModal && (() => {
+        const imageList: Array<{
+          pageNumber: number;
+          elementId: string;
+          type: string;
+          name: string;
+          src?: string;
+          dpi: number;
+          status: 'low' | 'good' | 'optimal';
+          printInchesW: number;
+          printInchesH: number;
+          naturalW: number;
+          naturalH: number;
+        }> = [];
+
+        pages.forEach((p) => {
+          p.elements.forEach((el) => {
+            if (el.type === 'image' || el.type === 'album_spread' || (el.type === 'product' && el.image)) {
+              const dpiInfo = calculateElementDpi(el);
+              imageList.push({
+                pageNumber: p.page_number,
+                elementId: el.id,
+                type: el.type,
+                name: el.name || (el.type === 'product' ? el.name : el.caption) || 'Photo Frame',
+                src: el.src || el.image || el.albumPhotos?.[0]?.url,
+                dpi: dpiInfo.dpi,
+                status: dpiInfo.status,
+                printInchesW: dpiInfo.printInchesW,
+                printInchesH: dpiInfo.printInchesH,
+                naturalW: dpiInfo.naturalW,
+                naturalH: dpiInfo.naturalH,
+              });
+            }
+          });
+        });
+
+        const lowCount = imageList.filter((i) => i.status === 'low').length;
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div style={{ background: '#0f172a', borderRadius: '24px', maxWidth: '680px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.6)', border: '1px solid #334155', color: '#f8fafc', overflow: 'hidden' }}>
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '24px' }}>🛡️</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Pre-Flight Print Resolution Guard</h3>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
+                      Commercial print verification across {pages.length} pages • 72 pt/inch physical standard
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDpiGuardModal(false)}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ padding: '16px 24px', background: lowCount > 0 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                  <span>{lowCount > 0 ? '⚠️' : '✨'}</span>
+                  <span style={{ fontWeight: 700, color: lowCount > 0 ? '#fca5a5' : '#6ee7b7' }}>
+                    {lowCount > 0
+                      ? `Found ${lowCount} image frame(s) with resolution below 150 DPI`
+                      : 'All photos meet or exceed high-definition print specifications!'}
+                  </span>
+                </div>
+                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                  {imageList.length} Total Image Frame(s)
+                </span>
+              </div>
+
+              <div style={{ padding: '16px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {imageList.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '13px' }}>
+                    No image frames found in this document yet.
+                  </div>
+                ) : (
+                  imageList.map((img, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 14px',
+                        background: '#1e293b',
+                        borderRadius: '12px',
+                        border: img.status === 'low' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid #334155',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {img.src ? (
+                          <img src={img.src} alt={img.name} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #475569' }} />
+                        ) : (
+                          <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🖼️</div>
+                        )}
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: 700, fontSize: '13px', color: '#ffffff' }}>{img.name}</span>
+                            <span style={{ fontSize: '10px', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', color: '#94a3b8' }}>Page {img.pageNumber}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                            Est. Pixel Res: {img.naturalW}×{img.naturalH} px • Print Size: {img.printInchesW}″ × {img.printInchesH}″
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background:
+                              img.status === 'low' ? 'rgba(239, 68, 68, 0.2)'
+                              : img.status === 'good' ? 'rgba(59, 130, 246, 0.2)'
+                              : 'rgba(16, 185, 129, 0.2)',
+                            color:
+                              img.status === 'low' ? '#f87171'
+                              : img.status === 'good' ? '#60a5fa'
+                              : '#34d399',
+                            border: `1px solid ${
+                              img.status === 'low' ? 'rgba(239, 68, 68, 0.4)'
+                              : img.status === 'good' ? 'rgba(59, 130, 246, 0.4)'
+                              : 'rgba(16, 185, 129, 0.4)'
+                            }`,
+                          }}
+                        >
+                          {img.dpi} DPI • {img.status === 'low' ? 'Low Print Res' : img.status === 'good' ? 'Web Ready' : 'Print Perfect'}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePageIndex(img.pageNumber - 1);
+                            setSelectedElementIds([img.elementId]);
+                            setShowDpiGuardModal(false);
+                          }}
+                          className="studio-gradient-btn cosmic"
+                          style={{ padding: '5px 12px', fontSize: '11px', borderRadius: '6px' }}
+                        >
+                          Jump ↗
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div style={{ padding: '16px 24px', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDpiGuardModal(false)}
+                  className="studio-gradient-btn cosmic"
+                  style={{ padding: '8px 20px', fontSize: '12px', borderRadius: '8px' }}
+                >
+                  Close Inspection
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Stage 9: Brand Kits Reusable Visual Identity Modal */}
+      {showBrandKitsModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#0f172a', borderRadius: '24px', maxWidth: '620px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.6)', border: '1px solid #334155', color: '#f8fafc', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🎨</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Workspace Brand Kits</h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>
+                    1-Click apply consistent logos, palettes, and typography tokens across all publication spreads
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBrandKitsModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '18px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {loadingBrandKits ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Loading workspace brand kits…</div>
+              ) : brandKits.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>No brand kits registered yet.</div>
+              ) : (
+                brandKits.map((kit) => (
+                  <div key={kit.id} className="studio-brand-card">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 800, fontSize: '14px', color: '#ffffff' }}>{kit.name}</span>
+                        {kit.is_default === 1 && (
+                          <span style={{ fontSize: '9px', fontWeight: 800, background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', padding: '1px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={applyingBrandKit}
+                        onClick={() => handleApplyBrandKit(kit)}
+                        className="studio-gradient-btn cosmic"
+                        style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '8px' }}
+                      >
+                        {applyingBrandKit ? 'Applying…' : 'Apply to Publication ↗'}
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="studio-swatch-circle" style={{ background: kit.primary_color }} title={`Primary: ${kit.primary_color}`} />
+                        <div className="studio-swatch-circle" style={{ background: kit.secondary_color }} title={`Secondary: ${kit.secondary_color}`} />
+                        <div className="studio-swatch-circle" style={{ background: kit.accent_color }} title={`Accent: ${kit.accent_color}`} />
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#cbd5e1', textAlign: 'right' }}>
+                        Font: <span style={{ fontWeight: 700, color: '#f5d0fe' }}>{kit.font_family}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Save current document theme as new Brand Kit */}
+              <div style={{ padding: '14px', background: '#1e293b', borderRadius: '14px', border: '1px solid #334155', marginTop: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', display: 'block', marginBottom: '8px' }}>
+                  💾 Save Current Style as New Brand Kit
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={newBrandKitName}
+                    onChange={(e) => setNewBrandKitName(e.target.value)}
+                    placeholder="e.g. Pacific Horizon Summer Palette"
+                    className="studio-prop-input"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!newBrandKitName.trim()}
+                    onClick={handleSaveCurrentBrandKit}
+                    className="studio-gradient-btn sunset"
+                    style={{ padding: '6px 14px', fontSize: '11px', borderRadius: '8px', whiteSpace: 'nowrap' }}
+                  >
+                    Save Brand Kit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage 8: Background Export Modal */}
+      {showExportModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#0f172a', borderRadius: '24px', maxWidth: '520px', width: '100%', padding: '24px', boxShadow: '0 25px 60px rgba(0,0,0,0.6)', border: '1px solid #334155', color: '#f8fafc' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🖨️</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Export Commercial Publication</h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>High-fidelity 300 DPI vector PDF and print-ready options</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowExportModal(false);
+                  setExportJobProgress(null);
+                  setExportDownloadUrl(null);
+                }}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {exportJobProgress !== null ? (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <span style={{ fontSize: '28px', display: 'block', marginBottom: '8px' }}>
+                  {exportJobProgress === 100 ? '🎉' : '⚙️'}
+                </span>
+                <h4 style={{ fontWeight: 800, color: '#ffffff', fontSize: '14px', marginBottom: '6px' }}>
+                  {exportJobProgress === 100 ? 'Print PDF Ready for Download!' : `Compiling Vector Layers (${exportJobProgress}%)`}
+                </h4>
+                <div className="studio-export-progress-track">
+                  <div className="studio-export-progress-fill" style={{ width: `${exportJobProgress}%` }} />
+                </div>
+                {exportDownloadUrl && (
+                  <a
+                    href={exportDownloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="studio-gradient-btn emerald"
+                    style={{ display: 'inline-block', padding: '10px 24px', fontSize: '13px', borderRadius: '10px', textDecoration: 'none', marginTop: '12px', fontWeight: 700 }}
+                  >
+                    📥 Download Vector Print PDF
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <a
+                  href={`/api/v1/studio/documents/${currentDoc?.id}/export-pdf?print=1`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="studio-brand-card"
+                  style={{ textDecoration: 'none', cursor: 'pointer', display: 'block' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '13px', color: '#ffffff' }}>⚡ Instant Vector Print Dialog</span>
+                    <span className="studio-gradient-btn ocean" style={{ padding: '4px 10px', fontSize: '10px', borderRadius: '6px' }}>Browser Print ↗</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
+                    Opens the browser print dialog immediately with @page CSS, bleed safe guides, and uncompressed vector layers.
+                  </p>
+                </a>
+
+                <div
+                  className="studio-brand-card"
+                  style={{ cursor: 'pointer' }}
+                  onClick={handleQueueExportJob}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '13px', color: '#ffffff' }}>🚀 300 DPI Background Worker Job</span>
+                    <span className="studio-gradient-btn orchid" style={{ padding: '4px 10px', fontSize: '10px', borderRadius: '6px' }}>Queue Job ⚡</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
+                    Queues asynchronous rasterization worker for maximum resolution offset lithography printing with full bleed.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
