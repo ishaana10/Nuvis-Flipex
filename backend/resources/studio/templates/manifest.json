@@ -1,0 +1,210 @@
+{
+    "schema": "flipex.template.manifest",
+    "version": "1.0.0",
+    "updatedAt": "2026-11-18T23:12:14+00:00",
+    "templatesCount": 10,
+    "templates": [
+        {
+            "id": "tpl_cat_supermarket_01",
+            "slug": "pacific-supermarket-weekly-specials",
+            "name": "Pacific Supermarket Weekly Specials",
+            "category": "retail_catalogue",
+            "docType": "catalogue",
+            "description": "High-conversion FMCG promotional catalogue with price splashes, discount badges, product grids, and 1-tap WhatsApp ordering.",
+            "pagesCount": 2,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "retail",
+                "fmcg",
+                "groceries",
+                "supermarket",
+                "weekly specials",
+                "fiji",
+                "discounts"
+            ],
+            "version": "1.0.0",
+            "file": "catalogue/pacific-supermarket-weekly-specials.json"
+        },
+        {
+            "id": "tpl_cat_techpro_02",
+            "slug": "techpro-pacific-gadget-showcase",
+            "name": "TechPro Pacific Gadget Showcase",
+            "category": "electronics_tech",
+            "docType": "catalogue",
+            "description": "Modern tech lookbook with specifications table, warranty callouts, inquiry forms, and crisp dark mode styling.",
+            "pagesCount": 2,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "tech",
+                "electronics",
+                "gadgets",
+                "audio",
+                "computers",
+                "hardware",
+                "mobile"
+            ],
+            "version": "1.0.0",
+            "file": "catalogue/techpro-pacific-gadget-showcase.json"
+        },
+        {
+            "id": "tpl_cat_restaurant_03",
+            "slug": "coral-coast-luxury-resort-menu",
+            "name": "Coral Coast Luxury Resort Menu & Wine List",
+            "category": "food_restaurant",
+            "docType": "catalogue",
+            "description": "Fine dining tropical resort menu with seafood platters, cocktail pairings, pricing, and QR table ordering.",
+            "pagesCount": 2,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "dining",
+                "restaurant",
+                "seafood",
+                "menu",
+                "wine list",
+                "resort",
+                "culinary"
+            ],
+            "version": "1.0.0",
+            "file": "catalogue/coral-coast-luxury-resort-menu.json"
+        },
+        {
+            "id": "tpl_cat_realestate_04",
+            "slug": "suva-waterfront-villa-property",
+            "name": "Suva Waterfront Villa & Property Showcase",
+            "category": "real_estate",
+            "docType": "catalogue",
+            "description": "Exclusive island real estate portfolio with architectural photography, property specs, land tenure details, and agent contact.",
+            "pagesCount": 1,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "real estate",
+                "property",
+                "luxury villa",
+                "residence",
+                "architecture",
+                "investment"
+            ],
+            "version": "1.0.0",
+            "file": "catalogue/suva-waterfront-villa-property.json"
+        },
+        {
+            "id": "tpl_mag_yearbook_05",
+            "slug": "pacific-heritage-senior-graduate-yearbook",
+            "name": "Pacific Heritage Senior Graduate Yearbook",
+            "category": "school_yearbook",
+            "docType": "magazine",
+            "description": "Comprehensive school and university yearbook with senior portraits, academic awards, quotes, and memories.",
+            "pagesCount": 1,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "school",
+                "university",
+                "yearbook",
+                "students",
+                "education",
+                "graduation"
+            ],
+            "version": "1.0.0",
+            "file": "yearbook/pacific-heritage-senior-graduate-yearbook.json"
+        },
+        {
+            "id": "tpl_mag_lifestyle_06",
+            "slug": "island-horizon-lifestyle-travel",
+            "name": "Island Horizon Lifestyle & Travel Magazine",
+            "category": "community_magazine",
+            "docType": "magazine",
+            "description": "Multi-column editorial magazine spread with drop caps, pull-quotes, full-bleed scenic backdrops, and author bylines.",
+            "pagesCount": 1,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "magazine",
+                "travel",
+                "lifestyle",
+                "editorial",
+                "ecotourism",
+                "pacific"
+            ],
+            "version": "1.0.0",
+            "file": "magazine/island-horizon-lifestyle-travel.json"
+        },
+        {
+            "id": "tpl_alb_wedding_07",
+            "slug": "island-sanctuary-luxury-wedding-keepsake",
+            "name": "Island Sanctuary Luxury Wedding Keepsake",
+            "category": "wedding_album",
+            "docType": "album",
+            "description": "Luxury photo album layout with elegant typography, multi-photo frames, vows keepsakes, and guest remembrance.",
+            "pagesCount": 1,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "wedding",
+                "album",
+                "photo album",
+                "keepsake",
+                "luxury",
+                "romance"
+            ],
+            "version": "1.0.0",
+            "file": "album/island-sanctuary-luxury-wedding-keepsake.json"
+        },
+        {
+            "id": "tpl_rep_annual_08",
+            "slug": "pacific-enterprise-corporate-annual-report",
+            "name": "Pacific Enterprise Corporate Annual Report",
+            "category": "annual_report",
+            "docType": "custom",
+            "description": "Executive annual financial & governance review with KPI metric callouts, chairman message, and strategic highlights.",
+            "pagesCount": 1,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "corporate",
+                "annual report",
+                "finance",
+                "kpi",
+                "governance",
+                "executive"
+            ],
+            "version": "1.0.0",
+            "file": "custom/pacific-enterprise-corporate-annual-report.json"
+        },
+        {
+            "id": "tpl_mkt_adventure_09",
+            "slug": "viti-bula-tour-eco-adventure-guide",
+            "name": "Viti Bula Tour & Eco-Adventure Guide",
+            "category": "marketing_brochure",
+            "docType": "custom",
+            "description": "Vibrant tourism marketing brochure with excursion packages, diving safari rates, and booking QR code.",
+            "pagesCount": 1,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "brochure",
+                "tourism",
+                "adventure",
+                "travel",
+                "fiji",
+                "tours"
+            ],
+            "version": "1.0.0",
+            "file": "custom/viti-bula-tour-eco-adventure-guide.json"
+        },
+        {
+            "id": "tpl_cre_portfolio_10",
+            "slug": "denarau-architecture-design-portfolio",
+            "name": "Denarau Architecture & Design Portfolio",
+            "category": "creative_portfolio",
+            "docType": "custom",
+            "description": "Minimalist design portfolio for architects, interior designers, and visual creatives with project case studies.",
+            "pagesCount": 1,
+            "thumbnailUrl": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80",
+            "tags": [
+                "portfolio",
+                "architecture",
+                "interior design",
+                "creative",
+                "case studies"
+            ],
+            "version": "1.0.0",
+            "file": "custom/denarau-architecture-design-portfolio.json"
+        }
+    ]
+}

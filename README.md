@@ -255,6 +255,25 @@ A complete, browser-based visual layout engine allowing users to author professi
 
 The following notable updates, bug fixes, and architectural hardening milestones have been deployed across recent release cycles:
 
+### Release Sprint 1 — Flipex Design Schema (FDS v1.0), Versioned Template Architecture & Studio Controller Stabilisation
+- **Studio Controller API Fixes & Invariant Hardening:**
+  - Resolved `Auth::user($req)` class-resolution bugs in `StudioController.php` across `listTemplates`, `getTemplate`, `saveTemplate`, and `deleteTemplate`, standardizing on Slim 4 `$u = $req->getAttribute('user')`.
+  - Fixed unassigned `$u` variable in `listAssets()`, guaranteeing robust tenant isolation for studio asset management without 500 errors.
+- **Flipex Design Schema (FDS v1.0) Specification & Validator:**
+  - Implemented canonical `FdsValidator.php` (`schema: "flipex.design"`, `schemaVersion: "1.0.0"`).
+  - Validates document dimensions, units, bleed, safe margins, orientation, and layout structures.
+  - Enforces server storage optimization: strictly rejects inline Base64 data URIs in templates or saved documents, requiring reference-based asset architecture (`assetRef`).
+- **Bidirectional Backward-Compatible Adapter (`FdsAdapter.php`):**
+  - Seamless bidirectional translation between legacy flat `canvas_spec` coordinates (`x, y, w, h`) and canonical FDS v1.0 (`frame`, `transform`, `style`, `assetRef`, `dataBinding`).
+  - Ensures existing canvas editor scripts, flipbook publication generators, and print export pipelines continue to function without breaking changes.
+- **File-Based Versioned Template Architecture:**
+  - Extracted 10 hardcoded PHP array templates out of `StudioController.php` into modular, versioned JSON files under `backend/resources/studio/templates/` (`catalogue/`, `magazine/`, `album/`, `yearbook/`, `custom/`).
+  - Created `manifest.json` cataloging all templates with metadata, category, page count, and dimensions.
+  - Replaced the flawed `COUNT(*) >= 10` seeder with an intelligent, version-aware upsert mechanism based on `template_key` and semantic `version`.
+- **Automated Verification Test Suite (`StudioDesignSchemaTest.php`):**
+  - Added 17 automated regression and architectural verification tests covering schema validation, Base64 rejection, legacy adapter translation, manifest integrity, template JSON validation, and controller method signatures.
+  - Registered `composer test:studio` script in `composer.json`.
+
 ### Release `2ad0a38` — Developer Session Security Suite, Background Deduplication, Alpha Access Governance & Zero-Purple UI Standard
 - **Developer Tab Session Security & Expiration Policies:**
   - Built `SessionSecurity.php` providing configurable JWT access token TTL (default: 3600s / 1 hr), refresh token retention (30 days), and inactivity timeouts (24h).
@@ -568,9 +587,13 @@ Nuvis Flipex includes an automated security regression test suite validating **2
 - Storefront draft isolation prohibiting non-public or unapproved documents.
 - Atomic cache lock ownership validation under simulated race conditions.
 
-Run the test suite at any time via CLI:
+Run the test suites at any time via CLI:
 ```bash
+# Automated security and tenant isolation verification (24 invariants)
 php backend/bin/test_security.php
+
+# Flipex Design Schema (FDS v1.0), template library & studio controller tests (17 checks)
+php backend/tests/StudioDesignSchemaTest.php
 ```
 
 ---

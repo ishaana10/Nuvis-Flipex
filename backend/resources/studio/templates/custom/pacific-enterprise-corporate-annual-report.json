@@ -1,0 +1,247 @@
+{
+    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+    "schema": "flipex.design",
+    "schemaVersion": "1.0.0",
+    "id": "tpl_rep_annual_08",
+    "title": "Pacific Enterprise Corporate Annual Report",
+    "description": "Executive annual financial & governance review with KPI metric callouts, chairman message, and strategic highlights.",
+    "category": "annual_report",
+    "docType": "custom",
+    "version": "1.0.0",
+    "document": {
+        "width": 595.28,
+        "height": 841.89,
+        "unit": "pt",
+        "orientation": "portrait",
+        "dpi": 300,
+        "bleed": {
+            "top": 9,
+            "right": 9,
+            "bottom": 9,
+            "left": 9
+        },
+        "safeMargins": {
+            "top": 36,
+            "right": 36,
+            "bottom": 36,
+            "left": 36
+        },
+        "grid": {
+            "columns": 12,
+            "rows": 8,
+            "gutter": 12
+        }
+    },
+    "pages": [
+        {
+            "pageNumber": 1,
+            "id": "page_1",
+            "name": "Page 1",
+            "type": "cover",
+            "background": {
+                "type": "solid",
+                "value": "#0F172A",
+                "stops": null,
+                "angle": null
+            },
+            "elements": [
+                {
+                    "id": "ar_tag",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 45,
+                        "width": 300,
+                        "height": 25
+                    },
+                    "x": 40,
+                    "y": 45,
+                    "w": 300,
+                    "h": 25,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 11,
+                        "fontWeight": "bold",
+                        "color": "#38BDF8",
+                        "letterSpacing": "1.5px"
+                    },
+                    "content": "ANNUAL PERFORMANCE REVIEW \u2022 FY2026",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "ar_hd",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 75,
+                        "width": 515,
+                        "height": 60
+                    },
+                    "x": 40,
+                    "y": 75,
+                    "w": 515,
+                    "h": 60,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 28,
+                        "fontWeight": "800",
+                        "color": "#FFFFFF"
+                    },
+                    "content": "Sustainable Growth Across Pacific Markets",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "ar_kpi1",
+                    "type": "shape",
+                    "frame": {
+                        "x": 40,
+                        "y": 150,
+                        "width": 165,
+                        "height": 100
+                    },
+                    "x": 40,
+                    "y": 150,
+                    "w": 165,
+                    "h": 100,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "backgroundColor": "#1E293B",
+                        "borderRadius": 12,
+                        "borderWidth": 1,
+                        "borderColor": "#334155",
+                        "color": "#34D399",
+                        "fontSize": 16,
+                        "textAlign": "center"
+                    },
+                    "content": "$42.8M\nNet Revenue (+18%)",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "ar_kpi2",
+                    "type": "shape",
+                    "frame": {
+                        "x": 215,
+                        "y": 150,
+                        "width": 165,
+                        "height": 100
+                    },
+                    "x": 215,
+                    "y": 150,
+                    "w": 165,
+                    "h": 100,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "backgroundColor": "#1E293B",
+                        "borderRadius": 12,
+                        "borderWidth": 1,
+                        "borderColor": "#334155",
+                        "color": "#38BDF8",
+                        "fontSize": 16,
+                        "textAlign": "center"
+                    },
+                    "content": "124,000\nActive Subscribers",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "ar_kpi3",
+                    "type": "shape",
+                    "frame": {
+                        "x": 390,
+                        "y": 150,
+                        "width": 165,
+                        "height": 100
+                    },
+                    "x": 390,
+                    "y": 150,
+                    "w": 165,
+                    "h": 100,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "backgroundColor": "#1E293B",
+                        "borderRadius": 12,
+                        "borderWidth": 1,
+                        "borderColor": "#334155",
+                        "color": "#38BDF8",
+                        "fontSize": 16,
+                        "textAlign": "center"
+                    },
+                    "content": "99.98%\nInfrastructure Uptime",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "ar_body",
+                    "type": "article",
+                    "frame": {
+                        "x": 40,
+                        "y": 280,
+                        "width": 515,
+                        "height": 220
+                    },
+                    "x": 40,
+                    "y": 280,
+                    "w": 515,
+                    "h": 220,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 14,
+                        "color": "#CBD5E1",
+                        "lineHeight": 1.7
+                    },
+                    "content": "Chairman\u2019s Overview: FY2026 marked a pivotal milestone in our regional expansion across Fiji, Samoa, and Tonga. Through accelerated digital transformation, clean solar energy infrastructure adoption, and resilient supply chain partnerships, we achieved record operational margins.",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                }
+            ]
+        }
+    ],
+    "tags": [
+        "corporate",
+        "annual report",
+        "finance",
+        "kpi",
+        "governance",
+        "executive"
+    ],
+    "thumbnailUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80"
+}

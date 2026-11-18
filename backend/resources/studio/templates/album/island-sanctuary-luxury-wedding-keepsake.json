@@ -1,0 +1,218 @@
+{
+    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+    "schema": "flipex.design",
+    "schemaVersion": "1.0.0",
+    "id": "tpl_alb_wedding_07",
+    "title": "Island Sanctuary Luxury Wedding Keepsake",
+    "description": "Luxury photo album layout with elegant typography, multi-photo frames, vows keepsakes, and guest remembrance.",
+    "category": "wedding_album",
+    "docType": "album",
+    "version": "1.0.0",
+    "document": {
+        "width": 595.28,
+        "height": 841.89,
+        "unit": "pt",
+        "orientation": "portrait",
+        "dpi": 300,
+        "bleed": {
+            "top": 9,
+            "right": 9,
+            "bottom": 9,
+            "left": 9
+        },
+        "safeMargins": {
+            "top": 36,
+            "right": 36,
+            "bottom": 36,
+            "left": 36
+        },
+        "grid": {
+            "columns": 12,
+            "rows": 8,
+            "gutter": 12
+        }
+    },
+    "pages": [
+        {
+            "pageNumber": 1,
+            "id": "page_1",
+            "name": "Page 1",
+            "type": "cover",
+            "background": {
+                "type": "solid",
+                "value": "#FAFAF9",
+                "stops": null,
+                "angle": null
+            },
+            "elements": [
+                {
+                    "id": "m1",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 50,
+                        "width": 515,
+                        "height": 40
+                    },
+                    "x": 40,
+                    "y": 50,
+                    "w": 515,
+                    "h": 40,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 24,
+                        "fontWeight": "300",
+                        "color": "#44403C",
+                        "textAlign": "center",
+                        "letterSpacing": "4px"
+                    },
+                    "content": "DAVID & SERA",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "m2",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 95,
+                        "width": 515,
+                        "height": 20
+                    },
+                    "x": 40,
+                    "y": 95,
+                    "w": 515,
+                    "h": 20,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 11,
+                        "fontWeight": "600",
+                        "color": "#A8A29E",
+                        "textAlign": "center",
+                        "letterSpacing": "2px"
+                    },
+                    "content": "OCTOBER 14, 2026 \u2022 DENARAU ISLAND, FIJI",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "imgw1",
+                    "type": "imageFrame",
+                    "frame": {
+                        "x": 40,
+                        "y": 130,
+                        "width": 250,
+                        "height": 340
+                    },
+                    "x": 40,
+                    "y": 130,
+                    "w": 250,
+                    "h": 340,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1,
+                    "assetRef": {
+                        "source": "external",
+                        "assetId": null,
+                        "url": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=500&q=80",
+                        "alt": "",
+                        "fit": "cover"
+                    },
+                    "url": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=500&q=80"
+                },
+                {
+                    "id": "imgw2",
+                    "type": "imageFrame",
+                    "frame": {
+                        "x": 305,
+                        "y": 130,
+                        "width": 250,
+                        "height": 340
+                    },
+                    "x": 305,
+                    "y": 130,
+                    "w": 250,
+                    "h": 340,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1,
+                    "assetRef": {
+                        "source": "external",
+                        "assetId": null,
+                        "url": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=500&q=80",
+                        "alt": "",
+                        "fit": "cover"
+                    },
+                    "url": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=500&q=80"
+                },
+                {
+                    "id": "wquote",
+                    "type": "text",
+                    "frame": {
+                        "x": 50,
+                        "y": 500,
+                        "width": 495,
+                        "height": 60
+                    },
+                    "x": 50,
+                    "y": 500,
+                    "w": 495,
+                    "h": 60,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 14,
+                        "fontStyle": "italic",
+                        "color": "#78716C",
+                        "textAlign": "center"
+                    },
+                    "content": "\"From this day forward, our journeys are woven together like coconut sennit along the pacific tide.\"",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                }
+            ]
+        }
+    ],
+    "tags": [
+        "wedding",
+        "album",
+        "photo album",
+        "keepsake",
+        "luxury",
+        "romance"
+    ],
+    "thumbnailUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80"
+}

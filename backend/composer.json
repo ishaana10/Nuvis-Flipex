@@ -13,9 +13,11 @@
   "scripts": {
     "test:migrations": "php bin/test_migrations.php",
     "test:security": "php bin/test_security.php",
+    "test:studio": "php tests/StudioDesignSchemaTest.php",
     "test": [
       "@test:migrations",
-      "@test:security"
+      "@test:security",
+      "@test:studio"
     ]
   }
 }

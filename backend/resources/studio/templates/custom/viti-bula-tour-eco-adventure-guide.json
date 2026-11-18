@@ -1,0 +1,172 @@
+{
+    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+    "schema": "flipex.design",
+    "schemaVersion": "1.0.0",
+    "id": "tpl_mkt_adventure_09",
+    "title": "Viti Bula Tour & Eco-Adventure Guide",
+    "description": "Vibrant tourism marketing brochure with excursion packages, diving safari rates, and booking QR code.",
+    "category": "marketing_brochure",
+    "docType": "custom",
+    "version": "1.0.0",
+    "document": {
+        "width": 595.28,
+        "height": 841.89,
+        "unit": "pt",
+        "orientation": "portrait",
+        "dpi": 300,
+        "bleed": {
+            "top": 9,
+            "right": 9,
+            "bottom": 9,
+            "left": 9
+        },
+        "safeMargins": {
+            "top": 36,
+            "right": 36,
+            "bottom": 36,
+            "left": 36
+        },
+        "grid": {
+            "columns": 12,
+            "rows": 8,
+            "gutter": 12
+        }
+    },
+    "pages": [
+        {
+            "pageNumber": 1,
+            "id": "page_1",
+            "name": "Page 1",
+            "type": "cover",
+            "background": {
+                "type": "solid",
+                "value": "#064E3B",
+                "stops": null,
+                "angle": null
+            },
+            "elements": [
+                {
+                    "id": "mb_hd",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 50,
+                        "width": 515,
+                        "height": 55
+                    },
+                    "x": 40,
+                    "y": 50,
+                    "w": 515,
+                    "h": 55,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 32,
+                        "fontWeight": "900",
+                        "color": "#6EE7B7",
+                        "textAlign": "center",
+                        "letterSpacing": "2px"
+                    },
+                    "content": "EXPLORE UNTAMED FIJI",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "mb_sub",
+                    "type": "badge",
+                    "frame": {
+                        "x": 40,
+                        "y": 110,
+                        "width": 515,
+                        "height": 30
+                    },
+                    "x": 40,
+                    "y": 110,
+                    "w": 515,
+                    "h": 30,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 12,
+                        "fontWeight": "700",
+                        "color": "#D1FAE5",
+                        "textAlign": "center",
+                        "letterSpacing": "1.5px"
+                    },
+                    "content": "ISLAND ADVENTURES \u2022 WATERFALL TREKS \u2022 REEF DIVING",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "mb_pkg1",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 40,
+                        "y": 160,
+                        "width": 245,
+                        "height": 280
+                    },
+                    "x": 40,
+                    "y": 160,
+                    "w": 245,
+                    "h": 280,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "mb_pkg2",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 310,
+                        "y": 160,
+                        "width": 245,
+                        "height": 280
+                    },
+                    "x": 310,
+                    "y": 160,
+                    "w": 245,
+                    "h": 280,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                }
+            ]
+        }
+    ],
+    "tags": [
+        "brochure",
+        "tourism",
+        "adventure",
+        "travel",
+        "fiji",
+        "tours"
+    ],
+    "thumbnailUrl": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80"
+}

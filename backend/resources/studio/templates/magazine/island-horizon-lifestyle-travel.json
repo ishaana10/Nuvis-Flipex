@@ -1,0 +1,240 @@
+{
+    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+    "schema": "flipex.design",
+    "schemaVersion": "1.0.0",
+    "id": "tpl_mag_lifestyle_06",
+    "title": "Island Horizon Lifestyle & Travel Magazine",
+    "description": "Multi-column editorial magazine spread with drop caps, pull-quotes, full-bleed scenic backdrops, and author bylines.",
+    "category": "community_magazine",
+    "docType": "magazine",
+    "version": "1.0.0",
+    "document": {
+        "width": 595.28,
+        "height": 841.89,
+        "unit": "pt",
+        "orientation": "portrait",
+        "dpi": 300,
+        "bleed": {
+            "top": 9,
+            "right": 9,
+            "bottom": 9,
+            "left": 9
+        },
+        "safeMargins": {
+            "top": 36,
+            "right": 36,
+            "bottom": 36,
+            "left": 36
+        },
+        "grid": {
+            "columns": 12,
+            "rows": 8,
+            "gutter": 12
+        }
+    },
+    "pages": [
+        {
+            "pageNumber": 1,
+            "id": "page_1",
+            "name": "Page 1",
+            "type": "cover",
+            "background": {
+                "type": "solid",
+                "value": "#FFFFFF",
+                "stops": null,
+                "angle": null
+            },
+            "elements": [
+                {
+                    "id": "cat1",
+                    "type": "badge",
+                    "frame": {
+                        "x": 40,
+                        "y": 40,
+                        "width": 200,
+                        "height": 20
+                    },
+                    "x": 40,
+                    "y": 40,
+                    "w": 200,
+                    "h": 20,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 11,
+                        "fontWeight": "bold",
+                        "color": "#0284C7",
+                        "letterSpacing": "1.5px"
+                    },
+                    "content": "ECO-TOURISM & ADVENTURE",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "hd1",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 65,
+                        "width": 515,
+                        "height": 70
+                    },
+                    "x": 40,
+                    "y": 65,
+                    "w": 515,
+                    "h": 70,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 28,
+                        "fontWeight": "800",
+                        "color": "#0F172A",
+                        "lineHeight": 1.2
+                    },
+                    "content": "Untouched Coral Sanctuaries: Exploring the Mamanuca Reefs",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "imghero",
+                    "type": "imageFrame",
+                    "frame": {
+                        "x": 40,
+                        "y": 145,
+                        "width": 515,
+                        "height": 280
+                    },
+                    "x": 40,
+                    "y": 145,
+                    "w": 515,
+                    "h": 280,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1,
+                    "assetRef": {
+                        "source": "external",
+                        "assetId": null,
+                        "url": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
+                        "alt": "Coral Reef Survey",
+                        "fit": "cover"
+                    },
+                    "url": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80"
+                },
+                {
+                    "id": "cap",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 430,
+                        "width": 515,
+                        "height": 20
+                    },
+                    "x": 40,
+                    "y": 430,
+                    "w": 515,
+                    "h": 20,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 11,
+                        "color": "#64748B",
+                        "fontStyle": "italic"
+                    },
+                    "content": "Photo: Marine conservation divers surveying barrier reefs off Castaway Island.",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "txt1",
+                    "type": "article",
+                    "frame": {
+                        "x": 40,
+                        "y": 460,
+                        "width": 245,
+                        "height": 260
+                    },
+                    "x": 40,
+                    "y": 460,
+                    "w": 245,
+                    "h": 260,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 13,
+                        "color": "#334155",
+                        "lineHeight": 1.6
+                    },
+                    "content": "Rising before dawn, the boat guides smoothly cut through crystal clear lagoon waters towards the outer barrier wall. Here, sea turtles glide effortlessly amongst towering coral gardens preserved through community tabu conservation reserves.",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "txt2",
+                    "type": "article",
+                    "frame": {
+                        "x": 310,
+                        "y": 460,
+                        "width": 245,
+                        "height": 260
+                    },
+                    "x": 310,
+                    "y": 460,
+                    "w": 245,
+                    "h": 260,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 13,
+                        "color": "#334155",
+                        "lineHeight": 1.6
+                    },
+                    "content": "Visitors are welcomed with traditional sevusevu protocols, connecting cultural heritage directly with modern sustainable marine stewardship. Every visitor footprint helps fund community-managed nurseries and local youth guides.",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                }
+            ]
+        }
+    ],
+    "tags": [
+        "magazine",
+        "travel",
+        "lifestyle",
+        "editorial",
+        "ecotourism",
+        "pacific"
+    ],
+    "thumbnailUrl": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
+}

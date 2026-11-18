@@ -1,0 +1,180 @@
+{
+    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+    "schema": "flipex.design",
+    "schemaVersion": "1.0.0",
+    "id": "tpl_cre_portfolio_10",
+    "title": "Denarau Architecture & Design Portfolio",
+    "description": "Minimalist design portfolio for architects, interior designers, and visual creatives with project case studies.",
+    "category": "creative_portfolio",
+    "docType": "custom",
+    "version": "1.0.0",
+    "document": {
+        "width": 595.28,
+        "height": 841.89,
+        "unit": "pt",
+        "orientation": "portrait",
+        "dpi": 300,
+        "bleed": {
+            "top": 9,
+            "right": 9,
+            "bottom": 9,
+            "left": 9
+        },
+        "safeMargins": {
+            "top": 36,
+            "right": 36,
+            "bottom": 36,
+            "left": 36
+        },
+        "grid": {
+            "columns": 12,
+            "rows": 8,
+            "gutter": 12
+        }
+    },
+    "pages": [
+        {
+            "pageNumber": 1,
+            "id": "page_1",
+            "name": "Page 1",
+            "type": "cover",
+            "background": {
+                "type": "solid",
+                "value": "#18181B",
+                "stops": null,
+                "angle": null
+            },
+            "elements": [
+                {
+                    "id": "cp_logo",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 40,
+                        "width": 300,
+                        "height": 25
+                    },
+                    "x": 40,
+                    "y": 40,
+                    "w": 300,
+                    "h": 25,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 11,
+                        "fontWeight": "600",
+                        "color": "#A1A1AA",
+                        "letterSpacing": "2px"
+                    },
+                    "content": "STUDIO VITI \u2022 ARCHITECTURE & SPATIAL DESIGN",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "cp_hd",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 75,
+                        "width": 515,
+                        "height": 60
+                    },
+                    "x": 40,
+                    "y": 75,
+                    "w": 515,
+                    "h": 60,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 26,
+                        "fontWeight": "700",
+                        "color": "#F4F4F5"
+                    },
+                    "content": "Harmonizing Modern Form with Pacific Vernacular",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "cp_img1",
+                    "type": "imageFrame",
+                    "frame": {
+                        "x": 40,
+                        "y": 150,
+                        "width": 515,
+                        "height": 320
+                    },
+                    "x": 40,
+                    "y": 150,
+                    "w": 515,
+                    "h": 320,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1,
+                    "assetRef": {
+                        "source": "external",
+                        "assetId": null,
+                        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
+                        "alt": "",
+                        "fit": "cover"
+                    },
+                    "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
+                },
+                {
+                    "id": "cp_txt",
+                    "type": "article",
+                    "frame": {
+                        "x": 40,
+                        "y": 490,
+                        "width": 515,
+                        "height": 120
+                    },
+                    "x": 40,
+                    "y": 490,
+                    "w": 515,
+                    "h": 120,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 13,
+                        "color": "#A1A1AA",
+                        "lineHeight": 1.6
+                    },
+                    "content": "Selected Works (2024\u20132026): Embracing cross-ventilation, native mahogany timber joinery, and natural basalt stonework to create tropical pavilions that breathe with the trade winds.",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                }
+            ]
+        }
+    ],
+    "tags": [
+        "portfolio",
+        "architecture",
+        "interior design",
+        "creative",
+        "case studies"
+    ],
+    "thumbnailUrl": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80"
+}

@@ -1,0 +1,319 @@
+{
+    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+    "schema": "flipex.design",
+    "schemaVersion": "1.0.0",
+    "id": "tpl_cat_restaurant_03",
+    "title": "Coral Coast Luxury Resort Menu & Wine List",
+    "description": "Fine dining tropical resort menu with seafood platters, cocktail pairings, pricing, and QR table ordering.",
+    "category": "food_restaurant",
+    "docType": "catalogue",
+    "version": "1.0.0",
+    "document": {
+        "width": 595.28,
+        "height": 841.89,
+        "unit": "pt",
+        "orientation": "portrait",
+        "dpi": 300,
+        "bleed": {
+            "top": 9,
+            "right": 9,
+            "bottom": 9,
+            "left": 9
+        },
+        "safeMargins": {
+            "top": 36,
+            "right": 36,
+            "bottom": 36,
+            "left": 36
+        },
+        "grid": {
+            "columns": 12,
+            "rows": 8,
+            "gutter": 12
+        }
+    },
+    "pages": [
+        {
+            "pageNumber": 1,
+            "id": "page_1",
+            "name": "Page 1",
+            "type": "cover",
+            "background": {
+                "type": "solid",
+                "value": "#1C1917",
+                "stops": null,
+                "angle": null
+            },
+            "elements": [
+                {
+                    "id": "m_hd",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 50,
+                        "width": 515,
+                        "height": 45
+                    },
+                    "x": 40,
+                    "y": 50,
+                    "w": 515,
+                    "h": 45,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 30,
+                        "fontFamily": "'Cinzel', serif",
+                        "fontWeight": "bold",
+                        "color": "#FDE047",
+                        "textAlign": "center",
+                        "letterSpacing": "3px"
+                    },
+                    "content": "NAVATU OCEAN DINING",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "m_sub",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 100,
+                        "width": 515,
+                        "height": 25
+                    },
+                    "x": 40,
+                    "y": 100,
+                    "w": 515,
+                    "h": 25,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 12,
+                        "fontWeight": "600",
+                        "color": "#D6D3D1",
+                        "textAlign": "center",
+                        "letterSpacing": "2px"
+                    },
+                    "content": "PACIFIC SEAFOOD & CHEF SPECIALTIES",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "d1",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 40,
+                        "y": 140,
+                        "width": 515,
+                        "height": 270
+                    },
+                    "x": 40,
+                    "y": 140,
+                    "w": 515,
+                    "h": 270,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "d2",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 40,
+                        "y": 430,
+                        "width": 245,
+                        "height": 290
+                    },
+                    "x": 40,
+                    "y": 430,
+                    "w": 245,
+                    "h": 290,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "d3",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 310,
+                        "y": 430,
+                        "width": 245,
+                        "height": 290
+                    },
+                    "x": 310,
+                    "y": 430,
+                    "w": 245,
+                    "h": 290,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                }
+            ]
+        },
+        {
+            "pageNumber": 2,
+            "id": "page_2",
+            "name": "Page 2",
+            "type": "inside",
+            "background": {
+                "type": "solid",
+                "value": "#1C1917",
+                "stops": null,
+                "angle": null
+            },
+            "elements": [
+                {
+                    "id": "m2_hd",
+                    "type": "text",
+                    "frame": {
+                        "x": 40,
+                        "y": 50,
+                        "width": 515,
+                        "height": 40
+                    },
+                    "x": 40,
+                    "y": 50,
+                    "w": 515,
+                    "h": 40,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": {
+                        "fontSize": 26,
+                        "fontFamily": "'Cinzel', serif",
+                        "fontWeight": "bold",
+                        "color": "#FDE047",
+                        "textAlign": "center"
+                    },
+                    "content": "COCKTAIL LOUNGE & DESSERTS",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "c1",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 40,
+                        "y": 110,
+                        "width": 245,
+                        "height": 280
+                    },
+                    "x": 40,
+                    "y": 110,
+                    "w": 245,
+                    "h": 280,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "c2",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 310,
+                        "y": 110,
+                        "width": 245,
+                        "height": 280
+                    },
+                    "x": 310,
+                    "y": 110,
+                    "w": 245,
+                    "h": 280,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                },
+                {
+                    "id": "c3",
+                    "type": "productCard",
+                    "frame": {
+                        "x": 40,
+                        "y": 410,
+                        "width": 515,
+                        "height": 280
+                    },
+                    "x": 40,
+                    "y": 410,
+                    "w": 515,
+                    "h": 280,
+                    "transform": {
+                        "rotation": 0,
+                        "scaleX": 1,
+                        "scaleY": 1,
+                        "opacity": 1
+                    },
+                    "style": [],
+                    "content": "",
+                    "locked": false,
+                    "editable": true,
+                    "zIndex": 1
+                }
+            ]
+        }
+    ],
+    "tags": [
+        "dining",
+        "restaurant",
+        "seafood",
+        "menu",
+        "wine list",
+        "resort",
+        "culinary"
+    ],
+    "thumbnailUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80"
+}
