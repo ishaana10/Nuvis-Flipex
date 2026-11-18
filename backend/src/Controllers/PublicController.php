@@ -50,7 +50,10 @@ final class PublicController
                     'title' => $f['title'],
                 ]);
             }
-            if ($f['published_at'] === null || $wf !== 'published') {
+            if ($f['published_at'] === null && ($wf === 'published' || $wf === 'approved' || ($f['status'] ?? '') === 'ready')) {
+                $f['published_at'] = $f['created_at'] ?? date('Y-m-d H:i:s');
+            }
+            if ($f['published_at'] === null || ($wf !== 'published' && $wf !== 'approved')) {
                 return Http::error($res, 'Not found', 404);
             }
         }
@@ -153,17 +156,26 @@ final class PublicController
 
         return Http::json($res, $meta + [
             'locked' => false,
-            'pages' => array_map(fn($p) => [
-                'n' => (int) $p['page_number'],
-                'image' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}" . ($p['webp_path'] ? "?format=webp{$previewAmp}" : $previewQuery),
-                'imageJpg' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}{$previewQuery}",
-                'imageHigh' => "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?res=high" . ($p['webp_path'] ? "&format=webp{$previewAmp}" : $previewAmp),
-                'webp' => $p['webp_path'] ? "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?format=webp{$previewAmp}" : null,
-                'avif' => !empty($p['avif_path']) ? "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?format=avif{$previewAmp}" : null,
-                'thumb' => "/api/v1/public/{$f['slug']}/thumbs/{$p['page_number']}" . ($p['webp_path'] ? "?format=webp{$previewAmp}" : $previewQuery),
-                'w' => (int) $p['width'],
-                'h' => (int) $p['height'],
-            ], $pages),
+            'pages' => array_map(function ($p) use ($f, $previewQuery, $previewAmp) {
+                $img = (string) ($p['image_path'] ?? '');
+                $isDirect = str_starts_with($img, 'http://') || str_starts_with($img, 'https://') || str_starts_with($img, 'data:');
+                $defaultImg = $isDirect ? $img : ("/api/v1/public/{$f['slug']}/pages/{$p['page_number']}" . ($p['webp_path'] ? "?format=webp{$previewAmp}" : $previewQuery));
+                $thumbImg = (string) ($p['thumb_path'] ?? '');
+                $isThumbDirect = str_starts_with($thumbImg, 'http://') || str_starts_with($thumbImg, 'https://') || str_starts_with($thumbImg, 'data:');
+                $defaultThumb = $isThumbDirect ? $thumbImg : ($isDirect ? $img : ("/api/v1/public/{$f['slug']}/thumbs/{$p['page_number']}" . ($p['webp_path'] ? "?format=webp{$previewAmp}" : $previewQuery)));
+
+                return [
+                    'n' => (int) $p['page_number'],
+                    'image' => $defaultImg,
+                    'imageJpg' => $isDirect ? $img : "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}{$previewQuery}",
+                    'imageHigh' => $isDirect ? $img : ("/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?res=high" . ($p['webp_path'] ? "&format=webp{$previewAmp}" : $previewAmp)),
+                    'webp' => (!$isDirect && $p['webp_path']) ? "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?format=webp{$previewAmp}" : null,
+                    'avif' => (!$isDirect && !empty($p['avif_path'])) ? "/api/v1/public/{$f['slug']}/pages/{$p['page_number']}?format=avif{$previewAmp}" : null,
+                    'thumb' => $defaultThumb,
+                    'w' => (int) $p['width'],
+                    'h' => (int) $p['height'],
+                ];
+            }, $pages),
             'hotspots' => (object) $hotspotsByPage,
         ]);
     }
@@ -340,7 +352,10 @@ HTML;
 
         if (!$isPreview) {
             $wf = $f['workflow_status'] ?? ($f['published_at'] !== null ? 'published' : 'draft');
-            if ($f['published_at'] === null || $wf !== 'published') {
+            if ($f['published_at'] === null && ($wf === 'published' || $wf === 'approved' || ($f['status'] ?? '') === 'ready')) {
+                $f['published_at'] = $f['created_at'] ?? date('Y-m-d H:i:s');
+            }
+            if ($f['published_at'] === null || ($wf !== 'published' && $wf !== 'approved')) {
                 return Http::error($res, 'Not found', 404);
             }
             if (!empty($f['expires_at']) && strtotime((string) $f['expires_at']) <= time()) {
@@ -383,6 +398,23 @@ HTML;
             $rel = (string) $p['avif_path'];
         } else {
             $rel = (string) $p['image_path'];
+        }
+
+        if (str_starts_with($rel, 'http://') || str_starts_with($rel, 'https://')) {
+            return $res->withHeader('Location', $rel)->withStatus(302);
+        }
+
+        if (str_starts_with($rel, 'data:')) {
+            if (preg_match('#^data:([^;,]+)(?:;charset=[^;,]+)?(?:;(base64))?,(.*)$#s', $rel, $m)) {
+                $mime = $m[1];
+                $isBase64 = ($m[2] === 'base64');
+                $payload = $isBase64 ? base64_decode($m[3]) : rawurldecode($m[3]);
+                $body = $res->getBody();
+                $body->write($payload);
+                return $res
+                    ->withHeader('Content-Type', $mime)
+                    ->withHeader('Cache-Control', 'public, max-age=86400');
+            }
         }
 
         $path = Storage::root() . '/' . $rel;

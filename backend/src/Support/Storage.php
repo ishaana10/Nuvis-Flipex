@@ -69,6 +69,10 @@ final class Storage
     /** Generate cryptographic HMAC-SHA256 signed URL for protected temporary access */
     public static function temporarySignedUrl(string $relPath, int $ttlSeconds = 3600): string
     {
+        if (str_starts_with($relPath, 'http://') || str_starts_with($relPath, 'https://') || str_starts_with($relPath, 'data:')) {
+            return $relPath;
+        }
+
         $expires = time() + $ttlSeconds;
         $secret = CryptoSecrets::storageSigningSecret();
         $sig = hash_hmac('sha256', "{$relPath}|{$expires}", $secret);

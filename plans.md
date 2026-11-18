@@ -321,14 +321,22 @@ flowchart TD
 
 ### Stage 6 — Specialized Magazine Creator
 **Focus:** Editorial desktop publishing, multi-column articles, and linked text frames.
-- [ ] **Linked Text Frames (Overflow Flow):**
-  - Allow text frames across pages to link together; text overflowing from Page 1 automatically flows into the designated frame on Page 2.
-- [ ] **Facing-Pages & 2-Page Spreads:**
-  - Support editorial 2-page centerfold magazine spreads.
-- [ ] **Master Pages & Dynamic Headers:**
-  - Reusable master page headers, footers, section categories, and automated folios.
-- [ ] **Automated Dynamic Table of Contents (TOC):**
-  - Scans editorial article titles and compiles an automated hyperlinked Table of Contents.
+- [x] **Linked Text Frames (Overflow Flow):**
+  - Text and multi-column article frames link across pages with automatic overflow streaming (`linkedNextId` / `linkedPrevId`).
+  - Text exceeding capacity in frame 1 automatically flows into frame 2 on the next page with visual `🔗 Flowing →` / `🔗 Flow In` badges.
+  - 1-tap "Flow into Next Page" auto-creates continuation page & frame; Inspector enables live target connection or unlinking.
+- [x] **Facing-Pages & 2-Page Spreads:**
+  - Added `📖 2-Page Spread` toggle in top studio toolbar with responsive viewport adaptation.
+  - Facing centerfold view with realistic book spine gutter, live facing-page companion preview, and 1-tap spread navigation.
+- [x] **Master Pages & Dynamic Headers:**
+  - Automated Master Page applicators (Glossy Editorial, Modern Minimalist, Spread Outer Folios).
+  - Dynamic token resolution engine replacing `{page}`, `{total}`, `{title}`, `{section}`, and `{date}` in real-time.
+- [x] **Automated Dynamic Table of Contents (TOC):**
+  - Scans editorial headings across all document pages and generates a hyperlinked TOC with dotted leaders.
+  - Interactive in-studio jump clicks and automatic flipbook `page` hotspot generation jumping directly to publication chapters.
+- [x] **Studio Publishing / Live Preview Auto-Heal Fix:**
+  - Resolved 404 `"This flipbook doesn't exist or isn't published"` by aligning `workflow_status = 'published'`, `published_at` timestamp healing, and absolute/data URI asset streaming.
+  - Enhanced publish modal with direct "Dashboard Preview 👁️" and "Open Live Reader ↗" 3-gradient action buttons.
 
 ---
 

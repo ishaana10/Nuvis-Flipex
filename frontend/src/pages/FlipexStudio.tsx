@@ -118,6 +118,11 @@ export interface CanvasElement {
   folioHeader?: string;
   folioShowPage?: boolean;
 
+  // Stage 6: Linked Text Frames & Master Page Tokens
+  linkedNextId?: string;
+  linkedPrevId?: string;
+  sectionCategory?: string;
+
   style?: {
     fontSize?: number;
     fontWeight?: string;
@@ -333,7 +338,9 @@ export default function FlipexStudio() {
   const [gridSnap, setGridSnap] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string>('');
-  const [publishModal, setPublishModal] = useState<{ open: boolean; slug?: string; url?: string } | null>(null);
+  const [publishModal, setPublishModal] = useState<{ open: boolean; slug?: string; url?: string; previewUrl?: string; flipbookId?: number } | null>(null);
+  // Stage 6: Facing Pages / 2-Page Magazine Centerfold Spread
+  const [spreadMode, setSpreadMode] = useState<boolean>(false);
 
   // Left sidebar active tool tab
   const [activeToolTab, setActiveToolTab] = useState<
@@ -721,14 +728,20 @@ export default function FlipexStudio() {
     await handleSavePage();
     setSaving(true);
     try {
-      const res = await api<{ ok: boolean; slug: string; public_url: string; viewer_url: string }>(
+      const res = await api<{ ok: boolean; slug: string; public_url: string; viewer_url: string; flipbook_id?: number; preview_url?: string }>(
         `/studio/documents/${currentDoc.id}/publish`,
         'POST'
       );
+      if (res.flipbook_id) {
+        currentDoc.flipbook_id = res.flipbook_id;
+        currentDoc.status = 'published';
+      }
       setPublishModal({
         open: true,
         slug: res.slug,
-        url: res.public_url,
+        url: res.public_url || `/v/${res.slug}`,
+        previewUrl: res.preview_url || (res.flipbook_id ? `/dashboard/preview/${res.flipbook_id}` : undefined),
+        flipbookId: res.flipbook_id,
       });
     } catch (e: any) {
       alert('Publish failed: ' + e.message);
@@ -1257,6 +1270,322 @@ export default function FlipexStudio() {
         letterSpacing: '1px',
       },
     });
+  };
+
+  // ==========================================
+  // STAGE 6: SPECIALIZED MAGAZINE CREATOR SUITE
+  // ==========================================
+
+  // Calculate character capacity of a text or multi-column frame
+  const calculateTextCapacity = useCallback((el: CanvasElement): number => {
+    const fontSize = el.style?.fontSize || 13;
+    const lineHeight = (el.style?.lineHeight || 1.6) * fontSize;
+    const lines = Math.max(1, Math.floor((el.h || 200) / lineHeight));
+    const cols = el.type === 'column_text' ? (el.columns || 2) : 1;
+    const gutter = el.columnGutter || 20;
+    const colWidth = ((el.w || 400) - (cols - 1) * gutter) / cols;
+    const charsPerLine = Math.max(8, Math.floor(colWidth / (fontSize * 0.52)));
+    return Math.max(30, lines * charsPerLine * cols);
+  }, []);
+
+  // Resolve dynamic master page tokens like {page}, {total}, {title}, {section}, {date}
+  const resolveTokens = useCallback((text: string, pageNum: number, sectionName = 'Feature'): string => {
+    if (!text || !currentDoc) return text;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return text
+      .replace(/{page}/gi, String(pageNum))
+      .replace(/{total}/gi, String(pages.length))
+      .replace(/{title}/gi, currentDoc.title)
+      .replace(/{section}/gi, sectionName)
+      .replace(/{date}/gi, dateStr);
+  }, [currentDoc, pages.length]);
+
+  // Resolve effective text content considering linked predecessor overflow
+  const getEffectiveTextForElement = useCallback((el: CanvasElement, pageNum: number): { text: string; isOverflowing: boolean; capacity: number } => {
+    let sourceContent = el.content || '';
+
+    // If linked from a previous frame, pull overflow text from the chain
+    if (el.linkedPrevId) {
+      let prevEl: CanvasElement | undefined;
+      for (const pg of pages) {
+        const found = pg.elements.find((e) => e.id === el.linkedPrevId);
+        if (found) {
+          prevEl = found;
+          break;
+        }
+      }
+      if (prevEl) {
+        const prevCap = calculateTextCapacity(prevEl);
+        const fullContent = prevEl.content || '';
+        sourceContent = fullContent.length > prevCap ? fullContent.slice(prevCap) : '';
+      }
+    }
+
+    const capacity = calculateTextCapacity(el);
+    const resolved = resolveTokens(sourceContent, pageNum, el.sectionCategory);
+
+    if (el.linkedNextId && resolved.length > capacity) {
+      return {
+        text: resolved.slice(0, capacity),
+        isOverflowing: true,
+        capacity,
+      };
+    }
+
+    return {
+      text: resolved,
+      isOverflowing: resolved.length > capacity,
+      capacity,
+    };
+  }, [pages, calculateTextCapacity, resolveTokens]);
+
+  // Link source text frame to a target text frame across pages
+  const handleLinkTextFrame = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const updated = pages.map((pg) => ({
+      ...pg,
+      elements: pg.elements.map((el) => {
+        if (el.id === sourceId) return { ...el, linkedNextId: targetId };
+        if (el.id === targetId) return { ...el, linkedPrevId: sourceId };
+        return el;
+      }),
+    }));
+    setPages(updated);
+    pushHistory(updated);
+    alert('Linked text frame successfully! Overflow text will flow into the connected frame.');
+  };
+
+  // Unlink a text frame
+  const handleUnlinkTextFrame = (elementId: string) => {
+    const updated = pages.map((pg) => ({
+      ...pg,
+      elements: pg.elements.map((el) => {
+        if (el.id === elementId) {
+          return { ...el, linkedNextId: undefined, linkedPrevId: undefined };
+        }
+        if (el.linkedNextId === elementId) {
+          return { ...el, linkedNextId: undefined };
+        }
+        if (el.linkedPrevId === elementId) {
+          return { ...el, linkedPrevId: undefined };
+        }
+        return el;
+      }),
+    }));
+    setPages(updated);
+    pushHistory(updated);
+  };
+
+  // 1-Tap: Insert Continuation Frame on Next Page and Link
+  const handleCreateLinkedContinuationFrame = async (sourceEl: CanvasElement) => {
+    if (!currentDoc) return;
+    const targetPageIdx = activePageIndex + 1;
+    const timestamp = Date.now();
+    const continuationId = `flow_${timestamp}`;
+
+    let updated = [...pages];
+    if (targetPageIdx >= updated.length) {
+      // Create new page
+      try {
+        const res = await api<{ ok: boolean; page_id: number; page_number: number }>(
+          `/studio/documents/${currentDoc.id}/pages`,
+          'POST',
+          { elements: [], background: { type: 'color', value: '#FFFFFF' } }
+        );
+        updated.push({
+          id: res.page_id,
+          document_id: currentDoc.id,
+          page_number: res.page_number,
+          elements: [],
+          background: { type: 'color', value: '#FFFFFF' },
+        });
+      } catch {
+        updated.push({
+          id: timestamp,
+          document_id: currentDoc.id,
+          page_number: updated.length + 1,
+          elements: [],
+          background: { type: 'color', value: '#FFFFFF' },
+        });
+      }
+    }
+
+    const continuationEl: CanvasElement = {
+      id: continuationId,
+      type: sourceEl.type,
+      x: sourceEl.x,
+      y: sourceEl.y,
+      w: sourceEl.w,
+      h: sourceEl.h,
+      columns: sourceEl.columns,
+      columnGutter: sourceEl.columnGutter,
+      dropCap: false,
+      style: { ...sourceEl.style },
+      linkedPrevId: sourceEl.id,
+      content: '', // pulled automatically from overflow
+    };
+
+    // Update source element with linkedNextId
+    updated = updated.map((pg, pIdx) => {
+      if (pIdx === activePageIndex) {
+        return {
+          ...pg,
+          elements: pg.elements.map((el) => (el.id === sourceEl.id ? { ...el, linkedNextId: continuationId } : el)),
+        };
+      }
+      if (pIdx === targetPageIdx) {
+        return {
+          ...pg,
+          elements: [...pg.elements, continuationEl],
+        };
+      }
+      return pg;
+    });
+
+    setPages(updated);
+    pushHistory(updated);
+    setActivePageIndex(targetPageIdx);
+    setSelectedElementId(continuationId);
+    alert(`Continuation frame created on Page ${targetPageIdx + 1} and linked!`);
+  };
+
+  // Master Pages & Dynamic Headers Applicator
+  const handleApplyMasterPage = (preset: 'editorial' | 'minimal' | 'spread', applyAll: boolean) => {
+    if (!currentDoc) return;
+    const docW = currentDoc.width_pt || 595.28;
+    const docH = currentDoc.height_pt || 841.89;
+    const timestamp = Date.now();
+
+    const createMasterElements = (pageNum: number): CanvasElement[] => {
+      const isLeft = pageNum % 2 === 0;
+      if (preset === 'editorial') {
+        return [
+          {
+            id: `master_hdr_${timestamp}_${pageNum}`,
+            type: 'text',
+            x: 35,
+            y: 20,
+            w: docW - 70,
+            h: 22,
+            content: `${currentDoc.title.toUpperCase()}  •  {section}  •  {date}`,
+            style: {
+              fontSize: 9,
+              fontWeight: '700',
+              color: '#64748b',
+              letterSpacing: '1.2px',
+              textAlign: isLeft ? 'left' : 'right',
+              borderWidth: 1,
+              borderColor: 'rgba(148, 163, 184, 0.25)',
+              borderStyle: 'solid',
+              padding: '2px 0 6px 0',
+            },
+          },
+          {
+            id: `master_ftr_${timestamp}_${pageNum}`,
+            type: 'folio',
+            x: 35,
+            y: docH - 42,
+            w: docW - 70,
+            h: 22,
+            folioHeader: `VOL. 24  •  OFFICIAL PUBLICATION`,
+            folioShowPage: true,
+            style: {
+              fontSize: 10,
+              color: '#475569',
+              letterSpacing: '1px',
+            },
+          },
+        ];
+      } else if (preset === 'minimal') {
+        return [
+          {
+            id: `master_min_hdr_${timestamp}_${pageNum}`,
+            type: 'text',
+            x: 40,
+            y: 25,
+            w: docW - 80,
+            h: 18,
+            content: `— {title} —`,
+            style: {
+              fontSize: 9,
+              color: '#94a3b8',
+              letterSpacing: '2px',
+              textAlign: 'center',
+            },
+          },
+          {
+            id: `master_min_ftr_${timestamp}_${pageNum}`,
+            type: 'text',
+            x: 40,
+            y: docH - 40,
+            w: docW - 80,
+            h: 20,
+            content: `{page} / {total}`,
+            style: {
+              fontSize: 10,
+              fontWeight: '600',
+              color: '#94a3b8',
+              textAlign: 'center',
+            },
+          },
+        ];
+      } else {
+        // Spread Master (alternating outer folios)
+        return [
+          {
+            id: `master_spread_hdr_${timestamp}_${pageNum}`,
+            type: 'text',
+            x: isLeft ? 35 : 120,
+            y: 22,
+            w: docW - 155,
+            h: 20,
+            content: isLeft ? `{title}` : `{section} FEATURE`,
+            style: {
+              fontSize: 9,
+              fontWeight: '700',
+              color: '#38bdf8',
+              letterSpacing: '1px',
+              textAlign: isLeft ? 'left' : 'right',
+            },
+          },
+          {
+            id: `master_spread_ftr_${timestamp}_${pageNum}`,
+            type: 'text',
+            x: isLeft ? 35 : docW - 135,
+            y: docH - 40,
+            w: 100,
+            h: 20,
+            content: isLeft ? `PAGE {page}` : `{page} | {total}`,
+            style: {
+              fontSize: 10,
+              fontWeight: '700',
+              color: '#a855f7',
+              textAlign: isLeft ? 'left' : 'right',
+            },
+          },
+        ];
+      }
+    };
+
+    const targetIndices = applyAll ? pages.map((_, i) => i) : [activePageIndex];
+    const updated = pages.map((pg, idx) => {
+      if (targetIndices.includes(idx)) {
+        // remove previous master page elements
+        const cleaned = pg.elements.filter(
+          (e) => !e.id.startsWith('master_hdr_') && !e.id.startsWith('master_ftr_') && !e.id.startsWith('master_min_') && !e.id.startsWith('master_spread_')
+        );
+        return {
+          ...pg,
+          elements: [...cleaned, ...createMasterElements(idx + 1)],
+        };
+      }
+      return pg;
+    });
+
+    setPages(updated);
+    pushHistory(updated);
+    alert(`Applied Master Page preset (${preset}) to ${applyAll ? 'all pages' : `Page ${activePageIndex + 1}`}!`);
   };
 
   // ==========================================
@@ -2745,24 +3074,40 @@ export default function FlipexStudio() {
 
         {/* Center: Page Switcher, Zoom & Fit, Bleed, Snap & Auto Tools */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Page Switcher */}
+          {/* Page Switcher (Adapts in Spread Mode) */}
           <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '2px', fontSize: '12px' }}>
             <button
               type="button"
               disabled={activePageIndex <= 0}
-              onClick={() => setActivePageIndex(activePageIndex - 1)}
+              onClick={() => {
+                if (spreadMode && activePageIndex > 1) {
+                  setActivePageIndex(Math.max(0, activePageIndex - 2));
+                } else {
+                  setActivePageIndex(Math.max(0, activePageIndex - 1));
+                }
+              }}
               style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', opacity: activePageIndex <= 0 ? 0.3 : 1 }}
+              title="Previous Page / Spread"
             >
               ◀
             </button>
             <span style={{ padding: '0 8px', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap' }}>
-              Page {activePageIndex + 1} of {pages.length}
+              {spreadMode && activePageIndex > 0
+                ? `Spread ${activePageIndex % 2 === 1 ? activePageIndex + 1 : activePageIndex}-${Math.min(pages.length, (activePageIndex % 2 === 1 ? activePageIndex + 1 : activePageIndex) + 1)} of ${pages.length}`
+                : `Page ${activePageIndex + 1} of ${pages.length}`}
             </span>
             <button
               type="button"
               disabled={activePageIndex >= pages.length - 1}
-              onClick={() => setActivePageIndex(activePageIndex + 1)}
+              onClick={() => {
+                if (spreadMode && activePageIndex < pages.length - 2) {
+                  setActivePageIndex(Math.min(pages.length - 1, activePageIndex + 2));
+                } else {
+                  setActivePageIndex(Math.min(pages.length - 1, activePageIndex + 1));
+                }
+              }}
               style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', opacity: activePageIndex >= pages.length - 1 ? 0.3 : 1 }}
+              title="Next Page / Spread"
             >
               ▶
             </button>
@@ -2886,6 +3231,21 @@ export default function FlipexStudio() {
             title="Toggle Magnetic Snap-to-Grid"
           >
             Snap Grid
+          </button>
+
+          {/* Stage 6: Facing Pages / 2-Page Centerfold Spread Toggle */}
+          <button
+            type="button"
+            onClick={() => setSpreadMode(!spreadMode)}
+            className={`studio-gradient-btn ${spreadMode ? 'cosmic' : 'ocean'}`}
+            style={{
+              padding: '5px 11px',
+              fontSize: '11px',
+              borderRadius: '8px',
+            }}
+            title="Toggle Facing-Pages 2-Page Centerfold Spread View"
+          >
+            {spreadMode ? '📖 2-Page Spread' : '📄 Single Page'}
           </button>
 
           <button
@@ -3387,6 +3747,125 @@ export default function FlipexStudio() {
                 >
                   <span>✍️</span> Author Byline with Tag
                 </button>
+
+                {/* Stage 6: Master Pages & Dynamic Running Headers */}
+                <div className="pt-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-200">👑 Master Pages &amp; Folios</span>
+                    <span className="text-[10px] text-purple-400 font-bold uppercase">Dynamic Tokens</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-normal mb-2.5">
+                    Auto-substitutes <code className="text-purple-300 font-mono text-[9px]">&#123;page&#125;</code>, <code className="text-purple-300 font-mono text-[9px]">&#123;total&#125;</code>, and <code className="text-purple-300 font-mono text-[9px]">&#123;title&#125;</code>.
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5 mb-2">
+                    <button
+                      type="button"
+                      className="studio-tool-btn cosmic text-left justify-start"
+                      onClick={() => handleApplyMasterPage('editorial', true)}
+                      title="Apply Editorial Master Layout (Header rule + Folio) to All Pages"
+                    >
+                      <span>📰</span> Apply Editorial Master (All Pages)
+                    </button>
+                    <button
+                      type="button"
+                      className="studio-tool-btn ocean text-left justify-start"
+                      onClick={() => handleApplyMasterPage('minimal', true)}
+                      title="Apply Clean Minimal Header/Footer to All Pages"
+                    >
+                      <span>✨</span> Apply Minimalist Master (All Pages)
+                    </button>
+                    <button
+                      type="button"
+                      className="studio-tool-btn sunset text-left justify-start"
+                      onClick={() => handleApplyMasterPage('spread', false)}
+                      title="Apply Alternating Outer Folios to Current Page"
+                    >
+                      <span>📖</span> Apply Spread Folio (Current Page)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stage 6: 1-Tap Linked Multi-Page Story Generator */}
+                <div className="pt-2 border-t border-slate-800">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-200">🔗 Linked Multi-Page Story</span>
+                    <span className="text-[10px] text-indigo-400 font-bold uppercase">Overflow Flow</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="studio-tool-btn cosmic text-left justify-start w-full"
+                    onClick={async () => {
+                      const timestamp = Date.now();
+                      const parentId = `story_head_${timestamp}`;
+                      const continuationId = `story_cont_${timestamp}`;
+                      const targetIdx = activePageIndex + 1;
+
+                      // Long editorial article text that demonstrates natural overflow
+                      const fullArticle =
+                        'THE REVITALIZATION OF PACIFIC CORAL ARCHIPELAGOS\n\n' +
+                        'Throughout the vast expanse of the South Pacific, marine biologist cooperatives and island elders have pioneered a groundbreaking model of community-managed marine protected areas. Traditional protocols, refined over centuries of seafaring navigation, are now paired with high-resolution satellite thermal telemetry to map bleaching anomalies in real time.\n\n' +
+                        'During recent warm-water pulses, elder navigators identified deep-water upwelling channels where cooler sub-thermocline currents shield juvenile corals from heat stress. Divers harvested micro-fragments of heat-resilient Porites and Acropora strains, anchoring them onto bio-composite reef matrices woven from local coconut coir and non-toxic calcium carbonate binding mortars.\n\n' +
+                        'Within eight months, juvenile polyps established robust calcification zones, attracting herbivorous parrotfish and grazing surgeonfish whose natural feeding behavior prevents macro-algal overgrowth. Village youths receive specialized eco-tourism certification, leading low-impact guided snorkeling expeditions that generate sustainable revenue for community clinics and primary education.\n\n' +
+                        'As regional governments prepare submissions for international biodiversity treaties, this harmonious fusion of ancestral guardianship and ecological science serves as an enduring blueprint for island resilience in the twenty-first century.';
+
+                      // Frame on current page
+                      addElement({
+                        id: parentId,
+                        type: 'column_text',
+                        content: fullArticle,
+                        columns: 2,
+                        columnGutter: 22,
+                        dropCap: true,
+                        w: 515,
+                        h: 360,
+                        x: 40,
+                        y: 120,
+                        linkedNextId: continuationId,
+                        style: { fontSize: 13, color: '#334155', lineHeight: 1.6 },
+                      });
+
+                      // Auto-create next page and continuation frame
+                      let updated = [...pages];
+                      if (targetIdx >= updated.length) {
+                        updated.push({
+                          id: timestamp + 1,
+                          document_id: currentDoc?.id || 1,
+                          page_number: updated.length + 1,
+                          elements: [],
+                          background: { type: 'color', value: '#FFFFFF' },
+                        });
+                      }
+
+                      const continuationEl: CanvasElement = {
+                        id: continuationId,
+                        type: 'column_text',
+                        content: '', // pulled automatically from overflow!
+                        columns: 2,
+                        columnGutter: 22,
+                        dropCap: false,
+                        w: 515,
+                        h: 360,
+                        x: 40,
+                        y: 80,
+                        linkedPrevId: parentId,
+                        style: { fontSize: 13, color: '#334155', lineHeight: 1.6 },
+                      };
+
+                      updated = updated.map((pg, pIdx) => {
+                        if (pIdx === targetIdx) {
+                          return { ...pg, elements: [...pg.elements, continuationEl] };
+                        }
+                        return pg;
+                      });
+
+                      setPages(updated);
+                      pushHistory(updated);
+                      alert('Created linked 2-page article story! Text flows automatically across pages.');
+                    }}
+                  >
+                    <span>⚡</span> 1-Tap Linked 2-Page Story Spread
+                  </button>
+                </div>
               </div>
             )}
 
@@ -4012,21 +4491,133 @@ export default function FlipexStudio() {
             <span>Page {activePageIndex + 1} of {pages.length}</span>
           </div>
 
-          {/* THE PAGE CANVAS */}
-          <div
-            id="canvas-board"
-            ref={canvasRef}
-            onMouseDown={handleCanvasMouseDown}
-            style={{
-              width: `${docW}px`,
-              height: `${docH}px`,
-              transform: `scale(${scale})`,
-              transformOrigin: 'center center',
-              background: activePage?.background?.value || '#FFFFFF',
-              boxShadow: '0 25px 65px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
-            }}
-            className="relative transition-transform duration-75 select-none rounded-sm"
-          >
+          {/* THE PAGE CANVAS (WITH OPTIONAL FACING-PAGES 2-PAGE SPREAD) */}
+          {(() => {
+            const isSpreadActive = spreadMode && activePageIndex > 0;
+            const facingPageIndex = activePageIndex % 2 === 1 ? activePageIndex + 1 : activePageIndex - 1;
+            const facingPage = facingPageIndex >= 0 && facingPageIndex < pages.length ? pages[facingPageIndex] : null;
+            const isLeft = activePageIndex % 2 === 1;
+
+            const renderFacingCompanion = () => {
+              if (facingPage) {
+                return (
+                  <div
+                    onClick={() => {
+                      setActivePageIndex(facingPageIndex);
+                      setSelectedElementId(null);
+                    }}
+                    style={{
+                      width: `${docW}px`,
+                      height: `${docH}px`,
+                      transform: `scale(${scale * 0.92})`,
+                      transformOrigin: isLeft ? 'left center' : 'right center',
+                      background: facingPage.background?.value || '#FFFFFF',
+                      boxShadow: '0 25px 65px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      borderRadius: '2px',
+                    }}
+                    title={`Click to edit Facing Page ${facingPageIndex + 1}`}
+                  >
+                    {facingPage.elements.map((el) => (
+                      <div
+                        key={el.id}
+                        style={{
+                          position: 'absolute',
+                          left: `${el.x}px`,
+                          top: `${el.y}px`,
+                          width: `${el.w}px`,
+                          height: `${el.h}px`,
+                          fontSize: `${el.style?.fontSize || 12}px`,
+                          color: el.style?.color || '#334155',
+                          overflow: 'hidden',
+                          opacity: 0.85,
+                          background: el.style?.backgroundColor,
+                        }}
+                      >
+                        {el.type === 'text' && (el.content || '')}
+                        {el.type === 'column_text' && (el.content || '')}
+                        {el.type === 'image' && el.src && (
+                          <img src={el.src} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        )}
+                        {el.type === 'product' && (
+                          <div style={{ padding: '6px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '11px' }}>{el.name}</div>
+                            <div style={{ color: '#ef4444', fontWeight: 800 }}>{el.price}</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        [isLeft ? 'right' : 'left']: '12px',
+                        background: 'rgba(15, 23, 42, 0.85)',
+                        color: '#f8fafc',
+                        padding: '3px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        border: '1px solid #334155',
+                      }}
+                    >
+                      Facing Page {facingPageIndex + 1} ✎
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  style={{
+                    width: `${docW}px`,
+                    height: `${docH}px`,
+                    transform: `scale(${scale * 0.92})`,
+                    transformOrigin: isLeft ? 'left center' : 'right center',
+                    background: '#0b1120',
+                    border: '2px dashed #334155',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#64748b',
+                    gap: '12px',
+                  }}
+                >
+                  <span style={{ fontSize: '36px' }}>📖</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#94a3b8' }}>
+                    Empty Facing Page ({isLeft ? `Page ${activePageIndex + 2}` : `Page ${activePageIndex}`})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddPage}
+                    className="studio-gradient-btn cosmic"
+                    style={{ padding: '7px 16px', fontSize: '11px', borderRadius: '8px' }}
+                  >
+                    + Add Facing Page
+                  </button>
+                </div>
+              );
+            };
+
+            const canvasBoard = (
+              <div
+                id="canvas-board"
+                ref={canvasRef}
+                onMouseDown={handleCanvasMouseDown}
+                style={{
+                  width: `${docW}px`,
+                  height: `${docH}px`,
+                  transform: isSpreadActive ? `scale(${scale * 0.92})` : `scale(${scale})`,
+                  transformOrigin: isSpreadActive ? (isLeft ? 'right center' : 'left center') : 'center center',
+                  background: activePage?.background?.value || '#FFFFFF',
+                  boxShadow: '0 25px 65px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
+                }}
+                className="relative transition-transform duration-75 select-none rounded-sm"
+              >
             {/* Smart Magnetic Snap Guide Lines (Stage 2) */}
             {activeGuides.map((g, idx) => (
               <div
@@ -4130,72 +4721,102 @@ export default function FlipexStudio() {
                     </>
                   )}
                   {/* TEXT ELEMENT */}
-                  {el.type === 'text' && (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        fontSize: `${el.style?.fontSize || 16}px`,
-                        fontWeight: el.style?.fontWeight || 'normal',
-                        fontStyle: el.style?.fontStyle || 'normal',
-                        textDecoration: el.style?.textDecoration || 'none',
-                        textTransform: el.style?.textTransform || 'none',
-                        textShadow: el.style?.textShadow,
-                        color: el.style?.color || '#0F172A',
-                        textAlign: el.style?.textAlign || 'left',
-                        lineHeight: el.style?.lineHeight || 1.3,
-                        letterSpacing: el.style?.letterSpacing,
-                        overflow: 'hidden',
-                        padding: el.style?.padding ? `${el.style.padding}px` : undefined,
-                      }}
-                      contentEditable={isSelected}
-                      suppressContentEditableWarning
-                      onBlur={(e) => updateSelectedElement({ content: e.currentTarget.innerText })}
-                    >
-                      {el.content || 'Double click to edit text'}
-                    </div>
-                  )}
+                  {el.type === 'text' && (() => {
+                    const eff = getEffectiveTextForElement(el, activePageIndex + 1);
+                    return (
+                      <>
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            fontSize: `${el.style?.fontSize || 16}px`,
+                            fontWeight: el.style?.fontWeight || 'normal',
+                            fontStyle: el.style?.fontStyle || 'normal',
+                            textDecoration: el.style?.textDecoration || 'none',
+                            textTransform: el.style?.textTransform || 'none',
+                            textShadow: el.style?.textShadow,
+                            color: el.style?.color || '#0F172A',
+                            textAlign: el.style?.textAlign || 'left',
+                            lineHeight: el.style?.lineHeight || 1.3,
+                            letterSpacing: el.style?.letterSpacing,
+                            overflow: 'hidden',
+                            padding: el.style?.padding ? `${el.style.padding}px` : undefined,
+                          }}
+                          contentEditable={isSelected}
+                          suppressContentEditableWarning
+                          onBlur={(e) => updateSelectedElement({ content: e.currentTarget.innerText })}
+                        >
+                          {eff.text || 'Double click to edit text'}
+                        </div>
+                        {el.linkedNextId && (
+                          <div className="studio-linked-flow-badge" title="Linked to continuation frame: overflow flows forward">
+                            🔗 Flowing →
+                          </div>
+                        )}
+                        {el.linkedPrevId && (
+                          <div className="studio-linked-flow-badge" style={{ left: '6px', right: 'auto' }} title="Receiving overflow from predecessor frame">
+                            🔗 Flow In
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* MULTI-COLUMN ARTICLE WITH DROP-CAP (MAGAZINE) */}
-                  {el.type === 'column_text' && (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        columnCount: el.columns || 2,
-                        columnGap: `${el.columnGutter || 20}px`,
-                        fontSize: `${el.style?.fontSize || 13}px`,
-                        color: el.style?.color || '#334155',
-                        lineHeight: el.style?.lineHeight || 1.6,
-                        overflow: 'hidden',
-                        textAlign: el.style?.textAlign || 'justify',
-                        fontFamily: el.style?.fontFamily,
-                        letterSpacing: el.style?.letterSpacing,
-                      }}
-                    >
-                      {el.dropCap && el.content ? (
-                        <>
-                          <span
-                            style={{
-                              float: 'left',
-                              fontSize: '48px',
-                              lineHeight: '40px',
-                              paddingTop: '4px',
-                              paddingRight: '8px',
-                              fontWeight: 'bold',
-                              color: el.style?.color || '#0F172A',
-                              fontFamily: 'serif',
-                            }}
-                          >
-                            {el.content.charAt(0)}
-                          </span>
-                          {el.content.slice(1)}
-                        </>
-                      ) : (
-                        el.content
-                      )}
-                    </div>
-                  )}
+                  {el.type === 'column_text' && (() => {
+                    const eff = getEffectiveTextForElement(el, activePageIndex + 1);
+                    return (
+                      <>
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            columnCount: el.columns || 2,
+                            columnGap: `${el.columnGutter || 20}px`,
+                            fontSize: `${el.style?.fontSize || 13}px`,
+                            color: el.style?.color || '#334155',
+                            lineHeight: el.style?.lineHeight || 1.6,
+                            overflow: 'hidden',
+                            textAlign: el.style?.textAlign || 'justify',
+                            fontFamily: el.style?.fontFamily,
+                            letterSpacing: el.style?.letterSpacing,
+                          }}
+                        >
+                          {el.dropCap && eff.text ? (
+                            <>
+                              <span
+                                style={{
+                                  float: 'left',
+                                  fontSize: '48px',
+                                  lineHeight: '40px',
+                                  paddingTop: '4px',
+                                  paddingRight: '8px',
+                                  fontWeight: 'bold',
+                                  color: el.style?.color || '#0F172A',
+                                  fontFamily: 'serif',
+                                }}
+                              >
+                                {eff.text.charAt(0)}
+                              </span>
+                              {eff.text.slice(1)}
+                            </>
+                          ) : (
+                            eff.text
+                          )}
+                        </div>
+                        {el.linkedNextId && (
+                          <div className="studio-linked-flow-badge" title="Linked article column: overflow flows forward">
+                            🔗 Flowing →
+                          </div>
+                        )}
+                        {el.linkedPrevId && (
+                          <div className="studio-linked-flow-badge" style={{ left: '6px', right: 'auto' }} title="Receiving overflow from predecessor column">
+                            🔗 Flow In
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* YEARBOOK GRADUATE PORTRAIT GRID */}
                   {el.type === 'yearbook_grid' && (
@@ -4249,23 +4870,40 @@ export default function FlipexStudio() {
 
                   {/* TABLE OF CONTENTS ELEMENT */}
                   {el.type === 'toc' && (
-                    <div className="w-full h-full bg-white/90 p-6 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                    <div className="w-full h-full bg-white/95 p-6 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-lg">
                       <div>
-                        <h3 className="text-xl font-bold text-slate-900 tracking-wider mb-4 border-b pb-2">
-                          {el.content || 'TABLE OF CONTENTS'}
+                        <h3 className="text-xl font-bold text-slate-900 tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
+                          <span>{el.content || 'TABLE OF CONTENTS'}</span>
+                          <span className="text-[10px] text-purple-600 font-bold uppercase tracking-widest bg-purple-100 px-2.5 py-0.5 rounded-full">Interactive Index</span>
                         </h3>
                         <div className="space-y-3">
                           {(el.tocItems || []).map((item, idx) => (
-                            <div key={idx} className="flex items-baseline justify-between text-xs">
-                              <span className="font-semibold text-slate-800">{item.title}</span>
-                              <span className="flex-1 mx-2 border-b border-dotted border-slate-300" />
-                              <span className="font-mono font-bold text-slate-900">{item.page_number}</span>
+                            <div
+                              key={idx}
+                              className="flex items-baseline justify-between text-xs cursor-pointer hover:text-indigo-600 transition-colors group"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const pNum = item.page_number;
+                                if (pNum && pNum >= 1 && pNum <= pages.length) {
+                                  setActivePageIndex(pNum - 1);
+                                  setSelectedElementId(null);
+                                }
+                              }}
+                              title={`Jump to Page ${item.page_number}`}
+                            >
+                              <span className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                                {item.title}
+                              </span>
+                              <span className="flex-1 mx-2 border-b border-dotted border-slate-400 group-hover:border-indigo-400" />
+                              <span className="font-mono font-bold text-slate-900 group-hover:text-indigo-600">
+                                {item.page_number}
+                              </span>
                             </div>
                           ))}
                         </div>
                       </div>
                       <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest">
-                        Nuvis Flipex Publishing
+                        {currentDoc?.title} • Table of Contents
                       </div>
                     </div>
                   )}
@@ -4273,8 +4911,8 @@ export default function FlipexStudio() {
                   {/* RUNNING FOLIO (PAGE NUMBER & HEADER) */}
                   {el.type === 'folio' && (
                     <div className="w-full h-full flex items-center justify-between text-[10px] font-mono text-slate-400 border-t border-slate-200 pt-1">
-                      <span>{el.folioHeader || currentDoc?.title}</span>
-                      {el.folioShowPage && <span>Page {activePageIndex + 1}</span>}
+                      <span>{resolveTokens(el.folioHeader || currentDoc?.title || '', activePageIndex + 1, el.sectionCategory)}</span>
+                      {el.folioShowPage && <span>Page {activePageIndex + 1} of {pages.length}</span>}
                     </div>
                   )}
 
@@ -4434,7 +5072,31 @@ export default function FlipexStudio() {
               );
             })}
           </div>
-        </main>
+        );
+
+        if (!isSpreadActive) {
+          return canvasBoard;
+        }
+
+        return (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+            }}
+          >
+            {!isLeft && renderFacingCompanion()}
+            {!isLeft && <div className="studio-spread-spine" title="Magazine Centerfold Fold Spine" />}
+            {canvasBoard}
+            {isLeft && <div className="studio-spread-spine" title="Magazine Centerfold Fold Spine" />}
+            {isLeft && renderFacingCompanion()}
+          </div>
+        );
+      })()}
+    </main>
 
         {/* RIGHT PROPERTY INSPECTOR (Collapsible) */}
         <aside
@@ -4513,41 +5175,45 @@ export default function FlipexStudio() {
                 {/* Position & Size */}
                 <div>
                   <label className="studio-prop-label">Position &amp; Dimensions</label>
-                  <div className="grid grid-cols-2 gap-2 font-mono">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }} className="font-mono">
                     <div>
-                      <span className="studio-prop-sublabel">X Position (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>X (pt)</span>
                       <input
                         type="number"
                         value={selectedElement.x}
                         onChange={(e) => updateSelectedElement({ x: parseInt(e.target.value, 10) || 0 })}
                         className="studio-prop-input"
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                       />
                     </div>
                     <div>
-                      <span className="studio-prop-sublabel">Y Position (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>Y (pt)</span>
                       <input
                         type="number"
                         value={selectedElement.y}
                         onChange={(e) => updateSelectedElement({ y: parseInt(e.target.value, 10) || 0 })}
                         className="studio-prop-input"
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                       />
                     </div>
                     <div>
-                      <span className="studio-prop-sublabel">Width (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>W (pt)</span>
                       <input
                         type="number"
                         value={selectedElement.w}
                         onChange={(e) => updateSelectedElement({ w: parseInt(e.target.value, 10) || 20 })}
                         className="studio-prop-input"
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                       />
                     </div>
                     <div>
-                      <span className="studio-prop-sublabel">Height (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>H (pt)</span>
                       <input
                         type="number"
                         value={selectedElement.h}
                         onChange={(e) => updateSelectedElement({ h: parseInt(e.target.value, 10) || 20 })}
                         className="studio-prop-input"
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                       />
                     </div>
                   </div>
@@ -4936,6 +5602,7 @@ export default function FlipexStudio() {
                             })
                           }
                           className="studio-prop-input font-mono uppercase text-xs"
+                          style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                         />
                       </div>
                     </div>
@@ -4951,6 +5618,7 @@ export default function FlipexStudio() {
                           })
                         }
                         className="studio-prop-select"
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                       >
                         <option value="none">None</option>
                         <option value="0 2px 4px rgba(0,0,0,0.5)">Subtle Drop Shadow</option>
@@ -4966,11 +5634,12 @@ export default function FlipexStudio() {
                       <div className="pt-2 border-t border-slate-800 space-y-2">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="studio-prop-sublabel">Columns</span>
+                            <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>Columns</span>
                             <select
                               value={selectedElement.columns || 2}
                               onChange={(e) => updateSelectedElement({ columns: parseInt(e.target.value, 10) })}
                               className="studio-prop-select"
+                              style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                             >
                               <option value={1}>1 Column</option>
                               <option value={2}>2 Columns</option>
@@ -4978,7 +5647,7 @@ export default function FlipexStudio() {
                             </select>
                           </div>
                           <div>
-                            <span className="studio-prop-sublabel">Drop-Cap Initial</span>
+                            <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>Drop-Cap Initial</span>
                             <button
                               type="button"
                               onClick={() => updateSelectedElement({ dropCap: !selectedElement.dropCap })}
@@ -4991,7 +5660,7 @@ export default function FlipexStudio() {
                           </div>
                         </div>
                         <div>
-                          <span className="studio-prop-sublabel">Column Gutter Gap (px)</span>
+                          <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>Column Gutter Gap (px)</span>
                           <input
                             type="number"
                             min={10}
@@ -4999,7 +5668,73 @@ export default function FlipexStudio() {
                             value={selectedElement.columnGutter || 20}
                             onChange={(e) => updateSelectedElement({ columnGutter: parseInt(e.target.value, 10) || 16 })}
                             className="studio-prop-input"
+                            style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
                           />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Stage 6: Linked Text Frame Controls (Overflow Flow) */}
+                    {(selectedElement.type === 'text' || selectedElement.type === 'column_text') && (
+                      <div className="pt-2.5 border-t border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="studio-prop-label mb-0">🔗 Linked Frame (Story Flow)</label>
+                          {selectedElement.linkedNextId && (
+                            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-700/50">
+                              Active Flow
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-normal">
+                          Connect this frame to another text frame across pages so overflowing text flows forward smoothly.
+                        </p>
+
+                        <div>
+                          <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>Connect Overflow Target</span>
+                          <select
+                            value={selectedElement.linkedNextId || ''}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleLinkTextFrame(selectedElement.id, e.target.value);
+                              } else {
+                                handleUnlinkTextFrame(selectedElement.id);
+                              }
+                            }}
+                            className="studio-prop-select"
+                            style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
+                          >
+                            <option value="">— Standalone (No Linking) —</option>
+                            {pages.flatMap((pg, pIdx) =>
+                              pg.elements
+                                .filter((el) => (el.type === 'text' || el.type === 'column_text') && el.id !== selectedElement.id)
+                                .map((el) => (
+                                  <option key={el.id} value={el.id}>
+                                    Page {pIdx + 1}: {el.type === 'column_text' ? 'Column Article' : 'Text'} ({el.id.slice(0, 14)})
+                                  </option>
+                                ))
+                            )}
+                          </select>
+                        </div>
+
+                        <div className="flex gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleCreateLinkedContinuationFrame(selectedElement)}
+                            className="studio-gradient-btn cosmic w-full py-1.5 rounded text-[11px] font-bold"
+                            title="Auto-creates continuation frame on next page and links immediately"
+                          >
+                            + Flow into Next Page
+                          </button>
+                          {(selectedElement.linkedNextId || selectedElement.linkedPrevId) && (
+                            <button
+                              type="button"
+                              onClick={() => handleUnlinkTextFrame(selectedElement.id)}
+                              className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-bold border border-slate-700"
+                              title="Break frame link"
+                            >
+                              Unlink
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -6317,15 +7052,27 @@ export default function FlipexStudio() {
               </button>
             </div>
 
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-3 flex-wrap">
               <Button variant="outline" onClick={() => setPublishModal(null)} className="border-slate-700 text-slate-300 hover:text-white">
                 Keep Editing
               </Button>
+              {(publishModal.previewUrl || publishModal.flipbookId) && (
+                <a
+                  href={publishModal.previewUrl || `/dashboard/preview/${publishModal.flipbookId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="studio-gradient-btn cosmic text-white font-bold py-2.5 px-5 rounded-xl text-sm"
+                  title="Open in Administrative Interactive Preview"
+                >
+                  Dashboard Preview 👁️
+                </a>
+              )}
               <a
                 href={publishModal.url}
                 target="_blank"
                 rel="noreferrer"
                 className="studio-gradient-btn emerald text-white font-bold py-2.5 px-6 rounded-xl text-sm"
+                title="Open in Public Flipbook Reader"
               >
                 Open Live Reader ↗
               </a>

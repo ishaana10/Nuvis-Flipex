@@ -135,6 +135,13 @@ final class StudioController
             error_log('seedDefaultTemplates notice: ' . $se->getMessage());
         }
 
+        try {
+            // Auto-heal any flipbooks created from studio documents stuck in 'approved' or without published_at
+            Db::pdo()->exec('UPDATE flipbooks SET workflow_status = "published", published_at = IFNULL(published_at, NOW()) WHERE workflow_status = "approved" AND status = "ready"');
+        } catch (\Throwable $he) {
+            error_log('flipbook status heal check: ' . $he->getMessage());
+        }
+
         self::$schemaEnsured = true;
     }
 
@@ -1125,12 +1132,13 @@ final class StudioController
         Db::pdo()->beginTransaction();
         try {
             $flipbookId = $doc['flipbook_id'] ? (int) $doc['flipbook_id'] : null;
-            $slug = 'doc-' . $docId . '-' . substr(bin2hex(random_bytes(4)), 0, 8);
+            $existingFb = $flipbookId ? Db::one('SELECT id, slug, published_at FROM flipbooks WHERE id = ?', [$flipbookId]) : null;
+            $slug = !empty($existingFb['slug']) ? $existingFb['slug'] : ('doc-' . $docId . '-' . substr(bin2hex(random_bytes(4)), 0, 8));
 
-            if ($flipbookId) {
+            if ($flipbookId && $existingFb) {
                 // Update existing flipbook
                 Db::run(
-                    'UPDATE flipbooks SET title = ?, page_count = ?, status = "ready", workflow_status = "approved", visibility = "public", updated_at = NOW()
+                    'UPDATE flipbooks SET title = ?, page_count = ?, status = "ready", workflow_status = "published", visibility = "public", published_at = IFNULL(published_at, NOW()), updated_at = NOW()
                      WHERE id = ? AND tenant_id = ?',
                     [$doc['title'], count($pages), $flipbookId, $tenantId]
                 );
@@ -1141,7 +1149,7 @@ final class StudioController
                 // Create new flipbook
                 Db::run(
                     'INSERT INTO flipbooks (tenant_id, user_id, title, slug, page_count, status, workflow_status, visibility, version, conversion_progress, conversion_step, published_at)
-                     VALUES (?, ?, ?, ?, ?, "ready", "approved", "public", 1, 100, "Completed", NOW())',
+                     VALUES (?, ?, ?, ?, ?, "ready", "published", "public", 1, 100, "Completed", NOW())',
                     [$tenantId, $u['id'], $doc['title'], $slug, count($pages)]
                 );
                 $flipbookId = (int) Db::pdo()->lastInsertId();
@@ -1250,6 +1258,25 @@ final class StudioController
                              VALUES (?, ?, "link", ?, ?, ?, ?, ?)',
                             [$flipbookId, $pageNum, $normX, $normY, $normW, $normH, $payload]
                         );
+                    } elseif ($type === 'toc') {
+                        $tocItems = $el['tocItems'] ?? [];
+                        if (is_array($tocItems) && !empty($tocItems)) {
+                            $itemCount = count($tocItems);
+                            $rowHeight = $itemCount > 0 ? ($normH / max(1, $itemCount)) : 0;
+                            foreach ($tocItems as $idx => $tItem) {
+                                $targetPage = (int) ($tItem['page_number'] ?? 1);
+                                $tItemY = $normY + ($idx * $rowHeight);
+                                $payload = json_encode([
+                                    'title' => $tItem['title'] ?? ('Page ' . $targetPage),
+                                    'targetPage' => $targetPage,
+                                ]);
+                                Db::run(
+                                    'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
+                                     VALUES (?, ?, "page", ?, ?, ?, ?, ?)',
+                                    [$flipbookId, $pageNum, $normX, $tItemY, $normW, $rowHeight, $payload]
+                                );
+                            }
+                        }
                     } elseif ($type === 'link' || !empty($el['linkUrl'])) {
                         $payload = json_encode(['url' => $el['linkUrl'] ?? '']);
                         Db::run(
@@ -1280,13 +1307,15 @@ final class StudioController
             }
 
             $fb = Db::one('SELECT slug FROM flipbooks WHERE id = ?', [$flipbookId]);
+            $effectiveSlug = $fb['slug'] ?? $slug;
 
             return Http::json($res, [
                 'ok' => true,
                 'flipbook_id' => $flipbookId,
-                'slug' => $fb['slug'] ?? $slug,
-                'public_url' => '/v/' . ($fb['slug'] ?? $slug),
-                'viewer_url' => '/view/' . ($fb['slug'] ?? $slug),
+                'slug' => $effectiveSlug,
+                'public_url' => '/v/' . $effectiveSlug,
+                'viewer_url' => '/v/' . $effectiveSlug,
+                'preview_url' => '/dashboard/preview/' . $flipbookId,
                 'message' => 'Published successfully as an interactive flipbook!'
             ]);
         } catch (\Throwable $e) {

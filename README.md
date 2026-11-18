@@ -260,6 +260,14 @@ The following notable updates, bug fixes, and architectural hardening milestones
   - **Apply to All Pages:** 1-click batch application synchronizing background styling across the entire publication.
 - **Backend Print & PDF Export Support:** Upgraded `StudioController.php` print generator to render CSS gradients and solid backgrounds seamlessly in print previews and vector PDFs.
 
+### Release Stage 6 — Specialized Magazine Creator & Publish/Preview Healing
+- **Linked Text Frames (Overflow Streaming):** Connected multi-column article and text frames with automatic capacity calculation and character overflow forwarding (`linkedNextId` / `linkedPrevId`). When an article exceeds its frame capacity on Page N, the overflow text streams into the designated frame on Page N+1 with interactive `🔗 Flowing →` and `🔗 Flow In` indicators.
+- **Facing-Pages & 2-Page Spreads:** Added `📖 2-Page Spread` toggle in top studio toolbar with realistic magazine centerfold binding spine, live facing-page preview, and 1-tap spread navigation.
+- **Master Pages & Dynamic Headers:** 3 prebuilt Master Page suites (Glossy Editorial, Modern Minimalist, Spread Alternating Folios) with real-time token resolution engine replacing `{page}`, `{total}`, `{title}`, `{section}`, and `{date}`.
+- **Automated Dynamic Table of Contents (TOC):** Scans editorial headings across all document pages and generates an editorial TOC with dotted leaders, in-studio jump clicks, and automatic flipbook `page` hotspot generation.
+- **Studio Publishing / Preview Auto-Heal Fix:** Fixed the 404 `"This flipbook doesn't exist or isn't published"` error by synchronizing `workflow_status = 'published'`, auto-healing legacy `approved` flipbooks with `published_at` timestamps, streaming external URLs/data URIs directly, and enhancing the publish modal with dual "Dashboard Preview 👁️" and "Open Live Reader ↗" 3-gradient action buttons.
+- **High-Contrast Typography & Desktop Layout Expansion:** Rebuilt studio input styling and desktop container hierarchy, ensuring zero wasted whitespace on wide displays and high-contrast, visible text across Position & Dimensions (X, Y, W, H), color hex pickers, and property controls.
+
 ### Release Stage 5 — Specialized Catalogue Creator & Dynamic Inventory Sync
 - **1-Tap Product Grid Generators:** 5 commercial layout generators: 1-Product Hero Showcase (specs, trust guarantees & QR code), 2-Product Split Spread (dual flagship comparisons), 3-Product Balanced Tier (top hero + dual companion accessories), 4-Product Standard Grid (2x2 symmetrical commercial specials), and 6-Product Supermarket Specials (2x3 FMCG grocery flyer with discount badges).
 - **Live Inventory CSV Integration & Auto-Pagination:** Paginated multi-page catalogue generation from CSV data with layout density selection (4 or 6 products per page), automatically provisioning pages across the document.

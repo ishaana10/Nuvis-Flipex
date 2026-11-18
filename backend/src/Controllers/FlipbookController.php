@@ -1230,6 +1230,10 @@ final class FlipbookController
 
     private function resolveExistingRelPath(array $f, string $rel, bool $isThumb): string
     {
+        if (str_starts_with($rel, 'http://') || str_starts_with($rel, 'https://') || str_starts_with($rel, 'data:')) {
+            return $rel;
+        }
+
         $root = Storage::root();
         if ($rel !== '' && file_exists($root . '/' . $rel)) {
             return $rel;
