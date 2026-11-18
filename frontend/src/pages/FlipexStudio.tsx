@@ -348,14 +348,18 @@ export default function FlipexStudio() {
   const [newTemplateId, setNewTemplateId] = useState<number | null>(null);
   const [creatingDoc, setCreatingDoc] = useState<boolean>(false);
 
-  // CSV Bulk Import state (Products vs Yearbook Rosters)
-  const [csvMode, setCsvMode] = useState<'products' | 'yearbook'>('products');
+  // CSV Bulk Import state (Products vs SKU Sync vs Yearbook Rosters)
+  const [csvMode, setCsvMode] = useState<'products' | 'sku_sync' | 'yearbook'>('products');
+  const [csvPerPage, setCsvPerPage] = useState<4 | 6>(4);
+  const [csvSyncType, setCsvSyncType] = useState<'append' | 'multipage' | 'sku_sync'>('multipage');
+  const [flashDiscountPercent, setFlashDiscountPercent] = useState<number>(20);
+  const [flashDiscountScope, setFlashDiscountScope] = useState<'page' | 'all'>('page');
   const [csvText, setCsvText] = useState<string>(
-    'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU\n' +
-    'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10\n' +
-    'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01\n' +
-    'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500,+6799991234,OIL-02\n' +
-    'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500,+6799991234,MLK-06'
+    'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU,Description\n' +
+    'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10,Premium long grain fortified parboiled rice.\n' +
+    'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01,Organic farm fresh ripe Cavendish bananas per bunch.\n' +
+    'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500,+6799991234,OIL-02,Pure blended vegetable cooking oil for high-heat frying.\n' +
+    'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500,+6799991234,MLK-06,Pasteurised homogenized fresh dairy milk carton bundle.'
   );
 
   // Dragging & Moving elements on canvas
@@ -1255,57 +1259,592 @@ export default function FlipexStudio() {
     });
   };
 
-  // CSV Bulk Import processor (Products vs Yearbook Rosters)
-  const handleImportCsv = () => {
+  // ==========================================
+  // STAGE 5: SPECIALIZED CATALOGUE CREATOR SUITE
+  // ==========================================
+
+  // 1-Tap Commercial Product Grid Generators
+  const generateProductLayout = (layoutType: 'hero' | 'split' | 'tier' | 'grid4' | 'specials6') => {
+    if (!activePage) return;
+    const elements: CanvasElement[] = [];
+    const timestamp = Date.now();
+
+    if (layoutType === 'hero') {
+      // 1-Product Hero Showcase Layout
+      elements.push({
+        id: `hero_tag_${timestamp}`,
+        type: 'badge',
+        x: 35,
+        y: 25,
+        w: 240,
+        h: 28,
+        content: '★ FLAGSHIP PRODUCT SHOWCASE',
+        style: {
+          fontSize: 11,
+          fontWeight: 'bold',
+          backgroundColor: '#f59e0b',
+          color: '#ffffff',
+          borderRadius: 14,
+        },
+      });
+      elements.push({
+        id: `hero_prod_${timestamp}`,
+        type: 'product',
+        x: 35,
+        y: 62,
+        w: 525,
+        h: 470,
+        name: 'Sony WH-1000XM5 Wireless Noise-Cancelling Headphones',
+        price: '$349.00',
+        originalPrice: '$449.00',
+        badge: 'SAVE $100 • TOP RATED',
+        sku: 'SONY-WH-XM5',
+        whatsappNumber: '+6799991234',
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800',
+        description: 'Industry-leading noise cancellation with two processors and 8 microphones. Up to 30-hour battery life with quick charging (3 min charge for 3 hours playback). Ultra-comfortable lightweight design with soft fit leather.',
+        rating: 5,
+        stockStatus: 'in_stock',
+        showQrCode: true,
+      });
+      elements.push({
+        id: `hero_highlights_${timestamp}`,
+        type: 'shape',
+        x: 35,
+        y: 545,
+        w: 525,
+        h: 185,
+        shapeType: 'rectangle',
+        style: {
+          backgroundColor: '#0f172a',
+          borderColor: '#334155',
+          borderWidth: 1,
+          borderRadius: 14,
+          padding: '16px',
+        },
+      });
+      elements.push({
+        id: `hero_text_${timestamp}`,
+        type: 'text',
+        x: 55,
+        y: 560,
+        w: 485,
+        h: 155,
+        content: '📦 OFFICIAL PACIFIC DISTRIBUTOR GUARANTEES\n\n• 🚚 Free Express Courier Delivery Across All Pacific Hubs\n• 🛡️ 2-Year Official Manufacturer Warranty & Replacement Guarantee\n• 💬 1-Tap Instant WhatsApp Reservation & Dedicated Concierge Support\n• 💳 Flexible Cash-on-Delivery or Direct Bank Transfer Supported',
+        style: {
+          fontSize: 12,
+          color: '#cbd5e1',
+          lineHeight: 1.6,
+          fontFamily: 'Inter, sans-serif',
+        },
+      });
+    } else if (layoutType === 'split') {
+      // 2-Product Split Spread Layout
+      elements.push({
+        id: `split_hdr_${timestamp}`,
+        type: 'text',
+        x: 35,
+        y: 22,
+        w: 525,
+        h: 34,
+        content: '⚡ FLAGSHIP COMPARISON & SELECTION',
+        style: {
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: '#38bdf8',
+          letterSpacing: '0.8px',
+        },
+      });
+      elements.push({
+        id: `split_prod1_${timestamp}`,
+        type: 'product',
+        x: 35,
+        y: 65,
+        w: 250,
+        h: 675,
+        name: 'Apple MacBook Pro 16" M3 Max',
+        price: '$3,499.00',
+        originalPrice: '$3,899.00',
+        badge: 'SAVE $400 • M3 MAX',
+        sku: 'APL-MBP-16',
+        whatsappNumber: '+6799991234',
+        image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600',
+        description: 'Apple M3 Max chip with 16-core CPU, 40-core GPU, 48GB unified memory, and 1TB ultra-fast SSD storage. Liquid Retina XDR display with ProMotion 120Hz.',
+        rating: 5,
+        stockStatus: 'in_stock',
+        showQrCode: true,
+      });
+      elements.push({
+        id: `split_prod2_${timestamp}`,
+        type: 'product',
+        x: 310,
+        y: 65,
+        w: 250,
+        h: 675,
+        name: 'Dell XPS 16 Touch OLED Creator',
+        price: '$2,999.00',
+        originalPrice: '$3,399.00',
+        badge: 'SAVE $400 • 4K OLED',
+        sku: 'DEL-XPS-16',
+        whatsappNumber: '+6799991234',
+        image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=600',
+        description: 'Intel Core Ultra 9 processor, 32GB LPDDR5x RAM, 4K+ OLED Touchscreen with studio-grade NVIDIA GeForce RTX 4070 graphics and CNC machined aluminum.',
+        rating: 5,
+        stockStatus: 'in_stock',
+        showQrCode: true,
+      });
+    } else if (layoutType === 'tier') {
+      // 3-Product Balanced Tier Layout
+      elements.push({
+        id: `tier_hdr_${timestamp}`,
+        type: 'text',
+        x: 35,
+        y: 20,
+        w: 525,
+        h: 32,
+        content: '✨ PREMIUM HOME & LIFESTYLE SUITE',
+        style: {
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: '#a855f7',
+          letterSpacing: '0.8px',
+        },
+      });
+      elements.push({
+        id: `tier_prod_top_${timestamp}`,
+        type: 'product',
+        x: 35,
+        y: 58,
+        w: 525,
+        h: 335,
+        name: 'Dyson V15 Detect Absolute Cordless Vacuum',
+        price: '$749.00',
+        originalPrice: '$899.00',
+        badge: 'TOP RATED 2026 • SAVE $150',
+        sku: 'DYS-V15',
+        whatsappNumber: '+6799991234',
+        image: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?w=700',
+        description: 'Laser illuminates invisible dust on hard floors. Piezo sensor continuously sizes and counts dust particles, automatically ramping suction power.',
+        rating: 5,
+        stockStatus: 'in_stock',
+        showQrCode: false,
+      });
+      elements.push({
+        id: `tier_prod_b1_${timestamp}`,
+        type: 'product',
+        x: 35,
+        y: 405,
+        w: 250,
+        h: 345,
+        name: 'Dyson Pure Cool Air Purifier Tower',
+        price: '$499.00',
+        originalPrice: '$599.00',
+        badge: 'SPECIAL',
+        sku: 'DYS-AIR',
+        whatsappNumber: '+6799991234',
+        image: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=500',
+        description: 'HEPA filtration removes 99.97% of allergens and pollutants.',
+        rating: 5,
+        stockStatus: 'in_stock',
+      });
+      elements.push({
+        id: `tier_prod_b2_${timestamp}`,
+        type: 'product',
+        x: 310,
+        y: 405,
+        w: 250,
+        h: 345,
+        name: 'Dyson Supersonic Hair Dryer',
+        price: '$429.00',
+        originalPrice: '$499.00',
+        badge: 'HOT PICK',
+        sku: 'DYS-HAIR',
+        whatsappNumber: '+6799991234',
+        image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=500',
+        description: 'Fast drying with no extreme heat. Engineered for different hair types.',
+        rating: 5,
+        stockStatus: 'in_stock',
+      });
+    } else if (layoutType === 'grid4') {
+      // 4-Product Standard Commercial 2x2 Grid
+      elements.push({
+        id: `grid4_hdr_${timestamp}`,
+        type: 'text',
+        x: 35,
+        y: 20,
+        w: 525,
+        h: 32,
+        content: '🛒 SEASONAL CATALOGUE SPECIALS (2x2 GRID)',
+        style: {
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: '#fbbf24',
+          letterSpacing: '0.8px',
+        },
+      });
+      const items = [
+        { name: 'Island Organic Single-Origin Coffee Beans 1kg', price: '$18.99', was: '$24.00', badge: 'SAVE 20%', sku: 'COF-01', img: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500' },
+        { name: 'Artisan Sourdough Woodfired Country Loaf', price: '$7.50', was: '$9.50', badge: 'FRESH BAKE', sku: 'BAK-02', img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500' },
+        { name: 'Cold-Pressed Pure Virgin Coconut Oil 1L', price: '$14.50', was: '$18.00', badge: 'PURE PACIFIC', sku: 'OIL-03', img: 'https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=500' },
+        { name: 'Wild Rainforest Raw Honey Jar 500g', price: '$16.99', was: '$22.00', badge: 'NATURAL', sku: 'HON-04', img: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500' },
+      ];
+      const coords = [
+        { x: 35, y: 60, w: 250, h: 345 },
+        { x: 310, y: 60, w: 250, h: 345 },
+        { x: 35, y: 415, w: 250, h: 345 },
+        { x: 310, y: 415, w: 250, h: 345 },
+      ];
+      items.forEach((it, i) => {
+        elements.push({
+          id: `grid4_p_${timestamp}_${i}`,
+          type: 'product',
+          ...coords[i],
+          name: it.name,
+          price: it.price,
+          originalPrice: it.was,
+          badge: it.badge,
+          sku: it.sku,
+          image: it.img,
+          whatsappNumber: '+6799991234',
+          rating: 5,
+          stockStatus: 'in_stock',
+        });
+      });
+    } else if (layoutType === 'specials6') {
+      // 6-Product Supermarket Specials 2x3 Grid
+      elements.push({
+        id: `spec6_banner_${timestamp}`,
+        type: 'badge',
+        x: 30,
+        y: 16,
+        w: 535,
+        h: 46,
+        content: '🔥 SUPERMARKET WEEKLY SPECIALS & PRICE DROPS',
+        style: {
+          fontSize: 13,
+          fontWeight: 'bold',
+          backgroundColor: '#dc2626',
+          color: '#ffffff',
+          borderRadius: 24,
+        },
+      });
+      const items = [
+        { name: 'Punjas Premium Rice 10kg', price: '$22.50', was: '$26.50', badge: 'SAVE $4.00', sku: 'FMCG-01', img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400' },
+        { name: 'Golden Sunflower Cooking Oil 2L', price: '$11.95', was: '$15.50', badge: 'HOT DEAL', sku: 'FMCG-02', img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400' },
+        { name: 'Fresh Farm Salted Butter 500g', price: '$6.50', was: '$9.00', badge: 'HALF PRICE', sku: 'FMCG-03', img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400' },
+        { name: 'Sweet Island Papaya 2kg Pack', price: '$4.99', was: '$7.50', badge: 'FRESH PICK', sku: 'FMCG-04', img: 'https://images.unsplash.com/photo-1517282009859-f000ec3b26fe?w=400' },
+        { name: 'Grass-Fed Beef Sausages 1kg', price: '$13.99', was: '$17.50', badge: 'SAVE $3.50', sku: 'FMCG-05', img: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400' },
+        { name: 'Pacific Tuna Chunks In Brine 6x', price: '$10.50', was: '$14.00', badge: 'VALUE PACK', sku: 'FMCG-06', img: 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?w=400' },
+      ];
+      const coords = [
+        { x: 30, y: 72, w: 165, h: 335 },
+        { x: 215, y: 72, w: 165, h: 335 },
+        { x: 400, y: 72, w: 165, h: 335 },
+        { x: 30, y: 418, w: 165, h: 335 },
+        { x: 215, y: 418, w: 165, h: 335 },
+        { x: 400, y: 418, w: 165, h: 335 },
+      ];
+      items.forEach((it, i) => {
+        elements.push({
+          id: `spec6_p_${timestamp}_${i}`,
+          type: 'product',
+          ...coords[i],
+          name: it.name,
+          price: it.price,
+          originalPrice: it.was,
+          badge: it.badge,
+          sku: it.sku,
+          image: it.img,
+          whatsappNumber: '+6799991234',
+          rating: 5,
+          stockStatus: 'in_stock',
+        });
+      });
+    }
+
+    const updatedPages = [...pages];
+    updatedPages[activePageIndex].elements = elements;
+    setPages(updatedPages);
+    setSelectedElementId(null);
+  };
+
+  // Flash Discount Generator (Dynamic Price Markdown)
+  const applyFlashDiscount = (percent: number, scope: 'page' | 'all') => {
+    if (percent <= 0 || percent >= 100) return;
+    const updatedPages = [...pages];
+    let updatedCount = 0;
+
+    const targetPages = scope === 'page' ? [updatedPages[activePageIndex]] : updatedPages;
+
+    targetPages.forEach((pg) => {
+      if (!pg || !pg.elements) return;
+      pg.elements = pg.elements.map((el) => {
+        if (el.type !== 'product' || !el.price) return el;
+        const priceStr = String(el.price).trim();
+        const match = priceStr.match(/^([^\d.]*)(\d+(?:\.\d+)?)(.*)$/);
+        if (!match) return el;
+
+        const currencyPrefix = match[1] || '$';
+        const rawNum = parseFloat(match[2]);
+        const suffix = match[3] || '';
+        if (isNaN(rawNum) || rawNum <= 0) return el;
+
+        const discountedNum = Math.max(0.01, Math.round(rawNum * (1 - percent / 100) * 100) / 100);
+        const formattedDiscounted = `${currencyPrefix}${discountedNum.toFixed(2)}${suffix}`;
+        const previousOriginal = el.originalPrice || el.price;
+
+        updatedCount++;
+        return {
+          ...el,
+          originalPrice: previousOriginal,
+          price: formattedDiscounted,
+          badge: `FLASH ${percent}% OFF`,
+        };
+      });
+    });
+
+    setPages(updatedPages);
+    alert(`⚡ Applied ${percent}% Flash Discount to ${updatedCount} product(s) across ${scope === 'page' ? 'Page ' + (activePageIndex + 1) : 'all pages'}!`);
+  };
+
+  // Revert Flash Discounts
+  const revertFlashDiscounts = (scope: 'page' | 'all') => {
+    const updatedPages = [...pages];
+    let restoredCount = 0;
+
+    const targetPages = scope === 'page' ? [updatedPages[activePageIndex]] : updatedPages;
+
+    targetPages.forEach((pg) => {
+      if (!pg || !pg.elements) return;
+      pg.elements = pg.elements.map((el) => {
+        if (el.type !== 'product' || !el.originalPrice) return el;
+        restoredCount++;
+        const restoredPrice = el.originalPrice;
+        const cleanBadge = el.badge && el.badge.startsWith('FLASH ') ? undefined : el.badge;
+        return {
+          ...el,
+          price: restoredPrice,
+          originalPrice: undefined,
+          badge: cleanBadge,
+        };
+      });
+    });
+
+    setPages(updatedPages);
+    alert(`↺ Restored regular pricing for ${restoredCount} product(s)!`);
+  };
+
+  // Live SKU-Based Price Sync
+  const syncPricesFromCsv = (csvContent: string) => {
+    if (!csvContent.trim()) return;
+    const lines = csvContent.trim().split('\n');
+    if (lines.length <= 1) return;
+
+    const skuMap = new Map<string, { price?: string; originalPrice?: string; badge?: string; stockStatus?: any }>();
+
+    lines.slice(1).forEach((line) => {
+      const parts = line.split(',').map((p) => p.trim());
+      if (parts.length >= 2 && parts[0]) {
+        const skuKey = parts[0].toUpperCase();
+        skuMap.set(skuKey, {
+          price: parts[1] || undefined,
+          originalPrice: parts[2] || undefined,
+          badge: parts[3] || undefined,
+          stockStatus: parts[4] || undefined,
+        });
+      }
+    });
+
+    if (skuMap.size === 0) {
+      alert('No valid SKU rows found. Format: SKU,Price,WasPrice,Badge,StockStatus');
+      return;
+    }
+
+    let matchedCount = 0;
+    const updatedPages = [...pages];
+
+    updatedPages.forEach((pg) => {
+      if (!pg.elements) return;
+      pg.elements = pg.elements.map((el) => {
+        if (el.type !== 'product' || !el.sku) return el;
+        const skuKey = el.sku.trim().toUpperCase();
+        const updateData = skuMap.get(skuKey);
+        if (updateData) {
+          matchedCount++;
+          return {
+            ...el,
+            price: updateData.price || el.price,
+            originalPrice: updateData.originalPrice !== undefined ? updateData.originalPrice : el.originalPrice,
+            badge: updateData.badge !== undefined ? updateData.badge : el.badge,
+            stockStatus: (updateData.stockStatus as any) || el.stockStatus,
+          };
+        }
+        return el;
+      });
+    });
+
+    setPages(updatedPages);
+    alert(`✓ SKU Price Sync: Updated ${matchedCount} product(s) across catalogue from ${skuMap.size} CSV records!`);
+  };
+
+  // CSV Bulk Import processor (Multi-Page Paginated vs SKU Sync vs Yearbook)
+  const handleImportCsv = async () => {
     if (!csvText.trim()) return;
     const lines = csvText.trim().split('\n');
     if (lines.length <= 1) return;
 
+    if (csvMode === 'sku_sync') {
+      syncPricesFromCsv(csvText);
+      return;
+    }
+
     const rows = lines.slice(1);
-    const pageWidth = currentDoc?.width_pt || 595.28;
 
     if (csvMode === 'products') {
-      let x = 40;
-      let y = 140;
-      const cardW = 240;
-      const cardH = 300;
-      const gapX = 30;
-      const gapY = 25;
+      const rawProducts = rows
+        .map((line, idx) => {
+          const parts = line.split(',').map((p) => p.trim());
+          if (parts.length < 2 || !parts[0]) return null;
+          return {
+            name: parts[0] || `Product ${idx + 1}`,
+            price: parts[1] || '$0.00',
+            originalPrice: parts[2] || undefined,
+            badge: parts[3] || undefined,
+            image: parts[4] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500',
+            whatsappNumber: parts[5] || '+6799991234',
+            sku: parts[6] || `SKU-${idx + 1}`,
+            description: parts[7] || undefined,
+          };
+        })
+        .filter(Boolean) as Array<{
+          name: string;
+          price: string;
+          originalPrice?: string;
+          badge?: string;
+          image: string;
+          whatsappNumber: string;
+          sku: string;
+          description?: string;
+        }>;
 
-      const importedElements: CanvasElement[] = [];
-      rows.forEach((line, idx) => {
-        const parts = line.split(',').map((p) => p.trim());
-        if (parts.length < 2) return;
-        importedElements.push({
-          id: 'prod_' + Date.now() + '_' + idx,
-          type: 'product',
-          x,
-          y,
-          w: cardW,
-          h: cardH,
-          name: parts[0] || 'Product ' + (idx + 1),
-          price: parts[1] || '$0.00',
-          originalPrice: parts[2] || undefined,
-          badge: parts[3] || undefined,
-          image: parts[4] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500',
-          whatsappNumber: parts[5] || '+6799991234',
-          sku: parts[6] || 'SKU-' + (idx + 1),
+      if (rawProducts.length === 0) {
+        alert('No valid product rows parsed. Please check CSV format.');
+        return;
+      }
+
+      const perPage = csvPerPage;
+      const totalPagesNeeded = Math.ceil(rawProducts.length / perPage);
+      const newPagesList: StudioPage[] = [...pages];
+
+      for (let pageIdx = 0; pageIdx < totalPagesNeeded; pageIdx++) {
+        const chunk = rawProducts.slice(pageIdx * perPage, (pageIdx + 1) * perPage);
+        const elements: CanvasElement[] = [];
+
+        // Header element
+        elements.push({
+          id: `hdr_${Date.now()}_${pageIdx}`,
+          type: 'text',
+          x: 35,
+          y: 20,
+          w: 525,
+          h: 34,
+          content: `COMMERCIAL CATALOGUE • VOLUME ${pageIdx + 1}`,
+          style: {
+            fontSize: 16,
+            fontWeight: 'bold',
+            color: '#f59e0b',
+            letterSpacing: '1px',
+          },
         });
 
-        x += cardW + gapX;
-        if (x + cardW > pageWidth - 30) {
-          x = 40;
-          y += cardH + gapY;
+        if (perPage === 4) {
+          const coords = [
+            { x: 35, y: 62, w: 250, h: 345 },
+            { x: 310, y: 62, w: 250, h: 345 },
+            { x: 35, y: 420, w: 250, h: 345 },
+            { x: 310, y: 420, w: 250, h: 345 },
+          ];
+          chunk.forEach((item, cIdx) => {
+            const pos = coords[cIdx] || coords[0];
+            elements.push({
+              id: `prod_${Date.now()}_${pageIdx}_${cIdx}`,
+              type: 'product',
+              ...pos,
+              name: item.name,
+              price: item.price,
+              originalPrice: item.originalPrice,
+              badge: item.badge,
+              image: item.image,
+              whatsappNumber: item.whatsappNumber,
+              sku: item.sku,
+              description: item.description,
+              rating: 5,
+              stockStatus: 'in_stock',
+            });
+          });
+        } else {
+          // 6 per page
+          const coords = [
+            { x: 30, y: 68, w: 165, h: 335 },
+            { x: 215, y: 68, w: 165, h: 335 },
+            { x: 400, y: 68, w: 165, h: 335 },
+            { x: 30, y: 418, w: 165, h: 335 },
+            { x: 215, y: 418, w: 165, h: 335 },
+            { x: 400, y: 418, w: 165, h: 335 },
+          ];
+          chunk.forEach((item, cIdx) => {
+            const pos = coords[cIdx] || coords[0];
+            elements.push({
+              id: `prod_${Date.now()}_${pageIdx}_${cIdx}`,
+              type: 'product',
+              ...pos,
+              name: item.name,
+              price: item.price,
+              originalPrice: item.originalPrice,
+              badge: item.badge,
+              image: item.image,
+              whatsappNumber: item.whatsappNumber,
+              sku: item.sku,
+              description: item.description,
+              rating: 5,
+              stockStatus: 'in_stock',
+            });
+          });
         }
-      });
 
-      if (importedElements.length > 0 && activePage) {
-        const updatedPages = [...pages];
-        updatedPages[activePageIndex].elements = [...updatedPages[activePageIndex].elements, ...importedElements];
-        setPages(updatedPages);
-        alert(`Successfully added ${importedElements.length} products to Page ${activePageIndex + 1}!`);
-        setActiveToolTab('products');
+        if (pageIdx === 0 && activePageIndex < newPagesList.length) {
+          newPagesList[activePageIndex] = {
+            ...newPagesList[activePageIndex],
+            elements,
+          };
+        } else if (currentDoc) {
+          try {
+            const res = await api<{ ok: boolean; page_id: number; page_number: number }>(
+              `/studio/documents/${currentDoc.id}/pages`,
+              'POST',
+              { elements, background: { type: 'color', value: '#FFFFFF' } }
+            );
+            newPagesList.push({
+              id: res.page_id,
+              document_id: currentDoc.id,
+              page_number: res.page_number,
+              elements,
+              background: { type: 'color', value: '#FFFFFF' },
+            });
+          } catch {
+            newPagesList.push({
+              id: Date.now() + pageIdx,
+              document_id: currentDoc.id,
+              page_number: newPagesList.length + 1,
+              elements,
+              background: { type: 'color', value: '#FFFFFF' },
+            });
+          }
+        }
       }
+
+      setPages(newPagesList);
+      alert(`✨ Auto-Generated ${rawProducts.length} product(s) across ${totalPagesNeeded} catalogue page(s)!`);
+      setActiveToolTab('products');
     } else {
       // Yearbook Roster Mode
       const students: StudentProfile[] = [];
@@ -2537,20 +3076,176 @@ export default function FlipexStudio() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* TAB: PRODUCTS (CATALOGUE CREATOR) */}
+            {/* TAB: PRODUCTS (STAGE 5: SPECIALIZED CATALOGUE CREATOR) */}
             {activeToolTab === 'products' && (
               <div className="space-y-4">
                 <div className="studio-info-callout cosmic">
-                  <p className="font-bold mb-1">🛒 Interactive Product Cards</p>
+                  <p className="font-bold mb-1">🛒 Specialized Catalogue Creator</p>
                   <p className="text-[11px] leading-relaxed opacity-90">
-                    Insert pre-formatted price badges, strike-through original prices, and direct WhatsApp 1-tap buy buttons.
+                    1-tap commercial grid generators, live flash discount sync, and normalized WhatsApp reader hotspots.
                   </p>
                 </div>
 
+                {/* 1-Tap Product Grid Generators */}
                 <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">⚡ 1-Tap Grid Generators</span>
+                    <span className="text-[10px] text-purple-400 font-semibold">Auto-Arranged</span>
+                  </div>
+
                   <button
                     type="button"
-                    className="studio-tool-btn cosmic"
+                    className="studio-tool-btn cosmic w-full text-left"
+                    onClick={() => generateProductLayout('hero')}
+                    title="1 large hero product layout with specs, QR, and buyer guarantees"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🌟</span>
+                      <div>
+                        <b className="block text-xs">1-Product Hero Showcase</b>
+                        <span className="text-[10px] opacity-80 font-normal">Flagship deal, large photo, specs &amp; guarantees</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn ocean w-full text-left"
+                    onClick={() => generateProductLayout('split')}
+                    title="2 tall side-by-side flagship comparison cards"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">⚡</span>
+                      <div>
+                        <b className="block text-xs">2-Product Split Spread</b>
+                        <span className="text-[10px] opacity-80 font-normal">Dual flagship comparison (MacBook vs XPS)</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn orchid w-full text-left"
+                    onClick={() => generateProductLayout('tier')}
+                    title="1 top hero feature card + 2 bottom companion cards"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">👑</span>
+                      <div>
+                        <b className="block text-xs">3-Product Balanced Tier</b>
+                        <span className="text-[10px] opacity-80 font-normal">Featured top hero + dual bottom accessories</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn sunset w-full text-left"
+                    onClick={() => generateProductLayout('grid4')}
+                    title="Classic 2x2 retail catalogue product grid"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🛒</span>
+                      <div>
+                        <b className="block text-xs">4-Product Standard Grid (2x2)</b>
+                        <span className="text-[10px] opacity-80 font-normal">Symmetrical commercial cards with headers</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn emerald w-full text-left"
+                    onClick={() => generateProductLayout('specials6')}
+                    title="FMCG grocery & supermarket weekly price drop flyer (2x3)"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🔥</span>
+                      <div>
+                        <b className="block text-xs">6-Product Supermarket Specials (2x3)</b>
+                        <span className="text-[10px] opacity-80 font-normal">FMCG price drop flyer with discount badges</span>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Dynamic Price Markdown & Flash Discount Tool */}
+                <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-400">⚡ Live Flash Markdown</span>
+                    <span className="text-[10px] text-slate-400">Dynamic Price Sync</span>
+                  </div>
+
+                  <div className="flex gap-1">
+                    {[10, 15, 20, 25, 30, 50].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setFlashDiscountPercent(pct)}
+                        className={`flex-1 py-1 rounded text-[10px] font-bold transition-all ${
+                          flashDiscountPercent === pct
+                            ? 'studio-gradient-btn cosmic'
+                            : 'bg-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-slate-400">Scope:</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setFlashDiscountScope('page')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          flashDiscountScope === 'page'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Page {activePageIndex + 1}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFlashDiscountScope('all')}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          flashDiscountScope === 'all'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        All Pages
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => applyFlashDiscount(flashDiscountPercent, flashDiscountScope)}
+                      className="studio-gradient-btn sunset py-1.5 rounded-lg text-[11px] font-bold"
+                    >
+                      Apply {flashDiscountPercent}% Off
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => revertFlashDiscounts(flashDiscountScope)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 py-1.5 rounded-lg text-[11px] font-medium border border-slate-700"
+                    >
+                      ↺ Revert Pricing
+                    </button>
+                  </div>
+                </div>
+
+                {/* Individual Product & WhatsApp Elements */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">➕ Individual Elements</span>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn cosmic w-full"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -2571,7 +3266,7 @@ export default function FlipexStudio() {
 
                   <button
                     type="button"
-                    className="studio-tool-btn sunset"
+                    className="studio-tool-btn sunset w-full"
                     onClick={() =>
                       addElement({
                         type: 'product',
@@ -2592,7 +3287,7 @@ export default function FlipexStudio() {
 
                   <button
                     type="button"
-                    className="studio-tool-btn emerald"
+                    className="studio-tool-btn emerald w-full"
                     onClick={() =>
                       addElement({
                         type: 'whatsapp',
@@ -2611,6 +3306,15 @@ export default function FlipexStudio() {
                     }
                   >
                     <span>💬</span> Standalone WhatsApp 1-Tap Button
+                  </button>
+
+                  {/* Switch to CSV Tab for Bulk Multi-Page Import & SKU Sync */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveToolTab('csv')}
+                    className="w-full py-2 px-3 rounded-lg bg-indigo-950/60 border border-indigo-700/50 hover:bg-indigo-900/60 text-indigo-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all mt-2"
+                  >
+                    <span>📊</span> Open CSV Inventory &amp; Multi-Page Generator →
                   </button>
                 </div>
               </div>
@@ -3026,31 +3730,60 @@ export default function FlipexStudio() {
               </div>
             )}
 
-            {/* TAB: CSV BATCH IMPORT */}
+            {/* TAB: CSV BATCH IMPORT & INVENTORY SYNC */}
             {activeToolTab === 'csv' && (
               <div className="space-y-3">
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-white">Import Mode</span>
-                    <div className="flex gap-1.5">
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-3">
+                  <div>
+                    <span className="font-bold text-white block mb-1.5">📊 CSV Workflow Mode</span>
+                    <div className="grid grid-cols-3 gap-1">
                       <button
+                        type="button"
                         onClick={() => {
                           setCsvMode('products');
                           setCsvText(
-                            'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU\n' +
-                            'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10\n' +
-                            'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01'
+                            'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU,Description\n' +
+                            'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10,Fortified long grain rice\n' +
+                            'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01,Ripe organic Cavendish bananas\n' +
+                            'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500,+6799991234,OIL-02,Pure blended vegetable cooking oil\n' +
+                            'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500,+6799991234,MLK-06,Pasteurised fresh dairy milk bundle\n' +
+                            'Island Gold Pure Honey 500g,$14.50,$18.00,NATURAL,https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500,+6799991234,HON-05,Wild rainforest raw honey jar\n' +
+                            'Coral Coast Sea Salt 1kg,$4.20,$5.50,LOCAL,https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=500,+6799991234,SLT-03,Natural mineral sea salt flakes\n' +
+                            'Bakehouse Crusty Bread,$3.50,$4.80,FRESH,https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500,+6799991234,BRD-07,Woodfired crusty sourdough loaf\n' +
+                            'Pacific Cacao Dark Bar 100g,$6.99,$8.90,SAVE 20%,https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=500,+6799991234,CHOC-08,Single-origin 72% organic dark chocolate'
                           );
                         }}
-                        className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                        className={`px-1.5 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-all text-center ${
                           csvMode === 'products'
                             ? 'studio-gradient-btn cosmic'
                             : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
-                        Products
+                        Catalogue Grid
                       </button>
                       <button
+                        type="button"
+                        onClick={() => {
+                          setCsvMode('sku_sync');
+                          setCsvText(
+                            'SKU,Price,WasPrice,Badge,StockStatus\n' +
+                            'PUN-10,$19.99,$26.00,SPECIAL 23% OFF,in_stock\n' +
+                            'BAN-01,$4.50,$8.50,SUPER DEAL,in_stock\n' +
+                            'OIL-02,$9.95,$14.20,SAVE $4.25,low_stock\n' +
+                            'MLK-06,$14.20,$19.50,FLASH $5.30 OFF,in_stock\n' +
+                            'HON-05,$12.50,$18.00,SAVE $5.50,in_stock'
+                          );
+                        }}
+                        className={`px-1.5 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-all text-center ${
+                          csvMode === 'sku_sync'
+                            ? 'studio-gradient-btn sunset'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        SKU Price Sync
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setCsvMode('yearbook');
                           setCsvText(
@@ -3059,7 +3792,7 @@ export default function FlipexStudio() {
                             'Jone Naivalu,https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400,Head Boy,"Honor our elders",Student Council'
                           );
                         }}
-                        className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                        className={`px-1.5 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-all text-center ${
                           csvMode === 'yearbook'
                             ? 'studio-gradient-btn orchid'
                             : 'bg-slate-800 text-slate-400 hover:text-white'
@@ -3069,29 +3802,85 @@ export default function FlipexStudio() {
                       </button>
                     </div>
                   </div>
-                  <p className="text-slate-400 text-[11px] leading-relaxed mb-2">
-                    {csvMode === 'products'
-                      ? 'Paste product rows (Name, Price, WasPrice, Badge, Image, WhatsApp, SKU).'
-                      : 'Paste class graduates (Name, PhotoUrl, Award, Quote, Role).'}
-                  </p>
-                  <textarea
-                    rows={6}
-                    value={csvText}
-                    onChange={(e) => setCsvText(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 focus:ring-1 focus:ring-indigo-500"
-                  />
+
+                  {/* Mode-Specific Settings */}
+                  {csvMode === 'products' && (
+                    <div className="space-y-1.5 p-2 bg-slate-950/80 rounded-lg border border-slate-800">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-semibold">Pagination Layout:</span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setCsvPerPage(4)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              csvPerPage === 4 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            4 / Page (2x2)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCsvPerPage(6)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              csvPerPage === 6 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            6 / Page (2x3)
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-normal">
+                        Auto-creates new document pages if rows exceed the layout capacity.
+                      </p>
+                    </div>
+                  )}
+
+                  {csvMode === 'sku_sync' && (
+                    <div className="p-2 bg-amber-950/30 rounded-lg border border-amber-900/40 text-[10px] text-amber-300 leading-relaxed">
+                      💡 <b>In-Place Dynamic Price Sync:</b> Updates prices and discount badges on all matching products across every page without changing their positions, photos, or styles.
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-slate-300">
+                        {csvMode === 'sku_sync' ? 'SKU Pricing CSV Data' : 'CSV Data Rows'}
+                      </label>
+                      <label className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer">
+                        📁 Upload .CSV File
+                        <input
+                          type="file"
+                          accept=".csv,text/csv"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              const text = evt.target?.result as string;
+                              if (text) setCsvText(text);
+                            };
+                            reader.readAsText(file);
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <textarea
+                      rows={7}
+                      value={csvText}
+                      onChange={(e) => setCsvText(e.target.value)}
+                      className="w-full p-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[10.5px] text-slate-300 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleImportCsv}
-                    className="studio-gradient-btn cosmic"
-                    style={{
-                      width: '100%',
-                      marginTop: '8px',
-                      padding: '9px 14px',
-                      fontSize: '12px',
-                    }}
+                    className="studio-gradient-btn cosmic w-full py-2 rounded-lg text-xs font-bold"
                   >
-                    🚀 Auto-Generate on Page {activePageIndex + 1}
+                    {csvMode === 'sku_sync'
+                      ? '⚡ Sync Prices Across Document'
+                      : `🚀 Auto-Generate Catalogue (${csvPerPage} Per Page)`}
                   </button>
                 </div>
               </div>

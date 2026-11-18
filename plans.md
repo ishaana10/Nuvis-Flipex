@@ -307,13 +307,15 @@ flowchart TD
 
 ### Stage 5 — Specialized Catalogue Creator
 **Focus:** Commercial retail publishing, live product binding, and WhatsApp ordering.
-- [ ] **Product Grid Generators:**
-  - 1-tap generation of standard catalogue layouts: 1-Product Hero, 2-Product Split, 3-Product Balanced, 4-Product Grid, 6-Product Supermarket Specials.
-- [ ] **Live Inventory / CSV Integration:**
-  - Import product inventories via CSV or direct API integration.
-  - Dynamic price update: update catalog prices without breaking graphic design compositions.
-- [ ] **Interactive Hotspot Overlays:**
-  - Link product cards directly to interactive reader hotspots during flipbook compilation.
+- [x] **Product Grid Generators:**
+  - 1-tap generation of standard catalogue layouts: 1-Product Hero Showcase, 2-Product Split Spread, 3-Product Balanced Tier, 4-Product Standard Grid (2x2), and 6-Product Supermarket Specials (2x3 FMCG flyer).
+- [x] **Live Inventory / CSV Integration & Dynamic Price Sync:**
+  - Multi-page paginated bulk catalogue import with auto-pagination (4 or 6 products per page).
+  - Dynamic flash discount generator with instant percentage markdowns (10%, 15%, 20%, 25%, 30%, 50%) and 1-click pricing reversion across page or entire document.
+  - SKU-based live price sync: update prices, was-prices, badges, and stock statuses across existing product elements in-place without altering visual layouts.
+- [x] **Interactive Hotspot Overlays:**
+  - Link product cards and WhatsApp buttons directly into normalized interactive reader hotspots (0-100% viewport coordinates) during flipbook compilation.
+  - Native WhatsApp click-to-chat compilation with pre-filled SKU and item details for 1-tap reader ordering.
 
 ---
 

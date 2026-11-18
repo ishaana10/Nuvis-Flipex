@@ -1195,31 +1195,67 @@ final class StudioController
                     [$flipbookId, $pageNum, $thumbUrl, $thumbUrl, $thumbUrl, $thumbUrl, (int) $doc['width_pt'], (int) $doc['height_pt'], $textContent]
                 );
 
-                // Compile interactive product cards & links into hotspots
+                // Compile interactive product cards, WhatsApp buttons & links into normalized reader hotspots (0-100%)
+                $docW = max(1.0, (float) ($doc['width_pt'] ?? 595.28));
+                $docH = max(1.0, (float) ($doc['height_pt'] ?? 841.89));
+
                 foreach ($elements as $el) {
                     $type = $el['type'] ?? 'generic';
+                    $rawX = (float) ($el['x'] ?? 0);
+                    $rawY = (float) ($el['y'] ?? 0);
+                    $rawW = max(10.0, (float) ($el['w'] ?? 100));
+                    $rawH = max(10.0, (float) ($el['h'] ?? 100));
+
+                    $normX = max(0.0, min(100.0, round(($rawX / $docW) * 100, 2)));
+                    $normY = max(0.0, min(100.0, round(($rawY / $docH) * 100, 2)));
+                    $normW = max(1.0, min(100.0, round(($rawW / $docW) * 100, 2)));
+                    $normH = max(1.0, min(100.0, round(($rawH / $docH) * 100, 2)));
+
                     if ($type === 'product') {
+                        $waNum = !empty($el['whatsappNumber']) ? preg_replace('/[^0-9]/', '', (string) $el['whatsappNumber']) : null;
+                        $waUrl = $waNum ? 'https://wa.me/' . $waNum . '?text=' . urlencode('Bula! I would like to order: ' . ($el['name'] ?? 'Product') . ' (' . ($el['price'] ?? '') . ') SKU: ' . ($el['sku'] ?? 'N/A')) : null;
+
                         $payload = json_encode([
-                            'product_name' => $el['name'] ?? '',
+                            'title' => $el['name'] ?? 'Product',
+                            'product_name' => $el['name'] ?? 'Product',
                             'price' => $el['price'] ?? '',
                             'original_price' => $el['originalPrice'] ?? null,
                             'badge' => $el['badge'] ?? null,
                             'sku' => $el['sku'] ?? '',
                             'whatsapp_number' => $el['whatsappNumber'] ?? null,
+                            'whatsappPhone' => $el['whatsappNumber'] ?? null,
+                            'whatsapp_url' => $waUrl,
+                            'url' => $waUrl ?? ($el['linkUrl'] ?? null),
+                            'imageUrl' => $el['image'] ?? null,
                             'image' => $el['image'] ?? null,
                             'description' => $el['description'] ?? '',
+                            'rating' => $el['rating'] ?? 5,
+                            'stock_status' => $el['stockStatus'] ?? 'in_stock',
                         ]);
                         Db::run(
                             'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
                              VALUES (?, ?, "product", ?, ?, ?, ?, ?)',
-                            [$flipbookId, $pageNum, (float) ($el['x'] ?? 0), (float) ($el['y'] ?? 0), (float) ($el['w'] ?? 100), (float) ($el['h'] ?? 100), $payload]
+                            [$flipbookId, $pageNum, $normX, $normY, $normW, $normH, $payload]
+                        );
+                    } elseif ($type === 'whatsapp') {
+                        $waNum = !empty($el['whatsappNumber']) ? preg_replace('/[^0-9]/', '', (string) $el['whatsappNumber']) : '6799991234';
+                        $waUrl = 'https://wa.me/' . $waNum . '?text=' . urlencode('Bula! Inquiring from ' . ($doc['title'] ?? 'Catalogue') . ' (Page ' . $pageNum . ')');
+                        $payload = json_encode([
+                            'title' => $el['content'] ?? 'Chat & Order on WhatsApp',
+                            'whatsapp_number' => $waNum,
+                            'url' => $waUrl,
+                        ]);
+                        Db::run(
+                            'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
+                             VALUES (?, ?, "link", ?, ?, ?, ?, ?)',
+                            [$flipbookId, $pageNum, $normX, $normY, $normW, $normH, $payload]
                         );
                     } elseif ($type === 'link' || !empty($el['linkUrl'])) {
                         $payload = json_encode(['url' => $el['linkUrl'] ?? '']);
                         Db::run(
                             'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
                              VALUES (?, ?, "link", ?, ?, ?, ?, ?)',
-                            [$flipbookId, $pageNum, (float) ($el['x'] ?? 0), (float) ($el['y'] ?? 0), (float) ($el['w'] ?? 100), (float) ($el['h'] ?? 100), $payload]
+                            [$flipbookId, $pageNum, $normX, $normY, $normW, $normH, $payload]
                         );
                     }
                 }

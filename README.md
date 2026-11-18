@@ -260,6 +260,13 @@ The following notable updates, bug fixes, and architectural hardening milestones
   - **Apply to All Pages:** 1-click batch application synchronizing background styling across the entire publication.
 - **Backend Print & PDF Export Support:** Upgraded `StudioController.php` print generator to render CSS gradients and solid backgrounds seamlessly in print previews and vector PDFs.
 
+### Release Stage 5 — Specialized Catalogue Creator & Dynamic Inventory Sync
+- **1-Tap Product Grid Generators:** 5 commercial layout generators: 1-Product Hero Showcase (specs, trust guarantees & QR code), 2-Product Split Spread (dual flagship comparisons), 3-Product Balanced Tier (top hero + dual companion accessories), 4-Product Standard Grid (2x2 symmetrical commercial specials), and 6-Product Supermarket Specials (2x3 FMCG grocery flyer with discount badges).
+- **Live Inventory CSV Integration & Auto-Pagination:** Paginated multi-page catalogue generation from CSV data with layout density selection (4 or 6 products per page), automatically provisioning pages across the document.
+- **Dynamic Flash Markdown Tool:** Instant percentage price markdowns across active page or entire catalogue (10%, 15%, 20%, 25%, 30%, 50%) with 1-click pricing restoration.
+- **In-Place SKU Price Sync:** Dynamic inventory sync from CSV (`SKU,Price,WasPrice,Badge,StockStatus`) that matches products across all pages and updates pricing and badges in-place without disturbing layout, fonts, or graphic compositions.
+- **Normalized Reader Hotspots:** Studio publish pipeline compiles product elements and WhatsApp buttons into normalized percentage reader coordinates (`0.0%` - `100.0%`) for responsive alignment, embedding pre-filled WhatsApp click-to-chat links with SKU and product details.
+
 ### Release Stage 4 — Flipex Studio Template Platform & Discovery Browser
 - **10 Commercial Template Categories:** Integrated prebuilt multi-page templates across Retail/Supermarkets, Tech/Electronics, Food/Menus, Real Estate, School Yearbooks, Lifestyle Magazines, Wedding Albums, Annual Reports, Marketing Brochures, and Creative Portfolios.
 - **Template Discovery Hub:** Dedicated browser with category filter pills, keyword search, format selection, and official vs. custom team template scoping.
