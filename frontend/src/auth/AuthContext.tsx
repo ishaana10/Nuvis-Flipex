@@ -46,6 +46,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSession().then((s: any) => { if (s) setUser(s.user); }).finally(() => setLoading(false));
   }, []);
 
+  // Automatic Keep-Alive Session Heartbeat (Every 4 minutes while signed in)
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      api<{ ok: boolean; accessToken?: string }>('/auth/keepalive')
+        .then((res) => {
+          if (res?.accessToken) setAccessToken(res.accessToken);
+        })
+        .catch(() => {});
+    }, 4 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const can = (permission: string): boolean => {
     if (!user) return false;
     if (user.role === 'admin') return true; // Platform Developer

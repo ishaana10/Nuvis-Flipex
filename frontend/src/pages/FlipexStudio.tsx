@@ -240,14 +240,14 @@ export interface StudioAsset {
 }
 
 export const GRADIENT_PRESETS = [
-  { name: 'Cosmic Aurora', stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 as number | 'radial' },
-  { name: 'Sunset Radiance', stop1: '#f59e0b', stop2: '#ef4444', stop3: '#7c3aed', angle: 135 as number | 'radial' },
+  { name: 'Pacific Azure', stop1: '#0284c7', stop2: '#0369a1', stop3: '#0c4a6e', angle: 135 as number | 'radial' },
+  { name: 'Sunset Ember', stop1: '#f59e0b', stop2: '#ea580c', stop3: '#b91c1c', angle: 135 as number | 'radial' },
   { name: 'Tropical Emerald', stop1: '#064e3b', stop2: '#059669', stop3: '#10b981', angle: 135 as number | 'radial' },
   { name: 'Ocean Abyss', stop1: '#0f172a', stop2: '#0e7490', stop3: '#14b8a6', angle: 180 as number | 'radial' },
-  { name: 'Royal Orchid', stop1: '#2e1065', stop2: '#7c3aed', stop3: '#c026d3', angle: 135 as number | 'radial' },
+  { name: 'Nordic Slate', stop1: '#1e293b', stop2: '#334155', stop3: '#475569', angle: 135 as number | 'radial' },
   { name: 'Clean Frost', stop1: '#f8fafc', stop2: '#e2e8f0', stop3: '#cbd5e1', angle: 180 as number | 'radial' },
   { name: 'Warm Parchment', stop1: '#fffbeb', stop2: '#fef3c7', stop3: '#fed7aa', angle: 180 as number | 'radial' },
-  { name: 'Midnight Obsidian', stop1: '#020617', stop2: '#0f172a', stop3: '#1e1b4b', angle: 135 as number | 'radial' },
+  { name: 'Midnight Noir', stop1: '#020617', stop2: '#0f172a', stop3: '#1e293b', angle: 135 as number | 'radial' },
 ];
 
 export const ALIGNMENT_OPTIONS: { angle: number | 'radial'; icon: string; label: string }[] = [
@@ -368,7 +368,7 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
         <text x="${x + 12}" y="${y + h * 0.78}" font-size="14" font-weight="bold" fill="#dc2626" font-family="sans-serif">${price}</text>
       </g>`;
     } else if (el.type === 'shape') {
-      const fill = el.style?.backgroundColor || '#6366f1';
+      const fill = el.style?.backgroundColor || '#0284c7';
       const rx = el.shapeType === 'circle' ? w / 2 : (el.style?.borderRadius || 0);
       elementsSvg += `<g ${transform}><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}"/></g>`;
     } else if (el.type === 'yearbook_grid') {
@@ -1826,7 +1826,7 @@ export default function FlipexStudio() {
             style: {
               fontSize: 10,
               fontWeight: '700',
-              color: '#a855f7',
+              color: '#0284c7',
               textAlign: isLeft ? 'left' : 'right',
             },
           },
@@ -2144,7 +2144,7 @@ export default function FlipexStudio() {
     try {
       await api('/brand-kits', 'POST', {
         name: newBrandKitName.trim(),
-        primaryColor: currentDoc?.palette?.primary || '#6366f1',
+        primaryColor: currentDoc?.palette?.primary || '#0284c7',
         secondaryColor: currentDoc?.palette?.secondary || '#0f172a',
         accentColor: currentDoc?.palette?.accent || '#ec4899',
         fontFamily: 'Inter, sans-serif',
@@ -2325,7 +2325,7 @@ export default function FlipexStudio() {
         style: {
           fontSize: 16,
           fontWeight: 'bold',
-          color: '#a855f7',
+          color: '#0284c7',
           letterSpacing: '0.8px',
         },
       });
@@ -2842,7 +2842,7 @@ export default function FlipexStudio() {
                 <span className="studio-pill-tag green">
                   Direct Vector &amp; Print PDF
                 </span>
-                <span className="studio-pill-tag purple">
+                <span className="studio-pill-tag sky">
                   WhatsApp 1-Tap Ordering
                 </span>
               </div>
@@ -3030,7 +3030,7 @@ export default function FlipexStudio() {
                       padding: '8px 12px',
                       background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 50%, rgba(236,72,153,0.12) 100%)',
                       border: '1px solid rgba(168,85,247,0.3)',
-                      color: '#7c3aed',
+                      color: '#0284c7',
                       fontWeight: 700,
                       fontSize: '0.78rem',
                       borderRadius: '8px',
@@ -3315,13 +3315,13 @@ export default function FlipexStudio() {
                       style={{
                         padding: '12px',
                         borderRadius: '10px',
-                        border: newTemplateId === null ? '2px solid #a855f7' : '1px solid #cbd5e1',
+                        border: newTemplateId === null ? '2px solid #0284c7' : '1px solid #cbd5e1',
                         background: newTemplateId === null ? 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%)' : '#ffffff',
                         cursor: 'pointer',
                         textAlign: 'center',
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        color: newTemplateId === null ? '#7c3aed' : '#334155',
+                        color: newTemplateId === null ? '#0284c7' : '#334155',
                       }}
                     >
                       <span style={{ fontSize: '26px', display: 'block', marginBottom: '4px' }}>📄</span>
@@ -3334,7 +3334,7 @@ export default function FlipexStudio() {
                         style={{
                           padding: '8px',
                           borderRadius: '10px',
-                          border: newTemplateId === tpl.id ? '2px solid #a855f7' : '1px solid #cbd5e1',
+                          border: newTemplateId === tpl.id ? '2px solid #0284c7' : '1px solid #cbd5e1',
                           background: newTemplateId === tpl.id ? 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%)' : '#ffffff',
                           cursor: 'pointer',
                           fontSize: '0.72rem',
@@ -3521,7 +3521,7 @@ export default function FlipexStudio() {
                       <span className="studio-pill-tag green">
                         📄 {previewTemplate.canvas_spec?.pages?.length || previewTemplate.page_count || 2} Prebuilt Pages
                       </span>
-                      <span className="studio-pill-tag purple">
+                      <span className="studio-pill-tag sky">
                         ✨ Ready to Customize
                       </span>
                     </div>
@@ -3534,7 +3534,7 @@ export default function FlipexStudio() {
                     </p>
 
                     <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
-                      <h5 style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: 700, color: '#a855f7', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <h5 style={{ margin: '0 0 8px 0', fontSize: '11px', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Template Specifications
                       </h5>
                       <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#94a3b8', lineHeight: 1.7 }}>
@@ -4033,7 +4033,7 @@ export default function FlipexStudio() {
         <div
           style={{
             background: 'linear-gradient(90deg, #1e1b4b 0%, #312e81 100%)',
-            borderBottom: '1px solid #6366f1',
+            borderBottom: '1px solid #0284c7',
             padding: '6px 16px',
             display: 'flex',
             alignItems: 'center',
@@ -4133,7 +4133,7 @@ export default function FlipexStudio() {
                   transition: 'all 0.2s ease',
                   background:
                     activeToolTab === tab.id
-                      ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)'
+                      ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0c4a6e 100%)'
                       : 'transparent',
                   color: activeToolTab === tab.id ? '#ffffff' : '#94a3b8',
                   boxShadow:
@@ -4162,7 +4162,7 @@ export default function FlipexStudio() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">⚡ 1-Tap Grid Generators</span>
-                    <span className="text-[10px] text-purple-400 font-semibold">Auto-Arranged</span>
+                    <span className="text-[10px] text-sky-400 font-semibold">Auto-Arranged</span>
                   </div>
 
                   <button
@@ -4273,7 +4273,7 @@ export default function FlipexStudio() {
                         onClick={() => setFlashDiscountScope('page')}
                         className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                           flashDiscountScope === 'page'
-                            ? 'bg-purple-600 text-white'
+                            ? 'bg-sky-600 text-white'
                             : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
@@ -4284,7 +4284,7 @@ export default function FlipexStudio() {
                         onClick={() => setFlashDiscountScope('all')}
                         className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                           flashDiscountScope === 'all'
-                            ? 'bg-purple-600 text-white'
+                            ? 'bg-sky-600 text-white'
                             : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
@@ -4402,375 +4402,16 @@ export default function FlipexStudio() {
                   </p>
                 </div>
 
-                {/* Stage 6 & User Request: Magazine Page 3-Gradient & Background Suite */}
-                <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-amber-300">🌈 Magazine Page Background</span>
-                    <span className="text-[10px] text-purple-400 font-bold uppercase">
-                      {activePage?.background?.type === 'gradient' ? '3-Gradient' : 'Solid Color'}
-                    </span>
-                  </div>
-
-                  {/* Mode Switcher */}
-                  <div style={{ display: 'flex', gap: '4px', background: '#0b1120', padding: '3px', borderRadius: '8px', border: '1px solid #1e293b' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBgMode('gradient');
-                        const s1 = activePage?.background?.stop1 || '#064e3b';
-                        const s2 = activePage?.background?.stop2 || '#059669';
-                        const s3 = activePage?.background?.stop3 || '#10b981';
-                        const ang = activePage?.background?.angle ?? 135;
-                        const css = buildGradientCss(s1, s2, s3, ang);
-                        const updated = [...pages];
-                        updated[activePageIndex] = {
-                          ...updated[activePageIndex],
-                          background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
-                        };
-                        setPages(updated);
-                        pushHistory(updated);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '6px 4px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        background: (activePage?.background?.type === 'gradient' || bgMode === 'gradient')
-                          ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
-                          : 'transparent',
-                        color: (activePage?.background?.type === 'gradient' || bgMode === 'gradient') ? '#ffffff' : '#94a3b8',
-                      }}
-                    >
-                      🌈 3-Gradient
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBgMode('solid');
-                        const updated = [...pages];
-                        updated[activePageIndex] = {
-                          ...updated[activePageIndex],
-                          background: { type: 'color', value: '#064E3B' },
-                        };
-                        setPages(updated);
-                        pushHistory(updated);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: '6px 4px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        background: (activePage?.background?.type === 'color' && bgMode !== 'gradient')
-                          ? 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)'
-                          : 'transparent',
-                        color: (activePage?.background?.type === 'color' && bgMode !== 'gradient') ? '#ffffff' : '#94a3b8',
-                      }}
-                    >
-                      🎨 Solid Color
-                    </button>
-                  </div>
-
-                  {/* Live Gradient Preview Swatch */}
-                  <div
-                    style={{
-                      height: '44px',
-                      borderRadius: '8px',
-                      background: activePage?.background?.value || 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #10b981 100%)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
+                {/* Background settings are exclusively in the right Inspector panel */}
+                <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-medium">🎨 Page & 3-Gradient:</span>
+                  <button
+                    type="button"
+                    onClick={() => { setInspectorTab('page'); setInspectorCollapsed(false); }}
+                    className="text-[11px] font-bold text-sky-400 hover:text-sky-300 underline"
                   >
-                    <span
-                      style={{
-                        background: 'rgba(15, 23, 42, 0.8)',
-                        backdropFilter: 'blur(4px)',
-                        padding: '3px 10px',
-                        borderRadius: '12px',
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        color: '#ffffff',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                      }}
-                    >
-                      {activePage?.background?.type === 'gradient'
-                        ? (activePage?.background?.angle === 'radial' ? 'Radial Center Glow' : `${activePage?.background?.angle ?? 135}° Angle`)
-                        : (activePage?.background?.value || '#064E3B')}
-                    </span>
-                  </div>
-
-                  {/* 3 Color Pickers & 9 Alignment Directions */}
-                  {activePage?.background?.type === 'gradient' ? (
-                    <div className="space-y-2.5">
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block mb-1">3 Color Stops:</span>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {/* Stop 1 */}
-                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center">
-                            <span className="text-[9px] font-bold text-slate-400 block mb-1">Stop 1</span>
-                            <input
-                              type="color"
-                              value={activePage?.background?.stop1 || '#064e3b'}
-                              onChange={(e) => {
-                                const s1 = e.target.value;
-                                const s2 = activePage?.background?.stop2 || '#059669';
-                                const s3 = activePage?.background?.stop3 || '#10b981';
-                                const ang = activePage?.background?.angle ?? 135;
-                                const css = buildGradientCss(s1, s2, s3, ang);
-                                const updated = [...pages];
-                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
-                                setPages(updated);
-                              }}
-                              className="w-full h-6 rounded cursor-pointer border border-slate-700 bg-transparent"
-                            />
-                            <input
-                              type="text"
-                              value={activePage?.background?.stop1 || '#064e3b'}
-                              onChange={(e) => {
-                                const s1 = e.target.value;
-                                const s2 = activePage?.background?.stop2 || '#059669';
-                                const s3 = activePage?.background?.stop3 || '#10b981';
-                                const ang = activePage?.background?.angle ?? 135;
-                                const css = buildGradientCss(s1, s2, s3, ang);
-                                const updated = [...pages];
-                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
-                                setPages(updated);
-                              }}
-                              className="studio-prop-input font-mono text-[9px] uppercase mt-1 p-0.5 text-center"
-                            />
-                          </div>
-
-                          {/* Stop 2 */}
-                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center">
-                            <span className="text-[9px] font-bold text-slate-400 block mb-1">Stop 2</span>
-                            <input
-                              type="color"
-                              value={activePage?.background?.stop2 || '#059669'}
-                              onChange={(e) => {
-                                const s1 = activePage?.background?.stop1 || '#064e3b';
-                                const s2 = e.target.value;
-                                const s3 = activePage?.background?.stop3 || '#10b981';
-                                const ang = activePage?.background?.angle ?? 135;
-                                const css = buildGradientCss(s1, s2, s3, ang);
-                                const updated = [...pages];
-                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
-                                setPages(updated);
-                              }}
-                              className="w-full h-6 rounded cursor-pointer border border-slate-700 bg-transparent"
-                            />
-                            <input
-                              type="text"
-                              value={activePage?.background?.stop2 || '#059669'}
-                              onChange={(e) => {
-                                const s1 = activePage?.background?.stop1 || '#064e3b';
-                                const s2 = e.target.value;
-                                const s3 = activePage?.background?.stop3 || '#10b981';
-                                const ang = activePage?.background?.angle ?? 135;
-                                const css = buildGradientCss(s1, s2, s3, ang);
-                                const updated = [...pages];
-                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
-                                setPages(updated);
-                              }}
-                              className="studio-prop-input font-mono text-[9px] uppercase mt-1 p-0.5 text-center"
-                            />
-                          </div>
-
-                          {/* Stop 3 */}
-                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center">
-                            <span className="text-[9px] font-bold text-slate-400 block mb-1">Stop 3</span>
-                            <input
-                              type="color"
-                              value={activePage?.background?.stop3 || '#10b981'}
-                              onChange={(e) => {
-                                const s1 = activePage?.background?.stop1 || '#064e3b';
-                                const s2 = activePage?.background?.stop2 || '#059669';
-                                const s3 = e.target.value;
-                                const ang = activePage?.background?.angle ?? 135;
-                                const css = buildGradientCss(s1, s2, s3, ang);
-                                const updated = [...pages];
-                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
-                                setPages(updated);
-                              }}
-                              className="w-full h-6 rounded cursor-pointer border border-slate-700 bg-transparent"
-                            />
-                            <input
-                              type="text"
-                              value={activePage?.background?.stop3 || '#10b981'}
-                              onChange={(e) => {
-                                const s1 = activePage?.background?.stop1 || '#064e3b';
-                                const s2 = activePage?.background?.stop2 || '#059669';
-                                const s3 = e.target.value;
-                                const ang = activePage?.background?.angle ?? 135;
-                                const css = buildGradientCss(s1, s2, s3, ang);
-                                const updated = [...pages];
-                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
-                                setPages(updated);
-                              }}
-                              className="studio-prop-input font-mono text-[9px] uppercase mt-1 p-0.5 text-center"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 9 Alignment Options Compass Grid */}
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
-                          Alignment &amp; Direction (9 Options):
-                        </span>
-                        <div className="studio-align-grid">
-                          {ALIGNMENT_OPTIONS.map((opt) => {
-                            const currentAngle = activePage?.background?.angle ?? 135;
-                            const isCurrent = currentAngle === opt.angle;
-                            return (
-                              <button
-                                key={String(opt.angle)}
-                                type="button"
-                                onClick={() => {
-                                  const s1 = activePage?.background?.stop1 || '#064e3b';
-                                  const s2 = activePage?.background?.stop2 || '#059669';
-                                  const s3 = activePage?.background?.stop3 || '#10b981';
-                                  const css = buildGradientCss(s1, s2, s3, opt.angle);
-                                  const updated = [...pages];
-                                  updated[activePageIndex].background = {
-                                    type: 'gradient',
-                                    value: css,
-                                    stop1: s1,
-                                    stop2: s2,
-                                    stop3: s3,
-                                    angle: opt.angle,
-                                  };
-                                  setPages(updated);
-                                }}
-                                className={`studio-align-btn ${isCurrent ? 'active' : ''}`}
-                                title={opt.label}
-                              >
-                                <span style={{ fontSize: '14px', lineHeight: 1 }}>{opt.icon}</span>
-                                <span style={{ fontSize: '9px', fontWeight: 700 }}>
-                                  {opt.angle === 'radial' ? 'Radial' : `${opt.angle}°`}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Instant Editorial Presets */}
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
-                          Curated Magazine Presets:
-                        </span>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {GRADIENT_PRESETS.slice(0, 6).map((preset, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                const css = buildGradientCss(preset.stop1, preset.stop2, preset.stop3, preset.angle);
-                                const updated = [...pages];
-                                updated[activePageIndex].background = {
-                                  type: 'gradient',
-                                  value: css,
-                                  stop1: preset.stop1,
-                                  stop2: preset.stop2,
-                                  stop3: preset.stop3,
-                                  angle: preset.angle,
-                                };
-                                setPages(updated);
-                                pushHistory(updated);
-                              }}
-                              className="p-1.5 rounded-lg border border-slate-700 hover:border-purple-400 flex items-center gap-1.5 text-left text-[10px] text-white bg-slate-950 transition-colors"
-                            >
-                              <div
-                                style={{
-                                  width: '14px',
-                                  height: '14px',
-                                  borderRadius: '3px',
-                                  background: buildGradientCss(preset.stop1, preset.stop2, preset.stop3, preset.angle),
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <span className="truncate">{preset.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Apply to all magazine pages */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!activePage?.background) return;
-                          const currentBg = activePage.background;
-                          const updated = pages.map((p) => ({ ...p, background: { ...currentBg } }));
-                          setPages(updated);
-                          pushHistory(updated);
-                          alert('Applied this 3-gradient to all magazine pages!');
-                        }}
-                        className="studio-tool-btn cosmic w-full text-center justify-center text-xs"
-                      >
-                        <span>🌟</span> Apply 3-Gradient to All Pages
-                      </button>
-                    </div>
-                  ) : (
-                    /* Solid Colors */
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Curated Colors:</span>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {[
-                          { name: 'White', color: '#FFFFFF' },
-                          { name: 'Warm Cream', color: '#FDFBF7' },
-                          { name: 'Slate Light', color: '#F1F5F9' },
-                          { name: 'Dark Navy', color: '#0F172A' },
-                          { name: 'Midnight', color: '#090D16' },
-                          { name: 'Emerald Isle', color: '#064E3B' },
-                          { name: 'Royal Indigo', color: '#1E1B4B' },
-                          { name: 'Sunset Crimson', color: '#450A0A' },
-                        ].map((c, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              const updated = [...pages];
-                              updated[activePageIndex].background = { type: 'color', value: c.color };
-                              setPages(updated);
-                            }}
-                            style={{
-                              backgroundColor: c.color,
-                              height: '26px',
-                              borderRadius: '6px',
-                              border: activePage?.background?.value === c.color ? '2px solid #a855f7' : '1px solid #475569',
-                              cursor: 'pointer',
-                            }}
-                            title={c.name}
-                          />
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!activePage?.background) return;
-                          const currentBg = activePage.background;
-                          const updated = pages.map((p) => ({ ...p, background: { ...currentBg } }));
-                          setPages(updated);
-                          pushHistory(updated);
-                          alert('Applied solid color to all magazine pages!');
-                        }}
-                        className="studio-tool-btn ocean w-full text-center justify-center text-xs mt-1"
-                      >
-                        Apply Solid Color to All Pages
-                      </button>
-                    </div>
-                  )}
+                    Open in Inspector →
+                  </button>
                 </div>
 
                 <div className="pt-2 border-t border-slate-800">
@@ -4848,10 +4489,10 @@ export default function FlipexStudio() {
                 <div className="pt-2 border-t border-slate-800">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11px] font-bold text-slate-200">👑 Master Pages &amp; Folios</span>
-                    <span className="text-[10px] text-purple-400 font-bold uppercase">Dynamic Tokens</span>
+                    <span className="text-[10px] text-sky-400 font-bold uppercase">Dynamic Tokens</span>
                   </div>
                   <p className="text-[10px] text-slate-400 leading-normal mb-2.5">
-                    Auto-substitutes <code className="text-purple-300 font-mono text-[9px]">&#123;page&#125;</code>, <code className="text-purple-300 font-mono text-[9px]">&#123;total&#125;</code>, and <code className="text-purple-300 font-mono text-[9px]">&#123;title&#125;</code>.
+                    Auto-substitutes <code className="text-sky-300 font-mono text-[9px]">&#123;page&#125;</code>, <code className="text-sky-300 font-mono text-[9px]">&#123;total&#125;</code>, and <code className="text-sky-300 font-mono text-[9px]">&#123;title&#125;</code>.
                   </p>
                   <div className="grid grid-cols-1 gap-1.5 mb-2">
                     <button
@@ -5859,7 +5500,7 @@ export default function FlipexStudio() {
                     height: `${el.h}px`,
                     cursor: 'move',
                     zIndex: isSelected ? 35 : (el.style?.zIndex || 10),
-                    outline: isSelected ? '2px solid #a855f7' : 'none',
+                    outline: isSelected ? '2px solid #0284c7' : 'none',
                     boxShadow: isSelected ? '0 0 0 4px rgba(168, 85, 247, 0.3)' : (el.style?.boxShadow || 'none'),
                     borderRadius: el.shapeType === 'circle' ? '50%' : (el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined),
                     borderWidth: el.style?.borderWidth ? `${el.style.borderWidth}px` : undefined,
@@ -6068,13 +5709,13 @@ export default function FlipexStudio() {
                       <div>
                         <h3 className="text-xl font-bold text-slate-900 tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
                           <span>{el.content || 'TABLE OF CONTENTS'}</span>
-                          <span className="text-[10px] text-purple-600 font-bold uppercase tracking-widest bg-purple-100 px-2.5 py-0.5 rounded-full">Interactive Index</span>
+                          <span className="text-[10px] text-sky-600 font-bold uppercase tracking-widest bg-sky-100 px-2.5 py-0.5 rounded-full">Interactive Index</span>
                         </h3>
                         <div className="space-y-3">
                           {(el.tocItems || []).map((item, idx) => (
                             <div
                               key={idx}
-                              className="flex items-baseline justify-between text-xs cursor-pointer hover:text-indigo-600 transition-colors group"
+                              className="flex items-baseline justify-between text-xs cursor-pointer hover:text-sky-600 transition-colors group"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const pNum = item.page_number;
@@ -6322,7 +5963,7 @@ export default function FlipexStudio() {
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                background: inspectorTab === 'element' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
+                background: inspectorTab === 'element' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent',
                 color: inspectorTab === 'element' ? '#ffffff' : '#94a3b8',
                 boxShadow: inspectorTab === 'element' ? '0 2px 8px rgba(99,102,241,0.3)' : 'none',
               }}
@@ -6341,9 +5982,9 @@ export default function FlipexStudio() {
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                background: inspectorTab === 'page' ? 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' : 'transparent',
+                background: inspectorTab === 'page' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent',
                 color: inspectorTab === 'page' ? '#ffffff' : '#94a3b8',
-                boxShadow: inspectorTab === 'page' ? '0 2px 8px rgba(168,85,247,0.3)' : 'none',
+                boxShadow: inspectorTab === 'page' ? '0 2px 8px rgba(2,132,199,0.3)' : 'none',
               }}
             >
               🎨 Page &amp; 3-Gradient
@@ -6423,7 +6064,7 @@ export default function FlipexStudio() {
                       max={359}
                       value={selectedElement.rotation || 0}
                       onChange={(e) => updateSelectedElement({ rotation: parseInt(e.target.value, 10) || 0 })}
-                      style={{ flex: 1, accentColor: '#a855f7' }}
+                      style={{ flex: 1, accentColor: '#0284c7' }}
                     />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '70px' }}>
                       <input
@@ -6682,7 +6323,7 @@ export default function FlipexStudio() {
                               fontWeight: 700,
                               background:
                                 (selectedElement.style?.textAlign || 'left') === align
-                                  ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
+                                  ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
                                   : '#1e293b',
                               color:
                                 (selectedElement.style?.textAlign || 'left') === align
@@ -6822,7 +6463,7 @@ export default function FlipexStudio() {
                           { label: 'Amber Gold', color: '#F59E0B', border: '#d97706' },
                           { label: 'Sky Blue', color: '#0284C7', border: '#0369a1' },
                           { label: 'Emerald Green', color: '#10B981', border: '#059669' },
-                          { label: 'Cosmic Purple', color: '#A855F7', border: '#9333ea' },
+                          { label: 'Pacific Ocean', color: '#0284C7', border: '#0369a1' },
                           { label: 'Coral Crimson', color: '#EF4444', border: '#dc2626' },
                         ].map((sw) => (
                           <button
@@ -6860,7 +6501,7 @@ export default function FlipexStudio() {
                         <option value="none">None</option>
                         <option value="0 2px 4px rgba(0,0,0,0.5)">Subtle Drop Shadow</option>
                         <option value="0 4px 12px rgba(0,0,0,0.75)">Deep Editorial Drop</option>
-                        <option value="0 0 10px rgba(168,85,247,0.75)">Cosmic Purple Glow</option>
+                        <option value="0 0 10px rgba(2,132,199,0.75)">Pacific Ocean Glow</option>
                         <option value="0 0 10px rgba(52,211,153,0.75)">Emerald Glow</option>
                         <option value="1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000">Heavy Poster Outline</option>
                       </select>
@@ -7064,7 +6705,7 @@ export default function FlipexStudio() {
                               filterBlur: 0,
                             })
                           }
-                          style={{ fontSize: '10px', color: '#a855f7', background: 'none', border: 'none', cursor: 'pointer' }}
+                          style={{ fontSize: '10px', color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer' }}
                         >
                           Reset Filters
                         </button>
@@ -7078,7 +6719,7 @@ export default function FlipexStudio() {
                           max={150}
                           value={selectedElement.filterBrightness ?? 100}
                           onChange={(e) => updateSelectedElement({ filterBrightness: parseInt(e.target.value, 10) })}
-                          style={{ accentColor: '#a855f7' }}
+                          style={{ accentColor: '#0284c7' }}
                         />
                         <span className="font-mono">{selectedElement.filterBrightness ?? 100}%</span>
                       </div>
@@ -7091,7 +6732,7 @@ export default function FlipexStudio() {
                           max={150}
                           value={selectedElement.filterContrast ?? 100}
                           onChange={(e) => updateSelectedElement({ filterContrast: parseInt(e.target.value, 10) })}
-                          style={{ accentColor: '#a855f7' }}
+                          style={{ accentColor: '#0284c7' }}
                         />
                         <span className="font-mono">{selectedElement.filterContrast ?? 100}%</span>
                       </div>
@@ -7104,7 +6745,7 @@ export default function FlipexStudio() {
                           max={200}
                           value={selectedElement.filterSaturation ?? 100}
                           onChange={(e) => updateSelectedElement({ filterSaturation: parseInt(e.target.value, 10) })}
-                          style={{ accentColor: '#a855f7' }}
+                          style={{ accentColor: '#0284c7' }}
                         />
                         <span className="font-mono">{selectedElement.filterSaturation ?? 100}%</span>
                       </div>
@@ -7117,7 +6758,7 @@ export default function FlipexStudio() {
                           max={10}
                           value={selectedElement.filterBlur ?? 0}
                           onChange={(e) => updateSelectedElement({ filterBlur: parseInt(e.target.value, 10) })}
-                          style={{ accentColor: '#a855f7' }}
+                          style={{ accentColor: '#0284c7' }}
                         />
                         <span className="font-mono">{selectedElement.filterBlur ?? 0}px</span>
                       </div>
@@ -7222,8 +6863,8 @@ export default function FlipexStudio() {
                             updateSelectedElement({
                               fillType: 'gradient',
                               gradientFill: selectedElement.gradientFill || {
-                                stop1: '#6366f1',
-                                stop2: '#a855f7',
+                                stop1: '#0284c7',
+                                stop2: '#0369a1',
                                 stop3: '#ec4899',
                                 angle: 135,
                               },
@@ -7272,7 +6913,7 @@ export default function FlipexStudio() {
                             {[1, 2, 3].map((stopIdx) => {
                               const sKey = `stop${stopIdx}` as 'stop1' | 'stop2' | 'stop3';
                               const currentVal =
-                                selectedElement.gradientFill?.[sKey] || (stopIdx === 1 ? '#6366f1' : stopIdx === 2 ? '#a855f7' : '#ec4899');
+                                selectedElement.gradientFill?.[sKey] || (stopIdx === 1 ? '#0284c7' : stopIdx === 2 ? '#0369a1' : '#ec4899');
                               return (
                                 <div key={stopIdx} className="flex flex-col items-center gap-1 p-1.5 rounded bg-slate-900 border border-slate-800">
                                   <span style={{ fontSize: '9px', color: '#94a3b8' }}>Stop {stopIdx}</span>
@@ -7280,7 +6921,7 @@ export default function FlipexStudio() {
                                     type="color"
                                     value={currentVal}
                                     onChange={(e) => {
-                                      const prevGrad = selectedElement.gradientFill || { stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 };
+                                      const prevGrad = selectedElement.gradientFill || { stop1: '#0284c7', stop2: '#0369a1', stop3: '#ec4899', angle: 135 };
                                       updateSelectedElement({
                                         gradientFill: { ...prevGrad, [sKey]: e.target.value },
                                       });
@@ -7297,7 +6938,7 @@ export default function FlipexStudio() {
                         <div>
                           <div className="flex items-center justify-between">
                             <span className="studio-prop-sublabel">Gradient Angle</span>
-                            <span className="font-mono text-xs text-purple-400">{selectedElement.gradientFill?.angle ?? 135}°</span>
+                            <span className="font-mono text-xs text-sky-400">{selectedElement.gradientFill?.angle ?? 135}°</span>
                           </div>
                           <input
                             type="range"
@@ -7305,12 +6946,12 @@ export default function FlipexStudio() {
                             max={360}
                             value={typeof selectedElement.gradientFill?.angle === 'number' ? selectedElement.gradientFill.angle : 135}
                             onChange={(e) => {
-                              const prevGrad = selectedElement.gradientFill || { stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 };
+                              const prevGrad = selectedElement.gradientFill || { stop1: '#0284c7', stop2: '#0369a1', stop3: '#ec4899', angle: 135 };
                               updateSelectedElement({
                                 gradientFill: { ...prevGrad, angle: parseInt(e.target.value, 10) },
                               });
                             }}
-                            style={{ width: '100%', accentColor: '#a855f7' }}
+                            style={{ width: '100%', accentColor: '#0284c7' }}
                           />
 
                           {/* 8-Direction Quick Angle Buttons */}
@@ -7329,7 +6970,7 @@ export default function FlipexStudio() {
                                 key={dir.label}
                                 type="button"
                                 onClick={() => {
-                                  const prevGrad = selectedElement.gradientFill || { stop1: '#6366f1', stop2: '#a855f7', stop3: '#ec4899', angle: 135 };
+                                  const prevGrad = selectedElement.gradientFill || { stop1: '#0284c7', stop2: '#0369a1', stop3: '#ec4899', angle: 135 };
                                   updateSelectedElement({
                                     gradientFill: { ...prevGrad, angle: dir.deg },
                                   });
@@ -7636,7 +7277,7 @@ export default function FlipexStudio() {
                ========================================================== */
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="font-bold uppercase tracking-wider text-purple-400 text-[10px]">
+                <span className="font-bold uppercase tracking-wider text-sky-400 text-[10px]">
                   Page {activePageIndex + 1} of {pages.length} Background
                 </span>
                 <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
@@ -7651,8 +7292,8 @@ export default function FlipexStudio() {
                   onClick={() => {
                     setBgMode('gradient');
                     if (activePage?.background?.type !== 'gradient') {
-                      const s1 = activePage?.background?.stop1 || '#6366f1';
-                      const s2 = activePage?.background?.stop2 || '#a855f7';
+                      const s1 = activePage?.background?.stop1 || '#0284c7';
+                      const s2 = activePage?.background?.stop2 || '#0369a1';
                       const s3 = activePage?.background?.stop3 || '#ec4899';
                       const ang = activePage?.background?.angle ?? 135;
                       const css = buildGradientCss(s1, s2, s3, ang);
@@ -7673,7 +7314,7 @@ export default function FlipexStudio() {
                     border: 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s',
-                    background: bgMode === 'gradient' ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' : 'transparent',
+                    background: bgMode === 'gradient' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent',
                     color: bgMode === 'gradient' ? '#ffffff' : '#94a3b8',
                   }}
                 >
@@ -7719,7 +7360,7 @@ export default function FlipexStudio() {
                       style={{
                         height: '52px',
                         borderRadius: '10px',
-                        background: activePage?.background?.value || 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
+                        background: activePage?.background?.value || 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0c4a6e 100%)',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
                         boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
                         display: 'flex',
@@ -7760,8 +7401,8 @@ export default function FlipexStudio() {
                             key={String(opt.angle)}
                             type="button"
                             onClick={() => {
-                              const s1 = activePage?.background?.stop1 || '#6366f1';
-                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s1 = activePage?.background?.stop1 || '#0284c7';
+                              const s2 = activePage?.background?.stop2 || '#0369a1';
                               const s3 = activePage?.background?.stop3 || '#ec4899';
                               const css = buildGradientCss(s1, s2, s3, opt.angle);
                               const updated = [...pages];
@@ -7801,10 +7442,10 @@ export default function FlipexStudio() {
                         <div className="flex items-center gap-1.5">
                           <input
                             type="color"
-                            value={activePage?.background?.stop1 || '#6366f1'}
+                            value={activePage?.background?.stop1 || '#0284c7'}
                             onChange={(e) => {
                               const s1 = e.target.value;
-                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s2 = activePage?.background?.stop2 || '#0369a1';
                               const s3 = activePage?.background?.stop3 || '#ec4899';
                               const ang = activePage?.background?.angle ?? 135;
                               const css = buildGradientCss(s1, s2, s3, ang);
@@ -7819,10 +7460,10 @@ export default function FlipexStudio() {
                           />
                           <input
                             type="text"
-                            value={activePage?.background?.stop1 || '#6366f1'}
+                            value={activePage?.background?.stop1 || '#0284c7'}
                             onChange={(e) => {
                               const s1 = e.target.value;
-                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s2 = activePage?.background?.stop2 || '#0369a1';
                               const s3 = activePage?.background?.stop3 || '#ec4899';
                               const ang = activePage?.background?.angle ?? 135;
                               const css = buildGradientCss(s1, s2, s3, ang);
@@ -7844,9 +7485,9 @@ export default function FlipexStudio() {
                         <div className="flex items-center gap-1.5">
                           <input
                             type="color"
-                            value={activePage?.background?.stop2 || '#a855f7'}
+                            value={activePage?.background?.stop2 || '#0369a1'}
                             onChange={(e) => {
-                              const s1 = activePage?.background?.stop1 || '#6366f1';
+                              const s1 = activePage?.background?.stop1 || '#0284c7';
                               const s2 = e.target.value;
                               const s3 = activePage?.background?.stop3 || '#ec4899';
                               const ang = activePage?.background?.angle ?? 135;
@@ -7862,9 +7503,9 @@ export default function FlipexStudio() {
                           />
                           <input
                             type="text"
-                            value={activePage?.background?.stop2 || '#a855f7'}
+                            value={activePage?.background?.stop2 || '#0369a1'}
                             onChange={(e) => {
-                              const s1 = activePage?.background?.stop1 || '#6366f1';
+                              const s1 = activePage?.background?.stop1 || '#0284c7';
                               const s2 = e.target.value;
                               const s3 = activePage?.background?.stop3 || '#ec4899';
                               const ang = activePage?.background?.angle ?? 135;
@@ -7889,8 +7530,8 @@ export default function FlipexStudio() {
                             type="color"
                             value={activePage?.background?.stop3 || '#ec4899'}
                             onChange={(e) => {
-                              const s1 = activePage?.background?.stop1 || '#6366f1';
-                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s1 = activePage?.background?.stop1 || '#0284c7';
+                              const s2 = activePage?.background?.stop2 || '#0369a1';
                               const s3 = e.target.value;
                               const ang = activePage?.background?.angle ?? 135;
                               const css = buildGradientCss(s1, s2, s3, ang);
@@ -7907,8 +7548,8 @@ export default function FlipexStudio() {
                             type="text"
                             value={activePage?.background?.stop3 || '#ec4899'}
                             onChange={(e) => {
-                              const s1 = activePage?.background?.stop1 || '#6366f1';
-                              const s2 = activePage?.background?.stop2 || '#a855f7';
+                              const s1 = activePage?.background?.stop1 || '#0284c7';
+                              const s2 = activePage?.background?.stop2 || '#0369a1';
                               const s3 = e.target.value;
                               const ang = activePage?.background?.angle ?? 135;
                               const css = buildGradientCss(s1, s2, s3, ang);
@@ -8002,7 +7643,7 @@ export default function FlipexStudio() {
                           backgroundColor: bg.color,
                           height: '32px',
                           borderRadius: '6px',
-                          border: activePage?.background?.value === bg.color ? '2px solid #a855f7' : '1px solid #475569',
+                          border: activePage?.background?.value === bg.color ? '2px solid #0284c7' : '1px solid #475569',
                           cursor: 'pointer',
                           boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                         }}
@@ -8046,9 +7687,9 @@ export default function FlipexStudio() {
                   onClick={() => {
                     const currentBg = activePage?.background || {
                       type: 'gradient',
-                      value: buildGradientCss('#6366f1', '#a855f7', '#ec4899', 135),
-                      stop1: '#6366f1',
-                      stop2: '#a855f7',
+                      value: buildGradientCss('#0284c7', '#0369a1', '#ec4899', 135),
+                      stop1: '#0284c7',
+                      stop2: '#0369a1',
                       stop3: '#ec4899',
                       angle: 135,
                     };

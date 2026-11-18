@@ -200,17 +200,115 @@ interface DevOpsOverviewResponse {
   };
 }
 
+export interface SessionSecurityConfig {
+  jwtTtlSeconds: number;
+  refreshDays: number;
+  idleTimeoutMinutes: number;
+  cookieSameSite: 'Lax' | 'Strict' | 'None';
+  cookieSecure: boolean;
+  tokenReplayGraceSeconds: number;
+  heartbeatIntervalSeconds: number;
+  enableKeepalive: boolean;
+}
+
+export interface SessionSecurityTelemetry {
+  activeTokens: number;
+  activeFamilies: number;
+  revokedTokens: number;
+  jwtAlgorithm: string;
+  storageAdapter: string;
+}
+
+export interface SessionSecurityResponse {
+  config: SessionSecurityConfig;
+  telemetry: SessionSecurityTelemetry;
+}
+
 export default function DevOpsCenter() {
   const { user } = useAuth();
   if (user && user.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const [activeTab, setActiveTab] = useState<'architecture' | 'telemetry' | 'queue' | 'logs' | 'backups'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'telemetry' | 'queue' | 'logs' | 'backups' | 'security'>('architecture');
   const [data, setData] = useState<DevOpsOverviewResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<string>('');
   const [busyAction, setBusyAction] = useState<boolean>(false);
+
+  // Session Security & Inactivity Configuration State
+  const [securityData, setSecurityData] = useState<SessionSecurityResponse | null>(null);
+  const [securityLoading, setSecurityLoading] = useState<boolean>(false);
+  const [securitySaving, setSecuritySaving] = useState<boolean>(false);
+  const [securityForm, setSecurityForm] = useState<SessionSecurityConfig>({
+    jwtTtlSeconds: 3600,
+    refreshDays: 30,
+    idleTimeoutMinutes: 1440,
+    cookieSameSite: 'Lax',
+    cookieSecure: true,
+    tokenReplayGraceSeconds: 30,
+    heartbeatIntervalSeconds: 240,
+    enableKeepalive: true,
+  });
+
+  const loadSecurityData = async () => {
+    setSecurityLoading(true);
+    try {
+      const res = await api<SessionSecurityResponse>('/devops/security/sessions');
+      setSecurityData(res);
+      if (res?.config) {
+        setSecurityForm({
+          jwtTtlSeconds: res.config.jwtTtlSeconds ?? 3600,
+          refreshDays: res.config.refreshDays ?? 30,
+          idleTimeoutMinutes: res.config.idleTimeoutMinutes ?? 1440,
+          cookieSameSite: res.config.cookieSameSite ?? 'Lax',
+          cookieSecure: res.config.cookieSecure ?? true,
+          tokenReplayGraceSeconds: res.config.tokenReplayGraceSeconds ?? 30,
+          heartbeatIntervalSeconds: res.config.heartbeatIntervalSeconds ?? 240,
+          enableKeepalive: res.config.enableKeepalive ?? true,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load session security data', e);
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleSaveSecurity = async () => {
+    setSecuritySaving(true);
+    try {
+      const res = await api<{ ok: boolean; message: string; config: SessionSecurityConfig }>(
+        '/devops/security/sessions',
+        'POST',
+        securityForm
+      );
+      showToast(res.message || 'Session security settings saved successfully!');
+      await loadSecurityData();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to update session security settings');
+    } finally {
+      setSecuritySaving(false);
+    }
+  };
+
+  const handleRevokeAllSessions = async () => {
+    const confirmed = window.confirm(
+      '⚠️ EMERGENCY ACTION: Are you sure you want to revoke ALL active sessions and refresh tokens across the entire platform? All users (including yourself upon next token expiry) will need to sign in again.'
+    );
+    if (!confirmed) return;
+
+    setSecuritySaving(true);
+    try {
+      const res = await api<{ ok: boolean; message: string }>('/devops/security/sessions/revoke-all', 'POST', {});
+      showToast(res.message || 'All platform sessions have been revoked.');
+      await loadSecurityData();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to revoke sessions');
+    } finally {
+      setSecuritySaving(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -485,6 +583,16 @@ export default function DevOpsCenter() {
           onClick={() => setActiveTab('backups')}
         >
           🛡️ Backups, Migrations & CI/CD
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'security' ? 'btn-primary' : 'btn-secondary'}
+          onClick={() => {
+            setActiveTab('security');
+            loadSecurityData();
+          }}
+        >
+          🔐 Session Security & Expiration
         </button>
       </div>
 
@@ -1091,6 +1199,291 @@ export default function DevOpsCenter() {
                   Frontend: <code>{ciCd.vulnerabilityScanning.npmAudit}</code>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: DEVELOPER SESSION SECURITY & EXPIRATION POLICIES */}
+      {activeTab === 'security' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Header Card */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>🔐 Developer Session Security & Expiration Policies</h3>
+                <p className="muted" style={{ margin: '0.25rem 0 0', fontSize: '0.86rem' }}>
+                  Configure JWT access token lifetimes, refresh token rotation grace windows, idle timeouts, and background heartbeat keep-alive.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={loadSecurityData}
+                disabled={securityLoading}
+                style={{ fontSize: '0.84rem' }}
+              >
+                {securityLoading ? '⏳ Refreshing…' : '🔄 Refresh Metrics'}
+              </button>
+            </div>
+          </div>
+
+          {/* Telemetry Stat Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <div className="card" style={{ borderLeft: '4px solid #0284c7' }}>
+              <span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 700 }}>
+                Active Token Grants
+              </span>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem', color: '#0284c7' }}>
+                {securityData?.telemetry.activeTokens ?? '—'}
+              </div>
+              <div className="muted" style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                Unrevoked, non-expired refresh tokens
+              </div>
+            </div>
+
+            <div className="card" style={{ borderLeft: '4px solid #059669' }}>
+              <span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 700 }}>
+                Active Session Families
+              </span>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem', color: '#059669' }}>
+                {securityData?.telemetry.activeFamilies ?? '—'}
+              </div>
+              <div className="muted" style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                Multi-device device clusters
+              </div>
+            </div>
+
+            <div className="card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 700 }}>
+                Replay-Guarded Revocations
+              </span>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem', color: '#f59e0b' }}>
+                {securityData?.telemetry.revokedTokens ?? '—'}
+              </div>
+              <div className="muted" style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                Rotated or revoked tokens
+              </div>
+            </div>
+
+            <div className="card" style={{ borderLeft: '4px solid #334155' }}>
+              <span className="muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 700 }}>
+                Cryptographic Policy
+              </span>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, marginTop: '0.35rem' }}>
+                HS256 (HMAC)
+              </div>
+              <div className="muted" style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                30s Race-Condition Grace Window
+              </div>
+            </div>
+          </div>
+
+          {/* Session Configuration Form */}
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>⚙️ Session Lifetime & Security Parameters</h3>
+            <p className="muted" style={{ marginTop: '-0.25rem', marginBottom: '1.25rem', fontSize: '0.86rem' }}>
+              These settings take effect immediately across all frontend clients and API requests.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+              {/* Access Token TTL */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '1rem' }}>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
+                  🔑 JWT Access Token Lifetime
+                </label>
+                <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                  Short-lived bearer token passed in Authorization headers. Currently: <b>{Math.round(securityForm.jwtTtlSeconds / 60)} minutes ({securityForm.jwtTtlSeconds}s)</b>.
+                </p>
+                <input
+                  type="number"
+                  min={60}
+                  max={86400}
+                  step={60}
+                  value={securityForm.jwtTtlSeconds}
+                  onChange={(e) => setSecurityForm({ ...securityForm, jwtTtlSeconds: parseInt(e.target.value, 10) || 3600 })}
+                  className="input"
+                  style={{ width: '100%', marginBottom: '0.5rem' }}
+                />
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, jwtTtlSeconds: 900 })}>15 min (Strict)</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, jwtTtlSeconds: 3600 })}>1 hour (Balanced)</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, jwtTtlSeconds: 14400 })}>4 hours (Studio)</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, jwtTtlSeconds: 86400 })}>24 hours (Extended)</button>
+                </div>
+              </div>
+
+              {/* Refresh Token Retention */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '1rem' }}>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
+                  🔄 Refresh Token Retention (Days)
+                </label>
+                <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                  How long an active session can remain valid with ongoing activity. Default: 30 days.
+                </p>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={securityForm.refreshDays}
+                  onChange={(e) => setSecurityForm({ ...securityForm, refreshDays: parseInt(e.target.value, 10) || 30 })}
+                  className="input"
+                  style={{ width: '100%', marginBottom: '0.5rem' }}
+                />
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, refreshDays: 7 })}>7 Days</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, refreshDays: 30 })}>30 Days</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, refreshDays: 60 })}>60 Days</button>
+                </div>
+              </div>
+
+              {/* Replay Grace Period */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '1rem' }}>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
+                  🛡️ Token Rotation Grace Window (Seconds)
+                </label>
+                <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                  Allows rapid concurrent requests (e.g. Studio autosaves) to use an in-flight token without triggering false replay lockouts.
+                </p>
+                <input
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={securityForm.tokenReplayGraceSeconds}
+                  onChange={(e) => setSecurityForm({ ...securityForm, tokenReplayGraceSeconds: parseInt(e.target.value, 10) || 30 })}
+                  className="input"
+                  style={{ width: '100%', marginBottom: '0.5rem' }}
+                />
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, tokenReplayGraceSeconds: 15 })}>15s</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, tokenReplayGraceSeconds: 30 })}>30s (Recommended)</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, tokenReplayGraceSeconds: 60 })}>60s (Slow Networks)</button>
+                </div>
+              </div>
+
+              {/* Keepalive Heartbeat */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '1rem' }}>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
+                  💓 Automated Keep-Alive Heartbeat
+                </label>
+                <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                  Background heartbeat pings <code>/auth/keepalive</code> every 4 minutes while editing in Flipex Studio to prevent session drop.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '0.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      checked={securityForm.enableKeepalive}
+                      onChange={(e) => setSecurityForm({ ...securityForm, enableKeepalive: e.target.checked })}
+                    />
+                    Enable Background Heartbeat
+                  </label>
+                </div>
+                <div style={{ marginTop: '0.75rem' }}>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--muted)', display: 'block', marginBottom: '0.2rem' }}>
+                    Heartbeat Interval (Seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min={60}
+                    max={600}
+                    step={30}
+                    value={securityForm.heartbeatIntervalSeconds}
+                    onChange={(e) => setSecurityForm({ ...securityForm, heartbeatIntervalSeconds: parseInt(e.target.value, 10) || 240 })}
+                    className="input"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              {/* Cookie Policy */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '1rem' }}>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
+                  🍪 Refresh Cookie Security Policy
+                </label>
+                <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                  Enforces SameSite isolation and HttpOnly attributes to eliminate CSRF exposure.
+                </p>
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--muted)', display: 'block', marginBottom: '0.2rem' }}>
+                    Cookie SameSite Attribute
+                  </label>
+                  <select
+                    value={securityForm.cookieSameSite}
+                    onChange={(e) => setSecurityForm({ ...securityForm, cookieSameSite: e.target.value as 'Lax' | 'Strict' | 'None' })}
+                    className="input"
+                    style={{ width: '100%' }}
+                  >
+                    <option value="Lax">Lax (Default - Balanced navigation)</option>
+                    <option value="Strict">Strict (Maximum isolation)</option>
+                    <option value="None">None (Requires Secure=true)</option>
+                  </select>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={securityForm.cookieSecure}
+                    onChange={(e) => setSecurityForm({ ...securityForm, cookieSecure: e.target.checked })}
+                  />
+                  Secure (HTTPS only)
+                </label>
+              </div>
+
+              {/* Idle Timeout */}
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '1rem' }}>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
+                  ⏳ Inactivity Idle Timeout (Minutes)
+                </label>
+                <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                  Automatically ends the session after prolonged inactivity. Currently: <b>{Math.round(securityForm.idleTimeoutMinutes / 60)} hours ({securityForm.idleTimeoutMinutes} min)</b>.
+                </p>
+                <input
+                  type="number"
+                  min={15}
+                  max={10080}
+                  value={securityForm.idleTimeoutMinutes}
+                  onChange={(e) => setSecurityForm({ ...securityForm, idleTimeoutMinutes: parseInt(e.target.value, 10) || 1440 })}
+                  className="input"
+                  style={{ width: '100%', marginBottom: '0.5rem' }}
+                />
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, idleTimeoutMinutes: 120 })}>2 Hours</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, idleTimeoutMinutes: 480 })}>8 Hours</button>
+                  <button type="button" className="btn-secondary" style={{ fontSize: '0.75rem', padding: '3px 8px' }} onClick={() => setSecurityForm({ ...securityForm, idleTimeoutMinutes: 1440 })}>24 Hours (Standard)</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleSaveSecurity}
+                disabled={securitySaving}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', fontWeight: 700 }}
+              >
+                {securitySaving ? '⏳ Saving Policies…' : '💾 Save & Apply Security Policies'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRevokeAllSessions}
+                disabled={securitySaving}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#ef4444',
+                  padding: '9px 16px',
+                  borderRadius: '8px',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                ⚠️ Emergency: Revoke All Platform Sessions
+              </button>
             </div>
           </div>
         </div>

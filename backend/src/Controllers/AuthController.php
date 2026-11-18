@@ -10,6 +10,7 @@ use App\Support\Jwt;
 use App\Support\Mailer;
 use App\Support\SecurityMonitor;
 use App\Support\SessionFamilies;
+use App\Support\SessionSecurity;
 use App\Support\Totp;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -216,8 +217,22 @@ final class AuthController
         SessionFamilies::ensureSchema();
         $row = Db::one('SELECT * FROM refresh_tokens WHERE token_hash = ?', [$tokenHash]);
 
-        // Security: Token Replay Detection (scoped to the session family of the replayed token)
+        $cfg = SessionSecurity::getConfig();
+        $grace = $cfg['tokenReplayGraceSeconds'];
+
+        // Security: Token Replay Detection with in-flight concurrency grace period
         if ($row && $row['revoked_at'] !== null) {
+            $revokedTime = strtotime((string) $row['revoked_at']);
+            if (time() - $revokedTime <= $grace) {
+                // In-flight race condition: another concurrent request just rotated this token.
+                // Allow user to continue without terminating the session.
+                $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND status = "active"', [$row['user_id']]);
+                if ($user) {
+                    $user = $this->ensureUserTenantAssigned($user);
+                    return Http::json($res, $this->sessionPayload($user));
+                }
+            }
+
             SecurityMonitor::logEvent('token_replay_detected', 'critical', [
                 'user_id' => $row['user_id'],
                 'token_id' => $row['id'],
@@ -371,6 +386,25 @@ final class AuthController
         return $user;
     }
 
+    public function keepalive(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        if (!$u) {
+            return Http::error($res, 'Unauthorized', 401);
+        }
+        $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND status = "active"', [$u['id']]);
+        if (!$user) {
+            return $this->clearCookie(Http::error($res, 'User inactive or removed', 401));
+        }
+        $user = $this->ensureUserTenantAssigned($user);
+        return Http::json($res, [
+            'ok' => true,
+            'active' => true,
+            'user' => $this->sessionPayload($user)['user'],
+            'accessToken' => Jwt::issue((int) $user['id'], $user['role']),
+        ]);
+    }
+
     private function startSession(Request $req, Response $res, array $user, ?string $familyId = null): Response
     {
         $raw = bin2hex(random_bytes(32));
@@ -378,6 +412,10 @@ final class AuthController
         $ip = $req->getServerParams()['REMOTE_ADDR'] ?? null;
         $familyId ??= SessionFamilies::create($user, $userAgent, $ip);
         $tokenHash = hash('sha256', $raw);
+
+        $cfg = SessionSecurity::getConfig();
+        $refreshDays = $cfg['refreshDays'];
+        $sameSite = $cfg['cookieSameSite'];
 
         $inserted = false;
         if (SessionFamilies::hasFamilyColumn()) {
@@ -389,7 +427,7 @@ final class AuthController
                         $user['id'], $familyId, $tokenHash,
                         $userAgent,
                         $ip,
-                        self::REFRESH_DAYS,
+                        $refreshDays,
                     ]
                 );
                 $inserted = true;
@@ -405,21 +443,23 @@ final class AuthController
                     $user['id'], $tokenHash,
                     $userAgent,
                     $ip,
-                    self::REFRESH_DAYS,
+                    $refreshDays,
                 ]
             );
         }
         $secure = ($_ENV['APP_ENV'] ?? 'local') === 'production' ? '; Secure' : '';
         return $res->withAddedHeader('Set-Cookie', sprintf(
-            '%s=%s; Path=/api/v1/auth; Max-Age=%d; HttpOnly; SameSite=Strict%s',
-            self::COOKIE, $raw, self::REFRESH_DAYS * 86400, $secure
+            '%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=%s%s',
+            self::COOKIE, $raw, $refreshDays * 86400, $sameSite, $secure
         ));
     }
 
     private function clearCookie(Response $res): Response
     {
+        $cfg = SessionSecurity::getConfig();
+        $sameSite = $cfg['cookieSameSite'];
         return $res->withAddedHeader('Set-Cookie',
-            self::COOKIE . '=; Path=/api/v1/auth; Max-Age=0; HttpOnly; SameSite=Strict');
+            self::COOKIE . '=; Path=/; Max-Age=0; HttpOnly; SameSite=' . $sameSite);
     }
 
     private function createToken(int $userId, string $type, int $hours): string

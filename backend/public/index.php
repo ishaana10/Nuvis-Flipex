@@ -89,6 +89,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $a->post('/reset-password', [AuthController::class, 'resetPassword'])->add(new RateLimit('reset', 10, 3600));
         $a->post('/resend-verification', [AuthController::class, 'resendVerification'])
             ->add(new RateLimit('resend', 5, 3600))->add(new Auth());
+        $a->get('/keepalive', [AuthController::class, 'keepalive'])->add(new Auth());
     });
 
     $g->group('/flipbooks', function (RouteCollectorProxy $f) {
@@ -310,6 +311,9 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $dev->post('/errors/{id:[0-9]+}/resolve', [DevOpsController::class, 'resolveErrorReport']);
         $dev->post('/migrations/run', [DevOpsController::class, 'runMigrations']);
         $dev->post('/secrets/rotate', [DevOpsController::class, 'rotateSecrets']);
+        $dev->get('/security/sessions', [DevOpsController::class, 'getSessionSecurity']);
+        $dev->post('/security/sessions', [DevOpsController::class, 'updateSessionSecurity']);
+        $dev->post('/security/sessions/revoke-all', [DevOpsController::class, 'revokeAllSessions']);
     })->add(new TenantScope())->add(new Auth('admin'));
 
     $g->group('/me', function (RouteCollectorProxy $m) {

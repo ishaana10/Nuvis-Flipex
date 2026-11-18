@@ -13,9 +13,11 @@ use App\Middleware\TenantScope;
 use App\Shared\ModuleRegistry;
 use App\Support\Audit;
 use App\Support\CryptoSecrets;
+use App\Support\Db;
 use App\Support\Http;
 use App\Support\Rbac;
 use App\Support\SecurityMonitor;
+use App\Support\SessionSecurity;
 use App\Support\TenantContext;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -344,6 +346,77 @@ final class DevOpsController
             'ok' => true,
             'rotatedKeys' => $rotatedKeys,
             'message' => 'Rotated JWT, Storage Signing, Preview, and Unlock secrets while retaining previous keys for zero-downtime verification.',
+        ]);
+    }
+
+    /**
+     * GET /api/v1/devops/security/sessions
+     * Retrieve active session security policies and telemetry.
+     */
+    public function getSessionSecurity(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $this->requirePlatformAdmin($req, $u, 'devops.security.sessions.view');
+
+        $config = SessionSecurity::getConfig();
+
+        // Active session metrics
+        $activeTokens = (int) (Db::one('SELECT COUNT(*) AS c FROM refresh_tokens WHERE revoked_at IS NULL AND expires_at > NOW()')['c'] ?? 0);
+        $totalFamilies = (int) (Db::one('SELECT COUNT(*) AS c FROM session_families WHERE revoked_at IS NULL')['c'] ?? 0);
+        $revokedReplays = (int) (Db::one('SELECT COUNT(*) AS c FROM refresh_tokens WHERE revoked_at IS NOT NULL')['c'] ?? 0);
+
+        return Http::json($res, [
+            'config' => $config,
+            'telemetry' => [
+                'activeTokens' => $activeTokens,
+                'activeFamilies' => $totalFamilies,
+                'revokedTokens' => $revokedReplays,
+                'jwtAlgorithm' => 'HS256 (HMAC-SHA256)',
+                'storageAdapter' => 'MySQL session_families + refresh_tokens',
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/v1/devops/security/sessions
+     * Update session expiration, cookie policies, and replay grace periods.
+     */
+    public function updateSessionSecurity(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $this->requirePlatformAdmin($req, $u, 'devops.security.sessions.update');
+
+        $body = (array) $req->getParsedBody();
+        $updated = SessionSecurity::saveConfig($body);
+
+        Audit::log('devops.session_security_updated', 'security_config', null, $updated);
+        JsonLogger::info('Updated developer session security policies', $updated);
+
+        return Http::json($res, [
+            'ok' => true,
+            'message' => 'Session security policies updated and applied successfully.',
+            'config' => $updated,
+        ]);
+    }
+
+    /**
+     * POST /api/v1/devops/security/sessions/revoke-all
+     * Emergency invalidate all active refresh tokens and session families.
+     */
+    public function revokeAllSessions(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $this->requirePlatformAdmin($req, $u, 'devops.security.sessions.revoke_all');
+
+        Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE revoked_at IS NULL');
+        Db::run('UPDATE session_families SET revoked_at = NOW(), revoked_reason = "admin_emergency_revocation" WHERE revoked_at IS NULL');
+
+        Audit::log('devops.all_sessions_revoked', 'system', null, ['admin_id' => $u['id']]);
+        JsonLogger::warning('Emergency revoked all active sessions across platform', ['admin_id' => $u['id']]);
+
+        return Http::json($res, [
+            'ok' => true,
+            'message' => 'All active sessions across the platform have been revoked. Users must re-authenticate.',
         ]);
     }
 }

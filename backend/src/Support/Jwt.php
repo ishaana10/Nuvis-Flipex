@@ -8,13 +8,17 @@ use Firebase\JWT\Key;
 
 final class Jwt
 {
-    private const TTL = 900; // 15 minutes
+    public static function getTtl(): int
+    {
+        return SessionSecurity::getConfig()['jwtTtlSeconds'];
+    }
 
     public static function issue(int $userId, string $role): string
     {
         $now = time();
+        $ttl = self::getTtl();
         return FirebaseJwt::encode(
-            ['sub' => $userId, 'role' => $role, 'iat' => $now, 'exp' => $now + self::TTL],
+            ['sub' => $userId, 'role' => $role, 'iat' => $now, 'exp' => $now + $ttl],
             CryptoSecrets::jwtSecret(),
             'HS256'
         );

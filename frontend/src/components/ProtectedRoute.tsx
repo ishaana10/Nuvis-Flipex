@@ -222,6 +222,7 @@ export function ProtectedRoute() {
   const isUnauthorized =
     (isBilling && !can('billing.view') && !can('billing.manage')) ||
     (isDevOps && user.role !== 'admin') ||
+    (isStudio && user.role !== 'admin') ||
     (isIntegrations && !can('settings.manage') && !can('api_keys.manage') && !can('webhooks.manage')) ||
     (isAdmin && user.role !== 'admin');
 
@@ -278,18 +279,20 @@ export function ProtectedRoute() {
             <span className="sidebar-label">Flipbooks</span>
           </Link>
 
-          {/* 3. Flipex Studio (Catalogues, Magazines, Yearbooks, Keepsake Albums) */}
-          <Link
-            to="/studio"
-            className={`sidebar-item ${isStudio && !activeModuleHub ? 'active' : ''}`}
-            onClick={() => setActiveModuleHub(null)}
-            title="Flipex Studio: Visual Document Creation Engine"
-          >
-            <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-            <span className="sidebar-label">Studio</span>
-          </Link>
+          {/* 3. Flipex Studio (Developer Preview / Admin Only) */}
+          {user.role === 'admin' && (
+            <Link
+              to="/studio"
+              className={`sidebar-item ${isStudio && !activeModuleHub ? 'active' : ''}`}
+              onClick={() => setActiveModuleHub(null)}
+              title="Flipex Studio: Visual Document Creation Engine (Developer Preview)"
+            >
+              <svg viewBox="0 0 24 24" className="sidebar-icon" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              <span className="sidebar-label">Studio</span>
+            </Link>
+          )}
 
           {/* 4. Commercial Storefront & Customer Leads */}
           <Link
@@ -819,9 +822,17 @@ export function ProtectedRoute() {
             <div className="flex flex-col items-center justify-center p-8 my-12 text-center max-w-xl mx-auto">
               <div className="w-full card p-8 border border-amber-400/40 bg-white/95 dark:bg-slate-900/95 rounded-2xl shadow-2xl backdrop-blur-md">
                 <div className="text-4xl mb-3">🛡️</div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Access Restricted</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                  {isStudio ? 'Developer Preview Alpha' : 'Access Restricted'}
+                </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
-                  Your active workspace role <span className="font-bold text-amber-600 dark:text-amber-400 uppercase">({user.tenantRole || 'Editor'})</span> does not have permission to view or manage this module.
+                  {isStudio
+                    ? 'Flipex Studio is currently in Developer Alpha Preview and is only accessible to platform developers and administrators. It will be enabled for general workspaces in an upcoming release.'
+                    : (
+                      <>
+                        Your active workspace role <span className="font-bold text-amber-600 dark:text-amber-400 uppercase">({user.tenantRole || 'Editor'})</span> does not have permission to view or manage this module.
+                      </>
+                    )}
                 </p>
                 <div className="flex justify-center gap-3">
                   <Link to="/dashboard" className="btn-pub-primary text-xs font-bold py-2 px-5 rounded-xl shadow">
