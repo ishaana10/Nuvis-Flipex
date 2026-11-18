@@ -197,6 +197,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $st->delete('/templates/{id:[0-9]+}', [StudioController::class, 'deleteTemplate']);
         $st->get('/assets', [StudioController::class, 'listAssets']);
         $st->post('/assets/upload', [StudioController::class, 'uploadAsset']);
+        $st->delete('/assets/{id:[0-9]+}', [StudioController::class, 'deleteAsset']);
     })->add(new TenantScope())->add(new Auth());
 
     // Phase 3: Commercial Leads & Storefront Management

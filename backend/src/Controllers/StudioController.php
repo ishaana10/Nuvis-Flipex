@@ -724,20 +724,26 @@ final class StudioController
         foreach ($rows as $row) {
             $pageCount = 1;
             $previewImages = [];
+            $tags = [];
+            $dimensions = null;
             if (!empty($row['canvas_spec'])) {
                 $decoded = json_decode($row['canvas_spec'], true);
                 $pages = $decoded['pages'] ?? [];
                 $pageCount = max(1, count($pages));
+                $tags = $decoded['tags'] ?? [];
+                $dimensions = $decoded['document'] ?? null;
                 foreach ($pages as $p) {
                     if (!empty($p['thumbnail_url'])) {
                         $previewImages[] = $p['thumbnail_url'];
                     }
                 }
             }
-            // Exclude heavy canvas_spec in list view for performance, but return page_count and preview_images
+            // Exclude heavy canvas_spec in list view for performance, but return page_count, tags, and preview_images
             unset($row['canvas_spec']);
             $row['page_count'] = $pageCount;
             $row['preview_images'] = $previewImages;
+            $row['tags'] = $tags;
+            $row['dimensions'] = $dimensions;
             $templates[] = $row;
         }
 
@@ -897,7 +903,7 @@ final class StudioController
     }
 
     /**
-     * GET /studio/assets: List media assets for tenant.
+     * GET /studio/assets: List media assets for tenant or curated stock library.
      */
     public function listAssets(Request $req, Response $res): Response
     {
@@ -906,23 +912,53 @@ final class StudioController
         $tenantId = $this->resolveTenantId($u);
         $params = $req->getQueryParams();
         $assetType = trim((string) ($params['type'] ?? ''));
+        $search = trim((string) ($params['q'] ?? ''));
+        $scope = trim((string) ($params['scope'] ?? 'tenant')); // 'tenant', 'library'
+        $limit = max(1, min(100, (int) ($params['limit'] ?? 50)));
+        $offset = max(0, (int) ($params['offset'] ?? 0));
+
+        if ($scope === 'library') {
+            $stock = $this->getStockLibraryAssets($assetType, $search);
+            return Http::json($res, [
+                'assets' => array_slice($stock, $offset, $limit),
+                'total' => count($stock),
+                'limit' => $limit,
+                'offset' => $offset,
+                'scope' => 'library'
+            ]);
+        }
 
         $sql = 'SELECT * FROM studio_assets WHERE tenant_id = ?';
         $binds = [$tenantId];
 
-        if ($assetType !== '') {
+        if ($assetType !== '' && $assetType !== 'all') {
             $sql .= ' AND asset_type = ?';
             $binds[] = $assetType;
         }
 
-        $sql .= ' ORDER BY created_at DESC';
+        if ($search !== '') {
+            $sql .= ' AND (asset_name LIKE ? OR tags LIKE ?)';
+            $binds[] = '%' . $search . '%';
+            $binds[] = '%' . $search . '%';
+        }
+
+        $countSql = preg_replace('/SELECT \* FROM/i', 'SELECT COUNT(*) as c FROM', $sql);
+        $total = (int) (Db::one($countSql, $binds)['c'] ?? 0);
+
+        $sql .= ' ORDER BY created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
         $assets = Db::all($sql, $binds);
 
-        return Http::json($res, ['assets' => $assets]);
+        return Http::json($res, [
+            'assets' => $assets,
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'scope' => 'tenant'
+        ]);
     }
 
     /**
-     * POST /studio/assets/upload: Upload image, logo or graphic asset.
+     * POST /studio/assets/upload: Upload image, logo or graphic asset with dimension extraction and MIME validation.
      */
     public function uploadAsset(Request $req, Response $res): Response
     {
@@ -933,31 +969,55 @@ final class StudioController
         $tenantId = $this->resolveTenantId($u);
         $files = $req->getUploadedFiles();
         $file = $files['file'] ?? null;
+        $body = (array) ($req->getParsedBody() ?? []);
+
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+        $assetType = trim((string) ($body['asset_type'] ?? 'image'));
+        if (!in_array($assetType, ['image', 'logo', 'sticker', 'font', 'icon', 'background'], true)) {
+            $assetType = 'image';
+        }
+        $tags = trim((string) ($body['tags'] ?? ''));
 
         if (!$file || $file->getError() !== UPLOAD_ERR_OK) {
-            // Check if base64/URL data was sent
-            $body = (array) $req->getParsedBody();
+            // Check if external URL was provided
             $url = trim((string) ($body['file_url'] ?? ''));
             $name = trim((string) ($body['name'] ?? 'Asset ' . date('Y-m-d H:i')));
-            $type = trim((string) ($body['asset_type'] ?? 'image'));
 
             if ($url === '') {
                 return Http::error($res, 'Please provide an uploaded file or file_url', 422);
             }
 
+            if (str_starts_with($url, 'data:image/') && str_contains($url, ';base64,')) {
+                return Http::error($res, 'Inline Base64 image payloads are not allowed. Please upload the raw binary file.', 422);
+            }
+
             Db::run(
-                'INSERT INTO studio_assets (tenant_id, uploaded_by, asset_name, asset_type, mime_type, file_url, file_size)
-                 VALUES (?, ?, ?, ?, "image/jpeg", ?, 0)',
-                [$tenantId, $u['id'], $name, $type, $url]
+                'INSERT INTO studio_assets (tenant_id, uploaded_by, asset_name, asset_type, mime_type, file_url, file_size, tags)
+                 VALUES (?, ?, ?, ?, "image/jpeg", ?, 0, ?)',
+                [$tenantId, $u['id'], $name, $assetType, $url, $tags ?: null]
             );
             $assetId = (int) Db::pdo()->lastInsertId();
 
-            return Http::json($res, ['ok' => true, 'asset_id' => $assetId, 'url' => $url], 201);
+            try {
+                Audit::log('studio_asset.register_url', 'studio_asset', $assetId, ['name' => $name, 'url' => $url]);
+            } catch (\Throwable $ae) {}
+
+            return Http::json($res, ['ok' => true, 'asset_id' => $assetId, 'file_url' => $url, 'name' => $name], 201);
         }
 
         $clientName = $file->getClientFilename() ?? 'asset.png';
-        $mime = $file->getClientMediaType() ?? 'image/png';
+        $mime = strtolower((string) ($file->getClientMediaType() ?? 'image/png'));
         $size = (int) $file->getSize();
+
+        // Validate MIME type
+        if (!in_array($mime, $allowedMimes, true)) {
+            return Http::error($res, "Unsupported file format '{$mime}'. Supported formats: JPG, PNG, WebP, SVG.", 422);
+        }
+
+        // Validate Max File Size (15MB)
+        if ($size > 15 * 1024 * 1024) {
+            return Http::error($res, 'File size exceeds maximum allowed limit (15MB)', 422);
+        }
 
         // Target directory: /storage/tenants/{id}/studio/
         $destDir = Storage::tenantDir($tenantId) . '/studio';
@@ -969,22 +1029,142 @@ final class StudioController
 
         $file->moveTo($fullPath);
 
+        // Extract image dimensions for layout optimisation
+        $width = null;
+        $height = null;
+        if (in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            $dim = @getimagesize($fullPath);
+            if ($dim) {
+                $width = (int) $dim[0];
+                $height = (int) $dim[1];
+            }
+        }
+
         $relPath = "tenants/{$tenantId}/studio/{$filename}";
-        $url = Storage::signedUrl($relPath, 86400 * 365); // 1-year signature or public CDN
+        $url = Storage::signedUrl($relPath, 86400 * 365); // 1-year signed URL or CDN
 
         Db::run(
-            'INSERT INTO studio_assets (tenant_id, uploaded_by, asset_name, asset_type, mime_type, file_url, file_size)
-             VALUES (?, ?, ?, "image", ?, ?, ?)',
-            [$tenantId, $u['id'], $clientName, $mime, $url, $size]
+            'INSERT INTO studio_assets (tenant_id, uploaded_by, asset_name, asset_type, mime_type, file_url, file_size, width, height, tags)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$tenantId, $u['id'], $clientName, $assetType, $mime, $url, $size, $width, $height, $tags ?: null]
         );
         $assetId = (int) Db::pdo()->lastInsertId();
+
+        try {
+            Audit::log('studio_asset.upload', 'studio_asset', $assetId, [
+                'name' => $clientName,
+                'mime' => $mime,
+                'size' => $size,
+                'width' => $width,
+                'height' => $height
+            ]);
+        } catch (\Throwable $ae) {}
 
         return Http::json($res, [
             'ok' => true,
             'asset_id' => $assetId,
             'file_url' => $url,
-            'name' => $clientName
+            'name' => $clientName,
+            'width' => $width,
+            'height' => $height,
+            'mime_type' => $mime,
+            'file_size' => $size
         ], 201);
+    }
+
+    /**
+     * DELETE /studio/assets/{id}: Delete a tenant asset and purge physical file.
+     */
+    public function deleteAsset(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
+
+        $tenantId = $this->resolveTenantId($u);
+        $id = (int) ($args['id'] ?? 0);
+
+        $asset = Db::one('SELECT * FROM studio_assets WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+        if (!$asset) {
+            return Http::json($res, ['error' => 'Asset not found or unauthorized'], 404);
+        }
+
+        // Safely purge local storage file
+        if (!empty($asset['file_url']) && str_contains($asset['file_url'], "/tenants/{$tenantId}/studio/")) {
+            $parsedPath = parse_url($asset['file_url'], PHP_URL_PATH);
+            if ($parsedPath) {
+                $sub = substr($parsedPath, (int) strpos($parsedPath, "tenants/{$tenantId}"));
+                $filePath = Storage::baseDir() . '/' . $sub;
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+        }
+
+        Db::run('DELETE FROM studio_assets WHERE id = ? AND tenant_id = ?', [$id, $tenantId]);
+
+        try {
+            Audit::log('studio_asset.delete', 'studio_asset', $id, ['name' => $asset['asset_name']]);
+        } catch (\Throwable $ae) {
+            error_log('Audit error on studio_asset.delete: ' . $ae->getMessage());
+        }
+
+        return Http::json($res, ['ok' => true, 'message' => 'Asset deleted successfully']);
+    }
+
+    /**
+     * Returns curated, royalty-free stock imagery and vector assets for the Studio library.
+     */
+    public function getStockLibraryAssets(string $category = '', string $q = ''): array
+    {
+        $library = [
+            // Retail & Groceries
+            ['id' => 'stock_ret_01', 'name' => 'Premium Island Rice 10kg', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,groceries,rice,food,staple'],
+            ['id' => 'stock_ret_02', 'name' => 'Fresh Yellow Island Bananas', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,bananas,fruit,market,fresh'],
+            ['id' => 'stock_ret_03', 'name' => 'Cold-Pressed Coconut & Island Oil', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,oil,cooking,fmcg'],
+            ['id' => 'stock_ret_04', 'name' => 'Organic Sweet Pineapples', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,fruit,pineapple,market'],
+            ['id' => 'stock_ret_05', 'name' => 'Vine-Ripened Field Tomatoes', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1546470427-e26264be0b11?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,vegetables,tomatoes,fresh'],
+
+            // Dining & Hospitality
+            ['id' => 'stock_din_01', 'name' => 'Island Kokoda Ceviche Bowl', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'dining,seafood,kokoda,fiji,restaurant'],
+            ['id' => 'stock_din_02', 'name' => 'Grilled Coral Rock Lobster Platter', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1533777857889-4be7c70b33f7?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'dining,lobster,seafood,fine dining'],
+            ['id' => 'stock_din_03', 'name' => 'Pacific Sunset Tropical Rum Cocktail', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'dining,cocktail,drinks,bar,resort'],
+            ['id' => 'stock_din_04', 'name' => 'Handcrafted Botanical Gin & Tonic', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'dining,cocktail,beverage,tonic'],
+
+            // Technology & Gadgets
+            ['id' => 'stock_tch_01', 'name' => 'ANC Wireless Headphones Pro', 'category' => 'tech', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'tech,audio,headphones,gadgets'],
+            ['id' => 'stock_tch_02', 'name' => 'GPS Multisport Smartwatch', 'category' => 'tech', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'tech,smartwatch,wearables,fitness'],
+            ['id' => 'stock_tch_03', 'name' => 'ProBook Laptop Ultra-Slim', 'category' => 'tech', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'tech,laptop,computer,workstation'],
+
+            // Real Estate & Architecture
+            ['id' => 'stock_re_01', 'name' => 'Denarau Island Luxury Waterfront Villa', 'category' => 'realestate', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'realestate,villa,luxury,denarau,waterfront'],
+            ['id' => 'stock_re_02', 'name' => 'Tropical Pavilion Architecture Pool', 'category' => 'realestate', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'realestate,pool,architecture,residence'],
+
+            // Scenery & Nature
+            ['id' => 'stock_nat_01', 'name' => 'Pristine Barrier Reef Coral Lagoon', 'category' => 'nature', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'nature,ocean,coral,reef,diving,marine'],
+            ['id' => 'stock_nat_02', 'name' => 'Turquoise Ocean Wave & White Sand Cay', 'category' => 'nature', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'nature,beach,pacific,tropical,sand'],
+
+            // Portraits & Yearbooks
+            ['id' => 'stock_prt_01', 'name' => 'Female Student Academic Portrait', 'category' => 'people', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80', 'width' => 600, 'height' => 800, 'tags' => 'people,student,portrait,yearbook'],
+            ['id' => 'stock_prt_02', 'name' => 'Male Student Graduate Portrait', 'category' => 'people', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80', 'width' => 600, 'height' => 800, 'tags' => 'people,graduate,portrait,student'],
+
+            // Badges & Commercial Assets
+            ['id' => 'stock_bdg_01', 'name' => 'Fiji Grown & Crafted Badge', 'category' => 'badges', 'asset_type' => 'badge', 'url' => 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80', 'width' => 400, 'height' => 400, 'tags' => 'badge,fiji made,seal,local,organic']
+        ];
+
+        return array_values(array_filter($library, function ($item) use ($category, $q) {
+            if ($category !== '' && $category !== 'all' && ($item['category'] ?? '') !== $category) {
+                return false;
+            }
+            if ($q !== '') {
+                $needle = strtolower($q);
+                $haystack = strtolower(($item['name'] ?? '') . ' ' . ($item['tags'] ?? ''));
+                if (!str_contains($haystack, $needle)) {
+                    return false;
+                }
+            }
+            return true;
+        }));
     }
 
     /**

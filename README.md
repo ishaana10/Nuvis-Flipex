@@ -255,6 +255,24 @@ A complete, browser-based visual layout engine allowing users to author professi
 
 The following notable updates, bug fixes, and architectural hardening milestones have been deployed across recent release cycles:
 
+### Release Sprint 2 — Dynamic Template Library, Curated Pacific Stock Assets & Media Management
+- **Media Asset Architecture & Stock Library Provider:**
+  - Enhanced `StudioController::listAssets()` to support dual scopes: `tenant` (private customer uploads) and `library` (curated high-resolution stock imagery).
+  - Seeded comprehensive Pacific stock assets categorized into FMCG/Retail, Dining & Hospitality (Kokoda, Lobster, Cocktails), Technology, Denarau Real Estate, Coral Reefs, and Senior Graduate Portraits.
+  - Added full search indexing (`q`), asset categorization, and pagination controls.
+- **Secure File Upload & Storage Enforcement:**
+  - Implemented strict MIME-type validation (`image/jpeg`, `image/png`, `image/webp`, `image/svg+xml`) and 15MB file-size limits in `uploadAsset()`.
+  - Added automatic server-side image dimension extraction (`width`, `height`) via `@getimagesize` to optimize canvas layout scaling and aspect ratios.
+  - Added `DELETE /api/v1/studio/assets/{id}` with tenant verification, automatic local disk cleanup, and security audit trails.
+  - Proactively blocks inline Base64 data URIs from being registered as asset URLs.
+- **Interactive Asset Management Drawer & Inspector Integration:**
+  - Upgraded Flipex Studio `Media & Photos` drawer with real-time toggle between `📁 My Uploads` and `🌴 Pacific Stock Library`.
+  - Added one-click in-place asset replacement: selecting any image on the canvas lets users swap it with another upload or library asset in one click without resetting coordinates or dimensions.
+  - Added asset deletion with confirmation tooltips and visual metadata badges (`width × height`, file size).
+  - 100% purged all residual indigo and purple UI classes in favor of Nuvis Sky/Ocean (`#0284c7`) and Emerald accents.
+- **Automated Verification Expansion:**
+  - Extended `StudioDesignSchemaTest.php` with 5 additional test checks (totaling 22 automated tests) validating reflection of all asset endpoints, curated stock library cataloging, category filtering, and zero Base64 compliance.
+
 ### Release Sprint 1 — Flipex Design Schema (FDS v1.0), Versioned Template Architecture & Studio Controller Stabilisation
 - **Studio Controller API Fixes & Invariant Hardening:**
   - Resolved `Auth::user($req)` class-resolution bugs in `StudioController.php` across `listTemplates`, `getTemplate`, `saveTemplate`, and `deleteTemplate`, standardizing on Slim 4 `$u = $req->getAttribute('user')`.

@@ -180,6 +180,25 @@ final class StudioDesignSchemaTest
         $assertions['studiocontroller_save_template_exists'] = $ref->hasMethod('saveTemplate');
         $assertions['studiocontroller_delete_template_exists'] = $ref->hasMethod('deleteTemplate');
         $assertions['studiocontroller_list_assets_exists'] = $ref->hasMethod('listAssets');
+        $assertions['studiocontroller_upload_asset_exists'] = $ref->hasMethod('uploadAsset');
+        $assertions['studiocontroller_delete_asset_exists'] = $ref->hasMethod('deleteAsset');
+
+        // 10. Pacific Stock Library Provider Verification
+        $controller = new \App\Controllers\StudioController();
+        $stockAssets = $controller->getStockLibraryAssets();
+        $assertions['stock_library_has_curated_assets'] = (count($stockAssets) >= 15);
+
+        $retailFilter = $controller->getStockLibraryAssets('retail');
+        $assertions['stock_library_category_filtering'] = (count($retailFilter) > 0 && count($retailFilter) < count($stockAssets));
+
+        $stockZeroBase64 = true;
+        foreach ($stockAssets as $sa) {
+            if (str_starts_with($sa['url'] ?? '', 'data:image/') && str_contains($sa['url'] ?? '', ';base64,')) {
+                $stockZeroBase64 = false;
+                break;
+            }
+        }
+        $assertions['stock_library_zero_base64'] = $stockZeroBase64;
 
         return $assertions;
     }

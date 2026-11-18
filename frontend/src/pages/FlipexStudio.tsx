@@ -43,15 +43,22 @@ export interface CanvasElement {
   id: string;
   type:
     | 'text'
+    | 'richText'
     | 'image'
+    | 'imageFrame'
     | 'product'
+    | 'productCard'
     | 'shape'
     | 'badge'
     | 'button'
     | 'whatsapp'
     | 'column_text'
+    | 'article'
     | 'yearbook_grid'
+    | 'studentCard'
     | 'album_spread'
+    | 'photoGrid'
+    | 'photoCollage'
     | 'toc'
     | 'folio';
   x: number;
@@ -70,6 +77,14 @@ export interface CanvasElement {
   whatsappNumber?: string;
   src?: string;
   image?: string;
+  url?: string;
+  assetRef?: {
+    source: string;
+    assetId?: number | string | null;
+    url: string;
+    alt?: string;
+    fit?: 'cover' | 'contain' | 'fill';
+  };
   description?: string;
   caption?: string;
   linkUrl?: string;
@@ -232,11 +247,18 @@ export const TEMPLATE_CATEGORIES = [
 ];
 
 export interface StudioAsset {
-  id: number;
-  asset_name: string;
+  id: number | string;
+  asset_name?: string;
+  name?: string;
   asset_type: string;
-  file_url: string;
-  file_size: number;
+  file_url?: string;
+  url?: string;
+  file_size?: number;
+  width?: number;
+  height?: number;
+  tags?: string;
+  category?: string;
+  created_at?: string;
 }
 
 export const GRADIENT_PRESETS = [
@@ -416,6 +438,16 @@ export default function FlipexStudio() {
   const [templateFormCategory, setTemplateFormCategory] = useState<string>('retail_catalogue');
   const [templateFormDesc, setTemplateFormDesc] = useState<string>('');
   const [savingTemplate, setSavingTemplate] = useState<boolean>(false);
+
+  // Sprint 2: Asset Management & Media Library State
+  const [tenantAssets, setTenantAssets] = useState<StudioAsset[]>([]);
+  const [stockAssets, setStockAssets] = useState<StudioAsset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState<boolean>(false);
+  const [assetTab, setAssetTab] = useState<'uploads' | 'stock'>('uploads');
+  const [assetCategory, setAssetCategory] = useState<string>('all');
+  const [assetSearch, setAssetSearch] = useState<string>('');
+  const [uploadingAsset, setUploadingAsset] = useState<boolean>(false);
+  const [assetModalOpen, setAssetModalOpen] = useState<boolean>(false);
 
   // Active Document in Editor
   const [currentDoc, setCurrentDoc] = useState<StudioDocument | null>(null);
@@ -628,6 +660,45 @@ export default function FlipexStudio() {
       //
     }
   }, [templateSearch, templateCategory, templateDocType, templateScope]);
+
+  // Sprint 2: Load Tenant Uploaded Assets
+  const loadTenantAssets = useCallback(async () => {
+    try {
+      setLoadingAssets(true);
+      const q = assetSearch ? `q=${encodeURIComponent(assetSearch)}&` : '';
+      const res = await api<{ assets: StudioAsset[] }>(`/studio/assets?scope=tenant&${q}`);
+      setTenantAssets(res.assets || []);
+    } catch {
+      //
+    } finally {
+      setLoadingAssets(false);
+    }
+  }, [assetSearch]);
+
+  // Sprint 2: Load Curated Stock Library Assets
+  const loadStockAssets = useCallback(async () => {
+    try {
+      setLoadingAssets(true);
+      const cat = assetCategory !== 'all' ? `type=${encodeURIComponent(assetCategory)}&` : '';
+      const q = assetSearch ? `q=${encodeURIComponent(assetSearch)}&` : '';
+      const res = await api<{ assets: StudioAsset[] }>(`/studio/assets?scope=library&${cat}${q}`);
+      setStockAssets(res.assets || []);
+    } catch {
+      //
+    } finally {
+      setLoadingAssets(false);
+    }
+  }, [assetCategory, assetSearch]);
+
+  useEffect(() => {
+    if (activeToolTab === 'media' || assetModalOpen) {
+      if (assetTab === 'uploads') {
+        loadTenantAssets();
+      } else {
+        loadStockAssets();
+      }
+    }
+  }, [activeToolTab, assetModalOpen, assetTab, loadTenantAssets, loadStockAssets]);
 
   // Stage 4: Open Template Multi-Page Interactive Preview
   const handleOpenTemplatePreview = async (tpl: StudioTemplate) => {
@@ -2796,25 +2867,146 @@ export default function FlipexStudio() {
     }
   };
 
-  // Upload image asset
+  // Sprint 2: Upload image asset with FDS v1.0 assetRef and dimension preservation
   const handleUploadAsset = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    if (!allowed.includes(file.type)) {
+      alert('Unsupported file format. Please upload JPG, PNG, WebP, or SVG images.');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert('File size exceeds maximum allowed limit (15MB)');
+      return;
+    }
+
     const fd = new FormData();
     fd.append('file', file);
+    fd.append('asset_type', 'image');
+
     try {
-      const res = await uploadForm<{ ok: boolean; file_url: string; name: string }>('/studio/assets/upload', fd);
+      setUploadingAsset(true);
+      const res = await uploadForm<{
+        ok: boolean;
+        asset_id: number;
+        file_url: string;
+        name: string;
+        width?: number;
+        height?: number;
+      }>('/studio/assets/upload', fd);
+
       if (res.file_url) {
-        addElement({
-          type: 'image',
-          src: res.file_url,
-          w: 280,
-          h: 220,
-          caption: res.name,
-        });
+        loadTenantAssets();
+
+        // Calculate aspect-ratio bounded dimensions
+        const rawW = res.width || 280;
+        const rawH = res.height || 220;
+        const aspect = rawW / Math.max(1, rawH);
+        const w = Math.min(360, Math.max(160, Math.round(aspect > 1 ? 280 : 280 * aspect)));
+        const h = Math.min(360, Math.max(120, Math.round(w / aspect)));
+
+        // If an image element is currently selected, update it; otherwise insert new element
+        if (selectedElement && (selectedElement.type === 'image' || selectedElement.type === 'imageFrame')) {
+          updateSelectedElement({
+            src: res.file_url,
+            url: res.file_url,
+            caption: res.name,
+            assetRef: {
+              source: 'upload',
+              assetId: res.asset_id,
+              url: res.file_url,
+              alt: res.name,
+              fit: 'cover',
+            },
+          }, true);
+        } else {
+          addElement({
+            type: 'image',
+            src: res.file_url,
+            url: res.file_url,
+            w: w,
+            h: h,
+            caption: res.name,
+            assetRef: {
+              source: 'upload',
+              assetId: res.asset_id,
+              url: res.file_url,
+              alt: res.name,
+              fit: 'cover',
+            },
+          });
+        }
       }
     } catch (err: any) {
-      alert('Upload failed: ' + err.message);
+      alert('Upload failed: ' + (err?.message || 'Network error'));
+    } finally {
+      setUploadingAsset(false);
+      e.target.value = '';
+    }
+  };
+
+  // Sprint 2: Insert Asset from Library or Uploads onto Canvas
+  const handleInsertAsset = (asset: StudioAsset) => {
+    const url = asset.file_url || asset.url || '';
+    if (!url) return;
+
+    const rawW = asset.width || 280;
+    const rawH = asset.height || 220;
+    const aspect = rawW / Math.max(1, rawH);
+    const w = Math.min(360, Math.max(160, Math.round(aspect > 1 ? 280 : 280 * aspect)));
+    const h = Math.min(360, Math.max(120, Math.round(w / aspect)));
+
+    const name = asset.asset_name || asset.name || 'Photo';
+
+    if (selectedElement && (selectedElement.type === 'image' || selectedElement.type === 'imageFrame')) {
+      updateSelectedElement({
+        src: url,
+        url: url,
+        caption: name,
+        assetRef: {
+          source: assetTab === 'uploads' ? 'upload' : 'library',
+          assetId: asset.id,
+          url: url,
+          alt: name,
+          fit: 'cover',
+        },
+      }, true);
+    } else {
+      addElement({
+        type: 'image',
+        src: url,
+        url: url,
+        w: w,
+        h: h,
+        caption: name,
+        assetRef: {
+          source: assetTab === 'uploads' ? 'upload' : 'library',
+          assetId: asset.id,
+          url: url,
+          alt: name,
+          fit: 'cover',
+        },
+      });
+    }
+    if (assetModalOpen) {
+      setAssetModalOpen(false);
+    }
+  };
+
+  // Sprint 2: Delete Tenant Asset with Confirmation
+  const handleDeleteAsset = async (assetId: number | string, assetName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to permanently delete "${assetName}"?`)) {
+      return;
+    }
+    try {
+      await api(`/studio/assets/${assetId}`, 'DELETE');
+      setTenantAssets((prev) => prev.filter((a) => a.id !== assetId));
+    } catch (err: any) {
+      alert('Failed to delete asset: ' + (err?.message || 'Server error'));
     }
   };
 
@@ -2832,7 +3024,7 @@ export default function FlipexStudio() {
       <div className="studio-container">
         {/* Header Banner - High-contrast Deep Indigo / Slate */}
         <div className="studio-hero-banner">
-          <div style={{ position: 'absolute', top: 0, right: 0, width: '380px', height: '380px', background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 0, right: 0, width: '380px', height: '380px', background: 'radial-gradient(circle, rgba(14,116,144,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -3028,8 +3220,8 @@ export default function FlipexStudio() {
                       flex: 1,
                       textAlign: 'center',
                       padding: '8px 12px',
-                      background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 50%, rgba(236,72,153,0.12) 100%)',
-                      border: '1px solid rgba(168,85,247,0.3)',
+                      background: 'linear-gradient(135deg, rgba(14,116,144,0.12) 0%, rgba(2,132,199,0.12) 50%, rgba(236,72,153,0.12) 100%)',
+                      border: '1px solid rgba(2,132,199,0.3)',
                       color: '#0284c7',
                       fontWeight: 700,
                       fontSize: '0.78rem',
@@ -3316,7 +3508,7 @@ export default function FlipexStudio() {
                         padding: '12px',
                         borderRadius: '10px',
                         border: newTemplateId === null ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                        background: newTemplateId === null ? 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%)' : '#ffffff',
+                        background: newTemplateId === null ? 'linear-gradient(135deg, rgba(14,116,144,0.12) 0%, rgba(2,132,199,0.12) 100%)' : '#ffffff',
                         cursor: 'pointer',
                         textAlign: 'center',
                         fontSize: '0.75rem',
@@ -3335,7 +3527,7 @@ export default function FlipexStudio() {
                           padding: '8px',
                           borderRadius: '10px',
                           border: newTemplateId === tpl.id ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                          background: newTemplateId === tpl.id ? 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.12) 100%)' : '#ffffff',
+                          background: newTemplateId === tpl.id ? 'linear-gradient(135deg, rgba(14,116,144,0.12) 0%, rgba(2,132,199,0.12) 100%)' : '#ffffff',
                           cursor: 'pointer',
                           fontSize: '0.72rem',
                         }}
@@ -3633,7 +3825,7 @@ export default function FlipexStudio() {
             style={{
               padding: '6px 11px',
               borderRadius: '8px',
-              background: sidebarCollapsed ? 'rgba(99, 102, 241, 0.2)' : '#1e293b',
+              background: sidebarCollapsed ? 'rgba(14, 116, 144, 0.2)' : '#1e293b',
               border: sidebarCollapsed ? '1px solid #818cf8' : '1px solid #334155',
               color: sidebarCollapsed ? '#c7d2fe' : '#94a3b8',
               cursor: 'pointer',
@@ -3653,7 +3845,7 @@ export default function FlipexStudio() {
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap' }}>
               {currentDoc?.title}
             </span>
-            <span style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>
+            <span style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(14,116,144,0.2)', color: '#a5b4fc', border: '1px solid rgba(14,116,144,0.3)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>
               {currentDoc?.doc_type}
             </span>
             <span
@@ -3766,8 +3958,8 @@ export default function FlipexStudio() {
               style={{
                 padding: '3px 8px',
                 marginRight: '2px',
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(168,85,247,0.25) 100%)',
-                border: '1px solid rgba(168,85,247,0.4)',
+                background: 'linear-gradient(135deg, rgba(14,116,144,0.25) 0%, rgba(2,132,199,0.25) 100%)',
+                border: '1px solid rgba(2,132,199,0.4)',
                 color: '#f5d0fe',
                 borderRadius: '6px',
                 fontSize: '10px',
@@ -3832,7 +4024,7 @@ export default function FlipexStudio() {
               fontSize: '11px',
               fontWeight: 600,
               border: showBleed ? '1px solid rgba(236, 72, 153, 0.6)' : '1px solid #334155',
-              background: showBleed ? 'linear-gradient(135deg, rgba(236,72,153,0.2) 0%, rgba(168,85,247,0.2) 100%)' : '#1e293b',
+              background: showBleed ? 'linear-gradient(135deg, rgba(236,72,153,0.2) 0%, rgba(2,132,199,0.2) 100%)' : '#1e293b',
               color: showBleed ? '#f472b6' : '#94a3b8',
               cursor: 'pointer',
             }}
@@ -3849,8 +4041,8 @@ export default function FlipexStudio() {
               borderRadius: '8px',
               fontSize: '11px',
               fontWeight: 600,
-              border: gridSnap ? '1px solid rgba(99, 102, 241, 0.6)' : '1px solid #334155',
-              background: gridSnap ? 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(6,182,212,0.2) 100%)' : '#1e293b',
+              border: gridSnap ? '1px solid rgba(14, 116, 144, 0.6)' : '1px solid #334155',
+              background: gridSnap ? 'linear-gradient(135deg, rgba(14,116,144,0.2) 0%, rgba(6,182,212,0.2) 100%)' : '#1e293b',
               color: gridSnap ? '#a5b4fc' : '#94a3b8',
               cursor: 'pointer',
             }}
@@ -4138,7 +4330,7 @@ export default function FlipexStudio() {
                   color: activeToolTab === tab.id ? '#ffffff' : '#94a3b8',
                   boxShadow:
                     activeToolTab === tab.id
-                      ? '0 2px 10px rgba(168, 85, 247, 0.4)'
+                      ? '0 2px 10px rgba(2, 132, 199, 0.4)'
                       : 'none',
                 }}
               >
@@ -4384,7 +4576,7 @@ export default function FlipexStudio() {
                   <button
                     type="button"
                     onClick={() => setActiveToolTab('csv')}
-                    className="w-full py-2 px-3 rounded-lg bg-indigo-950/60 border border-indigo-700/50 hover:bg-indigo-900/60 text-indigo-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all mt-2"
+                    className="w-full py-2 px-3 rounded-lg bg-sky-950/60 border border-sky-700/50 hover:bg-sky-900/60 text-sky-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all mt-2"
                   >
                     <span>📊</span> Open CSV Inventory &amp; Multi-Page Generator →
                   </button>
@@ -4526,7 +4718,7 @@ export default function FlipexStudio() {
                 <div className="pt-2 border-t border-slate-800">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11px] font-bold text-slate-200">🔗 Linked Multi-Page Story</span>
-                    <span className="text-[10px] text-indigo-400 font-bold uppercase">Overflow Flow</span>
+                    <span className="text-[10px] text-sky-400 font-bold uppercase">Overflow Flow</span>
                   </div>
                   <button
                     type="button"
@@ -4916,49 +5108,216 @@ export default function FlipexStudio() {
               </div>
             )}
 
-            {/* TAB: MEDIA & PHOTOS */}
+            {/* TAB: MEDIA & ASSET LIBRARY (SPRINT 2) */}
             {activeToolTab === 'media' && (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">Upload Graphic or Photo</label>
-                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-4 cursor-pointer bg-slate-900/60 transition-colors">
-                    <span className="text-2xl mb-1">📤</span>
-                    <span className="text-xs text-indigo-400 font-semibold">Choose image file</span>
-                    <span className="text-[10px] text-slate-500">PNG, JPG, WebP</span>
-                    <input type="file" accept="image/*" onChange={handleUploadAsset} className="hidden" />
-                  </label>
+                {/* Mode Selector: Uploads vs Pacific Library */}
+                <div className="grid grid-cols-2 gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setAssetTab('uploads')}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      assetTab === 'uploads'
+                        ? 'bg-sky-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>📁</span>
+                    <span>Uploads</span>
+                    <span className="text-[10px] bg-slate-950/60 px-1.5 py-0.2 rounded-full font-mono">
+                      {tenantAssets.length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssetTab('stock')}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      assetTab === 'stock'
+                        ? 'bg-sky-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>🌴</span>
+                    <span>Stock Library</span>
+                  </button>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2">Preset High-Resolution Scenery</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { name: 'Island Lagoon', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500' },
-                      { name: 'Coral Diver', url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=500' },
-                      { name: 'Graduation', url: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=500' },
-                      { name: 'Wedding Rings', url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=500' },
-                    ].map((stock, i) => (
-                      <div
-                        key={i}
-                        onClick={() =>
-                          addElement({
-                            type: 'image',
-                            src: stock.url,
-                            w: 240,
-                            h: 180,
-                            caption: stock.name,
-                          })
-                        }
-                        className="rounded-lg overflow-hidden border border-slate-800 hover:border-indigo-500 cursor-pointer group relative"
-                      >
-                        <img src={stock.url} alt={stock.name} className="h-16 w-full object-cover group-hover:scale-105 transition-transform" />
-                        <span className="absolute bottom-1 left-1 bg-black/70 px-1.5 py-0.5 rounded text-[9px] text-white font-medium">
-                          {stock.name}
-                        </span>
-                      </div>
-                    ))}
+                {/* Selected Element Replacement Indicator */}
+                {selectedElement && (selectedElement.type === 'image' || selectedElement.type === 'imageFrame') && (
+                  <div className="bg-sky-950/60 border border-sky-500/40 rounded-xl p-2.5 flex items-center gap-2">
+                    <span className="text-sm">🔄</span>
+                    <div className="text-[11px] leading-tight text-sky-200">
+                      <span className="font-bold text-white">Replacing Selected Image:</span> Click any asset below to swap it in-place.
+                    </div>
                   </div>
+                )}
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+                  <input
+                    type="text"
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
+                    placeholder={assetTab === 'uploads' ? 'Search your uploads...' : 'Search Pacific stock library...'}
+                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                  />
+                  {assetSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setAssetSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
+
+                {/* TAB 1: UPLOADS CONTENT */}
+                {assetTab === 'uploads' && (
+                  <div className="space-y-3">
+                    {/* Upload Dropzone */}
+                    <div>
+                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-xl p-4 cursor-pointer bg-slate-900/60 transition-colors group">
+                        {uploadingAsset ? (
+                          <div className="flex flex-col items-center py-2">
+                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-sky-400 border-t-transparent mb-2"></div>
+                            <span className="text-xs text-sky-300 font-bold">Uploading & Optimising...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">📤</span>
+                            <span className="text-xs text-sky-400 font-semibold">Upload Photo, Logo or Graphic</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">JPG, PNG, WebP, SVG • Max 15MB</span>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                              onChange={handleUploadAsset}
+                              className="hidden"
+                            />
+                          </>
+                        )}
+                      </label>
+                    </div>
+
+                    {/* Uploaded Assets Grid */}
+                    {loadingAssets ? (
+                      <div className="py-8 text-center text-xs text-slate-400">Loading your media assets...</div>
+                    ) : tenantAssets.length === 0 ? (
+                      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 text-center">
+                        <span className="text-3xl block mb-2 opacity-50">🖼️</span>
+                        <div className="text-xs font-bold text-slate-300 mb-1">No Uploaded Assets Yet</div>
+                        <div className="text-[11px] text-slate-400 leading-relaxed">
+                          Upload high-resolution logos, brand assets, and custom photos to reuse them across all your studio documents.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 max-h-[380px] overflow-y-auto pr-1">
+                        {tenantAssets.map((asset) => (
+                          <div
+                            key={asset.id}
+                            onClick={() => handleInsertAsset(asset)}
+                            className="rounded-lg overflow-hidden border border-slate-800 hover:border-sky-500 cursor-pointer group relative bg-slate-950 flex flex-col transition-all hover:shadow-lg hover:shadow-sky-500/10"
+                          >
+                            <div className="h-24 w-full bg-slate-900 overflow-hidden relative">
+                              <img
+                                src={asset.file_url || asset.url}
+                                alt={asset.asset_name || 'Asset'}
+                                className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                                loading="lazy"
+                              />
+                              <button
+                                type="button"
+                                title="Delete asset"
+                                onClick={(e) => handleDeleteAsset(asset.id, asset.asset_name || 'Asset', e)}
+                                className="absolute top-1 right-1 bg-black/80 hover:bg-red-600 text-white rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                            <div className="p-1.5 bg-slate-900/90 border-t border-slate-800">
+                              <div className="text-[11px] font-medium text-slate-200 truncate" title={asset.asset_name}>
+                                {asset.asset_name || 'Uploaded Asset'}
+                              </div>
+                              <div className="flex items-center justify-between text-[9px] text-slate-400 mt-0.5 font-mono">
+                                <span>{asset.width && asset.height ? `${asset.width}×${asset.height}` : 'Vector/Image'}</span>
+                                {asset.file_size ? (
+                                  <span>{Math.round(asset.file_size / 1024)} KB</span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 2: PACIFIC STOCK LIBRARY */}
+                {assetTab === 'stock' && (
+                  <div className="space-y-3">
+                    {/* Category Filter Pills */}
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        { id: 'all', label: 'All' },
+                        { id: 'retail', label: 'Retail' },
+                        { id: 'dining', label: 'Dining' },
+                        { id: 'tech', label: 'Tech' },
+                        { id: 'realestate', label: 'Property' },
+                        { id: 'nature', label: 'Reefs & Ocean' },
+                        { id: 'people', label: 'Portraits' },
+                        { id: 'badges', label: 'Badges' },
+                      ].map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setAssetCategory(cat.id)}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-md transition-all ${
+                            assetCategory === cat.id
+                              ? 'bg-sky-600 text-white shadow'
+                              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Stock Assets Grid */}
+                    {loadingAssets ? (
+                      <div className="py-8 text-center text-xs text-slate-400">Loading stock library...</div>
+                    ) : stockAssets.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-slate-400">No stock assets match your filter.</div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 max-h-[420px] overflow-y-auto pr-1">
+                        {stockAssets.map((asset) => (
+                          <div
+                            key={asset.id}
+                            onClick={() => handleInsertAsset(asset)}
+                            className="rounded-lg overflow-hidden border border-slate-800 hover:border-sky-500 cursor-pointer group relative bg-slate-950 flex flex-col transition-all hover:shadow-lg hover:shadow-sky-500/10"
+                          >
+                            <div className="h-24 w-full bg-slate-900 overflow-hidden relative">
+                              <img
+                                src={asset.file_url || asset.url}
+                                alt={asset.name || 'Stock'}
+                                className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                                loading="lazy"
+                              />
+                              <span className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] text-white font-mono uppercase tracking-wider">
+                                {asset.category || 'Stock'}
+                              </span>
+                            </div>
+                            <div className="p-1.5 bg-slate-900/90 border-t border-slate-800">
+                              <div className="text-[11px] font-medium text-slate-200 truncate" title={asset.name}>
+                                {asset.name}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -5116,7 +5475,7 @@ export default function FlipexStudio() {
                             type="button"
                             onClick={() => setCsvPerPage(4)}
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              csvPerPage === 4 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                              csvPerPage === 4 ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
                             }`}
                           >
                             4 / Page (2x2)
@@ -5125,7 +5484,7 @@ export default function FlipexStudio() {
                             type="button"
                             onClick={() => setCsvPerPage(6)}
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              csvPerPage === 6 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'
+                              csvPerPage === 6 ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
                             }`}
                           >
                             6 / Page (2x3)
@@ -5149,7 +5508,7 @@ export default function FlipexStudio() {
                       <label className="text-[11px] font-semibold text-slate-300">
                         {csvMode === 'sku_sync' ? 'SKU Pricing CSV Data' : 'CSV Data Rows'}
                       </label>
-                      <label className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer">
+                      <label className="text-[10px] text-sky-400 hover:text-sky-300 font-bold cursor-pointer">
                         📁 Upload .CSV File
                         <input
                           type="file"
@@ -5172,7 +5531,7 @@ export default function FlipexStudio() {
                       rows={7}
                       value={csvText}
                       onChange={(e) => setCsvText(e.target.value)}
-                      className="w-full p-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[10.5px] text-slate-300 focus:ring-1 focus:ring-indigo-500"
+                      className="w-full p-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[10.5px] text-slate-300 focus:ring-1 focus:ring-sky-500"
                     />
                   </div>
 
@@ -5501,7 +5860,7 @@ export default function FlipexStudio() {
                     cursor: 'move',
                     zIndex: isSelected ? 35 : (el.style?.zIndex || 10),
                     outline: isSelected ? '2px solid #0284c7' : 'none',
-                    boxShadow: isSelected ? '0 0 0 4px rgba(168, 85, 247, 0.3)' : (el.style?.boxShadow || 'none'),
+                    boxShadow: isSelected ? '0 0 0 4px rgba(2, 132, 199, 0.3)' : (el.style?.boxShadow || 'none'),
                     borderRadius: el.shapeType === 'circle' ? '50%' : (el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined),
                     borderWidth: el.style?.borderWidth ? `${el.style.borderWidth}px` : undefined,
                     borderStyle: (el.style?.borderStyle as any) || (el.style?.borderWidth ? 'solid' : undefined),
@@ -5726,11 +6085,11 @@ export default function FlipexStudio() {
                               }}
                               title={`Jump to Page ${item.page_number}`}
                             >
-                              <span className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                              <span className="font-semibold text-slate-800 group-hover:text-sky-600 transition-colors">
                                 {item.title}
                               </span>
-                              <span className="flex-1 mx-2 border-b border-dotted border-slate-400 group-hover:border-indigo-400" />
-                              <span className="font-mono font-bold text-slate-900 group-hover:text-indigo-600">
+                              <span className="flex-1 mx-2 border-b border-dotted border-slate-400 group-hover:border-sky-400" />
+                              <span className="font-mono font-bold text-slate-900 group-hover:text-sky-600">
                                 {item.page_number}
                               </span>
                             </div>
@@ -5965,7 +6324,7 @@ export default function FlipexStudio() {
                 transition: 'all 0.2s',
                 background: inspectorTab === 'element' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent',
                 color: inspectorTab === 'element' ? '#ffffff' : '#94a3b8',
-                boxShadow: inspectorTab === 'element' ? '0 2px 8px rgba(99,102,241,0.3)' : 'none',
+                boxShadow: inspectorTab === 'element' ? '0 2px 8px rgba(14,116,144,0.3)' : 'none',
               }}
             >
               ✏️ Element {selectedElement ? '' : '(None)'}
@@ -5995,7 +6354,7 @@ export default function FlipexStudio() {
             selectedElement ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="font-bold uppercase tracking-wider text-indigo-400 text-[10px]">
+                  <span className="font-bold uppercase tracking-wider text-sky-400 text-[10px]">
                     {selectedElement.type.replace('_', ' ')} Element
                   </span>
                   <button
@@ -7908,7 +8267,7 @@ export default function FlipexStudio() {
       {/* PUBLISHED SUCCESS MODAL */}
       {publishModal?.open && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-indigo-500/40 rounded-3xl max-w-lg w-full p-8 shadow-2xl text-center relative text-white">
+          <div className="bg-slate-900 border border-sky-500/40 rounded-3xl max-w-lg w-full p-8 shadow-2xl text-center relative text-white">
             <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border border-emerald-500/30">
               ✓
             </div>
@@ -7918,7 +8277,7 @@ export default function FlipexStudio() {
             </p>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between mb-6">
-              <span className="font-mono text-xs text-indigo-300 truncate max-w-xs">{window.location.origin}{publishModal.url}</span>
+              <span className="font-mono text-xs text-sky-300 truncate max-w-xs">{window.location.origin}{publishModal.url}</span>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}${publishModal.url}`);
@@ -8244,7 +8603,7 @@ export default function FlipexStudio() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontWeight: 800, fontSize: '14px', color: '#ffffff' }}>{kit.name}</span>
                         {kit.is_default === 1 && (
-                          <span style={{ fontSize: '9px', fontWeight: 800, background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)', padding: '1px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 800, background: 'rgba(14,116,144,0.2)', color: '#a5b4fc', border: '1px solid rgba(14,116,144,0.4)', padding: '1px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
                             Default
                           </span>
                         )}
