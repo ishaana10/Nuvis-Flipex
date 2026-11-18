@@ -250,14 +250,16 @@ The following notable updates, bug fixes, and architectural hardening milestones
 - **Background Swatch Grid:** Replaced full-width white bars with clean 4-column color swatch grids.
 
 ### Release `2026-11-18` — Expansive Desktop Workspace, High-Contrast Inspector & 3-Gradient Studio Suite
-- **Full-Width Desktop Canvas Workspace:** Unconstrained the studio route from container limits (`.app-main-studio` with 100% viewport width and height), eliminating hundreds of pixels of blank margins on desktop monitors and doubling active canvas workspace size.
+- **Full-Width Desktop Canvas Workspace (Zero Margins):** Unconstrained the studio route from container limits (`.studio-shell`, `.studio-body`, `.app-main-studio` at `100vw` by `100vh`), automatically hiding the general dashboard sidebar rail and topbar when in studio canvas mode. Eliminates all side whitespace on desktop widescreen displays and maximizes creative canvas workspace.
 - **Auto-Fit Viewport Scaling:** Automatically scales canvas zoom on document load and panel collapse, maximizing document preview and visual ergonomics.
-- **High-Contrast Inspector Inputs:** Standardized `.studio-prop-input`, `.studio-prop-select`, `.studio-prop-textarea`, and `.studio-prop-label` with crisp white bold text (`#f8fafc`) on `#0b1120`, high-contrast borders, and glowing purple/indigo focus rings across both Light and Dark modes.
-- **3-Gradient Page Background Suite:** Replaced flat mono backgrounds with a full 3-gradient generator suite:
+- **High-Contrast Inspector Inputs & Typography:** Standardized `.studio-prop-input`, `.studio-prop-select`, `.studio-prop-textarea` with `-webkit-text-fill-color: #ffffff !important` and `#0f172a` slate background to prevent browser autofill or light mode darkening. Added a 1-tap `🌓 Flip Light/Dark` text contrast toggle, bright bold coordinate labels (`X (pt)`, `Y (pt)`, `W (pt)`, `H (pt)`), and 7 instant high-contrast text color swatches.
+- **3-Gradient Page Background Suite (Directly in Magazine Tab & Inspector):**
+  - **Embedded in Magazine Tools:** Instant access directly inside the `📖 Magazine` sidebar tab without needing to switch tabs or deselect elements.
   - **All 9 Gradient Alignment Options:** 3x3 interactive compass grid (`↖ 315°`, `⬆ 0°`, `↗ 45°`, `⬅ 270°`, `⊙ Radial Glow`, `➔ 90°`, `↙ 225°`, `⬇ 180°`, `↘ 135°`).
   - **3 Color Gradient Stops:** Independent color pickers and hex inputs for Stop 1 (0%), Stop 2 (50%), and Stop 3 (100%).
-  - **8 Curated Presets:** Instant 1-click palettes (Cosmic Aurora, Sunset Radiance, Tropical Emerald, Ocean Abyss, Royal Orchid, Clean Frost, Warm Parchment, Midnight Obsidian).
+  - **8 Curated Presets:** Instant 1-click palettes (Tropical Emerald, Cosmic Aurora, Sunset Radiance, Ocean Abyss, Royal Orchid, Clean Frost, Warm Parchment, Midnight Obsidian).
   - **Apply to All Pages:** 1-click batch application synchronizing background styling across the entire publication.
+  - **Adaptive High-Contrast Article Text:** Automatically defaults multi-column magazine articles and text blocks to crisp pure white (`#F8FAFC`) on dark/gradient backgrounds instead of hardcoded charcoal.
 - **Backend Print & PDF Export Support:** Upgraded `StudioController.php` print generator to render CSS gradients and solid backgrounds seamlessly in print previews and vector PDFs.
 
 ### Release Stage 6 — Specialized Magazine Creator & Publish/Preview Healing

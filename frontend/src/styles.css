@@ -5809,24 +5809,44 @@ html[data-theme="dark"] .studio-empty-desc {
    ========================================================================== */
 
 /* Full-width unconstrained studio layout - eliminates side whitespace on desktop */
+.studio-shell,
+.studio-body,
 .app-main-studio {
-  width: 100% !important;
-  max-width: 100% !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  min-width: 100vw !important;
   margin: 0 !important;
   padding: 0 !important;
   flex: 1 1 0% !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
-  min-height: calc(100vh - 58px) !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
   background: #090d16 !important;
+  box-sizing: border-box !important;
 }
 
 .app-shell:has(.app-main-studio),
 .app-body:has(.app-main-studio) {
   background: #090d16 !important;
-  width: 100% !important;
-  max-width: 100% !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  min-width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.flipex-studio-root {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #090d16 !important;
+  box-sizing: border-box !important;
 }
 
 /* Studio Inspector Property Input Fields (Always high-contrast crisp white typography) */
@@ -5836,6 +5856,7 @@ html[data-theme="dark"] .studio-empty-desc {
   background-color: #0f172a !important;
   border: 1px solid #475569 !important;
   color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   font-size: 12px !important;
   font-weight: 600 !important;
   border-radius: 6px !important;

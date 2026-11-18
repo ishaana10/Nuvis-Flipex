@@ -3588,8 +3588,9 @@ export default function FlipexStudio() {
       style={{
         display: 'grid',
         gridTemplateRows: bottomStripCollapsed ? '56px minmax(0, 1fr) 34px' : '56px minmax(0, 1fr) 115px',
-        height: 'calc(100vh - 58px)',
-        width: '100%',
+        height: '100vh',
+        width: '100vw',
+        maxWidth: '100vw',
         overflow: 'hidden',
         background: '#090d16',
         color: '#f8fafc',
@@ -4401,63 +4402,447 @@ export default function FlipexStudio() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="studio-tool-btn ocean"
-                  onClick={() =>
-                    addElement({
-                      type: 'column_text',
-                      content:
-                        'The warm afternoon breeze drifted across the coral reef, carrying the sound of gentle waves breaking over the outer barrier. In recent years, local marine conservation reserves have revived coral biodiversity across the island coastlines.\n\nVisitors and researchers from around the world gather to witness firsthand how community-led ecological stewardship creates sustainable balance. Every participant contributes to coral planting nurseries guided by village elders.',
-                      columns: 2,
-                      columnGutter: 24,
-                      dropCap: true,
-                      w: 500,
-                      h: 220,
-                      style: { fontSize: 13, color: '#334155', lineHeight: 1.6 },
-                    })
-                  }
-                >
-                  <span>📰</span> 2-Column Article with Drop-Cap
-                </button>
+                {/* Stage 6 & User Request: Magazine Page 3-Gradient & Background Suite */}
+                <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-300">🌈 Magazine Page Background</span>
+                    <span className="text-[10px] text-purple-400 font-bold uppercase">
+                      {activePage?.background?.type === 'gradient' ? '3-Gradient' : 'Solid Color'}
+                    </span>
+                  </div>
 
-                <button
-                  type="button"
-                  className="studio-tool-btn ocean"
-                  onClick={() =>
-                    addElement({
-                      type: 'column_text',
-                      content:
-                        'Pacific trade networks are experiencing unprecedented digital connectivity. Mobile payment systems and instant inventory sync allow artisans to reach global markets without leaving village shores.\n\nEco-friendly transport and cold-chain solar hubs ensure fresh harvests arrive at five-star resorts within hours of morning picking.',
-                      columns: 3,
-                      columnGutter: 18,
-                      w: 515,
-                      h: 200,
-                      style: { fontSize: 12, color: '#334155', lineHeight: 1.55 },
-                    })
-                  }
-                >
-                  <span>🗞️</span> 3-Column Magazine Spread
-                </button>
+                  {/* Mode Switcher */}
+                  <div style={{ display: 'flex', gap: '4px', background: '#0b1120', padding: '3px', borderRadius: '8px', border: '1px solid #1e293b' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBgMode('gradient');
+                        const s1 = activePage?.background?.stop1 || '#064e3b';
+                        const s2 = activePage?.background?.stop2 || '#059669';
+                        const s3 = activePage?.background?.stop3 || '#10b981';
+                        const ang = activePage?.background?.angle ?? 135;
+                        const css = buildGradientCss(s1, s2, s3, ang);
+                        const updated = [...pages];
+                        updated[activePageIndex] = {
+                          ...updated[activePageIndex],
+                          background: { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang },
+                        };
+                        setPages(updated);
+                        pushHistory(updated);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 4px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        background: (activePage?.background?.type === 'gradient' || bgMode === 'gradient')
+                          ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                          : 'transparent',
+                        color: (activePage?.background?.type === 'gradient' || bgMode === 'gradient') ? '#ffffff' : '#94a3b8',
+                      }}
+                    >
+                      🌈 3-Gradient
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBgMode('solid');
+                        const updated = [...pages];
+                        updated[activePageIndex] = {
+                          ...updated[activePageIndex],
+                          background: { type: 'color', value: '#064E3B' },
+                        };
+                        setPages(updated);
+                        pushHistory(updated);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 4px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        background: (activePage?.background?.type === 'color' && bgMode !== 'gradient')
+                          ? 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)'
+                          : 'transparent',
+                        color: (activePage?.background?.type === 'color' && bgMode !== 'gradient') ? '#ffffff' : '#94a3b8',
+                      }}
+                    >
+                      🎨 Solid Color
+                    </button>
+                  </div>
 
-                <button
-                  type="button"
-                  className="studio-tool-btn orchid"
-                  onClick={() =>
-                    addElement({
-                      type: 'text',
-                      content: 'BY ALISI TAVUA • SENIOR ENVIRONMENTAL FELLOW',
-                      authorName: 'Alisi Tavua',
-                      authorRole: 'Senior Environmental Fellow',
-                      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-                      w: 360,
-                      h: 40,
-                      style: { fontSize: 11, fontWeight: 'bold', color: '#0284C7', letterSpacing: '1px' },
-                    })
-                  }
-                >
-                  <span>✍️</span> Author Byline with Tag
-                </button>
+                  {/* Live Gradient Preview Swatch */}
+                  <div
+                    style={{
+                      height: '44px',
+                      borderRadius: '8px',
+                      background: activePage?.background?.value || 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #10b981 100%)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.8)',
+                        backdropFilter: 'blur(4px)',
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: '#ffffff',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                      }}
+                    >
+                      {activePage?.background?.type === 'gradient'
+                        ? (activePage?.background?.angle === 'radial' ? 'Radial Center Glow' : `${activePage?.background?.angle ?? 135}° Angle`)
+                        : (activePage?.background?.value || '#064E3B')}
+                    </span>
+                  </div>
+
+                  {/* 3 Color Pickers & 9 Alignment Directions */}
+                  {activePage?.background?.type === 'gradient' ? (
+                    <div className="space-y-2.5">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block mb-1">3 Color Stops:</span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {/* Stop 1 */}
+                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center">
+                            <span className="text-[9px] font-bold text-slate-400 block mb-1">Stop 1</span>
+                            <input
+                              type="color"
+                              value={activePage?.background?.stop1 || '#064e3b'}
+                              onChange={(e) => {
+                                const s1 = e.target.value;
+                                const s2 = activePage?.background?.stop2 || '#059669';
+                                const s3 = activePage?.background?.stop3 || '#10b981';
+                                const ang = activePage?.background?.angle ?? 135;
+                                const css = buildGradientCss(s1, s2, s3, ang);
+                                const updated = [...pages];
+                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
+                                setPages(updated);
+                              }}
+                              className="w-full h-6 rounded cursor-pointer border border-slate-700 bg-transparent"
+                            />
+                            <input
+                              type="text"
+                              value={activePage?.background?.stop1 || '#064e3b'}
+                              onChange={(e) => {
+                                const s1 = e.target.value;
+                                const s2 = activePage?.background?.stop2 || '#059669';
+                                const s3 = activePage?.background?.stop3 || '#10b981';
+                                const ang = activePage?.background?.angle ?? 135;
+                                const css = buildGradientCss(s1, s2, s3, ang);
+                                const updated = [...pages];
+                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
+                                setPages(updated);
+                              }}
+                              className="studio-prop-input font-mono text-[9px] uppercase mt-1 p-0.5 text-center"
+                            />
+                          </div>
+
+                          {/* Stop 2 */}
+                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center">
+                            <span className="text-[9px] font-bold text-slate-400 block mb-1">Stop 2</span>
+                            <input
+                              type="color"
+                              value={activePage?.background?.stop2 || '#059669'}
+                              onChange={(e) => {
+                                const s1 = activePage?.background?.stop1 || '#064e3b';
+                                const s2 = e.target.value;
+                                const s3 = activePage?.background?.stop3 || '#10b981';
+                                const ang = activePage?.background?.angle ?? 135;
+                                const css = buildGradientCss(s1, s2, s3, ang);
+                                const updated = [...pages];
+                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
+                                setPages(updated);
+                              }}
+                              className="w-full h-6 rounded cursor-pointer border border-slate-700 bg-transparent"
+                            />
+                            <input
+                              type="text"
+                              value={activePage?.background?.stop2 || '#059669'}
+                              onChange={(e) => {
+                                const s1 = activePage?.background?.stop1 || '#064e3b';
+                                const s2 = e.target.value;
+                                const s3 = activePage?.background?.stop3 || '#10b981';
+                                const ang = activePage?.background?.angle ?? 135;
+                                const css = buildGradientCss(s1, s2, s3, ang);
+                                const updated = [...pages];
+                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
+                                setPages(updated);
+                              }}
+                              className="studio-prop-input font-mono text-[9px] uppercase mt-1 p-0.5 text-center"
+                            />
+                          </div>
+
+                          {/* Stop 3 */}
+                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-center">
+                            <span className="text-[9px] font-bold text-slate-400 block mb-1">Stop 3</span>
+                            <input
+                              type="color"
+                              value={activePage?.background?.stop3 || '#10b981'}
+                              onChange={(e) => {
+                                const s1 = activePage?.background?.stop1 || '#064e3b';
+                                const s2 = activePage?.background?.stop2 || '#059669';
+                                const s3 = e.target.value;
+                                const ang = activePage?.background?.angle ?? 135;
+                                const css = buildGradientCss(s1, s2, s3, ang);
+                                const updated = [...pages];
+                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
+                                setPages(updated);
+                              }}
+                              className="w-full h-6 rounded cursor-pointer border border-slate-700 bg-transparent"
+                            />
+                            <input
+                              type="text"
+                              value={activePage?.background?.stop3 || '#10b981'}
+                              onChange={(e) => {
+                                const s1 = activePage?.background?.stop1 || '#064e3b';
+                                const s2 = activePage?.background?.stop2 || '#059669';
+                                const s3 = e.target.value;
+                                const ang = activePage?.background?.angle ?? 135;
+                                const css = buildGradientCss(s1, s2, s3, ang);
+                                const updated = [...pages];
+                                updated[activePageIndex].background = { type: 'gradient', value: css, stop1: s1, stop2: s2, stop3: s3, angle: ang };
+                                setPages(updated);
+                              }}
+                              className="studio-prop-input font-mono text-[9px] uppercase mt-1 p-0.5 text-center"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 9 Alignment Options Compass Grid */}
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
+                          Alignment &amp; Direction (9 Options):
+                        </span>
+                        <div className="studio-align-grid">
+                          {ALIGNMENT_OPTIONS.map((opt) => {
+                            const currentAngle = activePage?.background?.angle ?? 135;
+                            const isCurrent = currentAngle === opt.angle;
+                            return (
+                              <button
+                                key={String(opt.angle)}
+                                type="button"
+                                onClick={() => {
+                                  const s1 = activePage?.background?.stop1 || '#064e3b';
+                                  const s2 = activePage?.background?.stop2 || '#059669';
+                                  const s3 = activePage?.background?.stop3 || '#10b981';
+                                  const css = buildGradientCss(s1, s2, s3, opt.angle);
+                                  const updated = [...pages];
+                                  updated[activePageIndex].background = {
+                                    type: 'gradient',
+                                    value: css,
+                                    stop1: s1,
+                                    stop2: s2,
+                                    stop3: s3,
+                                    angle: opt.angle,
+                                  };
+                                  setPages(updated);
+                                }}
+                                className={`studio-align-btn ${isCurrent ? 'active' : ''}`}
+                                title={opt.label}
+                              >
+                                <span style={{ fontSize: '14px', lineHeight: 1 }}>{opt.icon}</span>
+                                <span style={{ fontSize: '9px', fontWeight: 700 }}>
+                                  {opt.angle === 'radial' ? 'Radial' : `${opt.angle}°`}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Instant Editorial Presets */}
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block mb-1">
+                          Curated Magazine Presets:
+                        </span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {GRADIENT_PRESETS.slice(0, 6).map((preset, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                const css = buildGradientCss(preset.stop1, preset.stop2, preset.stop3, preset.angle);
+                                const updated = [...pages];
+                                updated[activePageIndex].background = {
+                                  type: 'gradient',
+                                  value: css,
+                                  stop1: preset.stop1,
+                                  stop2: preset.stop2,
+                                  stop3: preset.stop3,
+                                  angle: preset.angle,
+                                };
+                                setPages(updated);
+                                pushHistory(updated);
+                              }}
+                              className="p-1.5 rounded-lg border border-slate-700 hover:border-purple-400 flex items-center gap-1.5 text-left text-[10px] text-white bg-slate-950 transition-colors"
+                            >
+                              <div
+                                style={{
+                                  width: '14px',
+                                  height: '14px',
+                                  borderRadius: '3px',
+                                  background: buildGradientCss(preset.stop1, preset.stop2, preset.stop3, preset.angle),
+                                  flexShrink: 0,
+                                }}
+                              />
+                              <span className="truncate">{preset.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Apply to all magazine pages */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!activePage?.background) return;
+                          const currentBg = activePage.background;
+                          const updated = pages.map((p) => ({ ...p, background: { ...currentBg } }));
+                          setPages(updated);
+                          pushHistory(updated);
+                          alert('Applied this 3-gradient to all magazine pages!');
+                        }}
+                        className="studio-tool-btn cosmic w-full text-center justify-center text-xs"
+                      >
+                        <span>🌟</span> Apply 3-Gradient to All Pages
+                      </button>
+                    </div>
+                  ) : (
+                    /* Solid Colors */
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Curated Colors:</span>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[
+                          { name: 'White', color: '#FFFFFF' },
+                          { name: 'Warm Cream', color: '#FDFBF7' },
+                          { name: 'Slate Light', color: '#F1F5F9' },
+                          { name: 'Dark Navy', color: '#0F172A' },
+                          { name: 'Midnight', color: '#090D16' },
+                          { name: 'Emerald Isle', color: '#064E3B' },
+                          { name: 'Royal Indigo', color: '#1E1B4B' },
+                          { name: 'Sunset Crimson', color: '#450A0A' },
+                        ].map((c, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              const updated = [...pages];
+                              updated[activePageIndex].background = { type: 'color', value: c.color };
+                              setPages(updated);
+                            }}
+                            style={{
+                              backgroundColor: c.color,
+                              height: '26px',
+                              borderRadius: '6px',
+                              border: activePage?.background?.value === c.color ? '2px solid #a855f7' : '1px solid #475569',
+                              cursor: 'pointer',
+                            }}
+                            title={c.name}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!activePage?.background) return;
+                          const currentBg = activePage.background;
+                          const updated = pages.map((p) => ({ ...p, background: { ...currentBg } }));
+                          setPages(updated);
+                          pushHistory(updated);
+                          alert('Applied solid color to all magazine pages!');
+                        }}
+                        className="studio-tool-btn ocean w-full text-center justify-center text-xs mt-1"
+                      >
+                        Apply Solid Color to All Pages
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-800">
+                  <span className="text-[11px] font-bold text-slate-300 block mb-2">📰 Article Layout Blocks:</span>
+                  <button
+                    type="button"
+                    className="studio-tool-btn ocean w-full mb-2"
+                    onClick={() => {
+                      const isDark = !activePage?.background?.value ||
+                        (activePage.background?.value && activePage.background.value.includes('gradient')) ||
+                        ['#064e3b', '#0f172a', '#090d16', '#1e1b4b', '#450a0a'].some((c) =>
+                          (activePage?.background?.value || '').toLowerCase().includes(c)
+                        );
+                      addElement({
+                        type: 'column_text',
+                        content:
+                          'The warm afternoon breeze drifted across the coral reef, carrying the sound of gentle waves breaking over the outer barrier. In recent years, local marine conservation reserves have revived coral biodiversity across the island coastlines.\n\nVisitors and researchers from around the world gather to witness firsthand how community-led ecological stewardship creates sustainable balance. Every participant contributes to coral planting nurseries guided by village elders.',
+                        columns: 2,
+                        columnGutter: 24,
+                        dropCap: true,
+                        w: 500,
+                        h: 220,
+                        style: { fontSize: 13, color: isDark ? '#FFFFFF' : '#1E293B', lineHeight: 1.6 },
+                      });
+                    }}
+                  >
+                    <span>📰</span> 2-Column Article with Drop-Cap
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn ocean w-full mb-2"
+                    onClick={() => {
+                      const isDark = !activePage?.background?.value ||
+                        (activePage.background?.value && activePage.background.value.includes('gradient')) ||
+                        ['#064e3b', '#0f172a', '#090d16', '#1e1b4b', '#450a0a'].some((c) =>
+                          (activePage?.background?.value || '').toLowerCase().includes(c)
+                        );
+                      addElement({
+                        type: 'column_text',
+                        content:
+                          'Pacific trade networks are experiencing unprecedented digital connectivity. Mobile payment systems and instant inventory sync allow artisans to reach global markets without leaving village shores.\n\nEco-friendly transport and cold-chain solar hubs ensure fresh harvests arrive at five-star resorts within hours of morning picking.',
+                        columns: 3,
+                        columnGutter: 18,
+                        w: 515,
+                        h: 200,
+                        style: { fontSize: 12, color: isDark ? '#FFFFFF' : '#1E293B', lineHeight: 1.55 },
+                      });
+                    }}
+                  >
+                    <span>🗞️</span> 3-Column Magazine Spread
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn orchid w-full"
+                    onClick={() =>
+                      addElement({
+                        type: 'text',
+                        content: 'BY ALISI TAVUA • SENIOR ENVIRONMENTAL FELLOW',
+                        authorName: 'Alisi Tavua',
+                        authorRole: 'Senior Environmental Fellow',
+                        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+                        w: 360,
+                        h: 40,
+                        style: { fontSize: 11, fontWeight: 'bold', color: '#0284C7', letterSpacing: '1px' },
+                      })
+                    }
+                  >
+                    <span>✍️</span> Author Byline with Tag
+                  </button>
+                </div>
 
                 {/* Stage 6: Master Pages & Dynamic Running Headers */}
                 <div className="pt-2 border-t border-slate-800">
@@ -5986,43 +6371,43 @@ export default function FlipexStudio() {
                   <label className="studio-prop-label">Position &amp; Dimensions</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }} className="font-mono">
                     <div>
-                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>X (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#f8fafc', fontWeight: 800, fontSize: '11px' }}>X (pt)</span>
                       <input
                         type="number"
-                        value={selectedElement.x}
+                        value={selectedElement.x ?? 0}
                         onChange={(e) => updateSelectedElement({ x: parseInt(e.target.value, 10) || 0 })}
                         className="studio-prop-input"
-                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569', fontWeight: 700, fontSize: '13px' }}
                       />
                     </div>
                     <div>
-                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>Y (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#f8fafc', fontWeight: 800, fontSize: '11px' }}>Y (pt)</span>
                       <input
                         type="number"
-                        value={selectedElement.y}
+                        value={selectedElement.y ?? 0}
                         onChange={(e) => updateSelectedElement({ y: parseInt(e.target.value, 10) || 0 })}
                         className="studio-prop-input"
-                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569', fontWeight: 700, fontSize: '13px' }}
                       />
                     </div>
                     <div>
-                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>W (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#f8fafc', fontWeight: 800, fontSize: '11px' }}>W (pt)</span>
                       <input
                         type="number"
-                        value={selectedElement.w}
+                        value={selectedElement.w ?? 20}
                         onChange={(e) => updateSelectedElement({ w: parseInt(e.target.value, 10) || 20 })}
                         className="studio-prop-input"
-                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569', fontWeight: 700, fontSize: '13px' }}
                       />
                     </div>
                     <div>
-                      <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>H (pt)</span>
+                      <span className="studio-prop-sublabel" style={{ color: '#f8fafc', fontWeight: 800, fontSize: '11px' }}>H (pt)</span>
                       <input
                         type="number"
-                        value={selectedElement.h}
+                        value={selectedElement.h ?? 20}
                         onChange={(e) => updateSelectedElement({ h: parseInt(e.target.value, 10) || 20 })}
                         className="studio-prop-input"
-                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
+                        style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569', fontWeight: 700, fontSize: '13px' }}
                       />
                     </div>
                   </div>
@@ -6390,11 +6775,27 @@ export default function FlipexStudio() {
 
                     {/* Text Color */}
                     <div>
-                      <label className="studio-prop-label">Text Color</label>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="studio-prop-label" style={{ margin: 0 }}>Text Color</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = (selectedElement.style?.color || '#FFFFFF').toUpperCase();
+                            const isDark = current === '#0F172A' || current === '#334155' || current === '#000000' || current === '#1E293B';
+                            updateSelectedElement({
+                              style: { ...selectedElement.style, color: isDark ? '#FFFFFF' : '#0F172A' },
+                            });
+                          }}
+                          className="text-[10px] text-amber-300 hover:text-amber-200 font-bold cursor-pointer"
+                          title="Flip between High-Contrast White and Dark Charcoal"
+                        >
+                          🌓 Flip Light/Dark
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5 mb-2">
                         <input
                           type="color"
-                          value={selectedElement.style?.color || '#0F172A'}
+                          value={selectedElement.style?.color && selectedElement.style.color.startsWith('#') ? selectedElement.style.color : '#FFFFFF'}
                           onChange={(e) =>
                             updateSelectedElement({
                               style: { ...selectedElement.style, color: e.target.value },
@@ -6404,15 +6805,42 @@ export default function FlipexStudio() {
                         />
                         <input
                           type="text"
-                          value={selectedElement.style?.color || '#0F172A'}
+                          value={selectedElement.style?.color || '#FFFFFF'}
                           onChange={(e) =>
                             updateSelectedElement({
                               style: { ...selectedElement.style, color: e.target.value },
                             })
                           }
                           className="studio-prop-input font-mono uppercase text-xs"
-                          style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569' }}
+                          style={{ color: '#ffffff', backgroundColor: '#0f172a', border: '1px solid #475569', fontWeight: 700 }}
                         />
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {[
+                          { label: 'White', color: '#FFFFFF', border: '#cbd5e1' },
+                          { label: 'Dark Slate', color: '#0F172A', border: '#475569' },
+                          { label: 'Amber Gold', color: '#F59E0B', border: '#d97706' },
+                          { label: 'Sky Blue', color: '#0284C7', border: '#0369a1' },
+                          { label: 'Emerald Green', color: '#10B981', border: '#059669' },
+                          { label: 'Cosmic Purple', color: '#A855F7', border: '#9333ea' },
+                          { label: 'Coral Crimson', color: '#EF4444', border: '#dc2626' },
+                        ].map((sw) => (
+                          <button
+                            key={sw.color}
+                            type="button"
+                            onClick={() => updateSelectedElement({ style: { ...selectedElement.style, color: sw.color } })}
+                            style={{
+                              backgroundColor: sw.color,
+                              border: `1.5px solid ${(selectedElement.style?.color || '#FFFFFF').toUpperCase() === sw.color ? '#ec4899' : sw.border}`,
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              boxShadow: (selectedElement.style?.color || '#FFFFFF').toUpperCase() === sw.color ? '0 0 0 2px #ec4899' : 'none',
+                            }}
+                            title={sw.label}
+                          />
+                        ))}
                       </div>
                     </div>
 

@@ -237,9 +237,10 @@ export function ProtectedRoute() {
   };
 
   return (
-    <div className={`app-shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-rail'}`}>
-      {/* LEFT VERTICAL SIDE NAVIGATION RAIL (Pic 2 Style + Extensible Modules) */}
-      <aside className="app-sidebar" aria-label="Primary Module Navigation">
+    <div className={`app-shell ${sidebarExpanded ? 'sidebar-expanded' : 'sidebar-rail'} ${isStudio ? 'studio-shell' : ''}`}>
+      {/* LEFT VERTICAL SIDE NAVIGATION RAIL (Pic 2 Style + Extensible Modules) - Hidden in Studio for Full Canvas Viewport */}
+      {!isStudio && (
+        <aside className="app-sidebar" aria-label="Primary Module Navigation">
         <div className="sidebar-brand">
           <Link to="/dashboard" className="sidebar-brand-link" title="Nuvis Flipex Home">
             <img src="/logo.png" alt="Nuvis Flipex" className="sidebar-logo-img" />
@@ -438,11 +439,13 @@ export function ProtectedRoute() {
           </Link>
         </div>
       </aside>
+      )}
 
       {/* MAIN CONTENT COLUMN */}
-      <div className="app-body">
-        {/* TOP HORIZONTAL HEADER BAR (Nuvis Flipex + Dynamic Tenant Provision on Left, Segmented Icons on Right) */}
-        <header className="app-topbar">
+      <div className={`app-body ${isStudio ? 'studio-body' : ''}`}>
+        {/* TOP HORIZONTAL HEADER BAR (Hidden in Studio for Full Canvas Viewport) */}
+        {!isStudio && (
+          <header className="app-topbar">
           {/* Left: Nuvis Flipex Brand + Dynamic Registered Tenant Name */}
           <div className="topbar-left">
             <Link to="/dashboard" className="topbar-brand-identity" onClick={() => setActiveModuleHub(null)}>
@@ -728,6 +731,7 @@ export function ProtectedRoute() {
             </div>
           </div>
         </header>
+        )}
 
         {/* EXTENSIBLE MODULES HUB / MEDIA LIBRARY DRAWER (When clicked in Left Side Nav) */}
         {activeModuleHub && (
