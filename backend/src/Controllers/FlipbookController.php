@@ -824,19 +824,15 @@ final class FlipbookController
         $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
 
         // Enqueue high-priority conversion job
-        $jobId = (int) Db::insert('jobs', [
-            'tenant_id' => $tenantId,
-            'flipbook_id' => (int) $f['id'],
-            'type' => 'convert_pdf',
-            'status' => 'queued',
-            'priority' => 10,
-            'attempts' => 0,
-            'progress' => 5,
-            'current_step' => 'Reconversion queued',
-            'payload' => json_encode(['flipbook_id' => (int) $f['id']]),
-            'run_at' => date('Y-m-d H:i:s'),
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
+        $jobId = Db::insert(
+            "INSERT INTO jobs (tenant_id, flipbook_id, type, status, priority, attempts, progress, current_step, payload, run_at, created_at)
+             VALUES (?, ?, 'convert_pdf', 'queued', 10, 0, 5, 'Reconversion queued', ?, NOW(), NOW())",
+            [
+                $tenantId,
+                (int) $f['id'],
+                json_encode(['flipbook_id' => (int) $f['id']]),
+            ]
+        );
 
         Db::run(
             "UPDATE flipbooks SET status = 'processing', conversion_progress = 5, conversion_step = 'Reconversion queued', conversion_error = NULL WHERE id = ?",
