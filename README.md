@@ -610,7 +610,7 @@ Run the test suites at any time via CLI:
 # Automated security and tenant isolation verification (24 invariants)
 php backend/bin/test_security.php
 
-# Flipex Design Schema (FDS v1.0), template library & studio controller tests (17 checks)
+# Flipex Design Schema (FDS v1.0), template library, commercial blocks & studio controller tests (29 checks)
 php backend/tests/StudioDesignSchemaTest.php
 ```
 

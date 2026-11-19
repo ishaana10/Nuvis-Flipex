@@ -159,9 +159,18 @@ final class FdsAdapter
                     'height' => (float) ($el['h'] ?? 100)
                 ];
 
+                $legacyType = (string) ($el['type'] ?? 'text');
+                if ($legacyType === 'imageFrame') {
+                    $legacyType = 'image';
+                } elseif ($legacyType === 'productCard') {
+                    $legacyType = 'product';
+                } elseif ($legacyType === 'article') {
+                    $legacyType = 'column_text';
+                }
+
                 $legacyEl = [
                     'id' => (string) ($el['id'] ?? uniqid('el_', true)),
-                    'type' => (string) ($el['type'] ?? 'text'),
+                    'type' => $legacyType,
                     'x' => (float) ($frame['x'] ?? 0),
                     'y' => (float) ($frame['y'] ?? 0),
                     'w' => (float) ($frame['width'] ?? 100),
@@ -172,11 +181,33 @@ final class FdsAdapter
                     'zIndex' => (int) ($el['zIndex'] ?? 1)
                 ];
 
+                // Preserve block-specific attributes for legacy consumers
+                $legacyPassthrough = [
+                    'name', 'price', 'originalPrice', 'badge', 'sku', 'stockStatus',
+                    'rating', 'whatsappNumber', 'showQrCode', 'image', 'src',
+                    'columns', 'columnGutter', 'dropCap', 'authorName', 'authorRole',
+                    'authorAvatar', 'kicker', 'subtitle', 'headline', 'description',
+                    'award', 'classYear', 'quote', 'photoUrl', 'students', 'albumPhotos',
+                    'tocItems', 'folioHeader', 'folioShowPage', 'sectionCategory',
+                    'objectFit', 'filterBrightness', 'filterContrast', 'filterSaturation',
+                    'filterGrayscale', 'filterBlur', 'shapeType', 'fillType', 'gradientFill',
+                    'linkedNextId', 'linkedPrevId'
+                ];
+                foreach ($legacyPassthrough as $key) {
+                    if (isset($el[$key])) {
+                        $legacyEl[$key] = $el[$key];
+                    }
+                }
+
                 // URL resolution for legacy image renderer
                 if (isset($el['assetRef']['url'])) {
                     $legacyEl['url'] = $el['assetRef']['url'];
+                    if (empty($legacyEl['src'])) $legacyEl['src'] = $el['assetRef']['url'];
+                    if (empty($legacyEl['image'])) $legacyEl['image'] = $el['assetRef']['url'];
                 } elseif (isset($el['url'])) {
                     $legacyEl['url'] = $el['url'];
+                    if (empty($legacyEl['src'])) $legacyEl['src'] = $el['url'];
+                    if (empty($legacyEl['image'])) $legacyEl['image'] = $el['url'];
                 }
 
                 $legacyElements[] = $legacyEl;
@@ -247,6 +278,10 @@ final class FdsAdapter
         $type = (string) ($el['type'] ?? 'text');
         if ($type === 'image') {
             $type = 'imageFrame';
+        } elseif ($type === 'product') {
+            $type = 'productCard';
+        } elseif ($type === 'column_text') {
+            $type = 'article';
         }
         $id = (string) ($el['id'] ?? ('el_' . ($index + 1)));
 
@@ -293,6 +328,24 @@ final class FdsAdapter
         // Additional high-level block properties
         if (isset($el['dataBinding'])) {
             $normalized['dataBinding'] = $el['dataBinding'];
+        }
+
+        // Preserve block attributes for commercial, editorial, yearbook, album, toc, and folio
+        $passthroughKeys = [
+            'name', 'price', 'originalPrice', 'badge', 'sku', 'stockStatus',
+            'rating', 'whatsappNumber', 'showQrCode', 'image', 'src',
+            'columns', 'columnGutter', 'dropCap', 'authorName', 'authorRole',
+            'authorAvatar', 'kicker', 'subtitle', 'headline', 'description',
+            'award', 'classYear', 'quote', 'photoUrl', 'students', 'albumPhotos',
+            'tocItems', 'folioHeader', 'folioShowPage', 'sectionCategory',
+            'objectFit', 'filterBrightness', 'filterContrast', 'filterSaturation',
+            'filterGrayscale', 'filterBlur', 'shapeType', 'fillType', 'gradientFill',
+            'linkedNextId', 'linkedPrevId'
+        ];
+        foreach ($passthroughKeys as $key) {
+            if (isset($el[$key])) {
+                $normalized[$key] = $el[$key];
+            }
         }
 
         return $normalized;

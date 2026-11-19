@@ -1309,9 +1309,10 @@ final class StudioController
                     $normW = max(1.0, min(100.0, round(($rawW / $docW) * 100, 2)));
                     $normH = max(1.0, min(100.0, round(($rawH / $docH) * 100, 2)));
 
-                    if ($type === 'product') {
+                    if ($type === 'product' || $type === 'productCard') {
                         $waNum = !empty($el['whatsappNumber']) ? preg_replace('/[^0-9]/', '', (string) $el['whatsappNumber']) : null;
                         $waUrl = $waNum ? 'https://wa.me/' . $waNum . '?text=' . urlencode('Bula! I would like to order: ' . ($el['name'] ?? 'Product') . ' (' . ($el['price'] ?? '') . ') SKU: ' . ($el['sku'] ?? 'N/A')) : null;
+                        $prodImg = $el['image'] ?? ($el['url'] ?? ($el['src'] ?? ($el['assetRef']['url'] ?? null)));
 
                         $payload = json_encode([
                             'title' => $el['name'] ?? 'Product',
@@ -1324,8 +1325,8 @@ final class StudioController
                             'whatsappPhone' => $el['whatsappNumber'] ?? null,
                             'whatsapp_url' => $waUrl,
                             'url' => $waUrl ?? ($el['linkUrl'] ?? null),
-                            'imageUrl' => $el['image'] ?? null,
-                            'image' => $el['image'] ?? null,
+                            'imageUrl' => $prodImg,
+                            'image' => $prodImg,
                             'description' => $el['description'] ?? '',
                             'rating' => $el['rating'] ?? 5,
                             'stock_status' => $el['stockStatus'] ?? 'in_stock',
@@ -1333,6 +1334,23 @@ final class StudioController
                         Db::run(
                             'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
                              VALUES (?, ?, "product", ?, ?, ?, ?, ?)',
+                            [$flipbookId, $pageNum, $normX, $normY, $normW, $normH, $payload]
+                        );
+                    } elseif ($type === 'studentCard') {
+                        $studentImg = $el['image'] ?? ($el['src'] ?? ($el['photoUrl'] ?? ($el['url'] ?? ($el['assetRef']['url'] ?? null))));
+                        $payload = json_encode([
+                            'title' => $el['name'] ?? 'Student Profile',
+                            'name' => $el['name'] ?? 'Student',
+                            'award' => $el['award'] ?? '',
+                            'class_year' => $el['classYear'] ?? '',
+                            'quote' => $el['quote'] ?? ($el['description'] ?? ''),
+                            'imageUrl' => $studentImg,
+                            'image' => $studentImg,
+                            'url' => $el['linkUrl'] ?? null,
+                        ]);
+                        Db::run(
+                            'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
+                             VALUES (?, ?, "link", ?, ?, ?, ?, ?)',
                             [$flipbookId, $pageNum, $normX, $normY, $normW, $normH, $payload]
                         );
                     } elseif ($type === 'whatsapp') {
@@ -1445,17 +1463,31 @@ final class StudioController
 
             foreach ($elements as $el) {
                 $type = $el['type'] ?? '';
-                $fontSize = (int) ($el['style']['fontSize'] ?? 14);
-                $content = trim((string) ($el['content'] ?? ''));
+                if ($type === 'toc') {
+                    continue; // Do not index the Table of Contents element itself
+                }
 
-                if ($content !== '' && ($type === 'text' || $type === 'column_text')) {
-                    if ($fontSize >= 20 && $foundHeading === null) {
-                        $foundHeading = $content;
-                    } elseif ($fontSize >= 15 && $foundSub === null && $foundHeading !== null) {
-                        $foundSub = $content;
+                $fontSize = (int) ($el['style']['fontSize'] ?? 14);
+                $content = trim((string) ($el['headline'] ?? ($el['content'] ?? '')));
+
+                if ($content !== '' && ($type === 'text' || $type === 'column_text' || $type === 'article' || $type === 'richText')) {
+                    $firstLine = trim(explode("\n", $content)[0]);
+                    if ($fontSize >= 18 && $foundHeading === null) {
+                        $foundHeading = !empty($el['kicker']) ? ($el['kicker'] . ': ' . $firstLine) : $firstLine;
+                        if (!empty($el['subtitle'])) {
+                            $foundSub = (string) $el['subtitle'];
+                        }
+                    } elseif ($fontSize >= 14 && $foundSub === null && $foundHeading !== null) {
+                        $foundSub = $firstLine;
+                    } elseif ($foundHeading === null) {
+                        $foundHeading = $firstLine;
                     }
-                } elseif ($type === 'product' && $foundHeading === null && !empty($el['name'])) {
+                } elseif (($type === 'product' || $type === 'productCard') && $foundHeading === null && !empty($el['name'])) {
                     $foundHeading = (string) $el['name'];
+                    $foundSub = !empty($el['price']) ? (string) $el['price'] : null;
+                } elseif ($type === 'studentCard' && $foundHeading === null && !empty($el['name'])) {
+                    $foundHeading = 'Profile: ' . (string) $el['name'];
+                    $foundSub = !empty($el['award']) ? (string) $el['award'] : (!empty($el['classYear']) ? (string) $el['classYear'] : null);
                 }
             }
 

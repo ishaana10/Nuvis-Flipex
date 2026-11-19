@@ -200,6 +200,107 @@ final class StudioDesignSchemaTest
         }
         $assertions['stock_library_zero_base64'] = $stockZeroBase64;
 
+        // 11. Sprint 3 Block Adapters & FDS Normalization
+        $specWithCommercialBlocks = [
+            'pages' => [
+                [
+                    'page_number' => 1,
+                    'elements' => [
+                        [
+                            'id' => 'prod_1',
+                            'type' => 'product',
+                            'name' => 'Island Kokoda Pack',
+                            'price' => '$22.50',
+                            'originalPrice' => '$28.00',
+                            'sku' => 'KOK-01',
+                            'whatsappNumber' => '+6799991234',
+                            'rating' => 5,
+                            'stockStatus' => 'in_stock',
+                            'badge' => 'FRESH',
+                            'image' => 'https://example.com/kokoda.jpg',
+                            'x' => 10, 'y' => 20, 'w' => 200, 'h' => 260
+                        ],
+                        [
+                          'id' => 'art_1',
+                          'type' => 'column_text',
+                          'kicker' => 'CORAL REEF SANCTUARY',
+                          'subtitle' => 'Marine conservation in Fiji archipelagos',
+                          'content' => 'The warm afternoon breeze drifted across the outer barrier...',
+                          'columns' => 2,
+                          'columnGutter' => 24,
+                          'dropCap' => true,
+                          'authorName' => 'Alisi Tavua',
+                          'x' => 10, 'y' => 300, 'w' => 500, 'h' => 250
+                        ],
+                        [
+                          'id' => 'stu_1',
+                          'type' => 'studentCard',
+                          'name' => 'Mereani Ravula',
+                          'award' => '🏆 Dux of Class 2026',
+                          'classYear' => 'Class of 2026',
+                          'quote' => 'Curiosity and integrity pave our path.',
+                          'photoUrl' => 'https://example.com/mereani.jpg',
+                          'x' => 10, 'y' => 560, 'w' => 240, 'h' => 280
+                        ]
+                    ]
+                ]
+            ]
+        ];
+
+        $adaptedBlocks = FdsAdapter::toFds($specWithCommercialBlocks);
+        $elMap = [];
+        foreach ($adaptedBlocks['pages'][0]['elements'] as $el) {
+            $elMap[$el['id']] = $el;
+        }
+
+        $assertions['fds_adapter_normalizes_product_and_article'] = (
+            isset($elMap['prod_1']) &&
+            $elMap['prod_1']['type'] === 'productCard' &&
+            $elMap['prod_1']['sku'] === 'KOK-01' &&
+            $elMap['prod_1']['whatsappNumber'] === '+6799991234' &&
+            isset($elMap['art_1']) &&
+            $elMap['art_1']['type'] === 'article' &&
+            $elMap['art_1']['dropCap'] === true &&
+            $elMap['art_1']['kicker'] === 'CORAL REEF SANCTUARY'
+        );
+
+        $assertions['fds_adapter_preserves_student_card'] = (
+            isset($elMap['stu_1']) &&
+            $elMap['stu_1']['type'] === 'studentCard' &&
+            $elMap['stu_1']['award'] === '🏆 Dux of Class 2026' &&
+            $elMap['stu_1']['classYear'] === 'Class of 2026'
+        );
+
+        $exportedLegacy = FdsAdapter::toLegacy($adaptedBlocks);
+        $legacyElMap = [];
+        foreach ($exportedLegacy['pages'][0]['elements'] as $el) {
+            $legacyElMap[$el['id']] = $el;
+        }
+
+        $assertions['fds_adapter_exports_backward_compatible_product_and_article'] = (
+            isset($legacyElMap['prod_1']) &&
+            $legacyElMap['prod_1']['type'] === 'product' &&
+            $legacyElMap['prod_1']['sku'] === 'KOK-01' &&
+            isset($legacyElMap['art_1']) &&
+            $legacyElMap['art_1']['type'] === 'column_text' &&
+            $legacyElMap['art_1']['dropCap'] === true &&
+            isset($legacyElMap['stu_1']) &&
+            $legacyElMap['stu_1']['award'] === '🏆 Dux of Class 2026'
+        );
+
+        // 12. StudioController TOC & Hotspot Endpoints Verification
+        $assertions['studiocontroller_generate_toc_exists'] = $ref->hasMethod('generateToc');
+        $controllerSrc = file_get_contents(dirname(__DIR__) . '/src/Controllers/StudioController.php');
+        $assertions['studiocontroller_generatetoc_recognizes_modern_fds_types'] = (
+            strpos($controllerSrc, "type === 'article'") !== false &&
+            strpos($controllerSrc, "type === 'productCard'") !== false &&
+            strpos($controllerSrc, "type === 'studentCard'") !== false
+        );
+        $assertions['studiocontroller_hotspots_recognize_productcard_and_studentcard'] = (
+            strpos($controllerSrc, "type === 'productCard'") !== false &&
+            strpos($controllerSrc, "type === 'studentCard'") !== false
+        );
+
         return $assertions;
     }
 }

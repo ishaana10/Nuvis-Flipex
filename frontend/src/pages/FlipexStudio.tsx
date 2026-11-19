@@ -113,14 +113,21 @@ export interface CanvasElement {
   showQrCode?: boolean;
 
   // Magazine & Editorial properties
-  columns?: number; // 2 or 3
+  columns?: number; // 1, 2 or 3
   columnGutter?: number;
   dropCap?: boolean;
+  kicker?: string;
+  subtitle?: string;
+  headline?: string;
   authorName?: string;
   authorRole?: string;
   authorAvatar?: string;
 
   // Yearbook properties
+  award?: string;
+  classYear?: string;
+  quote?: string;
+  photoUrl?: string;
   students?: StudentProfile[];
 
   // Photo Album properties
@@ -362,10 +369,11 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
     const h = el.h || 50;
     const rot = el.rotation || 0;
     const transform = rot ? `transform="rotate(${rot} ${x + w / 2} ${y + h / 2})"` : '';
+    const imgSrc = el.src || el.image || el.url || el.assetRef?.url || '';
 
-    if (el.type === 'image' && el.src) {
-      elementsSvg += `<g ${transform}><image href="${el.src}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" /></g>`;
-    } else if (el.type === 'text' || el.type === 'column_text') {
+    if ((el.type === 'image' || el.type === 'imageFrame') && imgSrc) {
+      elementsSvg += `<g ${transform}><image href="${imgSrc}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" /></g>`;
+    } else if (el.type === 'text' || el.type === 'column_text' || el.type === 'article' || el.type === 'richText') {
       const color = el.style?.color || '#0f172a';
       const fs = el.style?.fontSize || 14;
       const fw = el.style?.fontWeight || 'normal';
@@ -374,20 +382,67 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+      const kickerHtml = el.kicker ? `<div style="font-size: 10px; font-weight: bold; color: #0284c7; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">${el.kicker.replace(/&/g, '&amp;')}</div>` : '';
+      const subHtml = el.subtitle ? `<div style="font-size: 12px; font-style: italic; color: #64748b; margin-bottom: 6px;">${el.subtitle.replace(/&/g, '&amp;')}</div>` : '';
+      const bylineHtml = el.authorName ? `<div style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">BY ${el.authorName.replace(/&/g, '&amp;').toUpperCase()}${el.authorRole ? ` • ${el.authorRole.replace(/&/g, '&amp;')}` : ''}</div>` : '';
+      const cols = (el.type === 'column_text' || el.type === 'article') ? (el.columns || 2) : 1;
+      const gutter = el.columnGutter || 20;
+
       elementsSvg += `<g ${transform}><foreignObject x="${x}" y="${y}" width="${w}" height="${h}">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="color: ${color}; font-size: ${fs}px; font-weight: ${fw}; font-family: ${ff}; line-height: 1.4; word-wrap: break-word;">
-          ${text.replace(/\n/g, '<br/>')}
+        <div xmlns="http://www.w3.org/1999/xhtml" style="color: ${color}; font-size: ${fs}px; font-weight: ${fw}; font-family: ${ff}; line-height: 1.5; word-wrap: break-word; column-count: ${cols}; column-gap: ${gutter}px; height: 100%; box-sizing: border-box;">
+          ${kickerHtml}${subHtml}${bylineHtml}${text.replace(/\n/g, '<br/>')}
         </div>
       </foreignObject></g>`;
-    } else if (el.type === 'product') {
+    } else if (el.type === 'product' || el.type === 'productCard') {
       const name = (el.name || 'Product').replace(/&/g, '&amp;');
       const price = (el.price || '').replace(/&/g, '&amp;');
-      const img = el.image || '';
+      const sku = (el.sku || '').replace(/&/g, '&amp;');
+      const img = imgSrc;
       elementsSvg += `<g ${transform}>
         <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
-        ${img ? `<image href="${img}" x="${x + 8}" y="${y + 8}" width="${w - 16}" height="${h * 0.55}" preserveAspectRatio="xMidYMid slice"/>` : ''}
-        <text x="${x + 12}" y="${y + h * 0.65}" font-size="12" font-weight="bold" fill="#0f172a" font-family="sans-serif">${name}</text>
-        <text x="${x + 12}" y="${y + h * 0.78}" font-size="14" font-weight="bold" fill="#dc2626" font-family="sans-serif">${price}</text>
+        ${img ? `<image href="${img}" x="${x + 8}" y="${y + 8}" width="${w - 16}" height="${h * 0.52}" preserveAspectRatio="xMidYMid slice"/>` : ''}
+        <text x="${x + 12}" y="${y + h * 0.62}" font-size="12" font-weight="bold" fill="#0f172a" font-family="sans-serif">${name}</text>
+        ${sku ? `<text x="${x + w - 12}" y="${y + h * 0.62}" font-size="9" fill="#64748b" text-anchor="end" font-family="monospace">${sku}</text>` : ''}
+        <text x="${x + 12}" y="${y + h * 0.74}" font-size="14" font-weight="bold" fill="#dc2626" font-family="sans-serif">${price}</text>
+        <rect x="${x + 10}" y="${y + h * 0.81}" width="${w - 20}" height="28" rx="6" fill="#059669"/>
+        <text x="${x + w / 2}" y="${y + h * 0.81 + 18}" font-size="11" font-weight="bold" fill="#ffffff" text-anchor="middle" font-family="sans-serif">💬 WhatsApp Order</text>
+      </g>`;
+    } else if (el.type === 'studentCard') {
+      const sName = (el.name || 'Student Name').replace(/&/g, '&amp;');
+      const sAward = (el.award || '').replace(/&/g, '&amp;');
+      const sQuote = (el.quote || el.description || '').replace(/&/g, '&amp;');
+      const img = imgSrc || el.photoUrl || '';
+      elementsSvg += `<g ${transform}>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+        ${sAward ? `<rect x="${x + w - 100}" y="${y + 10}" width="90" height="20" rx="10" fill="#f59e0b"/><text x="${x + w - 55}" y="${y + 24}" font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle" font-family="sans-serif">${sAward}</text>` : ''}
+        ${img ? `<clipPath id="sc_clip_${el.id}"><circle cx="${x + w / 2}" cy="${y + 60}" r="40"/></clipPath><image href="${img}" x="${x + w / 2 - 40}" y="${y + 20}" width="80" height="80" clip-path="url(#sc_clip_${el.id})" preserveAspectRatio="xMidYMid slice"/>` : ''}
+        <text x="${x + w / 2}" y="${y + 125}" font-size="13" font-weight="bold" fill="#0f172a" text-anchor="middle" font-family="sans-serif">${sName}</text>
+        ${sQuote ? `<text x="${x + w / 2}" y="${y + 145}" font-size="10" font-style="italic" fill="#475569" text-anchor="middle" font-family="serif">“${sQuote.slice(0, 45)}…”</text>` : ''}
+      </g>`;
+    } else if (el.type === 'toc') {
+      const title = (el.content || 'TABLE OF CONTENTS').replace(/&/g, '&amp;');
+      const items = el.tocItems || [];
+      let itemsSvg = '';
+      items.forEach((item, idx) => {
+        const rowY = y + 50 + idx * 24;
+        const itemTitle = (item.title || `Chapter ${idx + 1}`).replace(/&/g, '&amp;');
+        const pNum = item.page_number || (idx + 1);
+        itemsSvg += `<text x="${x + 20}" y="${rowY}" font-size="11" font-weight="600" fill="#1e293b" font-family="sans-serif">${itemTitle}</text>
+          <line x1="${x + 180}" y1="${rowY - 2}" x2="${x + w - 45}" y2="${rowY - 2}" stroke="#94a3b8" stroke-dasharray="2,3"/>
+          <text x="${x + w - 20}" y="${rowY}" font-size="11" font-weight="bold" fill="#0284c7" text-anchor="end" font-family="monospace">${pNum}</text>`;
+      });
+      elementsSvg += `<g ${transform}>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="${x + 20}" y="${y + 30}" font-size="15" font-weight="bold" fill="#0f172a" font-family="sans-serif">${title}</text>
+        <line x1="${x + 20}" y1="${y + 38}" x2="${x + w - 20}" y2="${y + 38}" stroke="#e2e8f0"/>
+        ${itemsSvg}
+      </g>`;
+    } else if (el.type === 'folio') {
+      const headerText = (el.folioHeader || 'Nuvis Flipex Publication').replace(/&/g, '&amp;');
+      elementsSvg += `<g ${transform}>
+        <line x1="${x}" y1="${y + 2}" x2="${x + w}" y2="${y + 2}" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="${x}" y="${y + 14}" font-size="9" fill="#94a3b8" font-family="monospace">${headerText}</text>
+        ${el.folioShowPage ? `<text x="${x + w}" y="${y + 14}" font-size="9" fill="#94a3b8" text-anchor="end" font-family="monospace">Page ${page.page_number}</text>` : ''}
       </g>`;
     } else if (el.type === 'shape') {
       const fill = el.style?.backgroundColor || '#0284c7';
@@ -3022,7 +3077,7 @@ export default function FlipexStudio() {
 
     return (
       <div className="studio-container">
-        {/* Header Banner - High-contrast Deep Indigo / Slate */}
+        {/* Header Banner - High-contrast Deep Ocean / Slate */}
         <div className="studio-hero-banner">
           <div style={{ position: 'absolute', top: 0, right: 0, width: '380px', height: '380px', background: 'radial-gradient(circle, rgba(14,116,144,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
@@ -4618,19 +4673,24 @@ export default function FlipexStudio() {
                           (activePage?.background?.value || '').toLowerCase().includes(c)
                         );
                       addElement({
-                        type: 'column_text',
+                        type: 'article',
+                        kicker: 'PACIFIC CONSERVATION INITIATIVE',
+                        subtitle: 'Community-led marine sanctuaries expand biodiversity across the archipelago.',
                         content:
                           'The warm afternoon breeze drifted across the coral reef, carrying the sound of gentle waves breaking over the outer barrier. In recent years, local marine conservation reserves have revived coral biodiversity across the island coastlines.\n\nVisitors and researchers from around the world gather to witness firsthand how community-led ecological stewardship creates sustainable balance. Every participant contributes to coral planting nurseries guided by village elders.',
                         columns: 2,
                         columnGutter: 24,
                         dropCap: true,
+                        authorName: 'Alisi Tavua',
+                        authorRole: 'Marine Ecology Fellow',
+                        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
                         w: 500,
-                        h: 220,
+                        h: 240,
                         style: { fontSize: 13, color: isDark ? '#FFFFFF' : '#1E293B', lineHeight: 1.6 },
                       });
                     }}
                   >
-                    <span>📰</span> 2-Column Article with Drop-Cap
+                    <span>📰</span> 2-Column Article (Drop-Cap + Byline)
                   </button>
 
                   <button
@@ -4643,7 +4703,8 @@ export default function FlipexStudio() {
                           (activePage?.background?.value || '').toLowerCase().includes(c)
                         );
                       addElement({
-                        type: 'column_text',
+                        type: 'article',
+                        kicker: 'GLOBAL TRADE DIGEST',
                         content:
                           'Pacific trade networks are experiencing unprecedented digital connectivity. Mobile payment systems and instant inventory sync allow artisans to reach global markets without leaving village shores.\n\nEco-friendly transport and cold-chain solar hubs ensure fresh harvests arrive at five-star resorts within hours of morning picking.',
                         columns: 3,
@@ -4659,7 +4720,7 @@ export default function FlipexStudio() {
 
                   <button
                     type="button"
-                    className="studio-tool-btn orchid w-full"
+                    className="studio-tool-btn orchid w-full mb-2"
                     onClick={() =>
                       addElement({
                         type: 'text',
@@ -4675,6 +4736,23 @@ export default function FlipexStudio() {
                   >
                     <span>✍️</span> Author Byline with Tag
                   </button>
+
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      className="studio-tool-btn sunset w-full"
+                      onClick={handleAutoGenerateToc}
+                    >
+                      <span>📑</span> Insert TOC
+                    </button>
+                    <button
+                      type="button"
+                      className="studio-tool-btn cosmic w-full"
+                      onClick={handleAddRunningFolio}
+                    >
+                      <span>📄</span> Add Folio
+                    </button>
+                  </div>
                 </div>
 
                 {/* Stage 6: Master Pages & Dynamic Running Headers */}
@@ -4842,6 +4920,27 @@ export default function FlipexStudio() {
                     <span>👥</span> 12-Student (3x4)
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  className="studio-tool-btn ocean w-full mb-1.5"
+                  onClick={() =>
+                    addElement({
+                      type: 'studentCard',
+                      name: 'Mereani Ravula',
+                      award: '🏆 Dux of Class 2026',
+                      classYear: 'Class of 2026 • Form 7 Arts',
+                      quote: 'Integrity, resilience, and curiosity will forever guide our voyage beyond these island shores.',
+                      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+                      src: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+                      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+                      w: 240,
+                      h: 290,
+                    })
+                  }
+                >
+                  <span>🎓</span> Single Student Profile Card
+                </button>
 
                 <button
                   type="button"
@@ -5957,14 +6056,35 @@ export default function FlipexStudio() {
                   })()}
 
                   {/* MULTI-COLUMN ARTICLE WITH DROP-CAP (MAGAZINE) */}
-                  {el.type === 'column_text' && (() => {
+                  {(el.type === 'column_text' || el.type === 'article') && (() => {
                     const eff = getEffectiveTextForElement(el, activePageIndex + 1);
                     return (
-                      <>
+                      <div className="w-full h-full flex flex-col justify-start overflow-hidden">
+                        {el.kicker && (
+                          <div className="text-[10px] font-bold tracking-widest text-sky-600 uppercase mb-1 flex-shrink-0">
+                            {el.kicker}
+                          </div>
+                        )}
+                        {el.subtitle && (
+                          <div className="text-xs font-medium text-slate-500 italic mb-2 flex-shrink-0">
+                            {el.subtitle}
+                          </div>
+                        )}
+                        {(el.authorName || el.authorRole || el.authorAvatar) && (
+                          <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-200 flex-shrink-0">
+                            {el.authorAvatar && (
+                              <img src={el.authorAvatar} alt={el.authorName || 'Author'} className="w-6 h-6 rounded-full object-cover" />
+                            )}
+                            <div className="text-[10px] leading-tight">
+                              <span className="font-bold text-slate-800">{el.authorName || 'Staff Writer'}</span>
+                              {el.authorRole && <span className="text-slate-500 ml-1.5">• {el.authorRole}</span>}
+                            </div>
+                          </div>
+                        )}
                         <div
                           style={{
                             width: '100%',
-                            height: '100%',
+                            flex: 1,
                             columnCount: el.columns || 2,
                             columnGap: `${el.columnGutter || 20}px`,
                             fontSize: `${el.style?.fontSize || 13}px`,
@@ -6008,7 +6128,7 @@ export default function FlipexStudio() {
                             🔗 Flow In
                           </div>
                         )}
-                      </>
+                      </div>
                     );
                   })()}
 
@@ -6132,7 +6252,7 @@ export default function FlipexStudio() {
                   )}
 
                   {/* PRODUCT CARD ELEMENT (STAGE 3 COMMERCIAL SPECS) */}
-                  {el.type === 'product' && (
+                  {(el.type === 'product' || el.type === 'productCard') && (
                     <div className="w-full h-full bg-white rounded-2xl border border-slate-200 shadow-md p-3 flex flex-col justify-between overflow-hidden relative text-slate-900">
                       {el.badge && (
                         <div className="absolute top-3 left-3 z-10">
@@ -6156,11 +6276,11 @@ export default function FlipexStudio() {
                           </span>
                         </div>
                       )}
-                      {el.image && (
-                        <div className="h-36 w-full rounded-xl overflow-hidden bg-slate-50 mb-2 mt-4">
+                      {(el.image || el.url || el.src || el.assetRef?.url) && (
+                        <div className="h-36 w-full rounded-xl overflow-hidden bg-slate-50 mb-2 mt-4 flex-shrink-0">
                           <img
-                            src={el.image}
-                            alt={el.name}
+                            src={el.image || el.url || el.src || el.assetRef?.url}
+                            alt={el.name || 'Product'}
                             className="w-full h-full"
                             style={{
                               objectFit: el.objectFit || 'cover',
@@ -6170,7 +6290,14 @@ export default function FlipexStudio() {
                         </div>
                       )}
                       <div>
-                        <h4 className="font-bold text-xs line-clamp-2 text-slate-800">{el.name}</h4>
+                        <div className="flex items-center justify-between gap-1">
+                          <h4 className="font-bold text-xs line-clamp-2 text-slate-800 flex-1">{el.name || 'Product'}</h4>
+                          {el.sku && (
+                            <span className="text-[9px] font-mono font-semibold bg-slate-100 text-slate-500 px-1 py-0.5 rounded border border-slate-200 flex-shrink-0">
+                              {el.sku}
+                            </span>
+                          )}
+                        </div>
                         {el.description && (
                           <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5">{el.description}</p>
                         )}
@@ -6183,19 +6310,33 @@ export default function FlipexStudio() {
                           </div>
                         )}
                         <div className="flex items-baseline gap-2 mt-1">
-                          <span className="text-base font-extrabold text-red-600">{el.price}</span>
+                          <span className="text-base font-extrabold text-red-600">{el.price || '$0.00'}</span>
                           {el.originalPrice && (
                             <span className="text-xs text-slate-400 line-through">{el.originalPrice}</span>
                           )}
                         </div>
                       </div>
                       <div className="mt-2 flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          className="flex-1 py-1.5 studio-gradient-btn emerald rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
+                        <a
+                          href={
+                            el.whatsappNumber
+                              ? `https://wa.me/${el.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                  `Bula! I would like to order: ${el.name || 'Product'} (${el.price || ''}) SKU: ${el.sku || 'N/A'}`
+                                )}`
+                              : '#'
+                          }
+                          target={el.whatsappNumber ? '_blank' : undefined}
+                          rel="noreferrer"
+                          onClick={(e) => {
+                            if (!el.whatsappNumber) {
+                              e.preventDefault();
+                              alert('Configure WhatsApp number in the right inspector to enable 1-tap ordering.');
+                            }
+                          }}
+                          className="flex-1 py-1.5 studio-gradient-btn emerald rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-sm text-white no-underline"
                         >
                           <span>💬</span> WhatsApp Order
-                        </button>
+                        </a>
                         {el.showQrCode && (
                           <div
                             className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-300 flex items-center justify-center text-xs"
@@ -6204,6 +6345,42 @@ export default function FlipexStudio() {
                             📱
                           </div>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STUDENT PROFILE CARD ELEMENT (STAGE 4 YEARBOOK) */}
+                  {el.type === 'studentCard' && (
+                    <div className="w-full h-full bg-white rounded-2xl border border-slate-200 shadow-md p-4 flex flex-col items-center justify-between overflow-hidden relative text-slate-900 text-center">
+                      {el.award && (
+                        <div className="absolute top-3 right-3 z-10">
+                          <span className="px-2 py-0.5 bg-amber-500 text-white rounded-full text-[9px] font-extrabold uppercase shadow">
+                            {el.award}
+                          </span>
+                        </div>
+                      )}
+                      <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-sky-500 shadow-md my-2 bg-slate-100 flex-shrink-0">
+                        <img
+                          src={el.image || el.src || el.photoUrl || el.url || el.assetRef?.url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                          alt={el.name || 'Student'}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="w-full flex-1 flex flex-col justify-center">
+                        <h4 className="font-bold text-sm text-slate-900 truncate">{el.name || 'Student Name'}</h4>
+                        {el.classYear && (
+                          <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wider block mt-0.5">
+                            {el.classYear}
+                          </span>
+                        )}
+                        {(el.quote || el.description) && (
+                          <p className="text-[11px] text-slate-600 font-serif italic line-clamp-3 mt-2 px-2 leading-snug">
+                            &ldquo;{el.quote || el.description}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                      <div className="w-full pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-400">
+                        {currentDoc?.title || 'Graduating Class'}
                       </div>
                     </div>
                   )}
@@ -6548,7 +6725,7 @@ export default function FlipexStudio() {
                    ========================================================== */}
 
                 {/* TYPOGRAPHY SUITE */}
-                {(selectedElement.type === 'text' || selectedElement.type === 'badge' || selectedElement.type === 'column_text') && (
+                {(selectedElement.type === 'text' || selectedElement.type === 'badge' || selectedElement.type === 'column_text' || selectedElement.type === 'article' || selectedElement.type === 'richText') && (
                   <div className="studio-inspector-section">
                     <span className="studio-section-title">✍️ Typography &amp; Content</span>
 
@@ -6867,9 +7044,63 @@ export default function FlipexStudio() {
                     </div>
 
                     {/* Magazine Multi-Column & Drop-Cap */}
-                    {selectedElement.type === 'column_text' && (
+                    {(selectedElement.type === 'column_text' || selectedElement.type === 'article') && (
                       <div className="pt-2 border-t border-slate-800 space-y-2">
+                        <div>
+                          <label className="studio-prop-label">Editorial Kicker (Top Category)</label>
+                          <input
+                            type="text"
+                            value={selectedElement.kicker || ''}
+                            onChange={(e) => updateSelectedElement({ kicker: e.target.value })}
+                            className="studio-prop-input uppercase font-bold"
+                            style={{ color: '#38bdf8' }}
+                            placeholder="e.g. PACIFIC CONSERVATION REPORT"
+                          />
+                        </div>
+                        <div>
+                          <label className="studio-prop-label">Deck / Standfirst Subtitle</label>
+                          <input
+                            type="text"
+                            value={selectedElement.subtitle || ''}
+                            onChange={(e) => updateSelectedElement({ subtitle: e.target.value })}
+                            className="studio-prop-input italic"
+                            placeholder="e.g. How community sanctuaries are revitalizing coastal ecosystems."
+                          />
+                        </div>
                         <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="studio-prop-label">Author Name</label>
+                            <input
+                              type="text"
+                              value={selectedElement.authorName || ''}
+                              onChange={(e) => updateSelectedElement({ authorName: e.target.value })}
+                              className="studio-prop-input"
+                              placeholder="e.g. Alisi Tavua"
+                            />
+                          </div>
+                          <div>
+                            <label className="studio-prop-label">Author Role</label>
+                            <input
+                              type="text"
+                              value={selectedElement.authorRole || ''}
+                              onChange={(e) => updateSelectedElement({ authorRole: e.target.value })}
+                              className="studio-prop-input"
+                              placeholder="e.g. Marine Biologist"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="studio-prop-label">Author Avatar Photo URL</label>
+                          <input
+                            type="text"
+                            value={selectedElement.authorAvatar || ''}
+                            onChange={(e) => updateSelectedElement({ authorAvatar: e.target.value })}
+                            className="studio-prop-input"
+                            placeholder="https://..."
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1">
                           <div>
                             <span className="studio-prop-sublabel" style={{ color: '#cbd5e1', fontWeight: 700 }}>Columns</span>
                             <select
@@ -6912,7 +7143,7 @@ export default function FlipexStudio() {
                     )}
 
                     {/* Stage 6: Linked Text Frame Controls (Overflow Flow) */}
-                    {(selectedElement.type === 'text' || selectedElement.type === 'column_text') && (
+                    {(selectedElement.type === 'text' || selectedElement.type === 'column_text' || selectedElement.type === 'article' || selectedElement.type === 'richText') && (
                       <div className="pt-2.5 border-t border-slate-800 space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="studio-prop-label mb-0">🔗 Linked Frame (Story Flow)</label>
@@ -7443,7 +7674,7 @@ export default function FlipexStudio() {
                 )}
 
                 {/* COMMERCIAL PRODUCT CARD SUITE (STAGE 3) */}
-                {selectedElement.type === 'product' && (
+                {(selectedElement.type === 'product' || selectedElement.type === 'productCard') && (
                   <div className="studio-inspector-section">
                     <span className="studio-section-title">🛒 Commercial Product &amp; WhatsApp Specs</span>
 
@@ -7479,6 +7710,29 @@ export default function FlipexStudio() {
                           className="studio-prop-input text-slate-400"
                           placeholder="$79.00"
                         />
+                      </div>
+                    </div>
+
+                    {/* Product SKU */}
+                    <div>
+                      <label className="studio-prop-label">SKU / Product Code</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={selectedElement.sku || ''}
+                          onChange={(e) => updateSelectedElement({ sku: e.target.value })}
+                          className="studio-prop-input font-mono flex-1 uppercase"
+                          placeholder="e.g. SKU-PAC-001"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateSelectedElement({ sku: `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}` })}
+                          className="studio-tool-btn ocean"
+                          style={{ padding: '4px 8px', fontSize: '10px' }}
+                          title="Generate Unique SKU"
+                        >
+                          🎲 Gen
+                        </button>
                       </div>
                     </div>
 
@@ -7547,11 +7801,25 @@ export default function FlipexStudio() {
                       <label className="studio-prop-label">Product Image URL</label>
                       <input
                         type="text"
-                        value={selectedElement.image || ''}
-                        onChange={(e) => updateSelectedElement({ image: e.target.value })}
+                        value={selectedElement.image || selectedElement.url || ''}
+                        onChange={(e) => updateSelectedElement({ image: e.target.value, url: e.target.value })}
                         className="studio-prop-input"
                         placeholder="https://..."
                       />
+                      <div className="flex gap-1 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssetTab('stock');
+                            setAssetCategory('retail');
+                            setAssetModalOpen(true);
+                          }}
+                          className="studio-tool-btn ocean w-full text-center"
+                          style={{ padding: '4px 8px', fontSize: '10px' }}
+                        >
+                          🛒 Pick FMCG from Pacific Stock Library
+                        </button>
+                      </div>
                     </div>
 
                     {/* WhatsApp 1-Tap Ordering */}
@@ -7607,6 +7875,274 @@ export default function FlipexStudio() {
                         <span>💬</span> Test WhatsApp Ordering Link ↗
                       </a>
                     )}
+                  </div>
+                )}
+
+                {/* STUDENT PROFILE & HONORS (YEARBOOK) */}
+                {selectedElement.type === 'studentCard' && (
+                  <div className="studio-inspector-section">
+                    <span className="studio-section-title">🎓 Student Profile &amp; Honors</span>
+
+                    <div>
+                      <label className="studio-prop-label">Student Full Name</label>
+                      <input
+                        type="text"
+                        value={selectedElement.name || ''}
+                        onChange={(e) => updateSelectedElement({ name: e.target.value })}
+                        className="studio-prop-input font-bold"
+                        placeholder="e.g. Mereani Ravula"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="studio-prop-label">Academic Honors / Award</label>
+                      <input
+                        type="text"
+                        value={selectedElement.award || ''}
+                        onChange={(e) => updateSelectedElement({ award: e.target.value })}
+                        className="studio-prop-input font-bold"
+                        style={{ color: '#fbbf24' }}
+                        placeholder="e.g. 🏆 Dux of Class 2026"
+                      />
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {['🏆 Dux of Class', '🥇 Gold Medalist', '⭐ Head Prefect', '🌟 Academic Excellence', '🎖️ Sports Captain'].map((awardPreset) => (
+                          <button
+                            key={awardPreset}
+                            type="button"
+                            onClick={() => updateSelectedElement({ award: awardPreset })}
+                            className="studio-tool-btn ocean"
+                            style={{ padding: '2px 5px', fontSize: '9px' }}
+                          >
+                            {awardPreset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="studio-prop-label">Class / Graduation Year</label>
+                      <input
+                        type="text"
+                        value={selectedElement.classYear || ''}
+                        onChange={(e) => updateSelectedElement({ classYear: e.target.value })}
+                        className="studio-prop-input"
+                        placeholder="Class of 2026 • Form 7 Arts"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="studio-prop-label">Farewell Quote / Ambition</label>
+                      <textarea
+                        value={selectedElement.quote || selectedElement.description || ''}
+                        onChange={(e) => updateSelectedElement({ quote: e.target.value, description: e.target.value })}
+                        rows={3}
+                        className="studio-prop-input"
+                        placeholder="&ldquo;Integrity and curiosity pave the path to leadership.&rdquo;"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="studio-prop-label">Portrait Photo URL</label>
+                      <input
+                        type="text"
+                        value={selectedElement.image || selectedElement.src || selectedElement.photoUrl || ''}
+                        onChange={(e) =>
+                          updateSelectedElement({
+                            image: e.target.value,
+                            src: e.target.value,
+                            photoUrl: e.target.value,
+                            assetRef: { source: 'upload', url: e.target.value }
+                          })
+                        }
+                        className="studio-prop-input"
+                        placeholder="https://..."
+                      />
+                      <div className="flex gap-1 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssetTab('stock');
+                            setAssetCategory('yearbook');
+                            setAssetModalOpen(true);
+                          }}
+                          className="studio-tool-btn ocean w-full text-center"
+                          style={{ padding: '4px 8px', fontSize: '10px' }}
+                        >
+                          📷 Pick Portrait from Pacific Stock Library
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TABLE OF CONTENTS INSPECTOR */}
+                {selectedElement.type === 'toc' && (
+                  <div className="studio-inspector-section">
+                    <span className="studio-section-title">📑 Table of Contents Settings</span>
+
+                    <div>
+                      <label className="studio-prop-label">TOC Header Title</label>
+                      <input
+                        type="text"
+                        value={selectedElement.content || 'TABLE OF CONTENTS'}
+                        onChange={(e) => updateSelectedElement({ content: e.target.value })}
+                        className="studio-prop-input font-bold"
+                      />
+                    </div>
+
+                    {/* Auto-Sync with Document Pages Button */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const detectedItems: TocItem[] = [];
+                          pages.forEach((p, idx) => {
+                            const pageNum = idx + 1;
+                            let foundTitle = '';
+                            for (const el of p.elements || []) {
+                              if ((el.type === 'text' || el.type === 'column_text' || el.type === 'article') && el.content) {
+                                const fs = el.style?.fontSize || 14;
+                                if (fs >= 18 || !foundTitle) {
+                                  foundTitle = el.content.split('\n')[0].trim().slice(0, 40);
+                                  if (fs >= 18) break;
+                                }
+                              } else if ((el.type === 'product' || el.type === 'productCard') && el.name) {
+                                if (!foundTitle) foundTitle = el.name.slice(0, 40);
+                              } else if (el.type === 'studentCard' && el.name) {
+                                if (!foundTitle) foundTitle = `Profile: ${el.name.slice(0, 30)}`;
+                              }
+                            }
+                            if (foundTitle && pageNum > 1) {
+                              detectedItems.push({
+                                page_number: pageNum,
+                                title: foundTitle
+                              });
+                            }
+                          });
+
+                          if (detectedItems.length === 0) {
+                            for (let i = 2; i <= Math.min(6, pages.length); i++) {
+                              detectedItems.push({
+                                page_number: i,
+                                title: `Feature Section ${i}`
+                              });
+                            }
+                          }
+
+                          updateSelectedElement({ tocItems: detectedItems });
+                          alert(`Auto-detected ${detectedItems.length} chapter headings across document pages!`);
+                        }}
+                        className="studio-tool-btn ocean w-full text-center"
+                      >
+                        <span>⚡</span> Auto-Detect Headings from All Pages
+                      </button>
+                    </div>
+
+                    {/* Manual TOC Entry Editor */}
+                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <label className="studio-prop-label mb-0">Index Entries ({selectedElement.tocItems?.length || 0})</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentItems = [...(selectedElement.tocItems || [])];
+                            currentItems.push({
+                              page_number: Math.min(pages.length, (currentItems.length > 0 ? currentItems[currentItems.length - 1].page_number + 1 : 2)),
+                              title: `New Section ${currentItems.length + 1}`
+                            });
+                            updateSelectedElement({ tocItems: currentItems });
+                          }}
+                          className="text-[10px] text-sky-400 font-bold hover:underline"
+                        >
+                          + Add Entry
+                        </button>
+                      </div>
+
+                      {(selectedElement.tocItems || []).map((tItem, tIdx) => (
+                        <div key={tIdx} className="flex gap-1.5 items-center bg-slate-900 p-2 rounded-lg border border-slate-800 text-xs">
+                          <input
+                            type="number"
+                            min={1}
+                            max={pages.length}
+                            value={tItem.page_number}
+                            onChange={(e) => {
+                              const updated = [...(selectedElement.tocItems || [])];
+                              updated[tIdx] = { ...updated[tIdx], page_number: parseInt(e.target.value, 10) || 1 };
+                              updateSelectedElement({ tocItems: updated });
+                            }}
+                            className="w-12 studio-prop-input text-center font-mono font-bold"
+                            title="Page Number"
+                          />
+                          <input
+                            type="text"
+                            value={tItem.title}
+                            onChange={(e) => {
+                              const updated = [...(selectedElement.tocItems || [])];
+                              updated[tIdx] = { ...updated[tIdx], title: e.target.value };
+                              updateSelectedElement({ tocItems: updated });
+                            }}
+                            className="flex-1 studio-prop-input"
+                            placeholder="Chapter title"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (selectedElement.tocItems || []).filter((_, i) => i !== tIdx);
+                              updateSelectedElement({ tocItems: updated });
+                            }}
+                            className="text-red-400 hover:text-red-300 font-bold px-1.5"
+                            title="Remove entry"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* RUNNING FOLIO (HEADER / FOOTER) INSPECTOR */}
+                {selectedElement.type === 'folio' && (
+                  <div className="studio-inspector-section">
+                    <span className="studio-section-title">📄 Running Folio Settings</span>
+
+                    <div>
+                      <label className="studio-prop-label">Header / Publication Title</label>
+                      <input
+                        type="text"
+                        value={selectedElement.folioHeader || ''}
+                        onChange={(e) => updateSelectedElement({ folioHeader: e.target.value })}
+                        className="studio-prop-input"
+                        placeholder="{title} • {category}"
+                      />
+                      <p style={{ fontSize: '10px', color: '#64748b', margin: '4px 0 0 0' }}>
+                        Tokens: &#123;title&#125;, &#123;page&#125;, &#123;total&#125;, &#123;category&#125;
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="studio-prop-label">Section Category Name</label>
+                      <input
+                        type="text"
+                        value={selectedElement.sectionCategory || ''}
+                        onChange={(e) => updateSelectedElement({ sectionCategory: e.target.value })}
+                        className="studio-prop-input uppercase"
+                        placeholder="e.g. FEATURE STORY, EDITORIAL"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="studio-prop-sublabel">Show Page Number Token</span>
+                      <button
+                        type="button"
+                        onClick={() => updateSelectedElement({ folioShowPage: !selectedElement.folioShowPage })}
+                        className={`px-3 py-1 rounded text-xs font-bold ${
+                          selectedElement.folioShowPage ? 'studio-gradient-btn cosmic' : 'bg-slate-900 border border-slate-700 text-slate-300'
+                        }`}
+                      >
+                        {selectedElement.folioShowPage ? 'PAGE NUM ON' : 'PAGE NUM OFF'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -7987,7 +8523,7 @@ export default function FlipexStudio() {
                       { name: 'Dark Navy', color: '#0F172A' },
                       { name: 'Midnight', color: '#090D16' },
                       { name: 'Emerald Isle', color: '#064E3B' },
-                      { name: 'Royal Indigo', color: '#1E1B4B' },
+                      { name: 'Pacific Abyss', color: '#0C4A6E' },
                       { name: 'Sunset Crimson', color: '#450A0A' },
                     ].map((bg, idx) => (
                       <button
