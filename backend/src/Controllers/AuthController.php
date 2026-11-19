@@ -210,7 +210,7 @@ final class AuthController
         }
         $raw = $req->getCookieParams()[self::COOKIE] ?? '';
         if (!$raw) {
-            return $this->clearCookie(Http::error($res, 'Session expired', 401));
+            return $this->clearCookie(Http::error($res, 'Session expired', 401), $req);
         }
 
         $tokenHash = hash('sha256', $raw);
@@ -219,13 +219,13 @@ final class AuthController
 
         $cfg = SessionSecurity::getConfig();
         $grace = $cfg['tokenReplayGraceSeconds'];
-        $currentIp = $req->getServerParams()['REMOTE_ADDR'] ?? null;
+        $currentIp = $this->resolveClientIp($req);
         $currentUa = substr($req->getHeaderLine('User-Agent'), 0, 255);
 
         // Security: Token Replay Detection with in-flight concurrency grace period & same-device tab recovery
         if ($row && $row['revoked_at'] !== null) {
             $revokedTime = strtotime((string) $row['revoked_at']);
-            $sameDevice = (!empty($row['ip']) && $row['ip'] === $currentIp) &&
+            $sameDevice = (!empty($row['ip']) && $row['ip'] === $currentIp) ||
                           (!empty($row['user_agent']) && $row['user_agent'] === $currentUa);
 
             // In-flight race condition (concurrent API polling) or same-device background tab wake-up:
@@ -259,15 +259,15 @@ final class AuthController
                 // Legacy token without family: fall back to revoking every session for the user
                 Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL', [$row['user_id']]);
             }
-            return $this->clearCookie(Http::error($res, 'Security alert: Token reuse detected. This session was terminated.', 401));
+            return $this->clearCookie(Http::error($res, 'Security alert: Token reuse detected. This session was terminated.', 401), $req);
         }
 
         if (!$row || strtotime((string) $row['expires_at']) < time()) {
-            return $this->clearCookie(Http::error($res, 'Session expired', 401));
+            return $this->clearCookie(Http::error($res, 'Session expired', 401), $req);
         }
 
         $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND status = "active"', [$row['user_id']]);
-        if (!$user) return $this->clearCookie(Http::error($res, 'Session expired', 401));
+        if (!$user) return $this->clearCookie(Http::error($res, 'Session expired', 401), $req);
         $user = $this->ensureUserTenantAssigned($user);
 
         // Token rotation: revoke old token and issue fresh token within the same session family
@@ -289,7 +289,7 @@ final class AuthController
         if ($raw) {
             Db::run('UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = ?', [hash('sha256', $raw)]);
         }
-        return $this->clearCookie(Http::json($res, ['ok' => true]));
+        return $this->clearCookie(Http::json($res, ['ok' => true]), $req);
     }
 
     public function verifyEmail(Request $req, Response $res): Response
@@ -417,11 +417,43 @@ final class AuthController
         ]);
     }
 
+    private function resolveClientIp(Request $req): string
+    {
+        $server = $req->getServerParams();
+        $headers = [
+            'CF-Connecting-IP',
+            'X-Forwarded-For',
+            'X-Real-IP',
+        ];
+        foreach ($headers as $h) {
+            $val = trim($req->getHeaderLine($h));
+            if ($val !== '') {
+                $parts = explode(',', $val);
+                $ip = trim($parts[0]);
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+        return (string) ($server['REMOTE_ADDR'] ?? '127.0.0.1');
+    }
+
+    private function isHttps(Request $req): bool
+    {
+        $server = $req->getServerParams();
+        return (($_ENV['APP_ENV'] ?? '') === 'production')
+            || ($req->getUri()->getScheme() === 'https')
+            || (isset($server['HTTPS']) && $server['HTTPS'] !== 'off')
+            || (($_SERVER['HTTPS'] ?? '') !== 'off' && !empty($_SERVER['HTTPS']))
+            || (strtolower($req->getHeaderLine('X-Forwarded-Proto')) === 'https')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    }
+
     private function startSession(Request $req, Response $res, array $user, ?string $familyId = null): Response
     {
         $raw = bin2hex(random_bytes(32));
         $userAgent = substr($req->getHeaderLine('User-Agent'), 0, 255);
-        $ip = $req->getServerParams()['REMOTE_ADDR'] ?? null;
+        $ip = $this->resolveClientIp($req);
         $familyId ??= SessionFamilies::create($user, $userAgent, $ip);
         $tokenHash = hash('sha256', $raw);
 
@@ -459,19 +491,27 @@ final class AuthController
                 ]
             );
         }
-        $secure = ($_ENV['APP_ENV'] ?? 'local') === 'production' ? '; Secure' : '';
+        $secure = $this->isHttps($req) ? '; Secure' : '';
         return $res->withAddedHeader('Set-Cookie', sprintf(
             '%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=%s%s',
             self::COOKIE, $raw, $refreshDays * 86400, $sameSite, $secure
         ));
     }
 
-    private function clearCookie(Response $res): Response
+    private function clearCookie(Response $res, ?Request $req = null): Response
     {
         $cfg = SessionSecurity::getConfig();
         $sameSite = $cfg['cookieSameSite'];
-        return $res->withAddedHeader('Set-Cookie',
-            self::COOKIE . '=; Path=/; Max-Age=0; HttpOnly; SameSite=' . $sameSite);
+        $isHttps = $req ? $this->isHttps($req) : (
+            (($_ENV['APP_ENV'] ?? '') === 'production')
+            || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+        );
+        $secure = $isHttps ? '; Secure' : '';
+        return $res->withAddedHeader('Set-Cookie', sprintf(
+            '%s=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=%s%s',
+            self::COOKIE, $sameSite, $secure
+        ));
     }
 
     private function createToken(int $userId, string $type, int $hours): string

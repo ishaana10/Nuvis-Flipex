@@ -406,6 +406,50 @@ html[data-theme="dark"] .fb-icon-action {
   color: #ef4444;
 }
 
+.fb-quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 2px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+}
+.fb-quick-action span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.fb-quick-action:hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: #0f172a;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+html[data-theme="dark"] .fb-quick-action {
+  color: #94a3b8;
+}
+html[data-theme="dark"] .fb-quick-action:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.fb-quick-action.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
 .cover { aspect-ratio:3/4; background:#eef; border-radius:8px; display:grid; place-items:center; overflow:hidden; }
 .cover img { width:100%; height:100%; object-fit:contain; }
 .actions { display:flex; gap:10px; flex-wrap:wrap; font-size:14px; }

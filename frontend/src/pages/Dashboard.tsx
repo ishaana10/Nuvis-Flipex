@@ -264,7 +264,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
       }
       if (showJobsModal) loadJobs();
       if (cancelled) return;
-      delay = Math.min(15000, Math.round(delay * 1.5));
+      delay = hasProcessing ? 1800 : Math.min(15000, Math.round(delay * 1.5));
       timer = setTimeout(tick, delay);
     };
 
@@ -385,21 +385,38 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
 
   const retryBookConversion = async (f: Flipbook) => {
     try {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === f.id
+            ? { ...item, status: 'processing', conversionProgress: 5, conversionStep: 'Retrying conversion...' }
+            : item
+        )
+      );
       await api(`/flipbooks/${f.id}/retry`, 'POST');
-      load();
+      void triggerQueueDrain();
+      await load();
       loadJobs();
     } catch (e) {
+      await load();
       setError(e instanceof ApiError ? e.message : 'Failed to retry conversion');
     }
   };
 
   const reconvertBook = async (f: Flipbook) => {
     try {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === f.id
+            ? { ...item, status: 'processing', conversionProgress: 5, conversionStep: 'Queued for reconversion...' }
+            : item
+        )
+      );
       await api(`/flipbooks/${f.id}/reconvert`, 'POST');
+      void triggerQueueDrain();
       await load();
       loadJobs();
-      void triggerQueueDrain();
     } catch (e: any) {
+      await load();
       const msg = e instanceof ApiError ? e.message : (e?.message || 'Failed to reconvert publication');
       setError(msg);
       alert(`Reconversion notice: ${msg}`);
@@ -1252,71 +1269,73 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
           {items.map((f) => {
             const wf = f.workflowStatus || (f.published ? 'published' : f.status === 'ready' ? 'editing' : 'processing');
             const pct = f.conversionProgress ?? (f.status === 'ready' ? 100 : 10);
+            const isProcessing = f.status === 'processing' || f.status === 'uploading';
             const isEditing = editingId === f.id;
 
             return (
               <div className="card fb" key={f.id}>
-                <div className="fb-cover-wrap">
+                <div className="fb-cover-wrap relative overflow-hidden">
                   {f.cover ? (
                     <img
                       src={f.cover}
                       alt={f.title}
-                      className="fb-cover-img"
+                      className={`fb-cover-img ${isProcessing ? 'filter blur-[1.5px] brightness-75 scale-[1.02] transition-all duration-300' : ''}`}
                       loading="lazy"
                       decoding="async"
                     />
-                  ) : (
+                  ) : !isProcessing && f.status === 'failed' ? (
                     <div className="flex flex-col items-center justify-center p-4 text-center w-full">
-                      {f.status === 'failed' ? (
-                        <>
-                          <span className="text-red-500 font-bold text-xs mb-1">⚠️ Conversion Failed</span>
-                          {f.conversionError && (
-                            <span className="text-[10px] text-slate-500 line-clamp-2 mb-2">{f.conversionError}</span>
-                          )}
-                          <Button size="sm" variant="outline" onClick={() => retryBookConversion(f)}>
-                            <RotateCcw className="h-3 w-3" /> Retry
-                          </Button>
-                        </>
-                      ) : (
-                        <div className="w-full px-3 py-1 space-y-2 text-center">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span className="text-amber-500 truncate max-w-[170px]" title={f.conversionStep || 'Processing PDF...'}>
-                              ⏳ {f.conversionStep || 'Converting PDF…'}
-                            </span>
-                            <span className="text-sky-400 font-bold ml-1">{pct}%</span>
-                          </div>
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                            <div
-                              className="h-full bg-amber-400 transition-all duration-300"
-                              style={{ width: `${Math.max(5, pct)}%` }}
-                            />
-                          </div>
-                          {f.pageCount ? (
-                            <span className="text-[10px] text-slate-400 block text-center font-medium">
-                              📄 {f.pageCount} pages rendered
-                            </span>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => triggerQueueDrain()}
-                            className="mt-1 h-7 text-[11px] px-2.5 mx-auto flex items-center gap-1 border-sky-500/40 text-sky-400 hover:bg-sky-500/10"
-                            title="Advance or check queued conversion"
-                          >
-                            <RotateCcw className="h-3 w-3" /> Advance / Refresh
-                          </Button>
-                        </div>
+                      <span className="text-red-500 font-bold text-xs mb-1">⚠️ Conversion Failed</span>
+                      {f.conversionError && (
+                        <span className="text-[10px] text-slate-500 line-clamp-2 mb-2">{f.conversionError}</span>
                       )}
+                      <Button size="sm" variant="outline" onClick={() => retryBookConversion(f)}>
+                        <RotateCcw className="h-3 w-3" /> Retry
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {/* Active Converting / Reconverting Progress Overlay (Visible regardless of f.cover) */}
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-4 text-center">
+                      <div className="relative mb-2.5">
+                        <div className="h-10 w-10 rounded-full border-2 border-amber-400/30 border-t-amber-400 animate-spin" />
+                        <span className="absolute inset-0 flex items-center justify-center text-xs">⚡</span>
+                      </div>
+                      <span className="text-amber-400 font-bold text-xs mb-1 truncate max-w-[200px]" title={f.conversionStep || 'Processing PDF...'}>
+                        {f.conversionStep || 'Converting PDF…'}
+                      </span>
+                      <span className="text-sky-400 font-extrabold text-sm mb-2">{pct}%</span>
+                      <div className="h-2 w-full max-w-[190px] overflow-hidden rounded-full bg-slate-800 border border-slate-700">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-300 rounded-full"
+                          style={{ width: `${Math.max(8, pct)}%` }}
+                        />
+                      </div>
+                      {f.pageCount ? (
+                        <span className="text-[11px] text-slate-300 mt-2 font-medium">
+                          📄 {f.pageCount} pages rendered
+                        </span>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => triggerQueueDrain()}
+                        className="mt-3 h-7 text-[11px] px-2.5 flex items-center gap-1 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                        title="Advance or check queued conversion"
+                      >
+                        <RotateCcw className="h-3 w-3" /> Advance Queue
+                      </Button>
                     </div>
                   )}
 
                   {/* Top Badges on Cover */}
-                  <div className="fb-badge-overlay">
+                  <div className="fb-badge-overlay z-20">
                     <span className="fb-badge-chip version">
                       v{f.version || 1}
                     </span>
-                    <span className={`fb-badge-chip ${wf}`}>
-                      {wf.replace('_', ' ').toUpperCase()}
+                    <span className={`fb-badge-chip ${isProcessing ? 'bg-amber-500 text-slate-950 font-bold animate-pulse' : wf}`}>
+                      {isProcessing ? `CONVERTING ${pct}%` : wf.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -1407,20 +1426,27 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                 )}
 
                 {/* Primary Action Button */}
-                {f.status === 'ready' && (
+                {isProcessing ? (
+                  <div className="w-full py-2 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 font-medium text-xs flex items-center justify-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                    <span>Converting Pages ({pct}%)</span>
+                  </div>
+                ) : f.status === 'ready' ? (
                   <Link to={`/dashboard/preview/${f.id}`} className="fb-primary-btn">
                     <span>Preview Flipbook</span>
                     <span>👁️</span>
                   </Link>
-                )}
-                {f.status === 'failed' && (
+                ) : f.status === 'failed' ? (
                   <button
                     className="fb-primary-btn bg-red-500 hover:bg-red-600 text-white"
                     onClick={() => retryBookConversion(f)}
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Retry Conversion
                   </button>
-                )}
+                ) : null}
 
                 {/* Studio Tools Grid */}
                 <div className="fb-tools-grid">
@@ -1451,65 +1477,69 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   )}
                 </div>
 
-                {/* Bottom Bar: Share, Replace PDF, Duplicate, Delete */}
-                <div className="fb-bottom-bar">
-                  <div className="fb-bottom-actions">
-                    {f.status === 'ready' && (
+                {/* Bottom Actions: Prominent Full-Width Share & QR Code + Responsive 4-Column Action Grid */}
+                <div className="w-full pt-2 mt-2 border-t border-slate-200 dark:border-slate-800">
+                  {f.status === 'ready' && (
+                    <button
+                      type="button"
+                      className="w-full py-1.5 px-3 mb-1.5 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      onClick={() => setShare(f)}
+                      title="Share publication, QR Code & Embed"
+                    >
+                      <Share2 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Share &amp; QR Code</span>
+                    </button>
+                  )}
+
+                  <div className="grid grid-cols-4 gap-1 w-full">
+                    {can('flipbook.edit') && (
                       <button
                         type="button"
-                        className="fb-icon-action"
-                        onClick={() => setShare(f)}
-                        title="Share publication, QR Code & Embed"
-                      >
-                        <Share2 className="h-3 w-3 text-amber-500" />
-                        <span>Share &amp; QR</span>
-                      </button>
-                    )}
-                    {f.status === 'ready' && can('flipbook.edit') && (
-                      <button
-                        type="button"
-                        className="fb-icon-action"
+                        className="fb-quick-action"
                         onClick={() => reconvertBook(f)}
+                        disabled={isProcessing}
                         title="Re-run conversion pipeline on original uploaded PDF to render all pages"
                       >
-                        <RotateCcw className="h-3 w-3 text-sky-400" />
+                        <RotateCcw className={`h-3.5 w-3.5 ${isProcessing ? 'animate-spin text-amber-500' : 'text-sky-500'}`} />
                         <span>Reconvert</span>
                       </button>
                     )}
-                    {f.status === 'ready' && can('flipbook.edit') && (
+                    {can('flipbook.edit') && (
                       <button
                         type="button"
-                        className="fb-icon-action"
+                        className="fb-quick-action"
                         onClick={() => setLifecycleBook({ book: f, tab: 'versions' })}
+                        disabled={isProcessing}
                         title="Upload a new PDF revision while keeping the same public URL and QR code"
                       >
-                        <Upload className="h-3 w-3" />
-                        <span>Replace PDF</span>
+                        <Upload className="h-3.5 w-3.5" />
+                        <span>Replace</span>
                       </button>
                     )}
-                    {f.status === 'ready' && can('flipbook.create') && (
+                    {can('flipbook.create') && (
                       <button
                         type="button"
-                        className="fb-icon-action"
+                        className="fb-quick-action"
                         onClick={() => duplicateBook(f)}
+                        disabled={isProcessing}
                         title="Duplicate publication"
                       >
-                        <Copy className="h-3 w-3" />
+                        <Copy className="h-3.5 w-3.5" />
                         <span>Duplicate</span>
                       </button>
                     )}
+                    {can('flipbook.delete') && (
+                      <button
+                        type="button"
+                        className="fb-quick-action danger"
+                        onClick={() => remove(f)}
+                        title="Delete publication"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    )}
                   </div>
-                  {can('flipbook.delete') && (
-                    <button
-                      type="button"
-                      className="fb-icon-action danger"
-                      onClick={() => remove(f)}
-                      title="Delete publication"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      <span>Delete</span>
-                    </button>
-                  )}
                 </div>
               </div>
             );
