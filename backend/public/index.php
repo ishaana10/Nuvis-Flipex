@@ -187,6 +187,8 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $st->get('/documents/{id:[0-9]+}/toc', [StudioController::class, 'generateToc']);
         $st->get('/documents/{id:[0-9]+}/export-pdf', [StudioController::class, 'exportPdf']);
         $st->post('/documents/{id:[0-9]+}/publish', [StudioController::class, 'publishDocument']);
+        $st->post('/documents/{id:[0-9]+}/data-sync', [StudioController::class, 'syncDataFeed']);
+        $st->post('/documents/{id:[0-9]+}/currency-convert', [StudioController::class, 'convertCurrency']);
         $st->post('/documents/{id:[0-9]+}/autosave', [StudioController::class, 'autosaveDocument']);
         $st->get('/documents/{id:[0-9]+}/revisions', [StudioController::class, 'getRevisions']);
         $st->post('/export/queue', [StudioController::class, 'queueExportJob']);

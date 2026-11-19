@@ -140,6 +140,10 @@ export interface CanvasElement {
   folioHeader?: string;
   folioShowPage?: boolean;
 
+  // Commercial Product Links & Regional Currencies
+  whatsappLink?: string;
+  currency?: string;
+
   // Stage 6: Linked Text Frames & Master Page Tokens
   linkedNextId?: string;
   linkedPrevId?: string;
@@ -175,6 +179,7 @@ export interface StudioPage {
   id: number;
   document_id: number;
   page_number: number;
+  page_type?: string;
   background?: {
     type: string;
     value: string;
@@ -346,8 +351,8 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
   if (bg) {
     if (bg.type === 'gradient' || (bg.value && bg.value.includes('gradient'))) {
       const stop1 = bg.stop1 || '#0f172a';
-      const stop2 = bg.stop2 || '#1e1b4b';
-      const stop3 = bg.stop3 || '#312e81';
+      const stop2 = bg.stop2 || '#0369a1';
+      const stop3 = bg.stop3 || '#0284c7';
       defs = `<defs>
         <linearGradient id="pBgGrad_${page.id}" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="${stop1}" />
@@ -623,6 +628,14 @@ export default function FlipexStudio() {
     'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500,+6799991234,OIL-02,Pure blended vegetable cooking oil for high-heat frying.\n' +
     'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500,+6799991234,MLK-06,Pasteurised homogenized fresh dairy milk carton bundle.'
   );
+
+  // Sprint 4: Regional Currency, Live SKU Sync & Preflight Inspection
+  const [selectedCurrency, setSelectedCurrency] = useState<'FJD' | 'AUD' | 'NZD' | 'USD' | 'PGK' | 'SBD' | 'TOP' | 'WST' | 'VUV'>('FJD');
+  const [currencyRate, setCurrencyRate] = useState<number>(1.0);
+  const [currencyRounding, setCurrencyRounding] = useState<'none' | '99c' | 'dollar'>('none');
+  const [syncingData, setSyncingData] = useState<boolean>(false);
+  const [preflightModalOpen, setPreflightModalOpen] = useState<boolean>(false);
+  const [preflightIssues, setPreflightIssues] = useState<Array<{ type: 'error' | 'warning' | 'pass'; page: number; message: string; elId?: string }>>([]);
 
   // Dragging & Moving elements on canvas
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -2274,7 +2287,7 @@ export default function FlipexStudio() {
         secondaryColor: currentDoc?.palette?.secondary || '#0f172a',
         accentColor: currentDoc?.palette?.accent || '#ec4899',
         fontFamily: 'Inter, sans-serif',
-        backgroundGradient: activePage?.background?.value || 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+        backgroundGradient: activePage?.background?.value || 'linear-gradient(135deg, #0f172a 0%, #0369a1 100%)',
       });
       alert(`Saved Brand Kit "${newBrandKitName.trim()}" successfully!`);
       setNewBrandKitName('');
@@ -2711,17 +2724,27 @@ export default function FlipexStudio() {
     updatedPages.forEach((pg) => {
       if (!pg.elements) return;
       pg.elements = pg.elements.map((el) => {
-        if (el.type !== 'product' || !el.sku) return el;
+        if ((el.type !== 'product' && el.type !== 'productCard') || !el.sku) return el;
         const skuKey = el.sku.trim().toUpperCase();
         const updateData = skuMap.get(skuKey);
         if (updateData) {
           matchedCount++;
+          const newPrice = updateData.price || el.price;
+          let updatedWpLink = el.whatsappLink;
+          if (el.whatsappNumber) {
+            const pName = el.name || 'Product';
+            const pSku = el.sku || '';
+            const orderMsg = encodeURIComponent(`Hi! I would like to order: ${pName}${newPrice ? ` (${newPrice})` : ''}${pSku ? ` SKU: ${pSku}` : ''}`);
+            const cleanPhone = el.whatsappNumber.replace(/[^0-9]/g, '');
+            updatedWpLink = `https://wa.me/${cleanPhone}?text=${orderMsg}`;
+          }
           return {
             ...el,
-            price: updateData.price || el.price,
+            price: newPrice,
             originalPrice: updateData.originalPrice !== undefined ? updateData.originalPrice : el.originalPrice,
             badge: updateData.badge !== undefined ? updateData.badge : el.badge,
             stockStatus: (updateData.stockStatus as any) || el.stockStatus,
+            whatsappLink: updatedWpLink,
           };
         }
         return el;
@@ -2730,6 +2753,351 @@ export default function FlipexStudio() {
 
     setPages(updatedPages);
     alert(`✓ SKU Price Sync: Updated ${matchedCount} product(s) across catalogue from ${skuMap.size} CSV records!`);
+  };
+
+  // Sprint 4: Push Live SKU Sync to Server & Canvas
+  const handlePushLiveSkuSync = async () => {
+    if (!csvText.trim()) return;
+    const lines = csvText.trim().split('\n');
+    if (lines.length <= 1) return;
+
+    const skuMap = new Map<string, { price?: string; originalPrice?: string; badge?: string; stockStatus?: any }>();
+    lines.slice(1).forEach((line) => {
+      const parts = line.split(',').map((p) => p.trim());
+      if (parts.length >= 2 && parts[0]) {
+        const skuKey = parts[0].toUpperCase();
+        skuMap.set(skuKey, {
+          price: parts[1] || undefined,
+          originalPrice: parts[2] || undefined,
+          badge: parts[3] || undefined,
+          stockStatus: parts[4] || undefined,
+        });
+      }
+    });
+
+    if (skuMap.size === 0) {
+      alert('No valid SKU rows found. Format: SKU,Price,WasPrice,Badge,StockStatus');
+      return;
+    }
+
+    setSyncingData(true);
+    try {
+      // 1. Sync local canvas React state
+      let matchedCount = 0;
+      const updatedPages = [...pages];
+      updatedPages.forEach((pg) => {
+        if (!pg.elements) return;
+        pg.elements = pg.elements.map((el) => {
+          if ((el.type !== 'product' && el.type !== 'productCard') || !el.sku) return el;
+          const skuKey = el.sku.trim().toUpperCase();
+          const updateData = skuMap.get(skuKey);
+          if (updateData) {
+            matchedCount++;
+            const newPrice = updateData.price || el.price;
+            let updatedWpLink = el.whatsappLink;
+            if (el.whatsappNumber) {
+              const pName = el.name || 'Product';
+              const pSku = el.sku || '';
+              const orderMsg = encodeURIComponent(`Hi! I would like to order: ${pName}${newPrice ? ` (${newPrice})` : ''}${pSku ? ` SKU: ${pSku}` : ''}`);
+              const cleanPhone = el.whatsappNumber.replace(/[^0-9]/g, '');
+              updatedWpLink = `https://wa.me/${cleanPhone}?text=${orderMsg}`;
+            }
+            return {
+              ...el,
+              price: newPrice,
+              originalPrice: updateData.originalPrice !== undefined ? updateData.originalPrice : el.originalPrice,
+              badge: updateData.badge !== undefined ? updateData.badge : el.badge,
+              stockStatus: (updateData.stockStatus as any) || el.stockStatus,
+              whatsappLink: updatedWpLink,
+            };
+          }
+          return el;
+        });
+      });
+      setPages(updatedPages);
+
+      // 2. Persist to server if document is loaded
+      if (currentDoc) {
+        const syncItems = Array.from(skuMap.entries()).map(([sku, d]) => ({
+          sku,
+          price: d.price,
+          originalPrice: d.originalPrice,
+          badge: d.badge,
+          stockStatus: d.stockStatus,
+        }));
+        const res = await api<{ ok: boolean; matched_count: number; pages_updated: number; message: string }>(
+          `/studio/documents/${currentDoc.id}/data-sync`,
+          'POST',
+          { items: syncItems, matchBy: 'sku', scope: 'all' }
+        );
+        alert(`✓ Live Server Sync: ${res.message}`);
+      } else {
+        alert(`✓ SKU Price Sync: Updated ${matchedCount} product(s) in canvas!`);
+      }
+    } catch (err: any) {
+      alert('Data sync warning: ' + err.message);
+    } finally {
+      setSyncingData(false);
+    }
+  };
+
+  // Sprint 4: Batch Convert Document Currency
+  const handleConvertCurrency = async () => {
+    if (!currentDoc) {
+      alert('Please open or save a document before converting currency.');
+      return;
+    }
+    setSyncingData(true);
+    try {
+      const res = await api<{ ok: boolean; currency: string; updated_count: number; pages_updated: number; message: string }>(
+        `/studio/documents/${currentDoc.id}/currency-convert`,
+        'POST',
+        { targetCurrency: selectedCurrency, exchangeRate: currencyRate, roundTo: currencyRounding }
+      );
+
+      // Refresh document pages from server to ensure complete parity
+      const docRes = await api<{ ok: boolean; document: StudioDocument }>(`/studio/documents/${currentDoc.id}`);
+      if (docRes.document && docRes.document.pages) {
+        setPages(docRes.document.pages);
+      }
+      alert(`✓ ${res.message}`);
+    } catch (err: any) {
+      alert('Currency conversion failed: ' + err.message);
+    } finally {
+      setSyncingData(false);
+    }
+  };
+
+  // Sprint 4: Dynamic Template Token Resolver
+  const handleResolveTokens = () => {
+    if (!currentDoc) return;
+    const now = new Date();
+    const replacements: Record<string, string> = {
+      '{{doc.title}}': currentDoc.title || 'Nuvis Publication',
+      '{{doc.category}}': currentDoc.doc_type || 'Catalogue',
+      '{{page.total}}': String(pages.length),
+      '{{date}}': now.toLocaleDateString(),
+      '{{year}}': String(now.getFullYear()),
+      '{{company}}': 'Nuvis Flipex',
+    };
+
+    let tokenCount = 0;
+    const updatedPages = pages.map((pg) => {
+      if (!pg.elements) return pg;
+      const updatedEls = pg.elements.map((el) => {
+        if (!el.content) return el;
+        let newContent = el.content;
+        replacements['{{page.number}}'] = String(pg.page_number);
+        for (const [token, val] of Object.entries(replacements)) {
+          if (newContent.includes(token)) {
+            newContent = newContent.split(token).join(val);
+            tokenCount++;
+          }
+        }
+        return newContent !== el.content ? { ...el, content: newContent } : el;
+      });
+      return { ...pg, elements: updatedEls };
+    });
+
+    setPages(updatedPages);
+    alert(`✓ Dynamic Tokens Resolved: Substituted ${tokenCount} token(s) across document!`);
+  };
+
+  // Sprint 4: Preflight Quality Check
+  const runPreflightCheck = () => {
+    const issues: Array<{ type: 'error' | 'warning' | 'pass'; page: number; message: string; elId?: string }> = [];
+
+    pages.forEach((pg) => {
+      const pNum = pg.page_number;
+      const els = pg.elements || [];
+
+      if (els.length === 0) {
+        issues.push({ type: 'warning', page: pNum, message: `Page ${pNum} has no content elements.` });
+      }
+
+      els.forEach((el) => {
+        if (el.type === 'image' || el.type === 'imageFrame') {
+          const src = el.src || el.image || el.url || el.assetRef?.url;
+          if (!src) {
+            issues.push({ type: 'error', page: pNum, message: `Image element #${el.id.slice(0, 10)} missing source URL`, elId: el.id });
+          } else if (src.includes('placeholder')) {
+            issues.push({ type: 'warning', page: pNum, message: `Image element #${el.id.slice(0, 10)} uses placeholder graphic`, elId: el.id });
+          }
+        }
+
+        if (el.type === 'product' || el.type === 'productCard') {
+          if (!el.sku) {
+            issues.push({ type: 'warning', page: pNum, message: `Product "${el.name || 'Untitled'}" is missing a SKU code`, elId: el.id });
+          }
+          if (!el.price || el.price === '$0.00' || el.price === '0') {
+            issues.push({ type: 'warning', page: pNum, message: `Product "${el.name || 'Untitled'}" has unpriced/zero price`, elId: el.id });
+          }
+        }
+
+        if (el.type === 'text' || el.type === 'column_text' || el.type === 'article') {
+          if (!el.content || !el.content.trim()) {
+            issues.push({ type: 'warning', page: pNum, message: `Empty text element found on Page ${pNum}`, elId: el.id });
+          }
+        }
+      });
+    });
+
+    if (issues.length === 0) {
+      issues.push({ type: 'pass', page: 1, message: 'All pages, images, products, and articles passed production preflight verification!' });
+    }
+
+    setPreflightIssues(issues);
+    setPreflightModalOpen(true);
+  };
+
+  // Sprint 4: Insert 2-Page Connected Magazine Story Spread
+  const handleInsertStorySpread = () => {
+    if (!currentDoc) return;
+    const leftPageNum = pages.length + 1;
+    const rightPageNum = pages.length + 2;
+    const leftColId = 'story_left_' + Date.now();
+    const rightColId = 'story_right_' + (Date.now() + 1);
+
+    const leftElements: CanvasElement[] = [
+      {
+        id: 'kicker_' + Date.now(),
+        type: 'text',
+        x: 48,
+        y: 48,
+        w: 480,
+        h: 24,
+        content: 'PACIFIC HORIZONS • EXCLUSIVE REPORT',
+        style: { fontSize: 10, fontWeight: 'bold', color: '#0284c7', letterSpacing: '2px' },
+      },
+      {
+        id: 'headline_' + Date.now(),
+        type: 'text',
+        x: 48,
+        y: 75,
+        w: 480,
+        h: 60,
+        content: 'The Coral Guardians of Oceania',
+        style: { fontSize: 32, fontWeight: 'bold', color: '#0f172a', fontFamily: 'serif' },
+      },
+      {
+        id: 'deck_' + Date.now(),
+        type: 'text',
+        x: 48,
+        y: 140,
+        w: 480,
+        h: 40,
+        content: 'How indigenous marine stewards and satellite telemetry are restoring barrier reefs across the South Pacific archipelagos.',
+        style: { fontSize: 14, fontStyle: 'italic', color: '#475569' },
+      },
+      {
+        id: leftColId,
+        type: 'article',
+        x: 48,
+        y: 195,
+        w: 490,
+        h: 560,
+        columns: 2,
+        columnGutter: 24,
+        dropCap: true,
+        authorName: 'Dr. Mereana Rokovada',
+        authorRole: 'Senior Marine Biologist',
+        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+        linkedNextId: rightColId,
+        content:
+          'Throughout the vast expanse of the South Pacific, marine biologist cooperatives and island elders have pioneered a groundbreaking model of community-managed marine protected areas. Traditional protocols, refined over centuries of seafaring navigation, are now paired with high-resolution satellite thermal telemetry to map bleaching anomalies in real time.\n\nDuring recent warm water pulses, elder navigators identified deep-water upwelling channels where cooler sub-thermocline currents shield juvenile corals from heat stress. Divers harvested micro-fragments of heat-resilient Porites and Acropora strains, anchoring them onto bio-composite reef matrices woven from local coconut coir and non-toxic calcium carbonate binding mortars. Within eight months, juvenile polyps established robust calcification zones, attracting herbivorous parrotfish and grazing sea urchins that suppress macroalgal blooms.\n\nToday, regional schools participate in bi-monthly coral propagation workshops, ensuring ecological literacy is passed to the next generation of Pacific ocean guardians.',
+        style: { fontSize: 12.5, color: '#1e293b', lineHeight: 1.6 },
+      },
+      {
+        id: 'folio_left_' + Date.now(),
+        type: 'folio',
+        x: 48,
+        y: 790,
+        w: 490,
+        h: 20,
+        folioHeader: 'Nuvis Flipex Magazine • Feature Story',
+        folioShowPage: true,
+      },
+    ];
+
+    const rightElements: CanvasElement[] = [
+      {
+        id: 'img_right_' + Date.now(),
+        type: 'image',
+        x: 48,
+        y: 48,
+        w: 490,
+        h: 240,
+        src: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900',
+        style: { borderRadius: 12 },
+      },
+      {
+        id: 'caption_right_' + Date.now(),
+        type: 'text',
+        x: 48,
+        y: 295,
+        w: 490,
+        h: 24,
+        content: '▲ Diver inspecting micro-fragmented coral nurseries along the Great Sea Reef.',
+        style: { fontSize: 10, fontStyle: 'italic', color: '#64748b' },
+      },
+      {
+        id: 'quote_right_' + Date.now(),
+        type: 'text',
+        x: 48,
+        y: 330,
+        w: 490,
+        h: 70,
+        content: '“The ocean does not divide us; it is the highway that unites our islands, our ancestors, and our shared future.”',
+        style: { fontSize: 17, fontWeight: 'bold', fontStyle: 'italic', color: '#0369a1', fontFamily: 'serif', textAlign: 'center' },
+      },
+      {
+        id: rightColId,
+        type: 'article',
+        x: 48,
+        y: 415,
+        w: 490,
+        h: 350,
+        columns: 2,
+        columnGutter: 24,
+        linkedPrevId: leftColId,
+        content:
+          'Local cooperatives report that fish biomass has increased by over 340% within protected boundaries, revitalizing subsistence harvests in adjacent non-restricted reef channels.\n\nInternational marine summits have recognized the initiative as a benchmark for island resilience. As sea levels rise, the natural wave attenuation provided by healthy barrier reefs diminishes shoreline erosion by up to 75%, protecting coastal infrastructure and freshwater aquifers for future generations.',
+        style: { fontSize: 12.5, color: '#1e293b', lineHeight: 1.6 },
+      },
+      {
+        id: 'folio_right_' + Date.now(),
+        type: 'folio',
+        x: 48,
+        y: 790,
+        w: 490,
+        h: 20,
+        folioHeader: 'Nuvis Flipex Magazine • Feature Story',
+        folioShowPage: true,
+      },
+    ];
+
+    const newLeftPage: StudioPage = {
+      id: Date.now(),
+      document_id: currentDoc.id,
+      page_number: leftPageNum,
+      page_type: 'editorial',
+      background: { type: 'solid', value: '#FFFFFF' },
+      elements: leftElements,
+    };
+
+    const newRightPage: StudioPage = {
+      id: Date.now() + 1,
+      document_id: currentDoc.id,
+      page_number: rightPageNum,
+      page_type: 'editorial',
+      background: { type: 'solid', value: '#FFFFFF' },
+      elements: rightElements,
+    };
+
+    setPages((prev) => [...prev, newLeftPage, newRightPage]);
+    setActivePageIndex(leftPageNum - 1);
+    setSpreadMode(true);
+    alert(`✓ Inserted 2-Page Connected Story Spread (Pages ${leftPageNum} & ${rightPageNum})! Centerfold facing spread activated.`);
   };
 
   // CSV Bulk Import processor (Multi-Page Paginated vs SKU Sync vs Yearbook)
@@ -4238,6 +4606,26 @@ export default function FlipexStudio() {
           </button>
           <button
             type="button"
+            onClick={runPreflightCheck}
+            style={{
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 600,
+              borderRadius: '8px',
+              background: '#0f172a',
+              border: '1px solid #334155',
+              color: '#e2e8f0',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            title="Run Preflight Quality & Readiness Check"
+          >
+            <span>✈️</span> Preflight
+          </button>
+          <button
+            type="button"
             onClick={handlePublish}
             disabled={saving}
             className="studio-gradient-btn emerald"
@@ -4279,7 +4667,7 @@ export default function FlipexStudio() {
       {backupAvailable && (
         <div
           style={{
-            background: 'linear-gradient(90deg, #1e1b4b 0%, #312e81 100%)',
+            background: 'linear-gradient(90deg, #0f172a 0%, #0369a1 100%)',
             borderBottom: '1px solid #0284c7',
             padding: '6px 16px',
             display: 'flex',
@@ -4669,7 +5057,7 @@ export default function FlipexStudio() {
                     onClick={() => {
                       const isDark = !activePage?.background?.value ||
                         (activePage.background?.value && activePage.background.value.includes('gradient')) ||
-                        ['#064e3b', '#0f172a', '#090d16', '#1e1b4b', '#450a0a'].some((c) =>
+                        ['#064e3b', '#0f172a', '#090d16', '#0369a1', '#450a0a'].some((c) =>
                           (activePage?.background?.value || '').toLowerCase().includes(c)
                         );
                       addElement({
@@ -4699,7 +5087,7 @@ export default function FlipexStudio() {
                     onClick={() => {
                       const isDark = !activePage?.background?.value ||
                         (activePage.background?.value && activePage.background.value.includes('gradient')) ||
-                        ['#064e3b', '#0f172a', '#090d16', '#1e1b4b', '#450a0a'].some((c) =>
+                        ['#064e3b', '#0f172a', '#090d16', '#0369a1', '#450a0a'].some((c) =>
                           (activePage?.background?.value || '').toLowerCase().includes(c)
                         );
                       addElement({
@@ -4716,6 +5104,15 @@ export default function FlipexStudio() {
                     }}
                   >
                     <span>🗞️</span> 3-Column Magazine Spread
+                  </button>
+
+                  <button
+                    type="button"
+                    className="studio-tool-btn emerald w-full mb-2"
+                    onClick={handleInsertStorySpread}
+                    title="Creates 2 connected facing pages with flowing article columns and centerfold spine view"
+                  >
+                    <span>📖</span> Insert 2-Page Connected Story Spread
                   </button>
 
                   <button
@@ -5643,6 +6040,96 @@ export default function FlipexStudio() {
                       ? '⚡ Sync Prices Across Document'
                       : `🚀 Auto-Generate Catalogue (${csvPerPage} Per Page)`}
                   </button>
+
+                  {csvMode === 'sku_sync' && (
+                    <button
+                      type="button"
+                      onClick={handlePushLiveSkuSync}
+                      disabled={syncingData}
+                      className="studio-gradient-btn emerald w-full py-2 rounded-lg text-xs font-bold mt-2"
+                      title="Atomically updates database pages and writes an audit log"
+                    >
+                      {syncingData ? '⏳ Syncing to Server…' : '⚡ Push Live SKU Sync to Server'}
+                    </button>
+                  )}
+
+                  {/* PACIFIC REGIONAL CURRENCY SWITCHER */}
+                  <div className="pt-3 border-t border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white block text-xs">🌏 Pacific Regional Currency</span>
+                      <span className="text-[10px] text-sky-400 font-mono font-bold">{selectedCurrency}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-normal">
+                      Convert all product card prices across your catalogue into South Pacific island currencies.
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5 font-semibold">Target Currency</label>
+                        <select
+                          value={selectedCurrency}
+                          onChange={(e) => setSelectedCurrency(e.target.value as any)}
+                          className="w-full p-1.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-slate-200"
+                        >
+                          <option value="FJD">FJD - Fiji Dollar ($)</option>
+                          <option value="AUD">AUD - Australia Dollar ($)</option>
+                          <option value="NZD">NZD - New Zealand ($)</option>
+                          <option value="USD">USD - US Dollar ($)</option>
+                          <option value="PGK">PGK - PNG Kina (K)</option>
+                          <option value="SBD">SBD - Solomon Dollar (SI$)</option>
+                          <option value="TOP">TOP - Tonga Paʻanga (T$)</option>
+                          <option value="WST">WST - Samoa Tālā (WS$)</option>
+                          <option value="VUV">VUV - Vanuatu Vatu (VT)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5 font-semibold">Exchange Multiplier</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={currencyRate}
+                          onChange={(e) => setCurrencyRate(parseFloat(e.target.value) || 1.0)}
+                          className="w-full p-1.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-slate-200"
+                          placeholder="1.0"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 block mb-0.5 font-semibold">Price Rounding</label>
+                      <select
+                        value={currencyRounding}
+                        onChange={(e) => setCurrencyRounding(e.target.value as any)}
+                        className="w-full p-1.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-slate-200"
+                      >
+                        <option value="none">Exact Converted (.XX)</option>
+                        <option value="99c">Retail Psychological (.99)</option>
+                        <option value="dollar">Whole Dollar / Unit (No Cents)</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleConvertCurrency}
+                      disabled={syncingData}
+                      className="studio-tool-btn ocean w-full py-2 rounded-lg text-xs font-bold"
+                    >
+                      {syncingData ? '⏳ Converting…' : `💱 Convert All Prices to ${selectedCurrency}`}
+                    </button>
+                  </div>
+
+                  {/* DYNAMIC TOKEN RESOLVER */}
+                  <div className="pt-3 border-t border-slate-800 space-y-1.5">
+                    <span className="font-bold text-white block text-xs">⚡ Dynamic Document Tokens</span>
+                    <p className="text-[10px] text-slate-400 leading-normal">
+                      Automatically substitutes tokens like <code className="text-sky-300">{"{{doc.title}}"}</code>, <code className="text-sky-300">{"{{page.number}}"}</code>, <code className="text-sky-300">{"{{date}}"}</code> across all text blocks.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResolveTokens}
+                      className="studio-tool-btn sunset w-full py-1.5 rounded-lg text-xs font-bold"
+                    >
+                      ⚡ Resolve Tokens Document-Wide
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -7183,6 +7670,34 @@ export default function FlipexStudio() {
                             )}
                           </select>
                         </div>
+
+                        {/* Overflow & Capacity Metrics */}
+                        {(() => {
+                          const textLen = (selectedElement.content || '').length;
+                          const wordCount = (selectedElement.content || '').trim().split(/\s+/).filter(Boolean).length;
+                          const cols = (selectedElement.type === 'column_text' || selectedElement.type === 'article') ? (selectedElement.columns || 2) : 1;
+                          const estCapacity = Math.round(((selectedElement.h || 200) / 20) * ((selectedElement.w || 300) / (cols * 8)) * cols);
+                          const isOverflow = textLen > estCapacity;
+                          return (
+                            <div className="p-2 rounded bg-slate-900 border border-slate-800 space-y-1">
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-400 font-semibold">Content Metrics:</span>
+                                <span className="text-slate-200 font-mono">{textLen} chars • {wordCount} words</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-slate-400 font-semibold">Frame Capacity:</span>
+                                <span className={isOverflow ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                                  {isOverflow ? `⚠️ Overflow (+${textLen - estCapacity} chars)` : `✓ Fits (${Math.round((textLen / Math.max(1, estCapacity)) * 100)}% capacity)`}
+                                </span>
+                              </div>
+                              {isOverflow && !selectedElement.linkedNextId && (
+                                <p className="text-[9.5px] text-amber-300/90 leading-tight">
+                                  💡 Text exceeds frame bounds. Connect to an overflow target or use "+ Flow into Next Page" below.
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         <div className="flex gap-1.5 pt-1">
                           <button
@@ -8799,6 +9314,97 @@ export default function FlipexStudio() {
           </div>
         )}
       </footer>
+
+      {/* Sprint 4: Unified Commercial Preflight Dialog */}
+      {preflightModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#0f172a', borderRadius: '24px', maxWidth: '640px', width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.6)', border: '1px solid #334155', color: '#f8fafc', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>✈️</span>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Publication Preflight Check</h3>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Scanned {pages.length} page(s) across typography, product SKUs &amp; assets</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreflightModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {preflightIssues.map((issue, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    background: issue.type === 'pass' ? 'rgba(5, 150, 105, 0.15)' : issue.type === 'warning' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.15)',
+                    border: issue.type === 'pass' ? '1px solid #059669' : issue.type === 'warning' ? '1px solid #d97706' : '1px solid #dc2626',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>
+                      {issue.type === 'pass' ? '✅' : issue.type === 'warning' ? '⚠️' : '❌'}
+                    </span>
+                    <div>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: issue.type === 'pass' ? '#34d399' : issue.type === 'warning' ? '#fbbf24' : '#f87171' }}>
+                        Page {issue.page}
+                      </span>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#cbd5e1' }}>{issue.message}</p>
+                    </div>
+                  </div>
+                  {issue.type !== 'pass' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivePageIndex(issue.page - 1);
+                        if (issue.elId) setSelectedElementId(issue.elId);
+                        setPreflightModalOpen(false);
+                      }}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        background: '#1e293b',
+                        border: '1px solid #475569',
+                        color: '#38bdf8',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Jump to Page →
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#090d16' }}>
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                {preflightIssues.filter((i) => i.type === 'error').length} error(s) • {preflightIssues.filter((i) => i.type === 'warning').length} warning(s)
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreflightModalOpen(false)}
+                className="studio-gradient-btn cosmic"
+                style={{ padding: '8px 20px', fontSize: '0.85rem' }}
+              >
+                Close Preflight
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PUBLISHED SUCCESS MODAL */}
       {publishModal?.open && (

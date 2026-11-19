@@ -1201,9 +1201,9 @@ final class StudioController
             if ($flipbookId && $existingFb) {
                 // Update existing flipbook
                 Db::run(
-                    'UPDATE flipbooks SET title = ?, page_count = ?, status = "ready", workflow_status = "published", visibility = "public", published_at = IFNULL(published_at, NOW()), updated_at = NOW()
-                     WHERE id = ? AND tenant_id = ?',
-                    [$doc['title'], count($pages), $flipbookId, $tenantId]
+                    'UPDATE flipbooks SET tenant_id = ?, user_id = ?, title = ?, page_count = ?, status = "ready", workflow_status = "published", visibility = "public", published_at = IFNULL(published_at, NOW()), updated_at = NOW()
+                     WHERE id = ?',
+                    [$tenantId, $u['id'], $doc['title'], count($pages), $flipbookId]
                 );
                 // Clean old pages & hotspots for re-compilation
                 Db::run('DELETE FROM pages WHERE flipbook_id = ?', [$flipbookId]);
@@ -1262,12 +1262,12 @@ final class StudioController
 
                     $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' . $svgW . '" height="' . $svgH . '" viewBox="0 0 ' . $svgW . ' ' . $svgH . '">';
                     if ($isGrad) {
-                        $svg .= '<defs><linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0f172a"/><stop offset="50%" stop-color="#1e1b4b"/><stop offset="100%" stop-color="#312e81"/></linearGradient></defs>';
+                        $svg .= '<defs><linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0f172a"/><stop offset="50%" stop-color="#0369a1"/><stop offset="100%" stop-color="#0284c7"/></linearGradient></defs>';
                         $svg .= '<rect width="100%" height="100%" fill="url(#bgGrad)"/>';
                     } else {
                         $svg .= '<rect width="100%" height="100%" fill="' . htmlspecialchars($bgFill) . '"/>';
                     }
-                    $svg .= '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#6366f1">Page ' . $pageNum . '</text>';
+                    $svg .= '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#0284c7">Page ' . $pageNum . '</text>';
                     $svg .= '</svg>';
                     $thumbUrl = 'data:image/svg+xml;utf8,' . rawurlencode($svg);
                 }
@@ -1828,5 +1828,287 @@ final class StudioController
         }
 
         return Http::json($res, ['ok' => true, 'job' => $job]);
+    }
+
+    /**
+     * POST /studio/documents/{id}/data-sync: Bulk sync product prices, badges, and inventory from CSV or external data feed.
+     */
+    public function syncDataFeed(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
+
+        $tenantId = $this->resolveTenantId($u);
+        $docId = (int) ($args['id'] ?? 0);
+
+        $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);
+        if (!$doc) {
+            return Http::error($res, 'Document not found', 404);
+        }
+
+        $b = (array) $req->getParsedBody();
+        $items = (array) ($b['items'] ?? []);
+        $matchBy = strtolower((string) ($b['matchBy'] ?? 'sku')); // 'sku', 'name', 'id'
+        $scope = strtolower((string) ($b['scope'] ?? 'all')); // 'all', 'page'
+        $targetPageNum = isset($b['pageNumber']) ? (int) $b['pageNumber'] : null;
+
+        if (empty($items)) {
+            return Http::error($res, 'No data items provided for synchronization', 400);
+        }
+
+        // Build lookup map by key
+        $lookup = [];
+        foreach ($items as $item) {
+            $key = '';
+            if ($matchBy === 'sku' && !empty($item['sku'])) {
+                $key = strtolower(trim((string) $item['sku']));
+            } elseif ($matchBy === 'name' && !empty($item['name'])) {
+                $key = strtolower(trim((string) $item['name']));
+            } elseif ($matchBy === 'id' && !empty($item['id'])) {
+                $key = (string) $item['id'];
+            }
+            if ($key !== '') {
+                $lookup[$key] = $item;
+            }
+        }
+
+        $pageQuery = 'SELECT * FROM studio_document_pages WHERE document_id = ?';
+        $params = [$docId];
+        if ($scope === 'page' && $targetPageNum !== null) {
+            $pageQuery .= ' AND page_number = ?';
+            $params[] = $targetPageNum;
+        }
+        $pageQuery .= ' ORDER BY page_number ASC';
+        $pages = Db::all($pageQuery, $params);
+
+        $matchedCount = 0;
+        $updatedPages = [];
+        $updatedSkus = [];
+
+        Db::pdo()->beginTransaction();
+        try {
+            foreach ($pages as $p) {
+                $elements = $p['elements'] ? json_decode($p['elements'], true) : [];
+                $dirty = false;
+
+                foreach ($elements as &$el) {
+                    $key = '';
+                    if ($matchBy === 'sku' && !empty($el['sku'])) {
+                        $key = strtolower(trim((string) $el['sku']));
+                    } elseif ($matchBy === 'name' && !empty($el['name'])) {
+                        $key = strtolower(trim((string) $el['name']));
+                    } elseif ($matchBy === 'id' && !empty($el['id'])) {
+                        $key = (string) $el['id'];
+                    }
+
+                    if ($key !== '' && isset($lookup[$key])) {
+                        $item = $lookup[$key];
+                        $matchedCount++;
+                        $dirty = true;
+                        if (!empty($el['sku'])) {
+                            $updatedSkus[] = (string) $el['sku'];
+                        }
+
+                        if (isset($item['price'])) {
+                            $el['price'] = (string) $item['price'];
+                        }
+                        if (isset($item['originalPrice'])) {
+                            $el['originalPrice'] = (string) $item['originalPrice'];
+                        }
+                        if (isset($item['badge'])) {
+                            $el['badge'] = (string) $item['badge'];
+                        }
+                        if (isset($item['stockStatus'])) {
+                            $el['stockStatus'] = (string) $item['stockStatus'];
+                        }
+                        if (isset($item['image']) && !empty($item['image'])) {
+                            // Ensure no inline base64
+                            if (!str_starts_with($item['image'], 'data:image')) {
+                                $el['image'] = (string) $item['image'];
+                                $el['src'] = (string) $item['image'];
+                            }
+                        }
+                        if (isset($item['description'])) {
+                            $el['description'] = (string) $item['description'];
+                        }
+
+                        // Re-generate WhatsApp order link if phone present
+                        if (!empty($el['whatsappNumber'])) {
+                            $pName = $el['name'] ?? 'Product';
+                            $pPrice = $el['price'] ?? '';
+                            $pSku = $el['sku'] ?? '';
+                            $orderMsg = rawurlencode("Hi! I would like to order: {$pName}" . ($pPrice ? " ({$pPrice})" : "") . ($pSku ? " SKU: {$pSku}" : ""));
+                            $cleanPhone = preg_replace('/[^0-9]/', '', (string) $el['whatsappNumber']);
+                            $el['whatsappLink'] = "https://wa.me/{$cleanPhone}?text={$orderMsg}";
+                        }
+                    }
+                }
+                unset($el);
+
+                if ($dirty) {
+                    Db::run('UPDATE studio_document_pages SET elements = ?, updated_at = NOW() WHERE id = ?', [
+                        json_encode($elements, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                        $p['id']
+                    ]);
+                    $updatedPages[] = (int) $p['page_number'];
+                }
+            }
+
+            Db::run('UPDATE studio_documents SET updated_at = NOW() WHERE id = ?', [$docId]);
+            Db::pdo()->commit();
+
+            try {
+                Audit::log('studio_document.data_sync', 'studio_document', $docId, [
+                    'matched_count' => $matchedCount,
+                    'pages_count' => count($updatedPages),
+                    'match_by' => $matchBy
+                ]);
+            } catch (\Throwable) {}
+
+            return Http::json($res, [
+                'ok' => true,
+                'matched_count' => $matchedCount,
+                'pages_updated' => count($updatedPages),
+                'updated_pages' => array_values(array_unique($updatedPages)),
+                'updated_skus' => array_values(array_unique($updatedSkus)),
+                'message' => "Successfully synchronized {$matchedCount} item(s) across " . count($updatedPages) . " page(s)."
+            ]);
+        } catch (\Throwable $e) {
+            if (Db::pdo()->inTransaction()) {
+                Db::pdo()->rollBack();
+            }
+            return Http::error($res, 'Data sync failed: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /studio/documents/{id}/currency-convert: Batch convert product prices to Pacific regional currencies.
+     */
+    public function convertCurrency(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
+
+        $tenantId = $this->resolveTenantId($u);
+        $docId = (int) ($args['id'] ?? 0);
+
+        $doc = Db::one('SELECT * FROM studio_documents WHERE id = ? AND tenant_id = ?', [$docId, $tenantId]);
+        if (!$doc) {
+            return Http::error($res, 'Document not found', 404);
+        }
+
+        $b = (array) $req->getParsedBody();
+        $targetCurrency = strtoupper(trim((string) ($b['targetCurrency'] ?? 'FJD')));
+        $rate = isset($b['exchangeRate']) ? (float) $b['exchangeRate'] : 1.0;
+        $round = (string) ($b['roundTo'] ?? 'none'); // 'none', '99c', 'dollar'
+
+        // Pacific currency definitions
+        $currencies = [
+            'FJD' => ['prefix' => '$', 'suffix' => ' FJD', 'decimals' => 2],
+            'AUD' => ['prefix' => '$', 'suffix' => ' AUD', 'decimals' => 2],
+            'NZD' => ['prefix' => '$', 'suffix' => ' NZD', 'decimals' => 2],
+            'USD' => ['prefix' => '$', 'suffix' => ' USD', 'decimals' => 2],
+            'PGK' => ['prefix' => 'K', 'suffix' => '', 'decimals' => 2],
+            'SBD' => ['prefix' => 'SI$', 'suffix' => '', 'decimals' => 2],
+            'TOP' => ['prefix' => 'T$', 'suffix' => '', 'decimals' => 2],
+            'WST' => ['prefix' => 'WS$', 'suffix' => '', 'decimals' => 2],
+            'VUV' => ['prefix' => '', 'suffix' => ' VT', 'decimals' => 0], // Vatu has no subdivisions
+        ];
+
+        if (!isset($currencies[$targetCurrency])) {
+            return Http::error($res, 'Unsupported Pacific currency: ' . $targetCurrency, 422);
+        }
+
+        $cConfig = $currencies[$targetCurrency];
+        $pages = Db::all('SELECT * FROM studio_document_pages WHERE document_id = ? ORDER BY page_number ASC', [$docId]);
+
+        $updatedCount = 0;
+        $updatedPages = [];
+
+        Db::pdo()->beginTransaction();
+        try {
+            foreach ($pages as $p) {
+                $elements = $p['elements'] ? json_decode($p['elements'], true) : [];
+                $dirty = false;
+
+                foreach ($elements as &$el) {
+                    if (in_array($el['type'] ?? '', ['product', 'productCard'], true)) {
+                        $rawPrice = $el['price'] ?? '';
+                        // Extract numeric value
+                        if (preg_match('/([0-9]+(?:\.[0-9]+)?)/', str_replace(',', '', (string) $rawPrice), $m)) {
+                            $val = (float) $m[1];
+                            $converted = $val * $rate;
+                            if ($cConfig['decimals'] === 0) {
+                                $converted = (float) round($converted);
+                                $formatted = number_format($converted, 0) . $cConfig['suffix'];
+                            } else {
+                                if ($round === '99c') {
+                                    $converted = floor($converted) + 0.99;
+                                } elseif ($round === 'dollar') {
+                                    $converted = (float) round($converted);
+                                }
+                                $formatted = $cConfig['prefix'] . number_format($converted, $cConfig['decimals']) . $cConfig['suffix'];
+                            }
+                            $el['price'] = $formatted;
+                            $el['currency'] = $targetCurrency;
+                            $dirty = true;
+                            $updatedCount++;
+
+                            // Also convert original price if present
+                            if (!empty($el['originalPrice']) && preg_match('/([0-9]+(?:\.[0-9]+)?)/', str_replace(',', '', (string) $el['originalPrice']), $om)) {
+                                $oVal = (float) $om[1] * $rate;
+                                if ($cConfig['decimals'] === 0) {
+                                    $el['originalPrice'] = number_format(round($oVal), 0) . $cConfig['suffix'];
+                                } else {
+                                    if ($round === '99c') {
+                                        $oVal = floor($oVal) + 0.99;
+                                    } elseif ($round === 'dollar') {
+                                        $oVal = (float) round($oVal);
+                                    }
+                                    $el['originalPrice'] = $cConfig['prefix'] . number_format($oVal, $cConfig['decimals']) . $cConfig['suffix'];
+                                }
+                            }
+
+                            // Re-calculate WhatsApp order link
+                            if (!empty($el['whatsappNumber'])) {
+                                $pName = $el['name'] ?? 'Product';
+                                $pPrice = $el['price'] ?? '';
+                                $pSku = $el['sku'] ?? '';
+                                $orderMsg = rawurlencode("Hi! I would like to order: {$pName}" . ($pPrice ? " ({$pPrice})" : "") . ($pSku ? " SKU: {$pSku}" : ""));
+                                $cleanPhone = preg_replace('/[^0-9]/', '', (string) $el['whatsappNumber']);
+                                $el['whatsappLink'] = "https://wa.me/{$cleanPhone}?text={$orderMsg}";
+                            }
+                        }
+                    }
+                }
+                unset($el);
+
+                if ($dirty) {
+                    Db::run('UPDATE studio_document_pages SET elements = ?, updated_at = NOW() WHERE id = ?', [
+                        json_encode($elements, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                        $p['id']
+                    ]);
+                    $updatedPages[] = (int) $p['page_number'];
+                }
+            }
+
+            Db::run('UPDATE studio_documents SET updated_at = NOW() WHERE id = ?', [$docId]);
+            Db::pdo()->commit();
+
+            return Http::json($res, [
+                'ok' => true,
+                'currency' => $targetCurrency,
+                'updated_count' => $updatedCount,
+                'pages_updated' => count($updatedPages),
+                'message' => "Successfully converted {$updatedCount} product(s) to {$targetCurrency} across " . count($updatedPages) . " page(s)."
+            ]);
+        } catch (\Throwable $e) {
+            if (Db::pdo()->inTransaction()) {
+                Db::pdo()->rollBack();
+            }
+            return Http::error($res, 'Currency conversion failed: ' . $e->getMessage(), 500);
+        }
     }
 }

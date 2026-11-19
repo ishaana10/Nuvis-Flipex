@@ -29,9 +29,15 @@ final class PublicController
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND status = "ready"', [$slug]);
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
         if (!$f) {
             return Http::error($res, 'Not found', 404);
+        }
+        if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
+            $f['status'] = 'ready';
+            try {
+                Db::run('UPDATE flipbooks SET status = "ready" WHERE id = ?', [$f['id']]);
+            } catch (\Throwable) {}
         }
 
         if (!$isPreview) {
@@ -347,8 +353,11 @@ HTML;
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND status = "ready"', [$slug]);
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
         if (!$f) return Http::error($res, 'Not found', 404);
+        if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
+            $f['status'] = 'ready';
+        }
 
         if (!$isPreview) {
             $wf = $f['workflow_status'] ?? ($f['published_at'] !== null ? 'published' : 'draft');
@@ -719,8 +728,11 @@ HTML;
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND status = "ready"', [$slug]);
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
         if (!$f) return Http::error($res, 'Not found', 404);
+        if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
+            $f['status'] = 'ready';
+        }
         if (!$isPreview && ($f['published_at'] === null || ($f['workflow_status'] ?? 'published') !== 'published')) {
             return Http::error($res, 'Not found', 404);
         }
@@ -762,8 +774,11 @@ HTML;
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND status = "ready"', [$slug]);
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
         if (!$f) return Http::error($res, 'Not found', 404);
+        if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
+            $f['status'] = 'ready';
+        }
         if (!$isPreview && ($f['published_at'] === null || ($f['workflow_status'] ?? 'published') !== 'published')) {
             return Http::error($res, 'Not found', 404);
         }

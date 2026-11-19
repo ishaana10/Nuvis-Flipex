@@ -255,6 +255,42 @@ A complete, browser-based visual layout engine allowing users to author professi
 
 The following notable updates, bug fixes, and architectural hardening milestones have been deployed across recent release cycles:
 
+### Release Sprint 4 — Data Binding, Dynamic Catalogues & Advanced Multi-Page Publishing
+- **Server-Side Live Data Sync (`POST /api/v1/studio/documents/{id}/data-sync`):**
+  - High-performance atomic synchronization of pricing, was-prices, promotional badges, inventory stock status, and product images directly into `studio_document_pages` with audit ledger logging.
+  - Supports matching by `sku`, `name`, or `id` with document-wide or page-scoped operations.
+- **Pacific Regional Currency Switcher (`POST /api/v1/studio/documents/{id}/currency-convert`):**
+  - Native multi-currency engine supporting 9 South Pacific island currencies: **FJD** (Fiji $), **AUD** (Australia $), **NZD** (New Zealand $), **USD** (US $), **PGK** (PNG Kina), **SBD** (Solomon Islands SI$), **TOP** (Tonga T$), **WST** (Samoa WS$), and **VUV** (Vanuatu Vatu).
+  - Exchange rate multipliers with customizable rounding modes (Exact `.XX`, Retail Psychological `.99`, Whole Unit / No Cents).
+- **Dynamic Template Token Resolver:**
+  - One-click resolution of dynamic editorial tokens (`{{doc.title}}`, `{{doc.category}}`, `{{page.number}}`, `{{page.total}}`, `{{date}}`, `{{year}}`, `{{company}}`) across text frames and articles.
+- **2-Page Connected Magazine Story Generator:**
+  - One-click generation of two facing pages with linked editorial article columns, enlarged serif drop-caps, kicker category headers, deck subtitles, author byline cards, pull quotes, image frames, running folios, and automatic centerfold spine view (`spreadMode`).
+- **Real-Time Overflow Meter & Flow Diagnostics:**
+  - In-inspector capacity meter showing character and word metrics, frame utilization %, and live warnings when long-form text exceeds frame boundaries before flowing to next pages.
+- **Unified Commercial Preflight Inspector:**
+  - Top-bar preflight quality tool scanning all document pages for missing images, placeholder graphics, unpriced products, missing SKUs, and empty text frames, with one-click jump navigation.
+- **Flipbook Preview & Live Reader Healing:**
+  - Hardened `PublicController.php` and `StudioController.php` to auto-heal flipbook status from `draft`/`approved` to `ready` upon publication, eliminating the "flipbook doesn't exist or isn't published" reader error.
+- **100% Zero Purple Audit:**
+  - Completely purged all residual purple and indigo tokens (`#1e1b4b`, `#312e81`, `#6366f1`) from `FlipexStudio.tsx`, `PublicController.php`, and `StudioController.php` SVG compositors.
+- **Automated Test Suite Expansion:**
+  - Added 5 new automated regression tests to `StudioDesignSchemaTest.php` covering data sync, currency conversion, Pacific currency formatting accuracy, and flipbook auto-healing (34 / 34 tests passing).
+
+### Release Sprint 3 — Core Editor Capabilities & Commercial Blocks
+- **Editorial Magazine & Article Layouts (`article` / `column_text`):**
+  - Added decorative enlarged drop-cap initials (48px serif), kicker category headers, standfirst deck subtitles, and author bylines (avatar, name, role).
+  - Supports 1, 2, and 3 column text layout with configurable column gutters and responsive column balances.
+- **Commercial FMCG Product Cards with 1-Tap WhatsApp Ordering (`productCard`):**
+  - Promo splash badges (`SPECIAL 20% OFF`, `HOT DEAL`), stock status pills (`In Stock`, `Low Stock`, `Pre-Order`), customer star ratings (1-5), SKU code generator (`🎲 Gen`), and dual pricing (current + strikethrough was price).
+  - Generates direct 1-tap WhatsApp click-to-chat checkout link: `https://wa.me/{number}?text=Bula! I would like to order: {name} ({price}) SKU: {sku}`.
+- **School Yearbook Student Profile Cards (`studentCard`):**
+  - Circular student portraits, academic honours / Dux badges (`🏆 Dux of Class 2026`), graduation class, and inspirational quotes.
+  - Curated Pacific student stock photo integration.
+- **Automated Dynamic Table of Contents (TOC) & Running Folios:**
+  - Dynamic "⚡ Auto-Detect Headings from All Pages" button generating dotted-leader TOC blocks with direct in-editor click-to-page jump navigation.
+  - Running folios with dynamic token replacement (`{page}`, `{total}`, `{title}`, `{category}`).
+
 ### Release Sprint 2 — Dynamic Template Library, Curated Pacific Stock Assets & Media Management
 - **Media Asset Architecture & Stock Library Provider:**
   - Enhanced `StudioController::listAssets()` to support dual scopes: `tenant` (private customer uploads) and `library` (curated high-resolution stock imagery).

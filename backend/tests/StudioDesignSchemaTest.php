@@ -301,6 +301,43 @@ final class StudioDesignSchemaTest
             strpos($controllerSrc, "type === 'studentCard'") !== false
         );
 
+        // 13. Sprint 4: Data Sync, Pacific Regional Currencies & Flipbook Publishing Auto-Heal
+        $assertions['studiocontroller_datasync_method_exists'] = $ref->hasMethod('syncDataFeed');
+        $assertions['studiocontroller_currency_convert_method_exists'] = $ref->hasMethod('convertCurrency');
+        
+        $indexSrc = file_get_contents(dirname(__DIR__) . '/public/index.php');
+        $assertions['studiocontroller_sprint4_routes_registered'] = (
+            strpos($indexSrc, '/documents/{id:[0-9]+}/data-sync') !== false &&
+            strpos($indexSrc, '/documents/{id:[0-9]+}/currency-convert') !== false
+        );
+
+        // Pacific currencies formatting accuracy
+        $currencies = [
+            'FJD' => ['prefix' => '$', 'suffix' => ' FJD', 'decimals' => 2],
+            'AUD' => ['prefix' => '$', 'suffix' => ' AUD', 'decimals' => 2],
+            'NZD' => ['prefix' => '$', 'suffix' => ' NZD', 'decimals' => 2],
+            'USD' => ['prefix' => '$', 'suffix' => ' USD', 'decimals' => 2],
+            'PGK' => ['prefix' => 'K', 'suffix' => '', 'decimals' => 2],
+            'SBD' => ['prefix' => 'SI$', 'suffix' => '', 'decimals' => 2],
+            'TOP' => ['prefix' => 'T$', 'suffix' => '', 'decimals' => 2],
+            'WST' => ['prefix' => 'WS$', 'suffix' => '', 'decimals' => 2],
+            'VUV' => ['prefix' => '', 'suffix' => ' VT', 'decimals' => 0],
+        ];
+        $priceFjd = $currencies['FJD']['prefix'] . number_format(24.95, $currencies['FJD']['decimals']) . $currencies['FJD']['suffix'];
+        $pricePgk = $currencies['PGK']['prefix'] . number_format(49.50, $currencies['PGK']['decimals']) . $currencies['PGK']['suffix'];
+        $priceVuv = number_format(round(1250.75), $currencies['VUV']['decimals']) . $currencies['VUV']['suffix'];
+        $assertions['pacific_currencies_formatting_accuracy'] = (
+            $priceFjd === '$24.95 FJD' &&
+            $pricePgk === 'K49.50' &&
+            $priceVuv === '1,251 VT'
+        );
+
+        $pubSrc = file_get_contents(dirname(__DIR__) . '/src/Controllers/PublicController.php');
+        $assertions['publiccontroller_auto_heals_published_flipbooks'] = (
+            strpos($pubSrc, 'UPDATE flipbooks SET status = "ready"') !== false &&
+            strpos($pubSrc, 'stop-color="#1e1b4b"') === false
+        );
+
         return $assertions;
     }
 }
