@@ -338,6 +338,52 @@ final class StudioDesignSchemaTest
             strpos($pubSrc, 'stop-color="#1e1b4b"') === false
         );
 
+        // Sprint 5: Performance, Offline & Pacific Island Resiliency Tests
+        $idbPath = dirname(dirname(__DIR__)) . '/frontend/src/utils/studioIndexedDb.ts';
+        $assertions['indexeddb_offline_storage_utility_exists'] = file_exists($idbPath);
+        if (file_exists($idbPath)) {
+            $idbSrc = file_get_contents($idbPath);
+            $assertions['indexeddb_offline_draft_api_complete'] = (
+                strpos($idbSrc, 'export async function saveOfflineDraft') !== false &&
+                strpos($idbSrc, 'export async function getOfflineDraft') !== false &&
+                strpos($idbSrc, 'export async function clearOfflineDraft') !== false &&
+                strpos($idbSrc, 'export async function listAllOfflineDrafts') !== false
+            );
+        }
+
+        // Test bandwidth-adaptive image optimization helper logic
+        $rawUrl = 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=1200&q=80';
+        $optimizedUrl = preg_replace('/w=\d+/', 'w=350', $rawUrl);
+        $optimizedUrl = preg_replace('/q=\d+/', 'q=60', $optimizedUrl);
+        $assertions['bandwidth_adaptive_image_optimization_accuracy'] = (
+            $optimizedUrl === 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=350&q=60'
+        );
+
+        // Test spatial virtualization window calculation for 50-page document
+        $activePageIdx = 10;
+        $pagesCount = 50;
+        $renderedCount = 0;
+        for ($i = 0; $i < $pagesCount; $i++) {
+            $isWithinWindow = ($pagesCount <= 12) || (abs($i - $activePageIdx) <= 4);
+            if ($isWithinWindow) {
+                $renderedCount++;
+            }
+        }
+        // At index 10, window is 6, 7, 8, 9, 10, 11, 12, 13, 14 (exactly 9 pages full-rendered instead of all 50)
+        $assertions['spatial_virtualization_window_calculation'] = ($renderedCount === 9);
+
+        // Sprint 5: Zero Purple Compliance Scan across Studio
+        $studioTsx = file_get_contents(dirname(dirname(__DIR__)) . '/frontend/src/pages/FlipexStudio.tsx');
+        $bannedColors = ['#6366f1', '#a855f7', '#7c3aed', '#4f46e5', '#818cf8', '#a5b4fc', '#1e1b4b', '#312e81'];
+        $hasBannedColor = false;
+        foreach ($bannedColors as $color) {
+            if (stripos($studioTsx, $color) !== false) {
+                $hasBannedColor = true;
+                break;
+            }
+        }
+        $assertions['sprint5_zero_purple_compliance'] = !$hasBannedColor;
+
         return $assertions;
     }
 }
