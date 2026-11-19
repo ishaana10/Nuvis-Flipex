@@ -384,6 +384,25 @@ final class StudioDesignSchemaTest
         }
         $assertions['sprint5_zero_purple_compliance'] = !$hasBannedColor;
 
+        // Template Preview & Use Template Invariant Verification (Fix for SQLSTATE 1136 & Blank Previews)
+        $studioCtrlSrc = file_get_contents(dirname(__DIR__) . '/src/Controllers/StudioController.php');
+        
+        // Assert createDocument INSERT INTO studio_documents has exact 1:1 matching column and value counts
+        preg_match('/INSERT\s+INTO\s+studio_documents\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i', $studioCtrlSrc, $sqlMatches);
+        $colCount = isset($sqlMatches[1]) ? count(array_map('trim', explode(',', $sqlMatches[1]))) : 0;
+        $valCount = isset($sqlMatches[2]) ? count(array_map('trim', explode(',', $sqlMatches[2]))) : 0;
+        $assertions['studiocontroller_createdocument_columns_match_values_count'] = ($colCount > 0 && $colCount === $valCount && $colCount === 12);
+
+        // Assert template insertion converts FDS to runtime pages
+        $assertions['studiocontroller_createdocument_adapts_fds_template'] = (
+            strpos($studioCtrlSrc, 'FdsAdapter::toLegacy($spec)') !== false
+        );
+
+        // Assert template preview in frontend renders via high-fidelity renderPageToSvg
+        $assertions['template_preview_uses_vector_svg_renderer'] = (
+            strpos($studioTsx, 'renderPageToSvg(normalizedPage') !== false
+        );
+
         return $assertions;
     }
 }

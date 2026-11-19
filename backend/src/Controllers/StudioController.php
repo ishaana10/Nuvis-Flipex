@@ -367,7 +367,7 @@ final class StudioController
         try {
             Db::run(
                 'INSERT INTO studio_documents (tenant_id, created_by, title, doc_type, page_count, width_pt, height_pt, orientation, bleed_pt, palette, settings, status)
-                 VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, "draft")',
+                 VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, "draft")',
                 [$tenantId, $u['id'], $title, $docType, $width, $height, $orientation, $bleed, $palette, $settings]
             );
             $docId = (int) Db::pdo()->lastInsertId();
@@ -376,7 +376,12 @@ final class StudioController
                 $tpl = Db::one('SELECT * FROM studio_templates WHERE id = ? AND (is_system = 1 OR tenant_id = ?)', [$templateId, $tenantId]);
                 if ($tpl && !empty($tpl['canvas_spec'])) {
                     $spec = json_decode($tpl['canvas_spec'], true);
-                    $pages = $spec['pages'] ?? [];
+                    if (is_array($spec) && FdsAdapter::isFds($spec)) {
+                        $legacy = FdsAdapter::toLegacy($spec);
+                        $pages = $legacy['pages'] ?? [];
+                    } else {
+                        $pages = $spec['pages'] ?? [];
+                    }
                     if (!empty($pages)) {
                         $pageNum = 1;
                         foreach ($pages as $p) {
@@ -766,7 +771,12 @@ final class StudioController
         }
 
         if (!empty($tpl['canvas_spec'])) {
-            $tpl['canvas_spec'] = json_decode($tpl['canvas_spec'], true);
+            $spec = json_decode($tpl['canvas_spec'], true);
+            if (is_array($spec) && FdsAdapter::isFds($spec)) {
+                $legacy = FdsAdapter::toLegacy($spec);
+                $spec['pages'] = $legacy['pages'] ?? ($spec['pages'] ?? []);
+            }
+            $tpl['canvas_spec'] = $spec;
         }
         if (!empty($tpl['preview_images'])) {
             $tpl['preview_images'] = json_decode($tpl['preview_images'], true);

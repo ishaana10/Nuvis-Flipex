@@ -70,6 +70,7 @@ export interface CanvasElement {
   y: number;
   w: number;
   h: number;
+  frame?: { x: number; y: number; width: number; height: number };
   rotation?: number; // 0-359 degrees (Stage 2)
   locked?: boolean;
   groupId?: string;
@@ -242,7 +243,7 @@ export interface StudioTemplate {
   description: string;
   thumbnail_url: string;
   preview_images?: string[];
-  canvas_spec?: { pages: { background?: any; elements: CanvasElement[] }[] };
+  canvas_spec?: any;
   is_system: number;
   page_count?: number;
   tenant_id?: number | null;
@@ -376,14 +377,15 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
       const stop1 = bg.stop1 || '#0f172a';
       const stop2 = bg.stop2 || '#0369a1';
       const stop3 = bg.stop3 || '#0284c7';
+      const gradId = `pBgGrad_${page.id || page.page_number || 'default'}`;
       defs = `<defs>
-        <linearGradient id="pBgGrad_${page.id}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="${stop1}" />
           <stop offset="50%" stop-color="${stop2}" />
           <stop offset="100%" stop-color="${stop3}" />
         </linearGradient>
       </defs>`;
-      bgStyle = `fill: url(#pBgGrad_${page.id});`;
+      bgStyle = `fill: url(#${gradId});`;
     } else if ((bg as any).color || bg.value) {
       bgStyle = `fill: ${(bg as any).color || bg.value};`;
     }
@@ -391,13 +393,13 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
 
   let elementsSvg = '';
   (page.elements || []).forEach((el) => {
-    const x = el.x || 0;
-    const y = el.y || 0;
-    const w = el.w || 100;
-    const h = el.h || 50;
+    const x = el.x ?? el.frame?.x ?? 0;
+    const y = el.y ?? el.frame?.y ?? 0;
+    const w = el.w ?? el.frame?.width ?? 100;
+    const h = el.h ?? el.frame?.height ?? 50;
     const rot = el.rotation || 0;
     const transform = rot ? `transform="rotate(${rot} ${x + w / 2} ${y + h / 2})"` : '';
-    const rawImgSrc = el.src || el.image || el.url || el.assetRef?.url || '';
+    const rawImgSrc = el.src || el.image || el.url || el.assetRef?.url || el.photoUrl || '';
     const imgSrc = optimizeImageUrlForBandwidth(rawImgSrc, isDataSaver);
 
     if ((el.type === 'image' || el.type === 'imageFrame') && imgSrc) {
@@ -488,7 +490,7 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
     }
   });
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthPt} ${heightPt}" width="${widthPt}" height="${heightPt}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthPt} ${heightPt}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:100%;">
     ${defs}
     <rect width="100%" height="100%" ${bgStyle} />
     ${elementsSvg}
@@ -4148,53 +4150,41 @@ export default function FlipexStudio() {
                     <>
                       {/* Active Preview Page Display */}
                       <div className="studio-preview-canvas-sheet">
-                        {previewTemplate.canvas_spec?.pages?.[previewPageIndex] ? (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              position: 'relative',
-                              backgroundColor: previewTemplate.canvas_spec.pages[previewPageIndex].background?.value || '#ffffff',
-                              background: previewTemplate.canvas_spec.pages[previewPageIndex].background?.value || '#ffffff',
-                              overflow: 'hidden',
-                              padding: '16px',
-                            }}
-                          >
-                            {/* Scaled Preview of elements */}
-                            <div style={{ position: 'relative', width: '100%', height: '100%', transform: 'scale(0.55)', transformOrigin: 'top left' }}>
-                              {(previewTemplate.canvas_spec.pages[previewPageIndex].elements || []).map((el: any) => (
-                                <div
-                                  key={el.id}
-                                  style={{
-                                    position: 'absolute',
-                                    left: `${el.x}px`,
-                                    top: `${el.y}px`,
-                                    width: `${el.w}px`,
-                                    height: `${el.h}px`,
-                                    backgroundColor: el.style?.backgroundColor,
-                                    color: el.style?.color || '#0f172a',
-                                    borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : undefined,
-                                    fontSize: el.style?.fontSize ? `${el.style.fontSize}px` : '12px',
-                                    fontWeight: el.style?.fontWeight || 'normal',
-                                    overflow: 'hidden',
-                                  }}
-                                >
-                                  {el.type === 'text' && (el.content || 'Sample Heading')}
-                                  {el.type === 'image' && el.src && (
-                                    <img src={el.src} alt="Sample" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  )}
-                                  {el.type === 'product' && (
-                                    <div style={{ padding: '8px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-                                      {el.image && <img src={el.image} alt={el.name} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '6px' }} />}
-                                      <div style={{ fontWeight: 700, fontSize: '11px', marginTop: '4px' }}>{el.name}</div>
-                                      <div style={{ color: '#ef4444', fontWeight: 800 }}>{el.price}</div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
+                        {previewTemplate.canvas_spec?.pages?.[previewPageIndex] ? (() => {
+                          const pg = (previewTemplate.canvas_spec.pages as any[])[previewPageIndex];
+                          const docW = (previewTemplate.canvas_spec as any)?.document?.width || 595.28;
+                          const docH = (previewTemplate.canvas_spec as any)?.document?.height || 841.89;
+                          const normalizedPage: StudioPage = {
+                            id: pg.id || (previewPageIndex + 1),
+                            document_id: previewTemplate.id || 0,
+                            page_number: pg.page_number || pg.pageNumber || (previewPageIndex + 1),
+                            background: pg.background || { type: 'color', value: '#ffffff' },
+                            elements: (pg.elements || []).map((el: any) => ({
+                              ...el,
+                              x: el.x ?? el.frame?.x ?? 0,
+                              y: el.y ?? el.frame?.y ?? 0,
+                              w: el.w ?? el.frame?.width ?? 100,
+                              h: el.h ?? el.frame?.height ?? 50,
+                              src: el.src || el.image || el.url || el.assetRef?.url || el.photoUrl || '',
+                              image: el.image || el.src || el.url || el.assetRef?.url || el.photoUrl || '',
+                            })),
+                          };
+                          const svg = renderPageToSvg(normalizedPage, docW, docH);
+                          return (
+                            <div
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                                position: 'relative',
+                              }}
+                              dangerouslySetInnerHTML={{ __html: svg }}
+                            />
+                          );
+                        })() : (
                           <img
                             src={previewTemplate.thumbnail_url}
                             alt={previewTemplate.name}
