@@ -330,6 +330,13 @@ final class JobRunner
 
         try {
             $metadata = PdfRenderer::validatePdf($pdf, $maxBytes, $maxPages);
+            $pageEst = max(1, (int) ($metadata['page_count'] ?? 1));
+            // Dynamically scale worker execution timeout (at least 600s, ~6s per page up to 1 hour)
+            $timeoutSeconds = max($timeoutSeconds, min(3600, (int) ceil($pageEst * 6)));
+            if (function_exists('set_time_limit')) {
+                @set_time_limit($timeoutSeconds + 300);
+            }
+            @ini_set('max_execution_time', (string) ($timeoutSeconds + 300));
 
             // Instant Cover Preview (< 1s): Rasterize Page 1 immediately and commit to `pages` so the
             // publisher's Dashboard card shows the live cover thumbnail while pages 2..N finish converting.
@@ -355,8 +362,54 @@ final class JobRunner
                 );
             }
 
-            // Render one page beyond the limit so an unreadable page-count can never silently truncate/bypass it.
-            $renderedPages = PdfRenderer::renderMultiResolution($pdf, $out, $maxPages > 0 ? $maxPages + 1 : $maxPages, $onProgress, $timeoutSeconds);
+            // Progressive streaming callback: commit pages into DB in real-time as they finish rasterizing
+            $onPageReady = static function (array $pg) use ($flipbookId, $outRel): void {
+                $pageNum = (int) $pg['page_number'];
+                $stdName = basename($pg['standard']);
+                $highName = !empty($pg['high_res']) ? basename($pg['high_res']) : null;
+                $webpName = !empty($pg['webp']) ? basename($pg['webp']) : null;
+                $avifName = !empty($pg['avif']) ? basename($pg['avif']) : null;
+                $thumbName = basename($pg['thumb']);
+
+                Db::run(
+                    'INSERT INTO pages (flipbook_id, page_number, image_path, high_res_path, webp_path, avif_path, thumb_path, width, height)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE
+                        image_path = VALUES(image_path),
+                        high_res_path = VALUES(high_res_path),
+                        webp_path = VALUES(webp_path),
+                        avif_path = VALUES(avif_path),
+                        thumb_path = VALUES(thumb_path),
+                        width = VALUES(width),
+                        height = VALUES(height)',
+                    [
+                        $flipbookId,
+                        $pageNum,
+                        "{$outRel}/{$stdName}",
+                        $highName ? "{$outRel}/high/{$highName}" : "{$outRel}/{$stdName}",
+                        $webpName ? "{$outRel}/{$webpName}" : null,
+                        $avifName ? "{$outRel}/{$avifName}" : null,
+                        "{$outRel}/thumbs/{$thumbName}",
+                        (int) $pg['width'],
+                        (int) $pg['height'],
+                    ]
+                );
+                Db::run(
+                    'UPDATE flipbooks SET page_count = GREATEST(COALESCE(page_count, 0), ?) WHERE id = ?',
+                    [$pageNum, $flipbookId]
+                );
+            };
+
+            // Render with progressive commits and live heartbeat updates
+            $renderedPages = PdfRenderer::renderMultiResolution(
+                $pdf,
+                $out,
+                $maxPages > 0 ? $maxPages + 1 : $maxPages,
+                $onProgress,
+                $timeoutSeconds,
+                PdfRenderer::DRIVER_AUTO,
+                $onPageReady
+            );
             if ($maxPages > 0 && $renderedPages && count($renderedPages) > $maxPages) {
                 throw new RuntimeException('PDF validation failed: Document has more than ' . $maxPages . ' pages, exceeding your plan limit.');
             }
@@ -402,7 +455,6 @@ final class JobRunner
             // Non-fatal if auto link extraction fails
         }
 
-        Db::run('DELETE FROM pages WHERE flipbook_id = ?', [$flipbookId]);
         foreach ($renderedPages as $pg) {
             $pageNum = (int) $pg['page_number'];
             $stdName = basename($pg['standard']);
@@ -413,7 +465,16 @@ final class JobRunner
 
             Db::run(
                 'INSERT INTO pages (flipbook_id, page_number, image_path, high_res_path, webp_path, avif_path, thumb_path, width, height, text_content)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    image_path = VALUES(image_path),
+                    high_res_path = VALUES(high_res_path),
+                    webp_path = VALUES(webp_path),
+                    avif_path = VALUES(avif_path),
+                    thumb_path = VALUES(thumb_path),
+                    width = VALUES(width),
+                    height = VALUES(height),
+                    text_content = VALUES(text_content)',
                 [
                     $flipbookId,
                     $pageNum,

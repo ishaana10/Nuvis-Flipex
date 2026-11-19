@@ -227,10 +227,15 @@ final class PdfRenderer
         string $outDir,
         int $maxPages = 100,
         ?callable $onProgress = null,
-        int $timeoutSeconds = 300
+        int $timeoutSeconds = 300,
+        string $driver = self::DRIVER_AUTO,
+        ?callable $onPageReady = null
     ): array {
         // Enforce worker memory safety limit
         @ini_set('memory_limit', '512M');
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(max(300, $timeoutSeconds + 120));
+        }
 
         $report = static function (int $pct, string $step) use ($onProgress): void {
             if ($onProgress !== null) {
@@ -300,8 +305,12 @@ final class PdfRenderer
 
         foreach ($standardFiles as $idx => $stdFile) {
             $pageNum = $idx + 1;
-            $pct = 65 + (int) round(($pageNum / max(1, $total)) * 30);
-            $report($pct, "Optimizing WebP/AVIF & multi-res assets (page {$pageNum} of {$total})");
+            $pct = 60 + (int) round(($pageNum / max(1, $total)) * 32);
+            $report($pct, "Optimizing WebP & multi-res assets (page {$pageNum} of {$total})");
+
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(180);
+            }
 
             $baseName = sprintf('page-%03d', $pageNum);
             $thumbFile = "{$outDir}/thumbs/{$baseName}.jpg";
@@ -318,35 +327,42 @@ final class PdfRenderer
             $w = $dims ? (int) $dims[0] : 1400;
             $h = $dims ? (int) $dims[1] : 1900;
 
-            // Generate crisp WebP, JPEG and Thumbnail derivatives directly from lossless PNG master (or JPEG)
+            // Generate crisp WebP, JPEG and Thumbnail derivatives directly from lossless master (PNG or direct JPEG)
             if (extension_loaded('gd')) {
                 $im = $isPngMaster
                     ? (function_exists('imagecreatefrompng') ? @imagecreatefrompng($stdFile) : false)
                     : (function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($stdFile) : false);
 
                 if ($im !== false) {
-                    // Level 2 & 3: Generate crisp WebP & High-Res derivatives directly from 200 DPI lossless master
-                    if (function_exists('imagewebp')) {
-                        @imagewebp($im, $webpFile, 93);
-                        @imagewebp($im, $highWebpFile, 95);
+                    // Level 2: Generate crisp WebP derivative
+                    if (function_exists('imagewebp') && !file_exists($webpFile)) {
+                        @imagewebp($im, $webpFile, 85);
+                    }
+                    if (file_exists($webpFile) && !file_exists($highWebpFile)) {
+                        @copy($webpFile, $highWebpFile);
                     }
 
-                    // Level 2 & 3: Generate standard & high-res JPEG fallback if master was PNG
-                    if ($isPngMaster || !file_exists($stdJpgFile)) {
+                    // Level 2 & 3: Standard & high-res JPEG
+                    if ($isPngMaster && !file_exists($stdJpgFile)) {
                         @imagejpeg($im, $stdJpgFile, 92);
                     }
                     if (!file_exists($highFile)) {
-                        @imagejpeg($im, $highFile, 95);
+                        $sourceJpg = file_exists($stdJpgFile) ? $stdJpgFile : $stdFile;
+                        if (file_exists($sourceJpg) && !str_ends_with(strtolower($sourceJpg), '.png')) {
+                            @copy($sourceJpg, $highFile);
+                        } else {
+                            @imagejpeg($im, $highFile, 93);
+                        }
                     }
 
-                    // Level 1: Generate missing thumbnail (350–500px wide, target ~420px for rapid grid & preview)
+                    // Level 1: Generate crisp navigation thumbnail (420px wide)
                     if (!file_exists($thumbFile)) {
                         $thumbW = 420;
                         $thumbH = max(1, (int) round($h * ($thumbW / max(1, $w))));
                         $thumbIm = imagescale($im, $thumbW, $thumbH);
                         if ($thumbIm !== false) {
                             @imagejpeg($thumbIm, $thumbFile, 82);
-                            if (function_exists('imagewebp')) {
+                            if (function_exists('imagewebp') && !file_exists($thumbWebpFile)) {
                                 @imagewebp($thumbIm, $thumbWebpFile, 80);
                             }
                             imagedestroy($thumbIm);
@@ -359,15 +375,15 @@ final class PdfRenderer
                         }
                     }
 
-                    // Level 2: Generate AVIF derivative if PHP GD was compiled with libavif support
-                    if (function_exists('imageavif')) {
-                        @imageavif($im, $avifFile, 70);
+                    // Level 2: Generate AVIF only for compact publications (<= 15 pages) to prevent CPU stall
+                    if ($total <= 15 && function_exists('imageavif') && !file_exists($avifFile)) {
+                        @imageavif($im, $avifFile, 65);
                     }
 
                     imagedestroy($im);
                 }
 
-                // Delete temporary PNG master to conserve storage
+                // Delete temporary PNG master to conserve storage once JPEG exists
                 if ($isPngMaster && file_exists($stdJpgFile) && filesize($stdJpgFile) > 0) {
                     @unlink($stdFile);
                 }
@@ -375,7 +391,7 @@ final class PdfRenderer
 
             $finalStd = file_exists($stdJpgFile) ? $stdJpgFile : $stdFile;
 
-            $results[] = [
+            $pageData = [
                 'page_number' => $pageNum,
                 'standard' => $finalStd,
                 'high_res' => file_exists($highFile) ? $highFile : $finalStd,
@@ -385,9 +401,20 @@ final class PdfRenderer
                 'width' => $w,
                 'height' => $h,
             ];
+
+            $results[] = $pageData;
+
+            // Progressive commit: notify caller immediately so pages are live in DB while conversion continues
+            if ($onPageReady !== null) {
+                try {
+                    $onPageReady($pageData);
+                } catch (Throwable $e) {
+                    error_log("[PdfRenderer] onPageReady callback error on page {$pageNum}: " . $e->getMessage());
+                }
+            }
         }
 
-        $report(100, 'Conversion complete');
+        $report(92, 'Page rasterization & multi-res optimization complete');
         return $results;
     }
 
@@ -428,20 +455,26 @@ final class PdfRenderer
             }
         }
 
-        // 2. Fallback: Ghostscript txtwrite device if pdftotext wasn't used
+        // 2. Fallback: Ghostscript txtwrite device in single pass (much faster than looping)
         if (empty($pagesText)) {
             $gs = self::getGhostscriptBinary();
             if ($gs !== null) {
                 try {
-                    for ($p = 1; $p <= min($pageCount, 100); $p++) {
-                        $out = self::runProcessCapture([
-                            $gs, '-q', '-dNOPAUSE', '-dBATCH', '-dSAFER',
-                            '-sDEVICE=txtwrite', "-dFirstPage={$p}", "-dLastPage={$p}",
-                            '-sOutputFile=-', $pdfPath
-                        ], 15);
-                        $clean = trim(preg_replace("/[ \t]+/", ' ', $out) ?? '');
-                        if ($clean !== '') {
-                            $pagesText[$p] = mb_substr($clean, 0, 15000);
+                    $tmpTxt = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'flipex_txt_' . bin2hex(random_bytes(6)) . '.txt';
+                    self::runProcess([
+                        $gs, '-q', '-dNOPAUSE', '-dBATCH', '-dSAFER',
+                        '-sDEVICE=txtwrite', "-dLastPage={$pageCount}",
+                        "-sOutputFile={$tmpTxt}", $pdfPath
+                    ], 'Ghostscript Text Extraction', 60);
+                    if (file_exists($tmpTxt)) {
+                        $rawText = file_get_contents($tmpTxt) ?: '';
+                        @unlink($tmpTxt);
+                        $splits = explode("\f", $rawText);
+                        for ($i = 0; $i < min($pageCount, count($splits)); $i++) {
+                            $clean = trim(preg_replace("/[ \t]+/", ' ', $splits[$i]) ?? '');
+                            if ($clean !== '') {
+                                $pagesText[$i + 1] = mb_substr($clean, 0, 15000);
+                            }
                         }
                     }
                 } catch (Throwable) {
@@ -559,31 +592,60 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/thumbs");
         Storage::ensureDir("{$outDir}/high");
 
-        $base = [
-            $gs,
-            '-q',
-            '-dNOPAUSE',
-            '-dBATCH',
-            '-dSAFER',
-            '-dTextAlphaBits=4',
-            '-dGraphicsAlphaBits=4',
-            "-dLastPage={$maxPages}",
-        ];
+        $meta = self::extractMetadata($pdfPath);
+        $totalDocPages = !empty($meta['page_count']) ? (int) $meta['page_count'] : $maxPages;
+        $pagesToProcess = min($totalDocPages, $maxPages);
 
-        // Level 2 & 3: Crisp reading (~1,650–2,200px wide, 200 DPI) rendered directly to lossless PNG master
-        if ($report) $report(20, 'Rendering high-clarity pages (200 DPI lossless PNG master)');
-        $mainCmd = array_merge($base, ['-sDEVICE=png16m', '-r200', "-sOutputFile={$outDir}/master-%03d.png", $pdfPath]);
-        self::runProcess($mainCmd, 'Ghostscript (Standard Pages)', $timeoutSeconds);
+        $chunkSize = 25;
+        $chunks = (int) ceil($pagesToProcess / $chunkSize);
 
-        // Single-Pass Optimization: When PHP GD is loaded, renderMultiResolution() scales both .jpg and .webp
-        // thumbnails directly from the in-memory 165 DPI PNG master, eliminating a redundant second full-PDF Ghostscript pass.
-        if (!extension_loaded('gd') || !function_exists('imagescale')) {
-            if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
-            $thumbCmd = array_merge($base, ['-sDEVICE=jpeg', '-dJPEGQ=82', '-r50', "-sOutputFile={$outDir}/thumbs/page-%03d.jpg", $pdfPath]);
-            self::runProcess($thumbCmd, 'Ghostscript (Thumbnails)', $timeoutSeconds);
+        if ($chunks <= 1) {
+            if ($report) $report(20, "Rendering pages 1 to {$pagesToProcess} via Ghostscript (150 DPI JPEG)");
+            $mainCmd = [
+                $gs,
+                '-q',
+                '-dNOPAUSE',
+                '-dBATCH',
+                '-dSAFER',
+                '-dTextAlphaBits=4',
+                '-dGraphicsAlphaBits=4',
+                "-dLastPage={$pagesToProcess}",
+                '-sDEVICE=jpeg',
+                '-dJPEGQ=92',
+                '-r150',
+                "-sOutputFile={$outDir}/page-%03d.jpg",
+                $pdfPath,
+            ];
+            self::runProcess($mainCmd, 'Ghostscript (Standard Pages)', $timeoutSeconds);
+        } else {
+            // Chunked processing: keeps worker lease fresh and updates progress per chunk
+            for ($c = 0; $c < $chunks; $c++) {
+                $start = $c * $chunkSize + 1;
+                $end = min($pagesToProcess, ($c + 1) * $chunkSize);
+                $pct = 15 + (int) round(($c / max(1, $chunks)) * 45);
+                if ($report) $report($pct, "Rasterizing pages {$start}-{$end} of {$pagesToProcess} via Ghostscript");
+
+                $chunkCmd = [
+                    $gs,
+                    '-q',
+                    '-dNOPAUSE',
+                    '-dBATCH',
+                    '-dSAFER',
+                    '-dTextAlphaBits=4',
+                    '-dGraphicsAlphaBits=4',
+                    "-dFirstPage={$start}",
+                    "-dLastPage={$end}",
+                    '-sDEVICE=jpeg',
+                    '-dJPEGQ=92',
+                    '-r150',
+                    "-sOutputFile={$outDir}/page-%03d.jpg",
+                    $pdfPath,
+                ];
+                self::runProcess($chunkCmd, "Ghostscript (Chunk {$start}-{$end})", max(180, (int) ($timeoutSeconds / 2)));
+            }
         }
 
-        $files = glob("{$outDir}/master-*.png") ?: glob("{$outDir}/page-*.jpg") ?: [];
+        $files = glob("{$outDir}/page-*.jpg") ?: glob("{$outDir}/master-*.png") ?: [];
         natsort($files);
         return array_values($files);
     }
@@ -667,41 +729,40 @@ final class PdfRenderer
         Storage::ensureDir("{$outDir}/thumbs");
         Storage::ensureDir("{$outDir}/high");
 
-        // Level 2 & 3: Crisp reading (~1,650–2,200px wide, 200 DPI lossless PNG master)
-        if ($report) $report(20, 'Rendering high-clarity pages (200 DPI lossless PNG master)');
-        self::runProcess([$ppm, '-png', '-r', '200', '-l', (string) $maxPages, $pdfPath, "{$outDir}/master"], 'Poppler (Standard Pages)', $timeoutSeconds);
+        $meta = self::extractMetadata($pdfPath);
+        $totalDocPages = !empty($meta['page_count']) ? (int) $meta['page_count'] : $maxPages;
+        $pagesToProcess = min($totalDocPages, $maxPages);
 
-        // Single-Pass Optimization: Skip redundant second Poppler pass when PHP GD scales thumbnails in memory
-        if (!extension_loaded('gd') || !function_exists('imagescale')) {
-            if ($report) $report(45, 'Rendering navigation thumbnails (50 DPI)');
-            self::runProcess([$ppm, '-jpeg', '-r', '50', '-l', (string) $maxPages, $pdfPath, "{$outDir}/thumbs/pg"], 'Poppler (Thumbnails)', $timeoutSeconds);
+        $chunkSize = 25;
+        $chunks = (int) ceil($pagesToProcess / $chunkSize);
 
-            // Normalize thumbnail filenames
-            $thumbList = glob("{$outDir}/thumbs/pg-*.jpg") ?: [];
-            if ($thumbList) {
-                natsort($thumbList);
-                foreach (array_values($thumbList) as $i => $src) {
-                    $target = sprintf('%s/thumbs/page-%03d.jpg', $outDir, $i + 1);
-                    if ($src !== $target) {
-                        @rename($src, $target);
-                    }
-                }
+        if ($chunks <= 1) {
+            if ($report) $report(20, "Rendering pages 1 to {$pagesToProcess} via Poppler (150 DPI JPEG)");
+            self::runProcess([$ppm, '-jpeg', '-r', '150', '-l', (string) $pagesToProcess, $pdfPath, "{$outDir}/page"], 'Poppler (Standard Pages)', $timeoutSeconds);
+        } else {
+            for ($c = 0; $c < $chunks; $c++) {
+                $start = $c * $chunkSize + 1;
+                $end = min($pagesToProcess, ($c + 1) * $chunkSize);
+                $pct = 15 + (int) round(($c / max(1, $chunks)) * 45);
+                if ($report) $report($pct, "Rasterizing pages {$start}-{$end} of {$pagesToProcess} via Poppler");
+
+                self::runProcess([$ppm, '-jpeg', '-r', '150', '-f', (string) $start, '-l', (string) $end, $pdfPath, "{$outDir}/page"], "Poppler (Chunk {$start}-{$end})", max(180, (int) ($timeoutSeconds / 2)));
             }
         }
 
-        // Normalize master filenames (master-1.png -> master-001.png)
-        $masterList = glob("{$outDir}/master-*.png") ?: [];
-        if ($masterList) {
-            natsort($masterList);
-            foreach (array_values($masterList) as $i => $src) {
-                $target = sprintf('%s/master-%03d.png', $outDir, $i + 1);
-                if ($src !== $target) {
+        // Normalize page filenames (page-1.jpg or page-01.jpg -> page-001.jpg)
+        $rawList = glob("{$outDir}/page-*.jpg") ?: [];
+        if ($rawList) {
+            natsort($rawList);
+            foreach (array_values($rawList) as $i => $src) {
+                $target = sprintf('%s/page-%03d.jpg', $outDir, $i + 1);
+                if ($src !== $target && !file_exists($target)) {
                     @rename($src, $target);
                 }
             }
         }
 
-        $files = glob("{$outDir}/master-*.png") ?: glob("{$outDir}/page-*.jpg") ?: [];
+        $files = glob("{$outDir}/page-*.jpg") ?: glob("{$outDir}/master-*.png") ?: [];
         natsort($files);
         return array_values($files);
     }

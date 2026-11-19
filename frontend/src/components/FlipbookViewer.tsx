@@ -1238,10 +1238,10 @@ export default function FlipbookViewer({
       maxShadowOpacity: 0.85,
       mobileScrollSupport: false,
       usePortrait: shouldUsePortrait,
-      flippingTime: isHardCoverEffect ? 1100 : 950,
+      flippingTime: isHardCoverEffect ? 750 : 620,
       useMouseEvents: true,
-      showPageCorners: false,
-      swipeDistance: 30,
+      showPageCorners: true,
+      swipeDistance: 25,
       startPage: startPageIdx,
     });
 
@@ -1464,17 +1464,18 @@ export default function FlipbookViewer({
               this.drawLoader(ctx, { x: 0, y: 0 }, s, n);
             }
 
-            // 3. Authentic 3D paper curl lighting & gradient across fold (FlippingBook style)
+            // 3. Authentic 3D paper curl lighting & specular reflection across fold (FlipHTML5 style)
             if (isFlipping) {
               const dir = this.render.direction;
               const foldGrad =
                 dir === 1
                   ? ctx.createLinearGradient(s, 0, 0, 0)
                   : ctx.createLinearGradient(0, 0, s, 0);
-              foldGrad.addColorStop(0, 'rgba(0, 0, 0, 0.16)');
-              foldGrad.addColorStop(0.12, 'rgba(0, 0, 0, 0.05)');
-              foldGrad.addColorStop(0.32, 'rgba(255, 255, 255, 0.22)');
-              foldGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.03)');
+              foldGrad.addColorStop(0, 'rgba(0, 0, 0, 0.18)');
+              foldGrad.addColorStop(0.10, 'rgba(0, 0, 0, 0.06)');
+              foldGrad.addColorStop(0.24, 'rgba(255, 255, 255, 0.28)'); // Specular cylindrical shine
+              foldGrad.addColorStop(0.42, 'rgba(255, 255, 255, 0.08)');
+              foldGrad.addColorStop(0.80, 'rgba(0, 0, 0, 0.04)');
               foldGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
               ctx.fillStyle = foldGrad;
               ctx.fillRect(0, 0, s, n);
@@ -1940,8 +1941,53 @@ export default function FlipbookViewer({
       const origDrawBookShadow = render.drawBookShadow?.bind(render);
       if (origDrawBookShadow) {
         render.drawBookShadow = function () {
-          if (this.leftPage && this.rightPage) {
-            origDrawBookShadow();
+          if (this.leftPage && this.rightPage && this.ctx) {
+            // Enhanced FlipHTML5-style 3D centerfold spine lighting & ambient depth
+            const rect = this.getRect();
+            const spineX = rect.left + rect.pageWidth;
+            const topY = rect.top;
+            const height = rect.height;
+            const spineW = Math.max(26, Math.min(48, rect.pageWidth * 0.075));
+
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.rect(spineX - spineW, topY, spineW * 2, height);
+            this.ctx.clip();
+
+            // Left fold shadow dipping inward to the binding seam
+            const leftGrad = this.ctx.createLinearGradient(spineX - spineW, 0, spineX, 0);
+            leftGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            leftGrad.addColorStop(0.55, 'rgba(0, 0, 0, 0.04)');
+            leftGrad.addColorStop(0.82, 'rgba(0, 0, 0, 0.12)');
+            leftGrad.addColorStop(1, 'rgba(0, 0, 0, 0.28)');
+            this.ctx.fillStyle = leftGrad;
+            this.ctx.fillRect(spineX - spineW, topY, spineW, height);
+
+            // Right fold shadow dipping inward to the binding seam
+            const rightGrad = this.ctx.createLinearGradient(spineX, 0, spineX + spineW, 0);
+            rightGrad.addColorStop(0, 'rgba(0, 0, 0, 0.28)');
+            rightGrad.addColorStop(0.18, 'rgba(0, 0, 0, 0.12)');
+            rightGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0.04)');
+            rightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            this.ctx.fillStyle = rightGrad;
+            this.ctx.fillRect(spineX, topY, spineW, height);
+
+            // Subtle paper highlight reflection band 12px off center where paper gently curves up
+            const leftHighlight = this.ctx.createLinearGradient(spineX - 18, 0, spineX - 6, 0);
+            leftHighlight.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            leftHighlight.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
+            leftHighlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            this.ctx.fillStyle = leftHighlight;
+            this.ctx.fillRect(spineX - 18, topY, 12, height);
+
+            const rightHighlight = this.ctx.createLinearGradient(spineX + 6, 0, spineX + 18, 0);
+            rightHighlight.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            rightHighlight.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
+            rightHighlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            this.ctx.fillStyle = rightHighlight;
+            this.ctx.fillRect(spineX + 6, topY, 12, height);
+
+            this.ctx.restore();
           } else if (this.rightPage && !this.leftPage && this.ctx) {
             // Closed Front Cover: draw realistic magazine binding hinge & spine groove along the left edge of the cover
             const t = this.getRect();
@@ -1986,16 +2032,16 @@ export default function FlipbookViewer({
       }
     }
 
-    // Patch FlipController for silky smooth FlippingBook-style physics:
+    // Patch FlipController for silky smooth FlipHTML5-style physics:
     // 1. Natural arched 3D cone curl trajectory (lifts corner over spine rather than flat diagonal line)
-    // 2. Minimum ~820ms animation duration so page flips are graceful and visible
+    // 2. Responsive 480-680ms animation duration so page flips are fluid, snappy and visible
     // 3. Patches FlipCalculation to prevent premature snap and preserve continuous cursor tracking
     const flipController = (pf as any).getFlipController?.();
     if (flipController) {
       flipController.getAnimationDuration = function (size: number) {
-        const defaultTime = this.app?.getSettings()?.flippingTime || 950;
+        const defaultTime = this.app?.getSettings()?.flippingTime || 620;
         const calculated = (size / 1000) * defaultTime;
-        return Math.max(820, Math.min(defaultTime, calculated));
+        return Math.max(480, Math.min(defaultTime, calculated));
       };
 
       const origAnimateFlippingTo = flipController.animateFlippingTo?.bind(flipController);

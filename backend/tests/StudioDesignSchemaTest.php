@@ -403,6 +403,36 @@ final class StudioDesignSchemaTest
             strpos($studioTsx, 'renderPageToSvg(normalizedPage') !== false
         );
 
+        // PDF Conversion Pipeline & High Page Count Optimizations (200+ Pages fix)
+        $pdfRendererSrc = file_get_contents(dirname(__DIR__) . '/src/Support/PdfRenderer.php');
+        $jobRunnerSrc = file_get_contents(dirname(__DIR__) . '/src/Support/JobRunner.php');
+        $viewerTsx = file_get_contents(dirname(dirname(__DIR__)) . '/frontend/src/components/FlipbookViewer.tsx');
+
+        // 1. PdfRenderer supports progressive streaming callback ($onPageReady)
+        $assertions['pdf_renderer_supports_progressive_page_callback'] = (
+            strpos($pdfRendererSrc, '?callable $onPageReady = null') !== false &&
+            strpos($pdfRendererSrc, '$onPageReady($pageData)') !== false
+        );
+
+        // 2. JobRunner scales timeout dynamically based on document page count (prevents 5-minute aborts on 200+ pages)
+        $assertions['job_runner_uses_dynamic_page_timeout'] = (
+            strpos($jobRunnerSrc, '$pageEst * 6') !== false &&
+            strpos($jobRunnerSrc, '@set_time_limit($timeoutSeconds + 300)') !== false
+        );
+
+        // 3. JobRunner performs real-time progressive page commits into the database
+        $assertions['job_runner_performs_progressive_commit'] = (
+            strpos($jobRunnerSrc, '$onPageReady = static function') !== false &&
+            strpos($jobRunnerSrc, 'UPDATE flipbooks SET page_count = GREATEST(COALESCE(page_count, 0), ?)') !== false
+        );
+
+        // 4. FlipbookViewer enables smooth corner-peels ("backflips") and 3D centerfold spine lighting
+        $assertions['flipbook_viewer_enables_smooth_backflips_and_corners'] = (
+            strpos($viewerTsx, 'showPageCorners: true') !== false &&
+            strpos($viewerTsx, 'flippingTime: isHardCoverEffect ? 750 : 620') !== false &&
+            strpos($viewerTsx, 'Enhanced FlipHTML5-style 3D centerfold spine lighting') !== false
+        );
+
         return $assertions;
     }
 }
