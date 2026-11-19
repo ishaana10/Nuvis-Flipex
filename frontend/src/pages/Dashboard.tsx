@@ -607,8 +607,8 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
           to="/dashboard"
           className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             view === 'overview'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
+              : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
           }`}
           style={{ textDecoration: 'none' }}
         >
@@ -618,8 +618,8 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
           to="/flipbooks"
           className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             view === 'flipbooks'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
+              : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
           }`}
           style={{ textDecoration: 'none' }}
         >
@@ -629,8 +629,8 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
           to="/leads"
           className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
             view === 'leads'
-              ? 'bg-amber-400 text-slate-950 shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
+              : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
           }`}
           style={{ textDecoration: 'none' }}
         >
@@ -922,8 +922,8 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   onClick={() => setLeadStatusFilter(pill.id)}
                   className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
                     leadStatusFilter === pill.id
-                      ? 'bg-amber-400 text-slate-950 shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                      ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
+                      : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
                   }`}
                 >
                   {pill.label}
@@ -1239,8 +1239,8 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
               onClick={() => setWorkflowFilter(tabItem.id)}
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
                 workflowFilter === tabItem.id
-                  ? 'bg-amber-400 text-slate-950 shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                  ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
+                  : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
               }`}
             >
               {tabItem.label}
@@ -1482,11 +1482,11 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   {f.status === 'ready' && (
                     <button
                       type="button"
-                      className="w-full py-1.5 px-3 mb-1.5 rounded-lg text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/20 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      className="w-full py-1.5 px-3 mb-1.5 rounded-lg text-xs font-semibold text-amber-900 dark:text-amber-200 bg-gradient-to-r from-amber-100 via-amber-200 to-amber-300 dark:from-amber-950/60 dark:via-amber-900/40 dark:to-amber-950/70 hover:from-amber-200 hover:via-amber-300 hover:to-amber-400 dark:hover:from-amber-900/60 dark:hover:via-amber-800/50 dark:hover:to-amber-900/70 border border-amber-300 dark:border-amber-700/60 transition-all flex items-center justify-center gap-1.5 shadow-sm"
                       onClick={() => setShare(f)}
                       title="Share publication, QR Code & Embed"
                     >
-                      <Share2 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      <Share2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
                       <span>Share &amp; QR Code</span>
                     </button>
                   )}
