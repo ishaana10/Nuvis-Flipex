@@ -216,6 +216,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     if (workerBusyRef.current) return;
     workerBusyRef.current = true;
     try {
+      await api('/jobs/process', 'POST').catch(() => {});
       await load();
       loadJobs();
     } catch {
@@ -535,18 +536,20 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                 ref={input}
                 onChange={(e) => e.target.files?.length && uploadFiles(e.target.files)}
               />
-              <Link
-                to="/studio"
-                className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5 shadow-sm text-white"
-                style={{
-                  background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-                  border: 'none',
-                  textDecoration: 'none',
-                }}
-                title="Launch Flipex Studio: Create Catalogues, Magazines, Yearbooks & Keepsake Albums from scratch"
-              >
-                <span>✨</span> Flipex Studio
-              </Link>
+              {user?.role === 'admin' && (
+                <Link
+                  to="/studio"
+                  className="btn-primary flex items-center gap-1.5 text-xs font-bold py-2 px-3.5 shadow-sm text-white"
+                  style={{
+                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                    border: 'none',
+                    textDecoration: 'none',
+                  }}
+                  title="Flipex Studio: Visual Document Creation Engine (Developer / Admin Preview)"
+                >
+                  <span>✨</span> Studio
+                </Link>
+              )}
               <button disabled={uploading} onClick={() => input.current?.click()} className="btn-secondary">
                 {uploading ? 'Uploading PDF…' : '+ Upload PDF'}
               </button>
@@ -1262,26 +1265,33 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                           </Button>
                         </>
                       ) : (
-                        <div className="w-full px-3 space-y-2">
-                          <span className="text-xs font-semibold text-amber-500 block">
-                            ⏳ {f.conversionStep || 'Converting PDF…'} ({pct}%)
-                          </span>
+                        <div className="w-full px-3 py-1 space-y-2 text-center">
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span className="text-amber-500 truncate max-w-[170px]" title={f.conversionStep || 'Processing PDF...'}>
+                              ⏳ {f.conversionStep || 'Converting PDF…'}
+                            </span>
+                            <span className="text-sky-400 font-bold ml-1">{pct}%</span>
+                          </div>
                           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                             <div
                               className="h-full bg-amber-400 transition-all duration-300"
                               style={{ width: `${Math.max(5, pct)}%` }}
                             />
                           </div>
-                          {pct <= 5 && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => triggerQueueDrain()}
-                              className="mt-1"
-                            >
-                              ⚡ Convert Now
-                            </Button>
-                          )}
+                          {f.pageCount ? (
+                            <span className="text-[10px] text-slate-400 block text-center font-medium">
+                              📄 {f.pageCount} pages rendered
+                            </span>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => triggerQueueDrain()}
+                            className="mt-1 h-7 text-[11px] px-2.5 mx-auto flex items-center gap-1 border-sky-500/40 text-sky-400 hover:bg-sky-500/10"
+                            title="Advance or check queued conversion"
+                          >
+                            <RotateCcw className="h-3 w-3" /> Advance / Refresh
+                          </Button>
                         </div>
                       )}
                     </div>

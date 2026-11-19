@@ -5172,18 +5172,6 @@ export default function FlipexStudio() {
                   </p>
                 </div>
 
-                {/* Background settings are exclusively in the right Inspector panel */}
-                <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
-                  <span className="text-slate-400 font-medium">🎨 Page & 3-Gradient:</span>
-                  <button
-                    type="button"
-                    onClick={() => { setInspectorTab('page'); setInspectorCollapsed(false); }}
-                    className="text-[11px] font-bold text-sky-400 hover:text-sky-300 underline"
-                  >
-                    Open in Inspector →
-                  </button>
-                </div>
-
                 <div className="pt-2 border-t border-slate-800">
                   <span className="text-[11px] font-bold text-slate-300 block mb-2">📰 Article Layout Blocks:</span>
                   <button

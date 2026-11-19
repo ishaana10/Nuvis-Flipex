@@ -219,16 +219,26 @@ final class AuthController
 
         $cfg = SessionSecurity::getConfig();
         $grace = $cfg['tokenReplayGraceSeconds'];
+        $currentIp = $req->getServerParams()['REMOTE_ADDR'] ?? null;
+        $currentUa = substr($req->getHeaderLine('User-Agent'), 0, 255);
 
-        // Security: Token Replay Detection with in-flight concurrency grace period
+        // Security: Token Replay Detection with in-flight concurrency grace period & same-device tab recovery
         if ($row && $row['revoked_at'] !== null) {
             $revokedTime = strtotime((string) $row['revoked_at']);
-            if (time() - $revokedTime <= $grace) {
-                // In-flight race condition: another concurrent request just rotated this token.
-                // Allow user to continue without terminating the session.
+            $sameDevice = (!empty($row['ip']) && $row['ip'] === $currentIp) &&
+                          (!empty($row['user_agent']) && $row['user_agent'] === $currentUa);
+
+            // In-flight race condition (concurrent API polling) or same-device background tab wake-up:
+            // Issue a fresh rotated session and set the updated cookie so the browser heals seamlessly.
+            if ((time() - $revokedTime <= $grace) || $sameDevice) {
                 $user = Db::one('SELECT * FROM users WHERE id = ? AND deleted_at IS NULL AND status = "active"', [$row['user_id']]);
                 if ($user) {
                     $user = $this->ensureUserTenantAssigned($user);
+                    $familyId = !empty($row['family_id']) ? (string) $row['family_id'] : null;
+                    if ($familyId !== null) {
+                        SessionFamilies::markRotated($familyId);
+                    }
+                    $res = $this->startSession($req, $res, $user, $familyId);
                     return Http::json($res, $this->sessionPayload($user));
                 }
             }
@@ -238,6 +248,8 @@ final class AuthController
                 'token_id' => $row['id'],
                 'family_id' => $row['family_id'] ?? null,
                 'revoked_at' => $row['revoked_at'],
+                'client_ip' => $currentIp,
+                'user_agent' => $currentUa,
             ], (int) $row['user_id']);
 
             if (!empty($row['family_id'])) {

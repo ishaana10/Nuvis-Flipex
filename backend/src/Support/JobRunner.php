@@ -47,10 +47,11 @@ final class JobRunner
 
     /**
      * Claim and process the next available queued job.
+     * Optionally scoped to a specific tenant (for browser-driven queue drain).
      *
      * @return array{processed: bool, jobId?: int, flipbookId?: int, status?: string, error?: string}
      */
-    public static function processNextJob(): array
+    public static function processNextJob(?int $tenantId = null): array
     {
         @ini_set('memory_limit', '512M');
         if (function_exists('set_time_limit')) {
@@ -62,7 +63,7 @@ final class JobRunner
 
         self::processScheduledLifecycle();
 
-        $job = self::claim();
+        $job = self::claim($tenantId);
         if (!$job) {
             return ['processed' => false];
         }
@@ -209,19 +210,24 @@ final class JobRunner
      * Supports MySQL 8 SKIP LOCKED with automatic fallback for older MariaDB/MySQL engines on shared hosting.
      * Ordering: priority first, then tenant fairness (tenants with fewer running jobs first), then FIFO.
      * A tenant already running JOB_MAX_PER_TENANT jobs (default 2) is skipped so it cannot monopolise workers.
+     * When $tenantId is passed, only jobs belonging to that tenant are considered.
      */
-    public static function claim(): ?array
+    public static function claim(?int $tenantId = null): ?array
     {
         self::ensureSchema();
         $perTenant = max(1, (int) ($_ENV['JOB_MAX_PER_TENANT'] ?? 2));
         $running = "(SELECT COUNT(*) FROM jobs r WHERE r.tenant_id = jobs.tenant_id AND r.status = 'running' AND r.id <> jobs.id
                       AND r.locked_at IS NOT NULL AND COALESCE(r.lease_expires_at, DATE_ADD(r.locked_at, INTERVAL 5 MINUTE)) >= NOW())";
+        $tenantFilter = $tenantId !== null
+            ? "AND jobs.tenant_id = " . (int) $tenantId
+            : "AND (jobs.tenant_id IS NULL OR {$running} < {$perTenant})";
+
         $sql = "SELECT * FROM jobs
                 WHERE done_at IS NULL
                   AND status IN ('queued', 'running')
                   AND run_at <= NOW()
                   AND (locked_at IS NULL OR COALESCE(lease_expires_at, DATE_ADD(locked_at, INTERVAL 5 MINUTE)) < NOW())
-                  AND (tenant_id IS NULL OR {$running} < {$perTenant})
+                  {$tenantFilter}
                 ORDER BY priority DESC, (CASE WHEN tenant_id IS NULL THEN 0 ELSE {$running} END) ASC, id ASC
                 LIMIT 1";
         $pdo = Db::pdo();

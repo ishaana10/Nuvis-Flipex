@@ -943,10 +943,11 @@ final class FlipbookController
     }
 
     /**
-     * Protected internal/platform-admin worker execution endpoint.
-     * Can only be triggered by Platform Administrators (user.role === 'admin')
-     * or internal cron/daemons passing a valid X-Worker-Secret header.
-     * General tenant users are strictly prohibited to prevent cross-tenant job claims.
+     * Protected worker execution endpoint.
+     * Can be triggered by:
+     * 1. Platform Administrators (user.role === 'admin')
+     * 2. Internal cron/daemons passing a valid X-Worker-Secret header
+     * 3. Authenticated tenant users with flipbook.create permissions (strictly scoped to their own tenant)
      */
     public function processNextJob(Request $req, Response $res): Response
     {
@@ -957,11 +958,19 @@ final class FlipbookController
         $isPlatformAdmin = is_array($u) && ($u['role'] ?? '') === 'admin';
         $isInternalWorker = !empty($workerSecret) && !empty($expectedSecret) && hash_equals($expectedSecret, $workerSecret);
 
+        $tenantId = null;
         if (!$isPlatformAdmin && !$isInternalWorker) {
-            return Http::error($res, 'Unauthorized: Queue processing requires platform administrator or internal worker credentials', 403);
+            if (!is_array($u) || empty($u['id'])) {
+                return Http::error($res, 'Unauthorized: Queue processing requires an authenticated session or worker secret', 401);
+            }
+            Rbac::authorize($u, 'flipbook.create');
+            $tenantId = TenantContext::id();
+            if (!$tenantId) {
+                return Http::error($res, 'Unauthorized: Tenant context required', 403);
+            }
         }
 
-        $result = JobRunner::processNextJob();
+        $result = JobRunner::processNextJob($tenantId);
         return Http::json($res, $result);
     }
 
