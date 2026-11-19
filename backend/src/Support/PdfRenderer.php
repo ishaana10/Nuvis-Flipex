@@ -174,13 +174,37 @@ final class PdfRenderer
             }
         }
 
-        // Estimate page count from /Type /Page (not /Pages)
+        // Estimate page count from /Type /Page or /Count dictionary
         if ($meta['page_count'] === 0) {
-            $fullContent = $size <= 15 * 1024 * 1024 ? (@file_get_contents($pdfPath) ?: $combined) : $combined;
-            if (preg_match_all('/\/Type\s*\/Page\b(?!s)/', $fullContent, $matches)) {
+            $fullContent = $size <= 30 * 1024 * 1024 ? (@file_get_contents($pdfPath) ?: $combined) : $combined;
+            if (preg_match_all('/\/Type\s*\/Page\b(?!s)/', $fullContent, $matches) && count($matches[0]) > 0) {
                 $meta['page_count'] = count($matches[0]);
-            } elseif (preg_match('/\/Count\s+(\d+)/', $combined, $cm)) {
+            } elseif (preg_match('/\/Count\s+(\d+)/', $fullContent, $cm)) {
                 $meta['page_count'] = (int) $cm[1];
+            }
+        }
+
+        // Robust page count detection via Ghostscript if page_count is still 0
+        if ($meta['page_count'] === 0) {
+            $gs = self::getGhostscriptBinary();
+            if ($gs !== null) {
+                try {
+                    $cleanPdf = str_replace('\\', '/', $pdfPath);
+                    $out = self::runProcessCapture([
+                        $gs,
+                        '-q',
+                        '-dNODISPLAY',
+                        '-dSAFER',
+                        '--permit-file-read=' . $cleanPdf,
+                        '-c',
+                        "({$cleanPdf}) (r) file runpdfbegin pdfpagecount = quit"
+                    ], 15);
+                    if (preg_match('/(\d+)/', trim($out), $m) && (int) $m[1] > 0) {
+                        $meta['page_count'] = (int) $m[1];
+                    }
+                } catch (Throwable) {
+                    // Fall through
+                }
             }
         }
 
@@ -625,6 +649,7 @@ final class PdfRenderer
                 $pct = 15 + (int) round(($c / max(1, $chunks)) * 45);
                 if ($report) $report($pct, "Rasterizing pages {$start}-{$end} of {$pagesToProcess} via Ghostscript");
 
+                $tmpPrefix = "{$outDir}/_chk_{$c}_";
                 $chunkCmd = [
                     $gs,
                     '-q',
@@ -638,10 +663,21 @@ final class PdfRenderer
                     '-sDEVICE=jpeg',
                     '-dJPEGQ=92',
                     '-r150',
-                    "-sOutputFile={$outDir}/page-%03d.jpg",
+                    "-sOutputFile={$tmpPrefix}%03d.jpg",
                     $pdfPath,
                 ];
                 self::runProcess($chunkCmd, "Ghostscript (Chunk {$start}-{$end})", max(180, (int) ($timeoutSeconds / 2)));
+
+                // Map chunk outputs (_chk_0_001.jpg -> page-001.jpg, _chk_1_001.jpg -> page-026.jpg, etc.)
+                $chunkFiles = glob("{$tmpPrefix}*.jpg") ?: [];
+                natsort($chunkFiles);
+                $idx = 0;
+                foreach ($chunkFiles as $chkFile) {
+                    $actualPage = $start + $idx;
+                    $target = sprintf('%s/page-%03d.jpg', $outDir, $actualPage);
+                    @rename($chkFile, $target);
+                    $idx++;
+                }
             }
         }
 
@@ -739,6 +775,18 @@ final class PdfRenderer
         if ($chunks <= 1) {
             if ($report) $report(20, "Rendering pages 1 to {$pagesToProcess} via Poppler (150 DPI JPEG)");
             self::runProcess([$ppm, '-jpeg', '-r', '150', '-l', (string) $pagesToProcess, $pdfPath, "{$outDir}/page"], 'Poppler (Standard Pages)', $timeoutSeconds);
+
+            // Normalize page filenames (page-1.jpg or page-01.jpg -> page-001.jpg)
+            $rawList = glob("{$outDir}/page-*.jpg") ?: [];
+            if ($rawList) {
+                natsort($rawList);
+                foreach (array_values($rawList) as $i => $src) {
+                    $target = sprintf('%s/page-%03d.jpg', $outDir, $i + 1);
+                    if ($src !== $target && !file_exists($target)) {
+                        @rename($src, $target);
+                    }
+                }
+            }
         } else {
             for ($c = 0; $c < $chunks; $c++) {
                 $start = $c * $chunkSize + 1;
@@ -746,18 +794,17 @@ final class PdfRenderer
                 $pct = 15 + (int) round(($c / max(1, $chunks)) * 45);
                 if ($report) $report($pct, "Rasterizing pages {$start}-{$end} of {$pagesToProcess} via Poppler");
 
-                self::runProcess([$ppm, '-jpeg', '-r', '150', '-f', (string) $start, '-l', (string) $end, $pdfPath, "{$outDir}/page"], "Poppler (Chunk {$start}-{$end})", max(180, (int) ($timeoutSeconds / 2)));
-            }
-        }
+                $tmpPrefix = "{$outDir}/_chk_{$c}_";
+                self::runProcess([$ppm, '-jpeg', '-r', '150', '-f', (string) $start, '-l', (string) $end, $pdfPath, $tmpPrefix], "Poppler (Chunk {$start}-{$end})", max(180, (int) ($timeoutSeconds / 2)));
 
-        // Normalize page filenames (page-1.jpg or page-01.jpg -> page-001.jpg)
-        $rawList = glob("{$outDir}/page-*.jpg") ?: [];
-        if ($rawList) {
-            natsort($rawList);
-            foreach (array_values($rawList) as $i => $src) {
-                $target = sprintf('%s/page-%03d.jpg', $outDir, $i + 1);
-                if ($src !== $target && !file_exists($target)) {
-                    @rename($src, $target);
+                $chunkFiles = glob("{$tmpPrefix}*.jpg") ?: [];
+                natsort($chunkFiles);
+                $idx = 0;
+                foreach ($chunkFiles as $chkFile) {
+                    $actualPage = $start + $idx;
+                    $target = sprintf('%s/page-%03d.jpg', $outDir, $actualPage);
+                    @rename($chkFile, $target);
+                    $idx++;
                 }
             }
         }

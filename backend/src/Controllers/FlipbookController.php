@@ -801,6 +801,59 @@ final class FlipbookController
     }
 
     /**
+     * Re-trigger conversion pipeline for an existing publication using its stored source PDF.
+     */
+    public function reconvert(Request $req, Response $res, array $args): Response
+    {
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
+
+        $f = $this->owned($req, (int) $args['id']);
+        if (!$f) return Http::error($res, 'Not found', 404);
+
+        if (empty($f['source_pdf_path'])) {
+            return Http::error($res, 'Cannot reconvert: Original source PDF is not available', 400);
+        }
+
+        $root = Storage::root();
+        $sourcePdf = $root . '/' . $f['source_pdf_path'];
+        if (!file_exists($sourcePdf)) {
+            return Http::error($res, 'Cannot reconvert: Stored source PDF file not found on disk', 404);
+        }
+
+        $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
+
+        // Enqueue high-priority conversion job
+        $jobId = (int) Db::insert('jobs', [
+            'tenant_id' => $tenantId,
+            'flipbook_id' => (int) $f['id'],
+            'type' => 'convert_pdf',
+            'status' => 'queued',
+            'priority' => 10,
+            'attempts' => 0,
+            'progress' => 5,
+            'current_step' => 'Reconversion queued',
+            'payload' => json_encode(['flipbook_id' => (int) $f['id']]),
+            'run_at' => date('Y-m-d H:i:s'),
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        Db::run(
+            "UPDATE flipbooks SET status = 'processing', conversion_progress = 5, conversion_step = 'Reconversion queued', conversion_error = NULL WHERE id = ?",
+            [(int) $f['id']]
+        );
+
+        JobRunner::triggerAsyncCliWorker();
+
+        Audit::log('flipbook.reconvert', 'flipbook', (int) $f['id'], [
+            'job_id' => $jobId,
+            'title' => $f['title'],
+        ]);
+
+        return Http::json($res, ['ok' => true, 'job_id' => $jobId]);
+    }
+
+    /**
      * List version history for a publication.
      */
     public function versions(Request $req, Response $res, array $args): Response

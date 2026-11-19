@@ -393,6 +393,17 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     }
   };
 
+  const reconvertBook = async (f: Flipbook) => {
+    try {
+      await api(`/flipbooks/${f.id}/reconvert`, 'POST');
+      await load();
+      loadJobs();
+      void triggerQueueDrain();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to reconvert publication');
+    }
+  };
+
   const handleCreateCategory = async () => {
     if (!newCatName.trim()) return;
     await api('/categories', 'POST', { name: newCatName.trim() });
@@ -1450,6 +1461,17 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                       >
                         <Share2 className="h-3 w-3 text-amber-500" />
                         <span>Share &amp; QR</span>
+                      </button>
+                    )}
+                    {f.status === 'ready' && can('flipbook.edit') && (
+                      <button
+                        type="button"
+                        className="fb-icon-action"
+                        onClick={() => reconvertBook(f)}
+                        title="Re-run conversion pipeline on original uploaded PDF to render all pages"
+                      >
+                        <RotateCcw className="h-3 w-3 text-sky-400" />
+                        <span>Reconvert</span>
                       </button>
                     )}
                     {f.status === 'ready' && can('flipbook.edit') && (

@@ -107,6 +107,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $f->get('/{id:[0-9]+}/versions', [FlipbookController::class, 'versions']);
         $f->post('/{id:[0-9]+}/versions/{versionId:[0-9]+}/restore', [FlipbookController::class, 'restoreVersion']);
         $f->post('/{id:[0-9]+}/retry', [FlipbookController::class, 'retryConversion']);
+        $f->post('/{id:[0-9]+}/reconvert', [FlipbookController::class, 'reconvert']);
         $f->post('/{id:[0-9]+}/revoke-unlock-tokens', [FlipbookController::class, 'revokeUnlockTokens']);
 
         // Protected Document & Thumbnail Streaming (Strictly Authenticated & Tenant-Scoped)
