@@ -805,48 +805,68 @@ final class FlipbookController
      */
     public function reconvert(Request $req, Response $res, array $args): Response
     {
-        $u = $req->getAttribute('user');
-        Rbac::authorize($u, 'flipbook.edit');
+        try {
+            $u = $req->getAttribute('user');
+            Rbac::authorize($u, 'flipbook.edit');
 
-        $f = $this->owned($req, (int) $args['id']);
-        if (!$f) return Http::error($res, 'Not found', 404);
+            $f = $this->owned($req, (int) $args['id']);
+            if (!$f) return Http::error($res, 'Not found', 404);
 
-        if (empty($f['source_pdf_path'])) {
-            return Http::error($res, 'Cannot reconvert: Original source PDF is not available', 400);
+            if (empty($f['source_pdf_path'])) {
+                return Http::error($res, 'Cannot reconvert: Original source PDF is not available', 400);
+            }
+
+            $root = Storage::root();
+            $sourcePdf = $root . '/' . ltrim((string) $f['source_pdf_path'], '/\\');
+            if (!file_exists($sourcePdf)) {
+                $altPaths = [
+                    dirname($root) . '/storage/' . ltrim((string) $f['source_pdf_path'], '/\\'),
+                    dirname($root) . '/' . ltrim((string) $f['source_pdf_path'], '/\\'),
+                ];
+                $found = false;
+                foreach ($altPaths as $alt) {
+                    if (file_exists($alt)) {
+                        $sourcePdf = $alt;
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    return Http::error($res, "Cannot reconvert: Original source PDF not found on disk at {$f['source_pdf_path']}", 404);
+                }
+            }
+
+            $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
+
+            // Set publication into processing state
+            Db::run(
+                "UPDATE flipbooks SET status = 'processing', conversion_progress = 5, conversion_step = 'Queued for reconversion', conversion_error = NULL WHERE id = ?",
+                [(int) $f['id']]
+            );
+
+            // Enqueue conversion job using canonical table columns (compatible with all database schemas)
+            $jobId = Db::insert(
+                "INSERT INTO jobs (tenant_id, flipbook_id, type, payload, status, progress, current_step)
+                 VALUES (?, ?, 'convert_pdf', ?, 'queued', 5, 'Queued for reconversion')",
+                [
+                    $tenantId,
+                    (int) $f['id'],
+                    json_encode(['flipbook_id' => (int) $f['id']]),
+                ]
+            );
+
+            JobRunner::triggerAsyncCliWorker();
+
+            Audit::log('flipbook.reconvert', 'flipbook', (int) $f['id'], [
+                'job_id' => $jobId,
+                'title' => $f['title'],
+            ]);
+
+            return Http::json($res, ['ok' => true, 'job_id' => $jobId]);
+        } catch (\Throwable $e) {
+            error_log('[FlipbookController::reconvert] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return Http::error($res, 'Reconversion failed: ' . $e->getMessage(), 500);
         }
-
-        $root = Storage::root();
-        $sourcePdf = $root . '/' . $f['source_pdf_path'];
-        if (!file_exists($sourcePdf)) {
-            return Http::error($res, 'Cannot reconvert: Stored source PDF file not found on disk', 404);
-        }
-
-        $tenantId = !empty($f['tenant_id']) ? (int) $f['tenant_id'] : TenantContext::requireId();
-
-        // Enqueue high-priority conversion job
-        $jobId = Db::insert(
-            "INSERT INTO jobs (tenant_id, flipbook_id, type, status, priority, attempts, progress, current_step, payload, run_at, created_at)
-             VALUES (?, ?, 'convert_pdf', 'queued', 10, 0, 5, 'Reconversion queued', ?, NOW(), NOW())",
-            [
-                $tenantId,
-                (int) $f['id'],
-                json_encode(['flipbook_id' => (int) $f['id']]),
-            ]
-        );
-
-        Db::run(
-            "UPDATE flipbooks SET status = 'processing', conversion_progress = 5, conversion_step = 'Reconversion queued', conversion_error = NULL WHERE id = ?",
-            [(int) $f['id']]
-        );
-
-        JobRunner::triggerAsyncCliWorker();
-
-        Audit::log('flipbook.reconvert', 'flipbook', (int) $f['id'], [
-            'job_id' => $jobId,
-            'title' => $f['title'],
-        ]);
-
-        return Http::json($res, ['ok' => true, 'job_id' => $jobId]);
     }
 
     /**

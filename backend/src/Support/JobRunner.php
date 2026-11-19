@@ -79,10 +79,17 @@ final class JobRunner
                 default => throw new RuntimeException('Unknown job type ' . $job['type']),
             };
 
-            Db::run(
-                "UPDATE jobs SET status = 'completed', progress = 100, current_step = 'Completed', done_at = NOW(), error = NULL, locked_at = NULL, worker_id = NULL, lease_expires_at = NULL WHERE id = ? AND (worker_id IS NULL OR worker_id = ?)",
-                [$jobId, self::workerId()]
-            );
+            if (self::hasWorkerColumns()) {
+                Db::run(
+                    "UPDATE jobs SET status = 'completed', progress = 100, current_step = 'Completed', done_at = NOW(), error = NULL, locked_at = NULL, worker_id = NULL, lease_expires_at = NULL WHERE id = ?",
+                    [$jobId]
+                );
+            } else {
+                Db::run(
+                    "UPDATE jobs SET status = 'completed', progress = 100, current_step = 'Completed', done_at = NOW(), error = NULL, locked_at = NULL WHERE id = ?",
+                    [$jobId]
+                );
+            }
 
             return [
                 'processed' => true,
@@ -103,16 +110,29 @@ final class JobRunner
             $retry = $attempts < $maxAttempts;
             $backoffMinutes = (int) pow(2, max(0, $attempts - 1));
 
-            Db::run(
-                "UPDATE jobs SET status = ?, current_step = ?, error = ?, locked_at = NULL, worker_id = NULL, lease_expires_at = NULL, done_at = ?, run_at = DATE_ADD(NOW(), INTERVAL {$backoffMinutes} MINUTE) WHERE id = ?",
-                [
-                    $retry ? 'queued' : 'failed',
-                    $retry ? "Retry scheduled ({$attempts}/{$maxAttempts})" : 'Failed',
-                    $errMsg,
-                    $retry ? null : date('Y-m-d H:i:s'),
-                    $jobId,
-                ]
-            );
+            if (self::hasWorkerColumns()) {
+                Db::run(
+                    "UPDATE jobs SET status = ?, current_step = ?, error = ?, locked_at = NULL, worker_id = NULL, lease_expires_at = NULL, done_at = ?, run_at = DATE_ADD(NOW(), INTERVAL {$backoffMinutes} MINUTE) WHERE id = ?",
+                    [
+                        $retry ? 'queued' : 'failed',
+                        $retry ? "Retry scheduled ({$attempts}/{$maxAttempts})" : 'Failed',
+                        $errMsg,
+                        $retry ? null : date('Y-m-d H:i:s'),
+                        $jobId,
+                    ]
+                );
+            } else {
+                Db::run(
+                    "UPDATE jobs SET status = ?, current_step = ?, error = ?, locked_at = NULL, done_at = ?, run_at = DATE_ADD(NOW(), INTERVAL {$backoffMinutes} MINUTE) WHERE id = ?",
+                    [
+                        $retry ? 'queued' : 'failed',
+                        $retry ? "Retry scheduled ({$attempts}/{$maxAttempts})" : 'Failed',
+                        $errMsg,
+                        $retry ? null : date('Y-m-d H:i:s'),
+                        $jobId,
+                    ]
+                );
+            }
 
             if ($flipbookId > 0) {
                 if (!$retry) {
@@ -141,9 +161,39 @@ final class JobRunner
     private static ?string $workerId = null;
     private static bool $schemaEnsured = false;
     private static bool $shutdown = false;
+    private static ?bool $hasPriorityCol = null;
+    private static ?bool $hasWorkerCols = null;
 
     /** Lease length for a running job; renewed by heartbeat() on every progress update. */
     private const LEASE_SECONDS = 300;
+
+    public static function hasPriorityColumn(): bool
+    {
+        if (self::$hasPriorityCol !== null) {
+            return self::$hasPriorityCol;
+        }
+        try {
+            $col = Db::one("SHOW COLUMNS FROM jobs LIKE 'priority'");
+            self::$hasPriorityCol = !empty($col);
+        } catch (Throwable) {
+            self::$hasPriorityCol = false;
+        }
+        return self::$hasPriorityCol;
+    }
+
+    public static function hasWorkerColumns(): bool
+    {
+        if (self::$hasWorkerCols !== null) {
+            return self::$hasWorkerCols;
+        }
+        try {
+            $col = Db::one("SHOW COLUMNS FROM jobs LIKE 'worker_id'");
+            self::$hasWorkerCols = !empty($col);
+        } catch (Throwable) {
+            self::$hasWorkerCols = false;
+        }
+        return self::$hasWorkerCols;
+    }
 
     public static function workerId(): string
     {
@@ -174,22 +224,26 @@ final class JobRunner
             ), 'COLUMN_NAME');
             $pdo = Db::pdo();
             if (!in_array('worker_id', $have, true)) {
-                $pdo->exec('ALTER TABLE jobs ADD COLUMN worker_id VARCHAR(80) NULL');
+                @$pdo->exec('ALTER TABLE jobs ADD COLUMN worker_id VARCHAR(80) NULL');
             }
             if (!in_array('lease_expires_at', $have, true)) {
-                $pdo->exec('ALTER TABLE jobs ADD COLUMN lease_expires_at DATETIME NULL');
+                @$pdo->exec('ALTER TABLE jobs ADD COLUMN lease_expires_at DATETIME NULL');
             }
             if (!in_array('priority', $have, true)) {
-                $pdo->exec('ALTER TABLE jobs ADD COLUMN priority TINYINT NOT NULL DEFAULT 0');
+                @$pdo->exec('ALTER TABLE jobs ADD COLUMN priority TINYINT NOT NULL DEFAULT 0');
             }
         } catch (Throwable $e) {
-            error_log('JobRunner schema ensure failed: ' . $e->getMessage());
+            // Schema alter is non-fatal: fallback queries adapt automatically
+            error_log('JobRunner schema ensure notice: ' . $e->getMessage());
         }
     }
 
     /** Renew this worker's lease. Throws if another worker now owns the job so duplicate conversion is aborted. */
     public static function heartbeat(int $jobId): void
     {
+        if (!self::hasWorkerColumns()) {
+            return;
+        }
         try {
             Db::run(
                 'UPDATE jobs SET locked_at = NOW(), lease_expires_at = DATE_ADD(NOW(), INTERVAL ' . self::LEASE_SECONDS . ' SECOND)
@@ -208,8 +262,7 @@ final class JobRunner
     /**
      * Claim the next available queued job atomically.
      * Supports MySQL 8 SKIP LOCKED with automatic fallback for older MariaDB/MySQL engines on shared hosting.
-     * Ordering: priority first, then tenant fairness (tenants with fewer running jobs first), then FIFO.
-     * A tenant already running JOB_MAX_PER_TENANT jobs (default 2) is skipped so it cannot monopolise workers.
+     * Ordering: priority first (if column exists), then tenant fairness, then FIFO.
      * When $tenantId is passed, only jobs belonging to that tenant are considered.
      */
     public static function claim(?int $tenantId = null): ?array
@@ -217,18 +270,23 @@ final class JobRunner
         self::ensureSchema();
         $perTenant = max(1, (int) ($_ENV['JOB_MAX_PER_TENANT'] ?? 2));
         $running = "(SELECT COUNT(*) FROM jobs r WHERE r.tenant_id = jobs.tenant_id AND r.status = 'running' AND r.id <> jobs.id
-                      AND r.locked_at IS NOT NULL AND COALESCE(r.lease_expires_at, DATE_ADD(r.locked_at, INTERVAL 5 MINUTE)) >= NOW())";
+                      AND r.locked_at IS NOT NULL AND COALESCE(" . (self::hasWorkerColumns() ? 'r.lease_expires_at, ' : '') . "DATE_ADD(r.locked_at, INTERVAL 5 MINUTE)) >= NOW())";
         $tenantFilter = $tenantId !== null
             ? "AND jobs.tenant_id = " . (int) $tenantId
             : "AND (jobs.tenant_id IS NULL OR {$running} < {$perTenant})";
+
+        $priorityOrder = self::hasPriorityColumn() ? 'priority DESC,' : '';
+        $leaseCondition = self::hasWorkerColumns()
+            ? '(locked_at IS NULL OR COALESCE(lease_expires_at, DATE_ADD(locked_at, INTERVAL 5 MINUTE)) < NOW())'
+            : '(locked_at IS NULL OR DATE_ADD(locked_at, INTERVAL 5 MINUTE) < NOW())';
 
         $sql = "SELECT * FROM jobs
                 WHERE done_at IS NULL
                   AND status IN ('queued', 'running')
                   AND run_at <= NOW()
-                  AND (locked_at IS NULL OR COALESCE(lease_expires_at, DATE_ADD(locked_at, INTERVAL 5 MINUTE)) < NOW())
+                  AND {$leaseCondition}
                   {$tenantFilter}
-                ORDER BY priority DESC, (CASE WHEN tenant_id IS NULL THEN 0 ELSE {$running} END) ASC, id ASC
+                ORDER BY {$priorityOrder} (CASE WHEN tenant_id IS NULL THEN 0 ELSE {$running} END) ASC, id ASC
                 LIMIT 1";
         $pdo = Db::pdo();
         $pdo->beginTransaction();
@@ -241,12 +299,20 @@ final class JobRunner
             }
 
             if ($job) {
-                Db::run(
-                    "UPDATE jobs SET status = 'running', started_at = COALESCE(started_at, NOW()), locked_at = NOW(),
-                            worker_id = ?, lease_expires_at = DATE_ADD(NOW(), INTERVAL " . self::LEASE_SECONDS . " SECOND),
-                            attempts = attempts + 1 WHERE id = ?",
-                    [self::workerId(), $job['id']]
-                );
+                if (self::hasWorkerColumns()) {
+                    Db::run(
+                        "UPDATE jobs SET status = 'running', started_at = COALESCE(started_at, NOW()), locked_at = NOW(),
+                                worker_id = ?, lease_expires_at = DATE_ADD(NOW(), INTERVAL " . self::LEASE_SECONDS . " SECOND),
+                                attempts = attempts + 1 WHERE id = ?",
+                        [self::workerId(), $job['id']]
+                    );
+                } else {
+                    Db::run(
+                        "UPDATE jobs SET status = 'running', started_at = COALESCE(started_at, NOW()), locked_at = NOW(),
+                                attempts = attempts + 1 WHERE id = ?",
+                        [$job['id']]
+                    );
+                }
             }
             $pdo->commit();
             return $job;

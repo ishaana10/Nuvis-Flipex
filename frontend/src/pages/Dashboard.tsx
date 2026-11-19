@@ -399,8 +399,10 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
       await load();
       loadJobs();
       void triggerQueueDrain();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Failed to reconvert publication');
+    } catch (e: any) {
+      const msg = e instanceof ApiError ? e.message : (e?.message || 'Failed to reconvert publication');
+      setError(msg);
+      alert(`Reconversion notice: ${msg}`);
     }
   };
 
