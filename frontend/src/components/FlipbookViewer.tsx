@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { PageFlip } from 'page-flip';
 import { playPageFlipSound, unlockAudio } from '../utils/sound';
 import { getCanvasDpr, getReaderProfile, pagesToLoad } from './viewer/adaptiveLoading';
+import { SliderStage, CardsDeckStage, CoverflowStage } from './viewer/PageEffectStages';
 import type { FlipbookSettings } from './CustomizationDialog';
 import { api } from '../api/client';
 
@@ -271,6 +272,11 @@ export default function FlipbookViewer({
   });
   const currentRef = useRef(current);
   currentRef.current = current;
+  const normalizedPageEffect = (settings.pageEffect || 'magazine').toLowerCase().replace(/\s+/g, '_');
+  const isSliderEffect = normalizedPageEffect === 'slider';
+  const isCardsEffect = normalizedPageEffect === 'cards';
+  const isCoverflowEffect = normalizedPageEffect === 'coverflow';
+  const isCustomStageEffect = isSliderEffect || isCardsEffect || isCoverflowEffect;
   const [soundMuted, setSoundMuted] = useState(false);
 
   // Drawers & Modals
@@ -1153,9 +1159,36 @@ export default function FlipbookViewer({
       bookFrame.style.display = 'none';
     }
 
-    // Spine crease is drawn directly on the <canvas> (in render.drawBookShadow) underneath the curling page,
-    // so we hide the HTML overlay crease to prevent it from bleeding through on top of turning pages.
-    spineCrease.style.display = 'none';
+    // Always-Visible 3D Book Rib & Spine Crease (Heyzine Style):
+    // Positioned dead center on open spreads, along the left edge on front cover, and along the right edge on back cover!
+    if (orientation === 'landscape') {
+      if (isClosingFront) {
+        spineCrease.style.display = 'block';
+        spineCrease.className = 'stf-spine-crease is-cover';
+        spineCrease.style.left = `${Math.round(leftEdge)}px`;
+        spineCrease.style.top = `${Math.round(top)}px`;
+        spineCrease.style.height = `${Math.round(height)}px`;
+      } else if (isBackSingle) {
+        spineCrease.style.display = 'block';
+        spineCrease.className = 'stf-spine-crease is-back-cover';
+        spineCrease.style.left = `${Math.round(rightEdge)}px`;
+        spineCrease.style.top = `${Math.round(top)}px`;
+        spineCrease.style.height = `${Math.round(height)}px`;
+      } else {
+        const spineCenter = left + pageWidth;
+        spineCrease.style.display = 'block';
+        spineCrease.className = 'stf-spine-crease';
+        spineCrease.style.left = `${Math.round(spineCenter)}px`;
+        spineCrease.style.top = `${Math.round(top)}px`;
+        spineCrease.style.height = `${Math.round(height)}px`;
+      }
+    } else {
+      spineCrease.style.display = 'block';
+      spineCrease.className = 'stf-spine-crease is-cover';
+      spineCrease.style.left = `${Math.round(leftEdge)}px`;
+      spineCrease.style.top = `${Math.round(top)}px`;
+      spineCrease.style.height = `${Math.round(height)}px`;
+    }
 
     if (orientation === 'portrait') {
       leftStack.style.display = 'none';
@@ -1203,7 +1236,13 @@ export default function FlipbookViewer({
 
   // Initialize 3D PageFlip when in 'flip' mode
   const initFlip = useCallback(() => {
-    if (readingMode !== 'flip' || !host.current || pages.length === 0) return;
+    if (readingMode !== 'flip' || pages.length === 0) return;
+    if (isCustomStageEffect) {
+      setReady(true);
+      isInitializedRef.current = true;
+      return;
+    }
+    if (!host.current) return;
 
     isInitializedRef.current = false;
     userTriggeredFlipRef.current = false;
@@ -1938,98 +1977,106 @@ export default function FlipbookViewer({
         this.ctx.restore();
       };
 
-      const origDrawBookShadow = render.drawBookShadow?.bind(render);
-      if (origDrawBookShadow) {
-        render.drawBookShadow = function () {
-          if (this.leftPage && this.rightPage && this.ctx) {
-            // Enhanced FlipHTML5-style 3D centerfold spine lighting & ambient depth
-            const rect = this.getRect();
-            const spineX = rect.left + rect.pageWidth;
-            const topY = rect.top;
-            const height = rect.height;
-            const spineW = Math.max(26, Math.min(48, rect.pageWidth * 0.075));
+      // Enhanced Heyzine-grade 3D Centerfold Spine Crease, Binding Hinge & Specular Roll
+      // Always visible on open spreads, first page cover, and back cover
+      render.drawBookShadow = function () {
+        if (!this.ctx) return;
+        const rect = this.getRect();
+        const topY = rect.top;
+        const height = rect.height;
 
-            this.ctx.save();
-            this.ctx.beginPath();
-            this.ctx.rect(spineX - spineW, topY, spineW * 2, height);
-            this.ctx.clip();
+        if (this.leftPage && this.rightPage) {
+          // Open 2-Page Spread: Authentic 3D Centerfold Book Rib with Specular Roll & Deep Concave Seam
+          const spineX = rect.left + rect.pageWidth;
+          const spineW = Math.max(38, Math.min(65, rect.pageWidth * 0.10));
 
-            // Left fold shadow dipping inward to the binding seam
-            const leftGrad = this.ctx.createLinearGradient(spineX - spineW, 0, spineX, 0);
-            leftGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            leftGrad.addColorStop(0.55, 'rgba(0, 0, 0, 0.04)');
-            leftGrad.addColorStop(0.82, 'rgba(0, 0, 0, 0.12)');
-            leftGrad.addColorStop(1, 'rgba(0, 0, 0, 0.28)');
-            this.ctx.fillStyle = leftGrad;
-            this.ctx.fillRect(spineX - spineW, topY, spineW, height);
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.rect(spineX - spineW, topY, spineW * 2, height);
+          this.ctx.clip();
 
-            // Right fold shadow dipping inward to the binding seam
-            const rightGrad = this.ctx.createLinearGradient(spineX, 0, spineX + spineW, 0);
-            rightGrad.addColorStop(0, 'rgba(0, 0, 0, 0.28)');
-            rightGrad.addColorStop(0.18, 'rgba(0, 0, 0, 0.12)');
-            rightGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0.04)');
-            rightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            this.ctx.fillStyle = rightGrad;
-            this.ctx.fillRect(spineX, topY, spineW, height);
+          // 1. Left fold shadow plunging smoothly into the binding seam
+          const leftGrad = this.ctx.createLinearGradient(spineX - spineW, 0, spineX, 0);
+          leftGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          leftGrad.addColorStop(0.35, 'rgba(0, 0, 0, 0.04)');
+          leftGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.16)');
+          leftGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.32)');
+          leftGrad.addColorStop(1, 'rgba(0, 0, 0, 0.58)');
+          this.ctx.fillStyle = leftGrad;
+          this.ctx.fillRect(spineX - spineW, topY, spineW, height);
 
-            // Subtle paper highlight reflection band 12px off center where paper gently curves up
-            const leftHighlight = this.ctx.createLinearGradient(spineX - 18, 0, spineX - 6, 0);
-            leftHighlight.addColorStop(0, 'rgba(255, 255, 255, 0)');
-            leftHighlight.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
-            leftHighlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            this.ctx.fillStyle = leftHighlight;
-            this.ctx.fillRect(spineX - 18, topY, 12, height);
+          // 2. Right fold shadow & paper cylinder specular highlight roll
+          const rightGrad = this.ctx.createLinearGradient(spineX, 0, spineX + spineW, 0);
+          rightGrad.addColorStop(0, 'rgba(0, 0, 0, 0.58)');
+          rightGrad.addColorStop(0.04, 'rgba(0, 0, 0, 0.28)');
+          rightGrad.addColorStop(0.12, 'rgba(255, 255, 255, 0.40)'); // Specular cylindrical shine
+          rightGrad.addColorStop(0.24, 'rgba(255, 255, 255, 0.14)');
+          rightGrad.addColorStop(0.38, 'rgba(0, 0, 0, 0.20)');
+          rightGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.08)');
+          rightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          this.ctx.fillStyle = rightGrad;
+          this.ctx.fillRect(spineX, topY, spineW, height);
 
-            const rightHighlight = this.ctx.createLinearGradient(spineX + 6, 0, spineX + 18, 0);
-            rightHighlight.addColorStop(0, 'rgba(255, 255, 255, 0)');
-            rightHighlight.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
-            rightHighlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            this.ctx.fillStyle = rightHighlight;
-            this.ctx.fillRect(spineX + 6, topY, 12, height);
+          // 3. Crisp vertical seam groove indentation
+          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+          this.ctx.fillRect(spineX - 0.75, topY, 1.5, height);
 
-            this.ctx.restore();
-          } else if (this.rightPage && !this.leftPage && this.ctx) {
-            // Closed Front Cover: draw realistic magazine binding hinge & spine groove along the left edge of the cover
-            const t = this.getRect();
-            const spineW = Math.max(18, t.pageWidth / 22);
-            const startX = t.left + t.pageWidth;
-            this.ctx.save();
-            this.ctx.beginPath();
-            this.ctx.rect(startX, t.top, spineW, t.height);
-            this.ctx.clip();
-            const grad = this.ctx.createLinearGradient(startX, 0, startX + spineW, 0);
-            grad.addColorStop(0, 'rgba(0, 0, 0, 0.34)');
-            grad.addColorStop(0.14, 'rgba(0, 0, 0, 0.14)');
-            grad.addColorStop(0.26, 'rgba(255, 255, 255, 0.32)');
-            grad.addColorStop(0.42, 'rgba(0, 0, 0, 0.11)');
-            grad.addColorStop(0.65, 'rgba(0, 0, 0, 0.03)');
-            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            this.ctx.fillStyle = grad;
-            this.ctx.fillRect(startX, t.top, spineW, t.height);
-            this.ctx.restore();
-          } else if (this.leftPage && !this.rightPage && this.ctx) {
-            // Closed Back Cover: draw realistic magazine binding hinge & spine groove along the right edge of the back cover
-            const t = this.getRect();
-            const spineW = Math.max(18, t.pageWidth / 22);
-            const endX = t.left + t.pageWidth;
-            const startX = endX - spineW;
-            this.ctx.save();
-            this.ctx.beginPath();
-            this.ctx.rect(startX, t.top, spineW, t.height);
-            this.ctx.clip();
-            const grad = this.ctx.createLinearGradient(startX, 0, endX, 0);
-            grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            grad.addColorStop(0.35, 'rgba(0, 0, 0, 0.03)');
-            grad.addColorStop(0.58, 'rgba(0, 0, 0, 0.11)');
-            grad.addColorStop(0.74, 'rgba(255, 255, 255, 0.32)');
-            grad.addColorStop(0.86, 'rgba(0, 0, 0, 0.14)');
-            grad.addColorStop(1, 'rgba(0, 0, 0, 0.34)');
-            this.ctx.fillStyle = grad;
-            this.ctx.fillRect(startX, t.top, spineW, t.height);
-            this.ctx.restore();
-          }
-        };
-      }
+          this.ctx.restore();
+        } else if (this.rightPage && !this.leftPage) {
+          // Closed Front Cover: Authentic magazine/book spine rib & binding hinge on the left edge
+          const startX = this.orientation === 'portrait' ? rect.left : rect.left + rect.pageWidth;
+          const spineW = Math.max(32, Math.min(52, rect.pageWidth * 0.08));
+
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.rect(startX, topY, spineW, height);
+          this.ctx.clip();
+
+          const grad = this.ctx.createLinearGradient(startX, 0, startX + spineW, 0);
+          grad.addColorStop(0, 'rgba(0, 0, 0, 0.48)');
+          grad.addColorStop(0.06, 'rgba(0, 0, 0, 0.28)');
+          grad.addColorStop(0.14, 'rgba(255, 255, 255, 0.45)'); // Specular binding ridge highlight
+          grad.addColorStop(0.25, 'rgba(0, 0, 0, 0.22)');
+          grad.addColorStop(0.55, 'rgba(0, 0, 0, 0.08)');
+          grad.addColorStop(0.80, 'rgba(0, 0, 0, 0.02)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          this.ctx.fillStyle = grad;
+          this.ctx.fillRect(startX, topY, spineW, height);
+
+          // Outer hinge crease border
+          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          this.ctx.fillRect(startX, topY, 2, height);
+
+          this.ctx.restore();
+        } else if (this.leftPage && !this.rightPage) {
+          // Closed Back Cover: Authentic magazine/book spine rib & binding hinge on the right edge
+          const endX = rect.left + rect.pageWidth;
+          const spineW = Math.max(32, Math.min(52, rect.pageWidth * 0.08));
+          const startX = endX - spineW;
+
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.rect(startX, topY, spineW, height);
+          this.ctx.clip();
+
+          const grad = this.ctx.createLinearGradient(startX, 0, endX, 0);
+          grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          grad.addColorStop(0.20, 'rgba(0, 0, 0, 0.02)');
+          grad.addColorStop(0.45, 'rgba(0, 0, 0, 0.08)');
+          grad.addColorStop(0.75, 'rgba(0, 0, 0, 0.22)');
+          grad.addColorStop(0.86, 'rgba(255, 255, 255, 0.45)');
+          grad.addColorStop(0.94, 'rgba(0, 0, 0, 0.28)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0.48)');
+          this.ctx.fillStyle = grad;
+          this.ctx.fillRect(startX, topY, spineW, height);
+
+          // Outer hinge crease border
+          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          this.ctx.fillRect(endX - 2, topY, 2, height);
+
+          this.ctx.restore();
+        }
+      };
     }
 
     // Patch FlipController for silky smooth FlipHTML5-style physics:
@@ -3855,6 +3902,66 @@ export default function FlipbookViewer({
               filter: settings.sharpenPages !== false ? 'contrast(1.045)' : undefined,
             };
 
+            if (isSliderEffect) {
+              return (
+                <SliderStage
+                  pages={pages}
+                  current={current}
+                  total={total}
+                  next={next}
+                  prev={prev}
+                  goto={goto}
+                  fitWidth={fitWidth}
+                  fitHeight={fitHeight}
+                  zoom={zoom}
+                  crispImgStyle={crispImgStyle}
+                  hdLoadedPages={hdLoadedPages}
+                  mode={mode}
+                  rightToLeft={settings.rightToLeft}
+                />
+              );
+            }
+
+            if (isCardsEffect) {
+              return (
+                <CardsDeckStage
+                  pages={pages}
+                  current={current}
+                  total={total}
+                  next={next}
+                  prev={prev}
+                  goto={goto}
+                  fitWidth={fitWidth}
+                  fitHeight={fitHeight}
+                  zoom={zoom}
+                  crispImgStyle={crispImgStyle}
+                  hdLoadedPages={hdLoadedPages}
+                  mode={mode}
+                  rightToLeft={settings.rightToLeft}
+                />
+              );
+            }
+
+            if (isCoverflowEffect) {
+              return (
+                <CoverflowStage
+                  pages={pages}
+                  current={current}
+                  total={total}
+                  next={next}
+                  prev={prev}
+                  goto={goto}
+                  fitWidth={fitWidth}
+                  fitHeight={fitHeight}
+                  zoom={zoom}
+                  crispImgStyle={crispImgStyle}
+                  hdLoadedPages={hdLoadedPages}
+                  mode={mode}
+                  rightToLeft={settings.rightToLeft}
+                />
+              );
+            }
+
             return (
               <div
                 className="hz-canvas-wrap"
@@ -3910,22 +4017,24 @@ export default function FlipbookViewer({
                             draggable={false}
                             style={crispImgStyle}
                           />
-                          {/* Realistic Magazine Spine Shadow/Crease */}
+                          {/* Authentic Heyzine-grade Book Rib / Binding Hinge on Front Cover */}
                           {mode === 'landscape' && current === 0 && (
                             <div
-                              className="pointer-events-none absolute inset-y-0 left-0 w-5 z-20"
+                              className="pointer-events-none absolute inset-y-0 left-0 w-11 z-20"
                               style={{
-                                background: 'linear-gradient(to right, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.08) 35%, rgba(255,255,255,0.14) 60%, rgba(0,0,0,0) 100%)',
-                                mixBlendMode: 'multiply',
+                                background:
+                                  'linear-gradient(to right, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.28) 8%, rgba(255,255,255,0.45) 15%, rgba(0,0,0,0.22) 28%, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0) 100%)',
+                                boxShadow: 'inset -4px 0 8px 0 rgba(0,0,0,0.24)',
                               }}
                             />
                           )}
                           {isSingleBackCoverActive && (
                             <div
-                              className="pointer-events-none absolute inset-y-0 right-0 w-5 z-20"
+                              className="pointer-events-none absolute inset-y-0 right-0 w-11 z-20"
                               style={{
-                                background: 'linear-gradient(to left, rgba(0,0,0,0.24) 0%, rgba(0,0,0,0.08) 35%, rgba(255,255,255,0.14) 60%, rgba(0,0,0,0) 100%)',
-                                mixBlendMode: 'multiply',
+                                background:
+                                  'linear-gradient(to left, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.28) 8%, rgba(255,255,255,0.45) 15%, rgba(0,0,0,0.22) 28%, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0) 100%)',
+                                boxShadow: 'inset 4px 0 8px 0 rgba(0,0,0,0.24)',
                               }}
                             />
                           )}
@@ -3955,14 +4064,26 @@ export default function FlipbookViewer({
                             />
                           )}
                         </div>
-                        {/* Subtle Center Magazine Spine Crease */}
+                        {/* Authentic 3D Center Book Rib / Spine Crease (Always Visible when Open) */}
                         <div
-                          className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-6 z-20"
+                          className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-16 z-20"
                           style={{
-                            background: 'linear-gradient(to right, rgba(0,0,0,0.16) 0%, rgba(0,0,0,0.05) 25%, rgba(255,255,255,0.08) 50%, rgba(0,0,0,0.05) 75%, rgba(0,0,0,0.16) 100%)',
-                            mixBlendMode: 'multiply',
+                            background:
+                              'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.03) 15%, rgba(0,0,0,0.14) 38%, rgba(0,0,0,0.42) 48%, rgba(0,0,0,0.60) 50%, rgba(255,255,255,0.38) 53%, rgba(0,0,0,0.22) 62%, rgba(0,0,0,0.06) 80%, transparent 100%)',
                           }}
                         />
+                        {/* Spiral Coil Binding Rings Overlay when in Spiral Notebook Mode */}
+                        {normalizedPageEffect === 'notebook' && (
+                          <div
+                            className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-9 z-30"
+                            style={{
+                              backgroundImage:
+                                'radial-gradient(circle 3px at 6px 12px, #0f172a 90%, transparent 100%), radial-gradient(circle 3px at 28px 12px, #0f172a 90%, transparent 100%), linear-gradient(90deg, transparent 4px, #cbd5e1 6px, #94a3b8 10px, #475569 18px, #cbd5e1 24px, #94a3b8 28px, transparent 30%)',
+                              backgroundSize: '34px 24px',
+                              filter: 'drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45))',
+                            }}
+                          />
+                        )}
                       </>
                     )}
                   </div>
