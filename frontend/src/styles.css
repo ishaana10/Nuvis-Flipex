@@ -7194,3 +7194,7 @@ html[data-theme="dark"] .studio-preview-modal {
     linear-gradient(to left, rgba(0,0,0,0.55) 0px, rgba(0,0,0,0.35) 4px, rgba(255,255,255,0.0) 5px, rgba(0,0,0,0.22) 10px, rgba(0,0,0,0.10) 20px, transparent 100%);
   border-right: 0; box-shadow: none;
 }
+
+/* Hide overlay spine while a page is turning (canvas draws spine beneath the leaf) */
+.is-flipping .stf-spine-crease, .stf__parent.is-flipping .stf-spine-crease { opacity: 0 !important; transition: none !important; }
+.stf-spine-crease { transition: opacity 0.25s ease 0.05s; }

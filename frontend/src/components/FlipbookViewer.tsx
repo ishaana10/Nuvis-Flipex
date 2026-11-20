@@ -1062,6 +1062,17 @@ export default function FlipbookViewer({
     ? effectiveToc.filter((t) => t.title.toLowerCase().includes(tocFilter.toLowerCase().trim()))
     : effectiveToc;
 
+  // While a page is turning, the canvas already paints the spine *beneath* the moving leaf.
+  // The HTML spine overlay sits above the canvas and would show through the curling page
+  // (making it look transparent), so hide it for the duration of the flip.
+  useEffect(() => {
+    const parent = host.current?.querySelector('.stf__parent') as HTMLElement | null;
+    const target = parent || host.current;
+    if (!target) return;
+    target.classList.toggle('is-flipping', isFlipping);
+    host.current?.classList.toggle('is-flipping', isFlipping);
+  }, [isFlipping, ready]);
+
   const updateBookPageStacks = useCallback((pageIdx: number, totalPages: number, orientation: string) => {
     if (!host.current || !flip.current) return;
     const parent = host.current.querySelector('.stf__parent') as HTMLElement | null;
