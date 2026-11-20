@@ -4029,27 +4029,33 @@ export default function FlipbookViewer({
                             style={crispImgStyle}
                           />
                           {/* Authentic Heyzine-grade Book Rib / Binding Hinge on Front Cover */}
-                          {mode === 'landscape' && current === 0 && (
-                            <div
-                              className="pointer-events-none"
-                              style={{
-                                position: 'absolute', top: 0, bottom: 0, left: 0, width: 36, zIndex: 20, mixBlendMode: 'multiply',
-                                background:
-                                  'linear-gradient(to right, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.28) 8%, rgba(255,255,255,0.45) 15%, rgba(0,0,0,0.22) 28%, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0) 100%)',
-                                boxShadow: 'inset -4px 0 8px 0 rgba(0,0,0,0.24)',
-                              }}
-                            />
+                          {(mode === 'portrait' || current === 0) && (
+                            <>
+                              <div
+                                className="pointer-events-none"
+                                style={{
+                                  position: 'absolute', top: 0, bottom: 0, left: 0, zIndex: 20,
+                                  width: Math.max(32, Math.min(52, (mode === 'portrait' ? (fitWidth > 0 ? fitWidth : (bookBounds?.pageWidth || 0)) : (fitWidth > 0 ? fitWidth / 2 : (bookBounds?.pageWidth || 0))) * 0.08)),
+                                  background:
+                                    'linear-gradient(to right, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.28) 6%, rgba(255,255,255,0.45) 14%, rgba(0,0,0,0.22) 25%, rgba(0,0,0,0.08) 55%, rgba(0,0,0,0.02) 80%, rgba(0,0,0,0) 100%)',
+                                }}
+                              />
+                              <div className="pointer-events-none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, zIndex: 21, background: 'rgba(0,0,0,0.45)' }} />
+                            </>
                           )}
                           {isSingleBackCoverActive && (
-                            <div
-                              className="pointer-events-none"
-                              style={{
-                                position: 'absolute', top: 0, bottom: 0, right: 0, width: 36, zIndex: 20, mixBlendMode: 'multiply',
-                                background:
-                                  'linear-gradient(to left, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.28) 8%, rgba(255,255,255,0.45) 15%, rgba(0,0,0,0.22) 28%, rgba(0,0,0,0.08) 60%, rgba(0,0,0,0) 100%)',
-                                boxShadow: 'inset 4px 0 8px 0 rgba(0,0,0,0.24)',
-                              }}
-                            />
+                            <>
+                              <div
+                                className="pointer-events-none"
+                                style={{
+                                  position: 'absolute', top: 0, bottom: 0, right: 0, zIndex: 20,
+                                  width: Math.max(32, Math.min(52, (fitWidth > 0 ? fitWidth / 2 : (bookBounds?.pageWidth || 0)) * 0.08)),
+                                  background:
+                                    'linear-gradient(to left, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.28) 6%, rgba(255,255,255,0.45) 14%, rgba(0,0,0,0.22) 25%, rgba(0,0,0,0.08) 55%, rgba(0,0,0,0.02) 80%, rgba(0,0,0,0) 100%)',
+                                }}
+                              />
+                              <div className="pointer-events-none" style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 2, zIndex: 21, background: 'rgba(0,0,0,0.45)' }} />
+                            </>
                           )}
                         </div>
                       ) : null
@@ -4081,13 +4087,23 @@ export default function FlipbookViewer({
                         <div
                           className="pointer-events-none"
                           style={{
-                            position: 'absolute', top: 0, bottom: 0, left: '50%', width: 84, transform: 'translateX(-50%)', zIndex: 20,
-                            mixBlendMode: 'multiply',
-                            background:
-                              'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.04) 12%, rgba(0,0,0,0.16) 33%, rgba(0,0,0,0.40) 46%, rgba(0,0,0,0.62) 50%, rgba(0,0,0,0.30) 54%, rgba(0,0,0,0.14) 66%, rgba(0,0,0,0.04) 84%, transparent 100%)',
+                            position: 'absolute', top: 0, bottom: 0, left: '50%', width: 0, zIndex: 20,
                           }}
                         >
-                          <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: 2, transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', boxShadow: '0 0 6px 1px rgba(0,0,0,0.35)' }} />
+                          {(() => {
+                            // Mirrors render.drawBookShadow exactly so static == flipping look
+                            const pw = (fitWidth > 0 ? fitWidth / 2 : (bookBounds?.pageWidth || 0));
+                            const sw = Math.max(38, Math.min(65, pw * 0.10));
+                            return (
+                              <>
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: -sw, width: sw,
+                                  background: 'linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.04) 35%, rgba(0,0,0,0.16) 65%, rgba(0,0,0,0.32) 85%, rgba(0,0,0,0.58) 100%)' }} />
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: sw,
+                                  background: 'linear-gradient(to right, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.28) 4%, rgba(255,255,255,0.40) 12%, rgba(255,255,255,0.14) 24%, rgba(0,0,0,0.20) 38%, rgba(0,0,0,0.08) 65%, rgba(0,0,0,0) 100%)' }} />
+                                <div style={{ position: 'absolute', top: 0, bottom: 0, left: -0.75, width: 1.5, background: 'rgba(0,0,0,0.65)' }} />
+                              </>
+                            );
+                          })()}
                         </div>
                         {/* Spiral Coil Binding Rings Overlay when in Spiral Notebook Mode */}
                         {normalizedPageEffect === 'notebook' && (

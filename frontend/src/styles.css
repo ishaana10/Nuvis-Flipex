@@ -7198,3 +7198,6 @@ html[data-theme="dark"] .studio-preview-modal {
 /* Hide overlay spine while a page is turning (canvas draws spine beneath the leaf) */
 .is-flipping .stf-spine-crease, .stf__parent.is-flipping .stf-spine-crease { opacity: 0 !important; transition: none !important; }
 .stf-spine-crease { transition: opacity 0.25s ease 0.05s; }
+
+/* Spine is painted by the canvas (and the matching static overlay); the extra HTML crease double-darkened it */
+.stf-spine-crease { display: none !important; }
