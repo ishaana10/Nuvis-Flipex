@@ -7201,3 +7201,199 @@ html[data-theme="dark"] .studio-preview-modal {
 
 /* Spine is painted by the canvas (and the matching static overlay); the extra HTML crease double-darkened it */
 .stf-spine-crease { display: none !important; }
+
+/* ============================================================
+   3-STOP CUSTOMIZABLE GRADIENT BUTTON ENGINE & BUILDER UI
+   ============================================================ */
+:root {
+  --btn-grad-1: #fde047;
+  --btn-grad-2: #f59e0b;
+  --btn-grad-3: #b45309;
+  --btn-grad-angle: 135deg;
+  --btn-gradient: linear-gradient(var(--btn-grad-angle, 135deg), var(--btn-grad-1) 0%, var(--btn-grad-2) 50%, var(--btn-grad-3) 100%);
+  --btn-gradient-hover: linear-gradient(var(--btn-grad-angle, 135deg), var(--btn-grad-1) 0%, var(--btn-grad-2) 38%, var(--btn-grad-3) 100%);
+  --btn-gradient-active: linear-gradient(var(--btn-grad-angle, 135deg), var(--btn-grad-2) 0%, var(--btn-grad-3) 65%, var(--btn-grad-3) 100%);
+  --btn-text: #0f172a;
+  --brand-shadow: rgba(245, 158, 11, 0.32);
+}
+
+/* Bind all primary & solid action buttons across the application to the user's 3-stop gradient */
+.topbar-action-btn.solid,
+html[data-theme="dark"] .topbar-action-btn.solid,
+html.dark .topbar-action-btn.solid,
+.btn-primary,
+.btn-pub-primary,
+.preview-topbar .btn-pub-primary,
+.btn-pub-blue,
+.fb-primary-btn,
+.mode-pill.active {
+  background: var(--btn-gradient) !important;
+  color: var(--btn-text) !important;
+  border: 1px solid var(--brand-border) !important;
+  box-shadow: 0 2px 8px var(--brand-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.38) !important;
+}
+
+.topbar-action-btn.solid:hover,
+html[data-theme="dark"] .topbar-action-btn.solid:hover,
+html.dark .topbar-action-btn.solid:hover,
+.btn-primary:hover:not(:disabled),
+.btn-pub-primary:hover,
+.preview-topbar .btn-pub-primary:hover,
+.btn-pub-blue:hover,
+.fb-primary-btn:hover {
+  background: var(--btn-gradient-hover) !important;
+  color: var(--btn-text) !important;
+  border-color: var(--btn-grad-1) !important;
+  box-shadow: 0 4px 14px var(--brand-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.topbar-action-btn.solid:active,
+.btn-primary:active:not(:disabled),
+.btn-pub-primary:active,
+.preview-topbar .btn-pub-primary:active,
+.btn-pub-blue:active,
+.fb-primary-btn:active {
+  background: var(--btn-gradient-active) !important;
+  transform: translateY(0);
+}
+
+/* 3-Gradient Preset Grid & Swatch Pill inside Appearance Dropdown */
+.grad-presets-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  max-height: 210px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.preset-swatch-pill {
+  width: 28px;
+  height: 14px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.custom-grad-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grad-stops-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.grad-stop-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 5px 6px;
+  cursor: pointer;
+}
+
+.grad-stop-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.grad-color-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.grad-color-input-wrap input[type="color"] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.grad-color-input-wrap code {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-main);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.grad-controls-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.grad-angle-group,
+.grad-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 5px 6px;
+}
+
+.grad-angle-pills {
+  display: flex;
+  gap: 3px;
+}
+
+.grad-mini-pill {
+  flex: 1;
+  padding: 3px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.grad-mini-pill:hover {
+  border-color: var(--brand);
+  color: var(--text-main);
+}
+
+.grad-mini-pill.active {
+  background: var(--btn-gradient) !important;
+  color: var(--btn-text) !important;
+  border-color: var(--brand-border) !important;
+}
+
+.grad-live-preview-row {
+  margin-top: 2px;
+}
+
+.grad-live-preview-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 3px 10px var(--brand-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+

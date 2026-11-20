@@ -14,54 +14,116 @@ interface QuickJobItem {
   createdAt: string;
 }
 
-interface DynamicBluePreset {
+interface ButtonGradientPreset {
   id: string;
   name: string;
-  brand: string;
-  brandStrong: string;
-  brandHover: string;
-  brandSoft: string;
-  brandBorder: string;
+  stop1: string;
+  stop2: string;
+  stop3: string;
+  angle: number;
+  textColor?: 'auto' | 'light' | 'dark';
 }
 
-const DYNAMIC_BLUE_PRESETS: DynamicBluePreset[] = [
+const BUTTON_GRADIENT_PRESETS: ButtonGradientPreset[] = [
+  {
+    id: 'golden_sunset',
+    name: 'Golden Amber Sunset',
+    stop1: '#fde047',
+    stop2: '#f59e0b',
+    stop3: '#b45309',
+    angle: 135,
+    textColor: 'dark',
+  },
+  {
+    id: 'emerald_forest',
+    name: 'Emerald Tropical Mint',
+    stop1: '#34d399',
+    stop2: '#10b981',
+    stop3: '#047857',
+    angle: 135,
+    textColor: 'light',
+  },
+  {
+    id: 'crimson_flame',
+    name: 'Crimson Coral Flame',
+    stop1: '#fb7185',
+    stop2: '#e11d48',
+    stop3: '#9f1239',
+    angle: 135,
+    textColor: 'light',
+  },
+  {
+    id: 'tangerine_blaze',
+    name: 'Tangerine Copper Blaze',
+    stop1: '#fbbf24',
+    stop2: '#f97316',
+    stop3: '#c2410c',
+    angle: 135,
+    textColor: 'light',
+  },
+  {
+    id: 'teal_lagoon',
+    name: 'Teal Lagoon Jade',
+    stop1: '#2dd4bf',
+    stop2: '#0d9488',
+    stop3: '#115e59',
+    angle: 135,
+    textColor: 'light',
+  },
   {
     id: 'ocean',
-    name: 'Dynamic Ocean Blue',
-    brand: '#0284c7',
-    brandStrong: '#0369a1',
-    brandHover: '#075985',
-    brandSoft: 'rgba(2, 132, 199, 0.12)',
-    brandBorder: 'rgba(56, 189, 248, 0.4)',
-  },
-  {
-    id: 'electric',
-    name: 'Electric Azure Blue',
-    brand: '#2563eb',
-    brandStrong: '#1d4ed8',
-    brandHover: '#1e40af',
-    brandSoft: 'rgba(37, 99, 235, 0.12)',
-    brandBorder: 'rgba(96, 165, 250, 0.42)',
-  },
-  {
-    id: 'sky',
-    name: 'Sky Cyan Dynamic',
-    brand: '#0ea5e9',
-    brandStrong: '#0284c7',
-    brandHover: '#0369a1',
-    brandSoft: 'rgba(14, 165, 233, 0.14)',
-    brandBorder: 'rgba(56, 189, 248, 0.45)',
+    name: 'Pacific Ocean Cyan',
+    stop1: '#38bdf8',
+    stop2: '#0284c7',
+    stop3: '#0369a1',
+    angle: 135,
+    textColor: 'light',
   },
   {
     id: 'cobalt',
-    name: 'Royal Cobalt Blue',
-    brand: '#1d4ed8',
-    brandStrong: '#1e40af',
-    brandHover: '#1e3a8a',
-    brandSoft: 'rgba(29, 78, 216, 0.12)',
-    brandBorder: 'rgba(96, 165, 250, 0.4)',
+    name: 'Royal Cobalt Sapphire',
+    stop1: '#60a5fa',
+    stop2: '#2563eb',
+    stop3: '#1e3a8a',
+    angle: 135,
+    textColor: 'light',
+  },
+  {
+    id: 'obsidian_gold',
+    name: 'Obsidian Champagne Gold',
+    stop1: '#f59e0b',
+    stop2: '#334155',
+    stop3: '#0f172a',
+    angle: 135,
+    textColor: 'light',
   },
 ];
+
+function hexToRgbTuple(hex: string): [number, number, number] {
+  const clean = (hex || '').replace('#', '').trim();
+  if (clean.length === 3) {
+    const r = parseInt(clean[0] + clean[0], 16) || 0;
+    const g = parseInt(clean[1] + clean[1], 16) || 0;
+    const b = parseInt(clean[2] + clean[2], 16) || 0;
+    return [r, g, b];
+  }
+  const num = parseInt(clean.padEnd(6, '0').slice(0, 6), 16);
+  if (Number.isNaN(num)) return [2, 132, 199];
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+function computeContrastText(s1: string, s2: string, s3: string, mode: 'auto' | 'light' | 'dark'): string {
+  if (mode === 'light') return '#ffffff';
+  if (mode === 'dark') return '#0f172a';
+  const [r1, g1, b1] = hexToRgbTuple(s1);
+  const [r2, g2, b2] = hexToRgbTuple(s2);
+  const [r3, g3, b3] = hexToRgbTuple(s3);
+  const avgR = (r1 * 0.25 + r2 * 0.5 + r3 * 0.25) / 255;
+  const avgG = (g1 * 0.25 + g2 * 0.5 + g3 * 0.25) / 255;
+  const avgB = (b1 * 0.25 + b2 * 0.5 + b3 * 0.25) / 255;
+  const lum = 0.2126 * avgR + 0.7152 * avgG + 0.0722 * avgB;
+  return lum > 0.62 ? '#0f172a' : '#ffffff';
+}
 
 const UPCOMING_MODULES = [
   {
@@ -115,14 +177,77 @@ export function ProtectedRoute() {
     }
   });
 
-  // Dynamic Blue preset state persisted in localStorage
-  const [bluePresetId, setBluePresetId] = useState<string>(() => {
+  // 3-Stop Button Gradient state persisted in localStorage (fully customizable)
+  const [gradPresetId, setGradPresetId] = useState<string>(() => {
     try {
-      return localStorage.getItem('flipex_blue_preset') || 'ocean';
+      return localStorage.getItem('flipex_btn_grad_preset') || localStorage.getItem('flipex_blue_preset') || 'golden_sunset';
     } catch {
-      return 'ocean';
+      return 'golden_sunset';
     }
   });
+
+  const [gradStop1, setGradStop1] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('flipex_btn_grad_stop1');
+      if (saved) return saved;
+      const pid = localStorage.getItem('flipex_btn_grad_preset') || localStorage.getItem('flipex_blue_preset') || 'golden_sunset';
+      const found = BUTTON_GRADIENT_PRESETS.find((p) => p.id === pid);
+      return found ? found.stop1 : '#fde047';
+    } catch {
+      return '#fde047';
+    }
+  });
+
+  const [gradStop2, setGradStop2] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('flipex_btn_grad_stop2');
+      if (saved) return saved;
+      const pid = localStorage.getItem('flipex_btn_grad_preset') || localStorage.getItem('flipex_blue_preset') || 'golden_sunset';
+      const found = BUTTON_GRADIENT_PRESETS.find((p) => p.id === pid);
+      return found ? found.stop2 : '#f59e0b';
+    } catch {
+      return '#f59e0b';
+    }
+  });
+
+  const [gradStop3, setGradStop3] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('flipex_btn_grad_stop3');
+      if (saved) return saved;
+      const pid = localStorage.getItem('flipex_btn_grad_preset') || localStorage.getItem('flipex_blue_preset') || 'golden_sunset';
+      const found = BUTTON_GRADIENT_PRESETS.find((p) => p.id === pid);
+      return found ? found.stop3 : '#b45309';
+    } catch {
+      return '#b45309';
+    }
+  });
+
+  const [gradAngle, setGradAngle] = useState<number>(() => {
+    try {
+      const saved = Number(localStorage.getItem('flipex_btn_grad_angle'));
+      return !Number.isNaN(saved) && saved >= 0 && saved <= 360 ? saved : 135;
+    } catch {
+      return 135;
+    }
+  });
+
+  const [gradTextMode, setGradTextMode] = useState<'auto' | 'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('flipex_btn_grad_text') as 'auto' | 'light' | 'dark' | null;
+      return saved === 'light' || saved === 'dark' || saved === 'auto' ? saved : 'auto';
+    } catch {
+      return 'auto';
+    }
+  });
+
+  const applyGradientPreset = (preset: ButtonGradientPreset) => {
+    setGradPresetId(preset.id);
+    setGradStop1(preset.stop1);
+    setGradStop2(preset.stop2);
+    setGradStop3(preset.stop3);
+    setGradAngle(preset.angle);
+    setGradTextMode(preset.textColor || 'auto');
+  };
 
   // Sidebar expanded vs compact rail (Pic 2 style is compact vertical icon+label rail by default)
   const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(false);
@@ -162,19 +287,41 @@ export function ProtectedRoute() {
   }, [darkMode]);
 
   useEffect(() => {
-    const preset = DYNAMIC_BLUE_PRESETS.find((p) => p.id === bluePresetId) || DYNAMIC_BLUE_PRESETS[0];
     const root = document.documentElement;
-    root.style.setProperty('--brand', preset.brand);
-    root.style.setProperty('--brand-strong', preset.brandStrong);
-    root.style.setProperty('--brand-hover', preset.brandHover);
-    root.style.setProperty('--brand-soft', preset.brandSoft);
-    root.style.setProperty('--brand-border', preset.brandBorder);
+    const [r1, g1, b1] = hexToRgbTuple(gradStop1);
+    const [r2, g2, b2] = hexToRgbTuple(gradStop2);
+    const textColor = computeContrastText(gradStop1, gradStop2, gradStop3, gradTextMode);
+    const gradientCss = `linear-gradient(${gradAngle}deg, ${gradStop1} 0%, ${gradStop2} 50%, ${gradStop3} 100%)`;
+    const gradientHoverCss = `linear-gradient(${gradAngle}deg, ${gradStop1} 0%, ${gradStop2} 38%, ${gradStop3} 100%)`;
+    const gradientActiveCss = `linear-gradient(${gradAngle}deg, ${gradStop2} 0%, ${gradStop3} 65%, ${gradStop3} 100%)`;
+
+    root.style.setProperty('--btn-grad-1', gradStop1);
+    root.style.setProperty('--btn-grad-2', gradStop2);
+    root.style.setProperty('--btn-grad-3', gradStop3);
+    root.style.setProperty('--btn-grad-angle', `${gradAngle}deg`);
+    root.style.setProperty('--btn-gradient', gradientCss);
+    root.style.setProperty('--btn-gradient-hover', gradientHoverCss);
+    root.style.setProperty('--btn-gradient-active', gradientActiveCss);
+    root.style.setProperty('--btn-text', textColor);
+
+    root.style.setProperty('--brand', gradStop2);
+    root.style.setProperty('--brand-strong', gradStop3);
+    root.style.setProperty('--brand-hover', gradStop3);
+    root.style.setProperty('--brand-soft', `rgba(${r2}, ${g2}, ${b2}, 0.14)`);
+    root.style.setProperty('--brand-border', `rgba(${r1}, ${g1}, ${b1}, 0.5)`);
+    root.style.setProperty('--brand-shadow', `rgba(${r2}, ${g2}, ${b2}, 0.32)`);
+
     try {
-      localStorage.setItem('flipex_blue_preset', preset.id);
+      localStorage.setItem('flipex_btn_grad_preset', gradPresetId);
+      localStorage.setItem('flipex_btn_grad_stop1', gradStop1);
+      localStorage.setItem('flipex_btn_grad_stop2', gradStop2);
+      localStorage.setItem('flipex_btn_grad_stop3', gradStop3);
+      localStorage.setItem('flipex_btn_grad_angle', String(gradAngle));
+      localStorage.setItem('flipex_btn_grad_text', gradTextMode);
     } catch {
       // ignore
     }
-  }, [bluePresetId]);
+  }, [gradPresetId, gradStop1, gradStop2, gradStop3, gradAngle, gradTextMode]);
 
   useEffect(() => {
     if (!user) return;
@@ -506,10 +653,10 @@ export function ProtectedRoute() {
                 </button>
 
                 {activePopover === 'appearance' && (
-                  <div className="topbar-dropdown appearance-dropdown">
+                  <div className="topbar-dropdown appearance-dropdown" style={{ width: 336 }}>
                     <div className="dropdown-head">
-                      <b>Appearance & Theme</b>
-                      <span className="dropdown-sub">Dynamic Blue & Dark Mode</span>
+                      <b>Appearance & 3-Gradient Theme</b>
+                      <span className="dropdown-sub">3-Stop Button Gradients & Dark Mode</span>
                     </div>
 
                     {/* Dark Mode Toggle Row */}
@@ -532,20 +679,137 @@ export function ProtectedRoute() {
 
                     <div className="dropdown-divider" />
 
+                    {/* 3-Stop Gradient Preset Library */}
                     <div className="appearance-preset-list">
-                      <span className="preset-heading">Dynamic Blue Accent</span>
-                      {DYNAMIC_BLUE_PRESETS.map((preset) => (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          className={`preset-option ${bluePresetId === preset.id ? 'active' : ''}`}
-                          onClick={() => setBluePresetId(preset.id)}
+                      <span className="preset-heading">3-Gradient Button Presets</span>
+                      <div className="grad-presets-grid">
+                        {BUTTON_GRADIENT_PRESETS.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            className={`preset-option ${gradPresetId === preset.id ? 'active' : ''}`}
+                            onClick={() => applyGradientPreset(preset)}
+                          >
+                            <span
+                              className="preset-swatch-pill"
+                              style={{
+                                background: `linear-gradient(${preset.angle}deg, ${preset.stop1} 0%, ${preset.stop2} 50%, ${preset.stop3} 100%)`,
+                              }}
+                            />
+                            <span className="preset-name">{preset.name}</span>
+                            {gradPresetId === preset.id && <span className="preset-check">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="dropdown-divider" />
+
+                    {/* Custom 3-Stop Gradient Builder */}
+                    <div className="custom-grad-builder">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <span className="preset-heading" style={{ margin: 0 }}>Custom 3-Stop Gradient</span>
+                        {gradPresetId === 'custom' && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'var(--brand-soft)', color: 'var(--brand)' }}>
+                            Custom Active
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grad-stops-row">
+                        <label className="grad-stop-cell">
+                          <span className="grad-stop-label">Stop 1 (0%)</span>
+                          <div className="grad-color-input-wrap">
+                            <input
+                              type="color"
+                              value={gradStop1}
+                              onChange={(e) => {
+                                setGradPresetId('custom');
+                                setGradStop1(e.target.value);
+                              }}
+                            />
+                            <code>{gradStop1.toUpperCase()}</code>
+                          </div>
+                        </label>
+
+                        <label className="grad-stop-cell">
+                          <span className="grad-stop-label">Stop 2 (50%)</span>
+                          <div className="grad-color-input-wrap">
+                            <input
+                              type="color"
+                              value={gradStop2}
+                              onChange={(e) => {
+                                setGradPresetId('custom');
+                                setGradStop2(e.target.value);
+                              }}
+                            />
+                            <code>{gradStop2.toUpperCase()}</code>
+                          </div>
+                        </label>
+
+                        <label className="grad-stop-cell">
+                          <span className="grad-stop-label">Stop 3 (100%)</span>
+                          <div className="grad-color-input-wrap">
+                            <input
+                              type="color"
+                              value={gradStop3}
+                              onChange={(e) => {
+                                setGradPresetId('custom');
+                                setGradStop3(e.target.value);
+                              }}
+                            />
+                            <code>{gradStop3.toUpperCase()}</code>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Direction Angle & Text Contrast Row */}
+                      <div className="grad-controls-row">
+                        <div className="grad-angle-group">
+                          <span className="grad-stop-label">Angle ({gradAngle}°)</span>
+                          <div className="grad-angle-pills">
+                            {[90, 135, 180, 45].map((ang) => (
+                              <button
+                                key={ang}
+                                type="button"
+                                className={`grad-mini-pill ${gradAngle === ang ? 'active' : ''}`}
+                                onClick={() => setGradAngle(ang)}
+                              >
+                                {ang}°
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grad-text-group">
+                          <span className="grad-stop-label">Text Color</span>
+                          <div className="grad-angle-pills">
+                            {(['auto', 'light', 'dark'] as const).map((tm) => (
+                              <button
+                                key={tm}
+                                type="button"
+                                className={`grad-mini-pill ${gradTextMode === tm ? 'active' : ''}`}
+                                onClick={() => setGradTextMode(tm)}
+                              >
+                                {tm === 'auto' ? 'Auto' : tm === 'light' ? 'White' : 'Dark'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Live 3-Gradient Button Preview */}
+                      <div className="grad-live-preview-row">
+                        <span
+                          className="grad-live-preview-btn"
+                          style={{
+                            background: `linear-gradient(${gradAngle}deg, ${gradStop1} 0%, ${gradStop2} 50%, ${gradStop3} 100%)`,
+                            color: computeContrastText(gradStop1, gradStop2, gradStop3, gradTextMode),
+                          }}
                         >
-                          <span className="preset-swatch" style={{ background: preset.brand }} />
-                          <span className="preset-name">{preset.name}</span>
-                          {bluePresetId === preset.id && <span className="preset-check">✓</span>}
-                        </button>
-                      ))}
+                          ✨ Live 3-Gradient Button Preview
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
