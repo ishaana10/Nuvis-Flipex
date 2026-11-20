@@ -1194,7 +1194,7 @@ export default function FlipbookViewer({
       leftStack.style.display = 'none';
       if (hasRightPages) {
         const remaining = totalPages - (pageIdx + 1);
-        const rightWidth = Math.min(14, Math.max(6, Math.round((remaining / totalPages) * 14)));
+        const rightWidth = Math.min(20, Math.max(6, Math.round((remaining / totalPages) * 20)));
         rightStack.style.display = 'block';
         rightStack.style.left = `${Math.round(rightEdge)}px`;
         rightStack.style.right = 'auto';
@@ -1207,7 +1207,7 @@ export default function FlipbookViewer({
     } else {
       if (hasLeftPages) {
         const leftRatio = Math.min(1, pageIdx / totalPages);
-        const leftWidth = Math.min(14, Math.max(5, Math.round(leftRatio * 14)));
+        const leftWidth = Math.min(20, Math.max(6, Math.round(leftRatio * 20)));
         leftStack.style.display = 'block';
         leftStack.style.left = `${Math.round(leftEdge - leftWidth)}px`;
         leftStack.style.right = 'auto';
@@ -1221,7 +1221,7 @@ export default function FlipbookViewer({
       if (hasRightPages) {
         const remaining = totalPages - (pageIdx + 1);
         const rightRatio = Math.min(1, remaining / totalPages);
-        const rightWidth = Math.min(14, Math.max(5, Math.round(rightRatio * 14)));
+        const rightWidth = Math.min(20, Math.max(6, Math.round(rightRatio * 20)));
         rightStack.style.display = 'block';
         rightStack.style.left = `${Math.round(rightEdge)}px`;
         rightStack.style.right = 'auto';
@@ -2373,7 +2373,7 @@ export default function FlipbookViewer({
             badge: 'Final Page',
             title: 'End of Publication',
             message: "You have reached the last page of this flipbook.",
-            actionLabel: 'Read from start ↺',
+            actionLabel: 'Read from start â†º',
             onAction: () => gotoRef.current(0),
           });
         } else if (pageIdx === 0) {
@@ -2548,7 +2548,7 @@ export default function FlipbookViewer({
           badge: 'Final Page',
           title: 'End of Publication',
           message: "You have reached the last page of this flipbook.",
-          actionLabel: 'Read from start ↺',
+          actionLabel: 'Read from start â†º',
           onAction: () => gotoRef.current(0),
         });
       } else if (target === 0 && isInitializedRef.current) {
@@ -2586,7 +2586,7 @@ export default function FlipbookViewer({
         badge: 'Last Page',
         title: 'Publication Complete',
         message: 'This is the final page. Click below to start over from the beginning.',
-        actionLabel: 'Read from start ↺',
+        actionLabel: 'Read from start â†º',
         onAction: () => goto(0),
       });
       return;
@@ -2756,8 +2756,8 @@ export default function FlipbookViewer({
         if (idx !== -1) {
           const start = Math.max(0, idx - 45);
           let snippet = txt.slice(start, start + 130);
-          if (start > 0) snippet = '…' + snippet;
-          if (start + 130 < txt.length) snippet += '…';
+          if (start > 0) snippet = 'â€¦' + snippet;
+          if (start + 130 < txt.length) snippet += 'â€¦';
           localMatches.push({ page: p.n, snippet });
         }
       });
@@ -2827,15 +2827,15 @@ export default function FlipbookViewer({
   const getHotspotIcon = (type: ViewerHotspot['type']) => {
     switch (type) {
       case 'video':
-        return '▶';
+        return 'â–¶';
       case 'product':
-        return '🛍️';
+        return 'ðŸ›ï¸';
       case 'page':
-        return '↪';
+        return 'â†ª';
       case 'image':
-        return '🖼️';
+        return 'ðŸ–¼ï¸';
       default:
-        return '🔗';
+        return 'ðŸ”—';
     }
   };
 
@@ -3030,7 +3030,7 @@ export default function FlipbookViewer({
               title="Open in Landscape Full Mode"
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              <span style={{ fontSize: '12px' }}>🔄</span> Landscape Full
+              <span style={{ fontSize: '12px' }}>ðŸ”„</span> Landscape Full
             </button>
           )}
 
@@ -3076,7 +3076,7 @@ export default function FlipbookViewer({
             }}
             title={
               isCurrentBookmarked
-                ? `Page ${current + 1} Bookmarked (Click to remove · Right-click for list)`
+                ? `Page ${current + 1} Bookmarked (Click to remove Â· Right-click for list)`
                 : `Bookmark Page ${current + 1} (Shortcut: B)`
             }
             aria-label="Bookmark current page"
@@ -3121,7 +3121,7 @@ export default function FlipbookViewer({
             style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
             <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px' }}>📎</span>
+              <span style={{ fontSize: '13px' }}>ðŸ“Ž</span>
               {eduResources.length > 0 && (
                 <span
                   style={{
@@ -3159,7 +3159,7 @@ export default function FlipbookViewer({
             style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
             <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px' }}>📌</span>
+              <span style={{ fontSize: '13px' }}>ðŸ“Œ</span>
               {studyNotes.filter((n) => n.pageNumber === current + 1).length > 0 && (
                 <span
                   style={{
@@ -3191,11 +3191,11 @@ export default function FlipbookViewer({
                 toggleFullscreen();
               }
             }}
-            title="Classroom Presentation Mode (Shortcut: P · Laser Pointer: L)"
+            title="Classroom Presentation Mode (Shortcut: P Â· Laser Pointer: L)"
             aria-label="Classroom Presentation Mode"
             style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
           >
-            <span style={{ fontSize: '13px' }}>📽️</span>
+            <span style={{ fontSize: '13px' }}>ðŸ“½ï¸</span>
           </button>
 
           {/* Offline Caching Toggle (Desktop) */}
@@ -3206,7 +3206,7 @@ export default function FlipbookViewer({
               offlineSaved
                 ? 'Saved for Offline Reading'
                 : cachingOffline
-                  ? 'Caching pages for offline reading…'
+                  ? 'Caching pages for offline readingâ€¦'
                   : 'Save Publication for Offline Reading'
             }
             aria-label="Save for Offline Reading"
@@ -3275,7 +3275,7 @@ export default function FlipbookViewer({
       {/* Last-Read Page Resume Toast */}
       {resumedBanner !== null && (
         <div className="fixed top-16 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-400/50 bg-slate-950/90 px-4 py-1.5 text-xs text-white shadow-xl backdrop-blur-md">
-          <span>📖 Resumed at your last-read page (Page {resumedBanner})</span>
+          <span>ðŸ“– Resumed at your last-read page (Page {resumedBanner})</span>
           <button
             type="button"
             onClick={() => goto(0)}
@@ -3288,7 +3288,7 @@ export default function FlipbookViewer({
             onClick={() => setResumedBanner(null)}
             className="text-slate-400 hover:text-white"
           >
-            ✕
+            âœ•
           </button>
         </div>
       )}
@@ -3317,7 +3317,7 @@ export default function FlipbookViewer({
               autoFocus
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search keywords, topics, names…"
+              placeholder="Search keywords, topics, namesâ€¦"
               className="w-full rounded-xl border border-white/20 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-amber-400"
             />
           </div>
@@ -3328,7 +3328,7 @@ export default function FlipbookViewer({
               </p>
             ) : searchResults.length === 0 ? (
               <p className="p-4 text-center text-xs text-slate-400">
-                No matches found for “{searchQuery}”.
+                No matches found for â€œ{searchQuery}â€.
               </p>
             ) : (
               searchResults.map((res, i) => (
@@ -3343,7 +3343,7 @@ export default function FlipbookViewer({
                 >
                   <div className="flex items-center justify-between text-xs font-bold text-amber-400">
                     <span>Page {res.page}</span>
-                    <span className="text-[10px] bg-amber-400/20 px-2 py-0.5 rounded-full text-amber-300">Jump →</span>
+                    <span className="text-[10px] bg-amber-400/20 px-2 py-0.5 rounded-full text-amber-300">Jump â†’</span>
                   </div>
                   <p className="mt-1 text-[11px] text-slate-300 line-clamp-3">{res.snippet}</p>
                 </button>
@@ -3438,7 +3438,7 @@ export default function FlipbookViewer({
                 type="text"
                 value={tocFilter}
                 onChange={(e) => setTocFilter(e.target.value)}
-                placeholder="Filter table of contents…"
+                placeholder="Filter table of contentsâ€¦"
               />
               {tocFilter && (
                 <button
@@ -3458,7 +3458,7 @@ export default function FlipbookViewer({
             {showToc ? (
               filteredToc.length === 0 ? (
                 <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
-                  No sections match “{tocFilter}”
+                  No sections match â€œ{tocFilter}â€
                 </div>
               ) : (
                 filteredToc.map((item, idx) => {
@@ -3553,7 +3553,7 @@ export default function FlipbookViewer({
                                 }}
                                 className="text-[10px] font-semibold text-sky-400 hover:underline"
                               >
-                                Page {res.pageNumber} ↗
+                                Page {res.pageNumber} â†—
                               </button>
                             )}
                           </div>
@@ -3568,7 +3568,7 @@ export default function FlipbookViewer({
                           rel="noreferrer"
                           className="shrink-0 rounded-lg bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 transition-colors hover:bg-amber-500/25"
                         >
-                          Open ↗
+                          Open â†—
                         </a>
                       </div>
                     </div>
@@ -3639,7 +3639,7 @@ export default function FlipbookViewer({
                             }}
                             className="font-bold text-amber-300 hover:underline"
                           >
-                            Page {note.pageNumber} ↗
+                            Page {note.pageNumber} â†—
                           </button>
                           <button
                             type="button"
@@ -3677,7 +3677,7 @@ export default function FlipbookViewer({
             {showToc && (
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                 <span>{filteredToc.length} of {effectiveToc.length} sections</span>
-                <span>Click row to jump →</span>
+                <span>Click row to jump â†’</span>
               </div>
             )}
             <a
@@ -3696,7 +3696,7 @@ export default function FlipbookViewer({
                 textDecoration: 'none',
               }}
             >
-              🌴 Browse Pacific Directory (/explore) →
+              ðŸŒ´ Browse Pacific Directory (/explore) â†’
             </a>
           </div>
 
@@ -3820,26 +3820,26 @@ export default function FlipbookViewer({
                   type="button"
                   className={`hz-side-arrow left ${current === 0 ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
                   onClick={prev}
-                  title={current === 0 ? 'First Page Reached' : 'Previous Page (←)'}
+                  title={current === 0 ? 'First Page Reached' : 'Previous Page (â†)'}
                   style={{
                     color: settings.prevNextColor,
                     backgroundColor: settings.prevNextBg,
                   }}
                 >
-                  ‹
+                  â€¹
                 </button>
 
                 <button
                   type="button"
                   className={`hz-side-arrow right ${isAtEnd ? 'disabled' : ''} ${settings.prevNextMobile === false ? 'hz-desktop-only' : ''}`}
                   onClick={next}
-                  title={isAtEnd ? 'Last Page Reached' : 'Next Page (→)'}
+                  title={isAtEnd ? 'Last Page Reached' : 'Next Page (â†’)'}
                   style={{
                     color: settings.prevNextColor,
                     backgroundColor: settings.prevNextBg,
                   }}
                 >
-                  ›
+                  â€º
                 </button>
               </>
             );
@@ -3866,7 +3866,7 @@ export default function FlipbookViewer({
               )}
               {settings.showLoadingAnimation !== false && <div className="hz-spinner" />}
               <span style={{ fontSize: settings.loadingFontSize ? `${settings.loadingFontSize}px` : undefined }}>
-                {settings.loadingText || 'Loading publication…'}
+                {settings.loadingText || 'Loading publicationâ€¦'}
               </span>
             </div>
           )}
@@ -4263,7 +4263,7 @@ export default function FlipbookViewer({
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/30 bg-slate-900/90 p-4 text-white shadow-lg">
               <div>
                 <h2 className="text-sm font-bold text-amber-400">
-                  ♿ Screen-Reader & High-Legibility Article Mode
+                  â™¿ Screen-Reader & High-Legibility Article Mode
                 </h2>
                 <p className="text-xs text-slate-300">
                   Semantic text extracted from all {pages.length} pages for assistive technology and comfortable reading.
@@ -4276,7 +4276,7 @@ export default function FlipbookViewer({
                   className="rounded-lg border border-white/20 px-2.5 py-1 text-xs font-bold text-white hover:bg-white/10"
                   aria-label="Decrease font size"
                 >
-                  A−
+                  Aâˆ’
                 </button>
                 <span className="text-xs text-slate-300">{readerFontSize}px</span>
                 <button
@@ -4309,7 +4309,7 @@ export default function FlipbookViewer({
                     }}
                     className="text-xs text-slate-400 hover:text-amber-300"
                   >
-                    View Visual Page →
+                    View Visual Page â†’
                   </button>
                 </header>
                 <div className="flex flex-col gap-5 sm:flex-row">
@@ -4325,7 +4325,7 @@ export default function FlipbookViewer({
                   >
                     {p.text && p.text.trim() !== ''
                       ? p.text
-                      : `[Visual graphic page ${p.n} — switch to Scroll or 3D Flip mode to inspect full layout.]`}
+                      : `[Visual graphic page ${p.n} â€” switch to Scroll or 3D Flip mode to inspect full layout.]`}
                   </div>
                 </div>
               </article>
@@ -4351,10 +4351,10 @@ export default function FlipbookViewer({
               type="button"
               className={`hz-pill-btn ${current === 0 ? 'opacity-40' : ''}`}
               onClick={prev}
-              title={current === 0 ? 'First Page Reached' : 'Previous Page (←)'}
+              title={current === 0 ? 'First Page Reached' : 'Previous Page (â†)'}
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              ‹
+              â€¹
             </button>
             <span
               className="hz-pill-counter"
@@ -4366,10 +4366,10 @@ export default function FlipbookViewer({
               type="button"
               className={`hz-pill-btn ${current >= total - 1 || (readingMode === 'flip' && mode === 'landscape' && current + 2 >= total) ? 'opacity-40' : ''}`}
               onClick={next}
-              title={current >= total - 1 || (readingMode === 'flip' && mode === 'landscape' && current + 2 >= total) ? 'Last Page Reached' : 'Next Page (→)'}
+              title={current >= total - 1 || (readingMode === 'flip' && mode === 'landscape' && current + 2 >= total) ? 'Last Page Reached' : 'Next Page (â†’)'}
               style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
             >
-              ›
+              â€º
             </button>
 
             {/* Interactive Timeline Scrubber with Floating Thumbnail & Chapter Preview Bubble */}
@@ -4435,7 +4435,7 @@ export default function FlipbookViewer({
                   title="Zoom Out (-)"
                   style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
                 >
-                  −
+                  âˆ’
                 </button>
                 <input
                   type="range"
@@ -4445,7 +4445,7 @@ export default function FlipbookViewer({
                   step="0.05"
                   value={zoom}
                   onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                  title={`Zoom: ${Math.round(zoom * 100)}% (Drag or touch to pan to any corner · High-Res HD activates > 125%)`}
+                  title={`Zoom: ${Math.round(zoom * 100)}% (Drag or touch to pan to any corner Â· High-Res HD activates > 125%)`}
                 />
                 <button
                   className="hz-pill-btn hz-zoom-btn"
@@ -4463,7 +4463,7 @@ export default function FlipbookViewer({
                   title="Reset zoom to 100% (Press 0)"
                   aria-label="Reset zoom to 100%"
                 >
-                  {zoom > 1 ? `↺ ${Math.round(zoom * 100)}%` : '100%'}
+                  {zoom > 1 ? `â†º ${Math.round(zoom * 100)}%` : '100%'}
                 </button>
               </div>
             )}
@@ -4475,7 +4475,7 @@ export default function FlipbookViewer({
                 title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
                 style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
               >
-                {isFullscreen ? '✕ Exit' : '⛶ Fullscreen'}
+                {isFullscreen ? 'âœ• Exit' : 'â›¶ Fullscreen'}
               </button>
             )}
           </div>
@@ -4510,7 +4510,7 @@ export default function FlipbookViewer({
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900">Share Publication</h3>
               <button className="link" onClick={() => setShowShareModal(false)}>
-                ✕ Close
+                âœ• Close
               </button>
             </div>
 
@@ -4524,7 +4524,7 @@ export default function FlipbookViewer({
                     : 'border-slate-200 text-slate-600'
                 }`}
               >
-                📄 Share Page {current + 1}
+                ðŸ“„ Share Page {current + 1}
               </button>
               <button
                 type="button"
@@ -4535,7 +4535,7 @@ export default function FlipbookViewer({
                     : 'border-slate-200 text-slate-600'
                 }`}
               >
-                📚 Entire Flipbook
+                ðŸ“š Entire Flipbook
               </button>
             </div>
 
@@ -4555,7 +4555,7 @@ export default function FlipbookViewer({
                   sendTelemetry('share', { pageNumber: current + 1, targetUrl: computedShareUrl });
                 }}
               >
-                {copiedShareLink ? '✓ Copied!' : 'Copy Link'}
+                {copiedShareLink ? 'âœ“ Copied!' : 'Copy Link'}
               </button>
             </div>
 
@@ -4608,10 +4608,10 @@ export default function FlipbookViewer({
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900">
-                ⌨️ Keyboard Shortcuts & Reader Themes
+                âŒ¨ï¸ Keyboard Shortcuts & Reader Themes
               </h3>
               <button className="link" onClick={() => setShowShortcutsModal(false)}>
-                ✕ Close
+                âœ• Close
               </button>
             </div>
 
@@ -4642,7 +4642,7 @@ export default function FlipbookViewer({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
                 <span>Next / Prev Page</span>
-                <kbd className="font-bold text-slate-800">← / →</kbd>
+                <kbd className="font-bold text-slate-800">â† / â†’</kbd>
               </div>
               <div className="rounded-lg bg-slate-50 p-2.5 flex justify-between">
                 <span>Switch Reading Mode</span>
@@ -4684,7 +4684,7 @@ export default function FlipbookViewer({
             <div className="video-modal-header">
               <h3>{activeVideo.title}</h3>
               <button className="link" onClick={() => setActiveVideo(null)}>
-                ✕ Close
+                âœ• Close
               </button>
             </div>
             <div className="video-frame-wrap">
@@ -4727,7 +4727,7 @@ export default function FlipbookViewer({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <span className="inline-block rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                    🛍️ Featured Item {activeProduct.payload.sku ? `· SKU: ${activeProduct.payload.sku}` : ''}
+                    ðŸ›ï¸ Featured Item {activeProduct.payload.sku ? `Â· SKU: ${activeProduct.payload.sku}` : ''}
                   </span>
                   <h3 className="mt-1 text-lg font-bold text-white">
                     {activeProduct.payload.title || 'Featured Catalogue Product'}
@@ -4756,13 +4756,13 @@ export default function FlipbookViewer({
                       onClick={() => setShowProductInquiryForm(false)}
                       className="text-[11px] text-slate-400 hover:text-white"
                     >
-                      ✕ Cancel
+                      âœ• Cancel
                     </button>
                   </div>
 
                   {productInquirySuccess ? (
                     <div className="text-center py-2 text-xs text-emerald-400 font-semibold">
-                      ✓ {productInquirySuccess}
+                      âœ“ {productInquirySuccess}
                     </div>
                   ) : (
                     <form
@@ -4846,7 +4846,7 @@ export default function FlipbookViewer({
                         disabled={productInquiryBusy}
                         className="w-full py-1.5 rounded-lg bg-amber-400 text-slate-950 text-xs font-bold hover:bg-amber-300 disabled:opacity-50 shadow"
                       >
-                        {productInquiryBusy ? 'Sending…' : 'Submit Product Inquiry'}
+                        {productInquiryBusy ? 'Sendingâ€¦' : 'Submit Product Inquiry'}
                       </button>
                     </form>
                   )}
@@ -4867,7 +4867,7 @@ export default function FlipbookViewer({
                     }
                     className="flex-1 rounded-xl bg-amber-400 px-4 py-2.5 text-center text-xs font-extrabold text-slate-950 shadow hover:bg-amber-300 transition"
                   >
-                    {activeProduct.payload.ctaText || 'Buy / View Online →'}
+                    {activeProduct.payload.ctaText || 'Buy / View Online â†’'}
                   </a>
                 )}
                 {(activeProduct.payload.whatsappPhone || settings.profilePhone) && (
@@ -4891,7 +4891,7 @@ export default function FlipbookViewer({
                     }
                     className="flex-1 rounded-xl border border-emerald-500/50 bg-emerald-500/20 px-4 py-2.5 text-center text-xs font-bold text-emerald-300 hover:bg-emerald-500/30 transition"
                   >
-                    💬 Inquire on WhatsApp
+                    ðŸ’¬ Inquire on WhatsApp
                   </a>
                 )}
                 {!showProductInquiryForm && (
@@ -4901,7 +4901,7 @@ export default function FlipbookViewer({
                     className="rounded-xl border border-amber-400/50 bg-amber-400/10 px-3.5 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-400/20"
                     title="Send inquiry without WhatsApp"
                   >
-                    📋 Email Inquiry
+                    ðŸ“‹ Email Inquiry
                   </button>
                 )}
                 <button
@@ -4937,7 +4937,7 @@ export default function FlipbookViewer({
                 onClick={() => setActiveLightboxImage(null)}
                 className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:bg-white/10 hover:text-white"
               >
-                ✕ Close
+                âœ• Close
               </button>
             </div>
             <img
@@ -4963,7 +4963,7 @@ export default function FlipbookViewer({
             <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Author Profile</h3>
               <button className="link" onClick={() => setShowProfileModal(false)}>
-                ✕ Close
+                âœ• Close
               </button>
             </div>
 
@@ -4976,7 +4976,7 @@ export default function FlipbookViewer({
                 />
               ) : (
                 <div className="h-16 w-16 rounded-full bg-amber-400/20 text-amber-500 font-bold flex items-center justify-center text-xl">
-                  {settings.profileAuthor ? settings.profileAuthor.charAt(0).toUpperCase() : '👤'}
+                  {settings.profileAuthor ? settings.profileAuthor.charAt(0).toUpperCase() : 'ðŸ‘¤'}
                 </div>
               )}
               <div>
@@ -5056,7 +5056,7 @@ export default function FlipbookViewer({
             <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Scan to Read on Mobile</h3>
               <button className="link" onClick={() => setShowQrModal(false)}>
-                ✕ Close
+                âœ• Close
               </button>
             </div>
 
@@ -5083,7 +5083,7 @@ export default function FlipbookViewer({
                 }
               }}
             >
-              {copiedShareLink ? '✓ Copied Link!' : '📋 Copy Mobile Link'}
+              {copiedShareLink ? 'âœ“ Copied Link!' : 'ðŸ“‹ Copy Mobile Link'}
             </button>
           </div>
         </div>
@@ -5141,7 +5141,7 @@ export default function FlipbookViewer({
               title="Close"
               aria-label="Close notification"
             >
-              ✕
+              âœ•
             </button>
           </div>
         </div>
@@ -5211,7 +5211,7 @@ export default function FlipbookViewer({
                   : 'bg-slate-800 text-slate-300'
               }`}
             >
-              {laserPointer ? '🔴 Laser ON (L)' : '⚪ Laser OFF (L)'}
+              {laserPointer ? 'ðŸ”´ Laser ON (L)' : 'âšª Laser OFF (L)'}
             </button>
             <button
               type="button"

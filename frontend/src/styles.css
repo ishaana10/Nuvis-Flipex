@@ -7133,3 +7133,64 @@ html[data-theme="dark"] .studio-preview-modal {
 
 
 
+
+/* ============================================================
+   Natural page stack + always-visible spine (override v2)
+   ============================================================ */
+.stf-page-stack {
+  background-color: #f3efe6;
+  background-image:
+    /* fine irregular page-leaf lines (different periods => organic look) */
+    repeating-linear-gradient(to right, rgba(60,50,35,0.00) 0px, rgba(60,50,35,0.00) 1.2px, rgba(60,50,35,0.16) 1.5px, rgba(60,50,35,0.00) 1.9px),
+    repeating-linear-gradient(to right, rgba(255,255,255,0.0) 0px, rgba(255,255,255,0.0) 2.3px, rgba(255,255,255,0.75) 2.6px, rgba(255,255,255,0.0) 3.1px),
+    repeating-linear-gradient(to right, rgba(60,50,35,0.00) 0px, rgba(60,50,35,0.00) 3.4px, rgba(60,50,35,0.10) 3.7px, rgba(60,50,35,0.00) 4.2px),
+    /* top/bottom paper edge sheen */
+    linear-gradient(to bottom, rgba(0,0,0,0.10), rgba(0,0,0,0) 6%, rgba(0,0,0,0) 94%, rgba(0,0,0,0.14));
+  background-repeat: repeat, repeat, repeat, no-repeat;
+  background-size: auto, auto, auto, 100% 100%;
+  border: 0 !important;
+  transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+.stf-page-stack-right {
+  border-radius: 0 3px 3px 0;
+  /* outer leaves are slightly shorter and fan out: natural taper */
+  clip-path: polygon(0 0, 100% 3px, 100% calc(100% - 3px), 0 100%);
+  box-shadow: none !important;
+  filter: drop-shadow(3px 2px 3px rgba(0,0,0,0.30)) drop-shadow(8px 6px 10px rgba(0,0,0,0.18));
+}
+.stf-page-stack-left {
+  border-radius: 3px 0 0 3px;
+  clip-path: polygon(0 3px, 100% 0, 100% 100%, 0 calc(100% - 3px));
+  box-shadow: none !important;
+  filter: drop-shadow(-3px 2px 3px rgba(0,0,0,0.30)) drop-shadow(-8px 6px 10px rgba(0,0,0,0.18));
+}
+.stf-page-stack-left:hover, .stf-page-stack-right:hover { filter: none; }
+/* shading: dark where the stack meets the page, light toward the outer edge */
+.stf-page-stack::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+}
+.stf-page-stack-right::after { background: linear-gradient(to right, rgba(0,0,0,0.30), rgba(0,0,0,0.08) 35%, rgba(255,255,255,0.35) 100%); }
+.stf-page-stack-left::after  { background: linear-gradient(to left,  rgba(0,0,0,0.30), rgba(0,0,0,0.08) 35%, rgba(255,255,255,0.35) 100%); }
+.stf-stack-stepped { display: none !important; }
+
+/* Spine: always-visible, deeper, with hinge groove + paper-curl highlight */
+.stf-spine-crease { mix-blend-mode: multiply; width: 84px; }
+.stf-spine-crease::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0.75) 50%, rgba(0,0,0,0.55));
+  box-shadow: 0 0 6px 1px rgba(0,0,0,0.35);
+}
+.stf-spine-crease.is-cover, .stf-spine-crease.is-back-cover { width: 34px; mix-blend-mode: multiply; }
+.stf-spine-crease.is-cover::before { left: 3px; transform: none; width: 2px; }
+.stf-spine-crease.is-back-cover::before { left: auto; right: 3px; transform: none; width: 2px; }
+/* a visible bound-edge on single-page / mobile view */
+.stf-spine-crease.is-cover {
+  background:
+    linear-gradient(to right, rgba(0,0,0,0.55) 0px, rgba(0,0,0,0.35) 4px, rgba(255,255,255,0.0) 5px, rgba(0,0,0,0.22) 10px, rgba(0,0,0,0.10) 20px, transparent 100%);
+  border-left: 0; box-shadow: none;
+}
+.stf-spine-crease.is-back-cover {
+  background:
+    linear-gradient(to left, rgba(0,0,0,0.55) 0px, rgba(0,0,0,0.35) 4px, rgba(255,255,255,0.0) 5px, rgba(0,0,0,0.22) 10px, rgba(0,0,0,0.10) 20px, transparent 100%);
+  border-right: 0; box-shadow: none;
+}
