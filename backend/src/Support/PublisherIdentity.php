@@ -40,57 +40,96 @@ final class PublisherIdentity
             $pdo = Db::pdo();
 
             // 1. Slug History & Redirects Table
-            $pdo->exec("
-                CREATE TABLE IF NOT EXISTS `slug_redirects` (
-                  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                  `entity_type` ENUM('tenant','flipbook') NOT NULL,
-                  `entity_id` BIGINT UNSIGNED NOT NULL,
-                  `tenant_id` BIGINT UNSIGNED NULL,
-                  `old_slug` VARCHAR(120) NOT NULL,
-                  `new_slug` VARCHAR(120) NOT NULL,
-                  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                  INDEX `idx_redirect_lookup` (`entity_type`, `old_slug`),
-                  INDEX `idx_redirect_entity` (`entity_type`, `entity_id`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ");
-
-            // 2. Extend tenants table with Publisher Identity columns
-            $tenantCols = array_column(Db::all('SHOW COLUMNS FROM tenants'), 'Field');
-            if (!in_array('display_name', $tenantCols, true)) {
-                $pdo->exec("ALTER TABLE tenants ADD COLUMN `display_name` VARCHAR(150) NULL AFTER `name`");
-            }
-            if (!in_array('slug_updated_at', $tenantCols, true)) {
-                $pdo->exec("ALTER TABLE tenants ADD COLUMN `slug_updated_at` DATETIME NULL AFTER `slug`");
-            }
-            if (!in_array('public_profile_enabled', $tenantCols, true)) {
-                $pdo->exec("ALTER TABLE tenants ADD COLUMN `public_profile_enabled` TINYINT(1) NOT NULL DEFAULT 1 AFTER `slug_updated_at`");
-            }
-            if (!in_array('custom_domain', $tenantCols, true)) {
-                $pdo->exec("ALTER TABLE tenants ADD COLUMN `custom_domain` VARCHAR(255) NULL AFTER `public_profile_enabled`");
-            }
-            if (!in_array('custom_domain_verified', $tenantCols, true)) {
-                $pdo->exec("ALTER TABLE tenants ADD COLUMN `custom_domain_verified` TINYINT(1) NOT NULL DEFAULT 0 AFTER `custom_domain`");
-            }
-            if (!in_array('custom_domain_txt', $tenantCols, true)) {
-                $pdo->exec("ALTER TABLE tenants ADD COLUMN `custom_domain_txt` VARCHAR(120) NULL AFTER `custom_domain_verified`");
+            try {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `slug_redirects` (
+                      `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                      `entity_type` ENUM('tenant','flipbook') NOT NULL,
+                      `entity_id` BIGINT UNSIGNED NOT NULL,
+                      `tenant_id` BIGINT UNSIGNED NULL,
+                      `old_slug` VARCHAR(120) NOT NULL,
+                      `new_slug` VARCHAR(120) NOT NULL,
+                      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      INDEX `idx_redirect_lookup` (`entity_type`, `old_slug`),
+                      INDEX `idx_redirect_entity` (`entity_type`, `entity_id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            } catch (Throwable) {
             }
 
-            // 3. Extend flipbooks table with Publication URL columns
-            $fbCols = array_column(Db::all('SHOW COLUMNS FROM flipbooks'), 'Field');
+            // 2. Extend tenants table with Publisher Identity columns (each column isolated)
+            $tenantCols = [];
+            try {
+                foreach (Db::all('SHOW COLUMNS FROM tenants') as $colRow) {
+                    $colName = (string) ($colRow['Field'] ?? $colRow['field'] ?? '');
+                    if ($colName !== '') {
+                        $tenantCols[] = strtolower($colName);
+                    }
+                }
+            } catch (Throwable) {
+            }
+
+            $tenantAlters = [
+                'display_name' => "ALTER TABLE tenants ADD COLUMN `display_name` VARCHAR(150) NULL AFTER `name`",
+                'slug_updated_at' => "ALTER TABLE tenants ADD COLUMN `slug_updated_at` DATETIME NULL AFTER `slug`",
+                'public_profile_enabled' => "ALTER TABLE tenants ADD COLUMN `public_profile_enabled` TINYINT(1) NOT NULL DEFAULT 1",
+                'custom_domain' => "ALTER TABLE tenants ADD COLUMN `custom_domain` VARCHAR(255) NULL",
+                'custom_domain_verified' => "ALTER TABLE tenants ADD COLUMN `custom_domain_verified` TINYINT(1) NOT NULL DEFAULT 0",
+                'custom_domain_txt' => "ALTER TABLE tenants ADD COLUMN `custom_domain_txt` VARCHAR(120) NULL",
+            ];
+            foreach ($tenantAlters as $col => $sql) {
+                if (!in_array($col, $tenantCols, true)) {
+                    try {
+                        $pdo->exec($sql);
+                    } catch (Throwable) {
+                    }
+                }
+            }
+
+            // 3. Extend flipbooks table with Publication URL columns (each column isolated)
+            $fbCols = [];
+            try {
+                foreach (Db::all('SHOW COLUMNS FROM flipbooks') as $colRow) {
+                    $colName = (string) ($colRow['Field'] ?? $colRow['field'] ?? '');
+                    if ($colName !== '') {
+                        $fbCols[] = strtolower($colName);
+                    }
+                }
+            } catch (Throwable) {
+            }
+
             if (!in_array('public_slug', $fbCols, true)) {
-                $pdo->exec("ALTER TABLE flipbooks ADD COLUMN `public_slug` VARCHAR(120) NULL AFTER `slug`");
-                $pdo->exec("CREATE INDEX `idx_fb_tenant_pubslug` ON flipbooks (`tenant_id`, `public_slug`)");
+                try {
+                    $pdo->exec("ALTER TABLE flipbooks ADD COLUMN `public_slug` VARCHAR(120) NULL AFTER `slug`");
+                } catch (Throwable) {
+                }
+                try {
+                    $pdo->exec("CREATE INDEX `idx_fb_tenant_pubslug` ON flipbooks (`tenant_id`, `public_slug`)");
+                } catch (Throwable) {
+                }
             }
             if (!in_array('canonical_url', $fbCols, true)) {
-                $pdo->exec("ALTER TABLE flipbooks ADD COLUMN `canonical_url` VARCHAR(255) NULL AFTER `public_slug`");
+                try {
+                    $pdo->exec("ALTER TABLE flipbooks ADD COLUMN `canonical_url` VARCHAR(255) NULL");
+                } catch (Throwable) {
+                }
             }
             if (!in_array('slug_updated_at', $fbCols, true)) {
-                $pdo->exec("ALTER TABLE flipbooks ADD COLUMN `slug_updated_at` DATETIME NULL AFTER `canonical_url`");
+                try {
+                    $pdo->exec("ALTER TABLE flipbooks ADD COLUMN `slug_updated_at` DATETIME NULL");
+                } catch (Throwable) {
+                }
             }
 
             // 4. Backfill display_name on tenants and public_slug on flipbooks where missing
-            $pdo->exec("UPDATE tenants SET display_name = TRIM(REPLACE(name, ' Workspace', '')) WHERE display_name IS NULL OR display_name = ''");
-            $pdo->exec("UPDATE flipbooks SET public_slug = slug WHERE public_slug IS NULL OR public_slug = ''");
+            try {
+                $pdo->exec("UPDATE tenants SET display_name = TRIM(REPLACE(name, ' Workspace', '')) WHERE display_name IS NULL OR display_name = ''");
+            } catch (Throwable) {
+            }
+            try {
+                $pdo->exec("UPDATE flipbooks SET public_slug = slug WHERE public_slug IS NULL OR public_slug = ''");
+            } catch (Throwable) {
+            }
         } catch (Throwable $e) {
             error_log('PublisherIdentity::ensureSchema notice: ' . $e->getMessage());
         }

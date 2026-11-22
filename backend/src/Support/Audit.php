@@ -12,12 +12,24 @@ final class Audit
     public static function log(
         string $action,
         ?string $targetType = null,
-        ?int $targetId = null,
+        int|string|array|null $targetId = null,
         array $meta = [],
         ?int $userId = null,
         ?int $tenantId = null
     ): void {
         try {
+            if (is_array($targetId)) {
+                $meta = $targetId + $meta;
+                $targetId = null;
+            } elseif (is_string($targetId)) {
+                $targetId = is_numeric($targetId) ? (int) $targetId : null;
+            }
+
+            if ($targetType !== null && strlen($targetType) > 60) {
+                $meta['summary'] = $targetType;
+                $targetType = substr($targetType, 0, 60);
+            }
+
             $user = TenantContext::user();
             $effectiveUserId = $userId ?? (!empty($user['id']) ? (int) $user['id'] : null);
             $effectiveTenantId = $tenantId ?? TenantContext::id();

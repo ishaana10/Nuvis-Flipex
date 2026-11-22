@@ -2371,6 +2371,12 @@ function CompanyModal({
   const [isActive, setIsActive] = useState<boolean>(company ? company.isActive : true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [slugStatus, setSlugStatus] = useState<{
+    checking: boolean;
+    available?: boolean;
+    reason?: string;
+    suggestion?: string;
+  }>({ checking: false });
 
   // Auto-generate slug from name if creating
   const handleNameChange = (val: string) => {
@@ -2379,6 +2385,28 @@ function CompanyModal({
       setSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
     }
   };
+
+  useEffect(() => {
+    const clean = slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!clean || (company && clean === company.slug)) {
+      setSlugStatus({ checking: false, available: clean ? true : undefined });
+      return;
+    }
+    if (clean.length < 3) {
+      setSlugStatus({ checking: false, available: false, reason: 'Must be at least 3 characters' });
+      return;
+    }
+    setSlugStatus({ checking: true });
+    const timer = window.setTimeout(() => {
+      const ex = company?.id ? `&excludeTenantId=${company.id}` : '';
+      api<{ available: boolean; reason?: string; suggestion?: string }>(
+        `/auth/check-company-slug?slug=${encodeURIComponent(clean)}${ex}`
+      )
+        .then((res) => setSlugStatus({ checking: false, available: res.available, reason: res.reason, suggestion: res.suggestion }))
+        .catch(() => setSlugStatus({ checking: false }));
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [slug, company]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2422,8 +2450,30 @@ function CompanyModal({
             <input required value={name} onChange={(e) => handleNameChange(e.target.value)} />
           </label>
           <label className="field">
-            <span>URL Slug (lowercase letters, numbers, hyphens)</span>
-            <input required value={slug} onChange={(e) => setSlug(e.target.value)} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Company URL Slug (Publisher Branded Link)</span>
+              {slugStatus.checking ? (
+                <span style={{ fontSize: 11, color: '#64748b' }}>Checking…</span>
+              ) : slugStatus.available === true ? (
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#059669' }}>✓ Available</span>
+              ) : slugStatus.available === false ? (
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>✗ Unavailable</span>
+              ) : null}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: 8, overflow: 'hidden' }}>
+              <span style={{ padding: '8px 10px', fontSize: 12, background: 'var(--surface-muted)', color: '#64748b', borderRight: '1px solid #d1d5db', whiteSpace: 'nowrap' }}>
+                {window.location.host}/
+              </span>
+              <input
+                required
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                style={{ border: 'none', outline: 'none', width: '100%', padding: '8px 10px', fontWeight: 600 }}
+              />
+            </div>
+            <span className="muted" style={{ fontSize: 11 }}>
+              Profile: <code>https://{window.location.host}/{slug || 'company'}</code> · Publications: <code>/{slug || 'company'}/docs/catalogue</code>
+            </span>
           </label>
           <div className="row-fields">
             <label className="field">

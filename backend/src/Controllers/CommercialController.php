@@ -472,27 +472,31 @@ final class CommercialController
 
         // Update tenants table (display_name, name, slug, public_profile_enabled, custom_domain)
         $slugChanged = $newSlug !== $currentSlug;
-        Db::run(
-            'UPDATE tenants SET
-                name = ?,
-                display_name = ?,
-                slug = ?,
-                slug_updated_at = IF(? = 1, NOW(), slug_updated_at),
-                public_profile_enabled = ?,
-                custom_domain = ?,
-                custom_domain_txt = ?
-             WHERE id = ?',
-            [
-                $businessName,
-                $businessName,
-                $newSlug,
-                $slugChanged ? 1 : 0,
-                $publicProfileEnabled,
-                $customDomain,
-                $txtToken,
-                $tenantId,
-            ]
-        );
+        try {
+            Db::run(
+                'UPDATE tenants SET
+                    name = ?,
+                    display_name = ?,
+                    slug = ?,
+                    slug_updated_at = IF(? = 1, NOW(), slug_updated_at),
+                    public_profile_enabled = ?,
+                    custom_domain = ?,
+                    custom_domain_txt = ?
+                 WHERE id = ?',
+                [
+                    $businessName,
+                    $businessName,
+                    $newSlug,
+                    $slugChanged ? 1 : 0,
+                    $publicProfileEnabled,
+                    $customDomain,
+                    $txtToken,
+                    $tenantId,
+                ]
+            );
+        } catch (\Throwable) {
+            Db::run('UPDATE tenants SET name = ?, slug = ? WHERE id = ?', [$businessName, $newSlug, $tenantId]);
+        }
 
         if ($slugChanged) {
             PublisherIdentity::recordSlugChange('tenant', $tenantId, $currentSlug, $newSlug, $tenantId);
@@ -519,32 +523,77 @@ final class CommercialController
         $logoUrl = array_key_exists('logoUrl', $b) ? (trim((string) $b['logoUrl']) ?: null) : ($storefront['logo_url'] ?? null);
         $currency = !empty($b['currency']) ? trim((string) $b['currency']) : ($storefront['currency'] ?? 'FJD');
 
-        Db::run(
-            'UPDATE tenant_storefronts SET
-                business_name = ?,
-                slug = ?,
-                tagline = ?,
-                bio = ?,
-                phone = ?,
-                whatsapp_phone = ?,
-                email = ?,
-                address = ?,
-                website_url = ?,
-                facebook_url = ?,
-                instagram_url = ?,
-                banner_url = ?,
-                logo_url = ?,
-                currency = ?
-             WHERE tenant_id = ?',
-            [
-                $businessName, $newSlug, $tagline, $bio, $phone, $whatsappPhone,
-                $email, $address, $websiteUrl, $facebookUrl, $instagramUrl,
-                $bannerUrl, $logoUrl, $currency, $tenantId
-            ]
-        );
+        if (!$storefront) {
+            try {
+                Db::run(
+                    'INSERT INTO tenant_storefronts (
+                        tenant_id, business_name, slug, tagline, bio, phone, whatsapp_phone,
+                        email, address, website_url, facebook_url, instagram_url, banner_url, logo_url, currency
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        $tenantId, $businessName, $newSlug, $tagline, $bio, $phone, $whatsappPhone,
+                        $email, $address, $websiteUrl, $facebookUrl, $instagramUrl,
+                        $bannerUrl, $logoUrl, $currency
+                    ]
+                );
+            } catch (\Throwable) {
+                Db::run(
+                    'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency)
+                     VALUES (?, ?, ?, ?, ?)',
+                    [$tenantId, $businessName, $newSlug, $email ?? '', $currency]
+                );
+            }
+        } else {
+            try {
+                Db::run(
+                    'UPDATE tenant_storefronts SET
+                        business_name = ?,
+                        slug = ?,
+                        tagline = ?,
+                        bio = ?,
+                        phone = ?,
+                        whatsapp_phone = ?,
+                        email = ?,
+                        address = ?,
+                        website_url = ?,
+                        facebook_url = ?,
+                        instagram_url = ?,
+                        banner_url = ?,
+                        logo_url = ?,
+                        currency = ?
+                     WHERE tenant_id = ?',
+                    [
+                        $businessName, $newSlug, $tagline, $bio, $phone, $whatsappPhone,
+                        $email, $address, $websiteUrl, $facebookUrl, $instagramUrl,
+                        $bannerUrl, $logoUrl, $currency, $tenantId
+                    ]
+                );
+            } catch (\Throwable) {
+                Db::run(
+                    'UPDATE tenant_storefronts SET
+                        business_name = ?,
+                        slug = ?,
+                        tagline = ?,
+                        bio = ?,
+                        phone = ?,
+                        whatsapp_phone = ?,
+                        email = ?,
+                        address = ?,
+                        website_url = ?,
+                        banner_url = ?,
+                        logo_url = ?,
+                        currency = ?
+                     WHERE tenant_id = ?',
+                    [
+                        $businessName, $newSlug, $tagline, $bio, $phone, $whatsappPhone,
+                        $email, $address, $websiteUrl, $bannerUrl, $logoUrl, $currency, $tenantId
+                    ]
+                );
+            }
+        }
 
-        Audit::log('commercial.storefront_updated', "Updated publisher identity & storefront settings for {$businessName} (/{$newSlug})", [
-            'tenant_id' => $tenantId,
+        Audit::log('commercial.storefront_updated', 'tenant', $tenantId, [
+            'business_name' => $businessName,
             'slug' => $newSlug,
             'slug_changed' => $slugChanged,
         ]);

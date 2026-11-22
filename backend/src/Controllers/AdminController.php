@@ -311,9 +311,11 @@ final class AdminController
     /** Create a new Company (Tenant) */
     public function createCompany(Request $req, Response $res): Response
     {
+        \App\Support\PublisherIdentity::ensureSchema();
         $b = (array) $req->getParsedBody();
         $name = trim((string) ($b['name'] ?? ''));
-        $slug = trim(strtolower((string) ($b['slug'] ?? '')));
+        $rawSlug = trim(strtolower((string) ($b['slug'] ?? '')));
+        $slug = \App\Support\PublisherIdentity::sanitizeSlug($rawSlug !== '' ? $rawSlug : $name, 60);
         $planId = !empty($b['planId']) ? (int) $b['planId'] : 1;
         $maxFlipbooks = !empty($b['maxFlipbooks']) ? (int) $b['maxFlipbooks'] : 10;
         $maxStorageMb = !empty($b['maxStorageMb']) ? (int) $b['maxStorageMb'] : 500;
@@ -321,29 +323,49 @@ final class AdminController
         if ($name === '') {
             return Http::error($res, 'Validation failed', 422, ['name' => 'Company name is required']);
         }
-        if ($slug === '' || !preg_match('/^[a-z0-9-]+$/', $slug)) {
-            return Http::error($res, 'Validation failed', 422, ['slug' => 'Slug must contain only lowercase letters, numbers, and dashes']);
+        $check = \App\Support\PublisherIdentity::checkCompanySlugAvailability($slug);
+        if (!$check['available']) {
+            return Http::error($res, 'Validation failed', 422, ['slug' => $check['reason'] ?? 'Company slug is not available']);
         }
-        if (Db::one('SELECT id FROM tenants WHERE slug = ?', [$slug])) {
-            return Http::error($res, 'Validation failed', 422, ['slug' => 'Company slug already taken']);
-        }
+        $slug = $check['slug'];
 
         $uuid = bin2hex(random_bytes(16));
         $uuidFormatted = substr($uuid, 0, 8) . '-' . substr($uuid, 8, 4) . '-' . substr($uuid, 12, 4) . '-' . substr($uuid, 16, 4) . '-' . substr($uuid, 20);
 
-        Db::run(
-            'INSERT INTO tenants (uuid, name, slug, plan_id, max_flipbooks, max_storage_mb, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, 1)',
-            [$uuidFormatted, $name, $slug, $planId, $maxFlipbooks, $maxStorageMb]
-        );
+        try {
+            Db::run(
+                'INSERT INTO tenants (uuid, name, display_name, slug, slug_updated_at, public_profile_enabled, plan_id, max_flipbooks, max_storage_mb, is_active)
+                 VALUES (?, ?, ?, ?, NOW(), 1, ?, ?, ?, 1)',
+                [$uuidFormatted, $name, $name, $slug, $planId, $maxFlipbooks, $maxStorageMb]
+            );
+        } catch (\Throwable) {
+            Db::run(
+                'INSERT INTO tenants (uuid, name, slug, plan_id, max_flipbooks, max_storage_mb, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, 1)',
+                [$uuidFormatted, $name, $slug, $planId, $maxFlipbooks, $maxStorageMb]
+            );
+        }
 
-        $id = (int) Db::lastInsertId();
-        return Http::json($res, ['id' => $id, 'name' => $name, 'slug' => $slug], 201);
+        $id = (int) Db::pdo()->lastInsertId();
+
+        // Auto-provision public storefront so /{companySlug} is immediately live
+        try {
+            Db::run(
+                'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, currency)
+                 VALUES (?, ?, ?, ?)',
+                [$id, $name, $slug, 'FJD']
+            );
+        } catch (\Throwable) {
+        }
+
+        Audit::log('admin.create_company', 'tenant', $id, ['name' => $name, 'slug' => $slug]);
+        return Http::json($res, ['id' => $id, 'name' => $name, 'slug' => $slug, 'profileUrl' => '/' . $slug], 201);
     }
 
     /** Update an existing Company (Tenant) */
     public function updateCompany(Request $req, Response $res, array $args): Response
     {
+        \App\Support\PublisherIdentity::ensureSchema();
         $id = (int) $args['id'];
         $t = Db::one('SELECT * FROM tenants WHERE id = ?', [$id]);
         if (!$t) {
@@ -352,7 +374,8 @@ final class AdminController
 
         $b = (array) $req->getParsedBody();
         $name = isset($b['name']) ? trim((string) $b['name']) : $t['name'];
-        $slug = isset($b['slug']) ? trim(strtolower((string) $b['slug'])) : $t['slug'];
+        $rawSlug = isset($b['slug']) ? trim(strtolower((string) $b['slug'])) : (string) $t['slug'];
+        $slug = \App\Support\PublisherIdentity::sanitizeSlug($rawSlug, 60);
         $planId = isset($b['planId']) ? (int) $b['planId'] : (int) $t['plan_id'];
         $maxFlipbooks = isset($b['maxFlipbooks']) ? (int) $b['maxFlipbooks'] : (int) $t['max_flipbooks'];
         $maxStorageMb = isset($b['maxStorageMb']) ? (int) $b['maxStorageMb'] : (int) $t['max_storage_mb'];
@@ -362,16 +385,45 @@ final class AdminController
             return Http::error($res, 'Validation failed', 422, ['name' => 'Name cannot be empty']);
         }
 
-        if ($slug !== $t['slug'] && Db::one('SELECT id FROM tenants WHERE slug = ? AND id <> ?', [$slug, $id])) {
-            return Http::error($res, 'Validation failed', 422, ['slug' => 'Slug already in use']);
+        $oldSlug = (string) $t['slug'];
+        if ($slug !== $oldSlug) {
+            $check = \App\Support\PublisherIdentity::checkCompanySlugAvailability($slug, $id);
+            if (!$check['available']) {
+                return Http::error($res, 'Validation failed', 422, ['slug' => $check['reason'] ?? 'Slug already in use']);
+            }
+            $slug = $check['slug'];
         }
 
-        Db::run(
-            'UPDATE tenants SET name = ?, slug = ?, plan_id = ?, max_flipbooks = ?, max_storage_mb = ?, is_active = ? WHERE id = ?',
-            [$name, $slug, $planId, $maxFlipbooks, $maxStorageMb, $isActive, $id]
-        );
+        try {
+            Db::run(
+                'UPDATE tenants SET name = ?, display_name = ?, slug = ?, slug_updated_at = IF(? = 1, NOW(), slug_updated_at), plan_id = ?, max_flipbooks = ?, max_storage_mb = ?, is_active = ? WHERE id = ?',
+                [$name, $name, $slug, $slug !== $oldSlug ? 1 : 0, $planId, $maxFlipbooks, $maxStorageMb, $isActive, $id]
+            );
+        } catch (\Throwable) {
+            Db::run(
+                'UPDATE tenants SET name = ?, slug = ?, plan_id = ?, max_flipbooks = ?, max_storage_mb = ?, is_active = ? WHERE id = ?',
+                [$name, $slug, $planId, $maxFlipbooks, $maxStorageMb, $isActive, $id]
+            );
+        }
 
-        return Http::json($res, ['ok' => true]);
+        if ($slug !== $oldSlug) {
+            \App\Support\PublisherIdentity::recordSlugChange('tenant', $id, $oldSlug, $slug, $id);
+            try {
+                Db::run(
+                    "UPDATE flipbooks SET canonical_url = CONCAT('/', ?, '/docs/', COALESCE(NULLIF(public_slug, ''), slug)) WHERE tenant_id = ?",
+                    [$slug, $id]
+                );
+            } catch (\Throwable) {
+            }
+        }
+
+        try {
+            Db::run('UPDATE tenant_storefronts SET business_name = ?, slug = ? WHERE tenant_id = ?', [$name, $slug, $id]);
+        } catch (\Throwable) {
+        }
+
+        Audit::log('admin.update_company', 'tenant', $id, ['name' => $name, 'slug' => $slug]);
+        return Http::json($res, ['ok' => true, 'slug' => $slug]);
     }
 
     /** Update Company Payment & Billing Details (Admin) */

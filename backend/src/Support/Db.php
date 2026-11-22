@@ -67,4 +67,9 @@ final class Db
         $st->execute($params);
         return (int) self::pdo()->lastInsertId();
     }
+
+    public static function lastInsertId(): string
+    {
+        return self::pdo()->lastInsertId();
+    }
 }

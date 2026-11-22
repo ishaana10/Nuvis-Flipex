@@ -89,36 +89,72 @@ final class AuthController
 
         // Provision an isolated tenant workspace & public publisher identity for the newly registered user
         $newTenantId = null;
+        $tenantUuid = bin2hex(random_bytes(16));
         try {
             Db::run(
                 'INSERT INTO tenants (uuid, name, display_name, slug, slug_updated_at, public_profile_enabled, plan_id, is_active, billing_name, billing_email)
                  VALUES (?, ?, ?, ?, NOW(), 1, 1, 1, ?, ?)',
-                [bin2hex(random_bytes(16)), $companyName, $companyName, $workspaceSlug, $companyName, $email]
+                [$tenantUuid, $companyName, $companyName, $workspaceSlug, $companyName, $email]
             );
             $newTenantId = (int) Db::pdo()->lastInsertId();
-
-            // Also seed tenant_storefronts so /{companySlug} public profile is immediately ready
-            Db::run(
-                'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency)
-                 VALUES (?, ?, ?, ?, ?)',
-                [$newTenantId, $companyName, $workspaceSlug, $email, 'FJD']
-            );
         } catch (\Throwable) {
+            try {
+                Db::run(
+                    'INSERT INTO tenants (uuid, name, slug, plan_id, is_active, billing_name, billing_email)
+                     VALUES (?, ?, ?, 1, 1, ?, ?)',
+                    [$tenantUuid, $companyName, $workspaceSlug, $companyName, $email]
+                );
+                $newTenantId = (int) Db::pdo()->lastInsertId();
+            } catch (\Throwable) {
+                try {
+                    Db::run(
+                        'INSERT INTO tenants (uuid, name, slug, plan_id, is_active)
+                         VALUES (?, ?, ?, 1, 1)',
+                        [$tenantUuid, $companyName, $workspaceSlug]
+                    );
+                    $newTenantId = (int) Db::pdo()->lastInsertId();
+                } catch (\Throwable) {
+                }
+            }
         }
 
-        Db::run(
-            'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role) VALUES (?, ?, ?, ?, "user", "owner")',
-            [$newTenantId, $email, password_hash($pass, PASSWORD_ARGON2ID), $name]
-        );
+        if ($newTenantId) {
+            try {
+                Db::run(
+                    'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency)
+                     VALUES (?, ?, ?, ?, ?)',
+                    [$newTenantId, $companyName, $workspaceSlug, $email, 'FJD']
+                );
+            } catch (\Throwable) {
+            }
+        }
+
+        try {
+            Db::run(
+                'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role) VALUES (?, ?, ?, ?, "user", "owner")',
+                [$newTenantId, $email, password_hash($pass, PASSWORD_ARGON2ID), $name]
+            );
+        } catch (\Throwable) {
+            Db::run(
+                'INSERT INTO users (tenant_id, email, password_hash, name, role) VALUES (?, ?, ?, ?, "user")',
+                [$newTenantId, $email, password_hash($pass, PASSWORD_ARGON2ID), $name]
+            );
+        }
         $id = (int) Db::pdo()->lastInsertId();
-        $this->sendVerification($id, $email, $name);
+        try {
+            $this->sendVerification($id, $email, $name);
+        } catch (\Throwable) {
+        }
 
         Audit::log('user.register', 'user', $id, [
             'email' => $email,
             'company_name' => $companyName,
             'company_slug' => $workspaceSlug,
         ]);
-        Mailer::accountCreated($email, $name);
+        try {
+            Mailer::accountCreated($email, $name);
+        } catch (\Throwable) {
+        }
 
         return Http::json($res, [
             'message' => 'Account created. Check your email to verify.',
