@@ -33,8 +33,8 @@ use Slim\Routing\RouteCollectorProxy;
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
-// Normalize SCRIPT_NAME when rewritten from domain root (.htaccess RewriteRule ^(api|v)/(.*)$ backend/public/index.php)
-if (isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']) && (str_starts_with($_SERVER['REQUEST_URI'], '/api/') || str_starts_with($_SERVER['REQUEST_URI'], '/v/')) && str_contains($_SERVER['SCRIPT_NAME'], '/backend/public/index.php')) {
+// Normalize SCRIPT_NAME when rewritten from domain root (.htaccess RewriteRule ^(api|v|[^/]+/docs)/(.*)$ backend/public/index.php)
+if (isset($_SERVER['REQUEST_URI'], $_SERVER['SCRIPT_NAME']) && str_contains($_SERVER['SCRIPT_NAME'], '/backend/public/index.php')) {
     $_SERVER['SCRIPT_NAME'] = '/index.php';
 }
 
@@ -78,6 +78,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 
     $g->group('/auth', function (RouteCollectorProxy $a) {
         $a->get('/registration-status', [AuthController::class, 'registrationStatus']);
+        $a->get('/check-company-slug', [AuthController::class, 'checkCompanySlug']);
         $a->post('/register', [AuthController::class, 'register'])->add(new RateLimit('register', 10, 3600));
         $a->post('/login', [AuthController::class, 'login'])->add(new RateLimit('login', 10, 300));
         $a->post('/verify-2fa', [AuthController::class, 'verify2fa'])->add(new RateLimit('2fa', 15, 300));
@@ -226,8 +227,11 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     })->add(new TenantScope())->add(new Auth());
 
     // Phase 3: Public Business Profile & Hotspot Commercial Inquiries
+    $g->get('/public/check-company-slug', [AuthController::class, 'checkCompanySlug']);
     $g->get('/public/biz/{slug}', [CommercialController::class, 'publicBizProfile']);
     $g->post('/public/biz/{slug}/contact', [CommercialController::class, 'publicBizContact'])->add(new RateLimit('contact', 10, 300));
+    $g->get('/public/branded/{companySlug}/docs/{publicationSlug}', [PublicController::class, 'showBranded']);
+    $g->get('/public/branded/{companySlug}/{publicationSlug}', [PublicController::class, 'showBranded']);
     $g->post('/public/{slug}/inquire', [CommercialController::class, 'publicInquire'])->add(new RateLimit('inquire', 20, 300));
 
     // Phase 4: Public Educational School Portal, Worksheets, Student Notes, PIN & Domain Verification
@@ -385,6 +389,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 
 // Server-Side Rendered Reader Shell with OpenGraph Cover Page & Social Preview
 $app->get('/v/{slug}[/]', [PublicController::class, 'renderViewerHtml']);
+$app->get('/{companySlug}/docs/{publicationSlug}[/]', [PublicController::class, 'renderViewerHtml']);
 
 $app->run();
 

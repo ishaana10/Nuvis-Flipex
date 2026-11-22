@@ -32,7 +32,11 @@ export default function ShareDialog({
   const [visibility, setVisibility] = useState<'public' | 'unlisted' | 'password'>(
     flipbook.visibility
   );
-  const [customSlug, setCustomSlug] = useState(flipbook.slug);
+  const [customSlug, setCustomSlug] = useState(flipbook.publicSlug || flipbook.slug);
+  const [companyBrandingEnabled, setCompanyBrandingEnabled] = useState<boolean>(
+    flipbook.settings?.showToolbar !== false
+  );
+  const [showUrlHistory, setShowUrlHistory] = useState(false);
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -45,9 +49,16 @@ export default function ShareDialog({
   const [embedHeight, setEmbedHeight] = useState('640');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const baseUrl = `${window.location.origin}/v/${customSlug || flipbook.slug}`;
+  const companySlug = flipbook.companySlug || '';
+  const activePubSlug = (customSlug || flipbook.publicSlug || flipbook.slug).trim();
+  const brandedPath = companySlug
+    ? `/${companySlug}/docs/${activePubSlug}`
+    : `/v/${activePubSlug}`;
+  const baseUrl = `${window.location.origin}${brandedPath}`;
+  const legacyShortUrl = `${window.location.origin}/v/${flipbook.slug}`;
+  const companyProfileUrl = companySlug ? `${window.location.origin}/${companySlug}` : '';
   const shareUrl = startPage > 1 ? `${baseUrl}?page=${startPage}` : baseUrl;
-  const coverUrl = `${window.location.origin}/api/v1/public/${customSlug || flipbook.slug}/cover`;
+  const coverUrl = `${window.location.origin}/api/v1/public/${flipbook.slug}/cover`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=12&data=${encodeURIComponent(
     shareUrl
   )}`;
@@ -79,6 +90,7 @@ export default function ShareDialog({
         workflowStatus: published ? 'published' : 'editing',
         visibility,
         slug: customSlug.trim() || flipbook.slug,
+        publicSlug: customSlug.trim() || flipbook.publicSlug || flipbook.slug,
         ...(password ? { password } : {}),
       });
       setMsg('Sharing & access settings saved!');
@@ -201,9 +213,21 @@ export default function ShareDialog({
           {activeTab === 'link' && (
             <div className="space-y-5">
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-200">
-                  Public Reader Link
-                </label>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Branded Publication URL
+                  </label>
+                  {companyProfileUrl && (
+                    <a
+                      href={companyProfileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-semibold text-amber-600 hover:underline dark:text-amber-400"
+                    >
+                      Publisher Profile: /{companySlug} ↗
+                    </a>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -238,6 +262,85 @@ export default function ShareDialog({
                 </div>
               </div>
 
+              {/* Publication Slug Editor with Company Prefix (Upgrade Plan Section 3.D) */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-900/60">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Customize Publication URL Slug
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowUrlHistory((v) => !v)}
+                    className="text-[11px] font-semibold text-sky-600 hover:underline dark:text-sky-400"
+                  >
+                    {showUrlHistory ? 'Hide URL History' : `View URL History (${flipbook.slugHistory?.length || 0})`}
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-1 items-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+                    <span className="select-none border-r border-slate-200 bg-slate-100 px-2.5 py-2 font-mono text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                      {window.location.host}{companySlug ? `/${companySlug}/docs/` : '/v/'}
+                    </span>
+                    <input
+                      type="text"
+                      value={customSlug}
+                      placeholder="anniversary-catalogue-2026"
+                      onChange={(e) =>
+                        setCustomSlug(
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]+/g, '-')
+                            .replace(/^-+/, '')
+                        )
+                      }
+                      className="w-full bg-transparent px-2.5 py-2 font-mono text-xs font-semibold text-slate-900 outline-none dark:text-white"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={save}
+                    disabled={saving || !customSlug.trim()}
+                  >
+                    {saving ? 'Saving…' : 'Update Slug'}
+                  </Button>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Previous URLs are automatically retained and redirected so existing links never break.</span>
+                  <button
+                    type="button"
+                    onClick={() => copyText('legacyUrl', legacyShortUrl)}
+                    className="font-mono text-[10.5px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    {copiedField === 'legacyUrl' ? '✓ Short /v/ link copied' : `Short link: /v/${flipbook.slug}`}
+                  </button>
+                </div>
+
+                {showUrlHistory && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5 text-xs dark:border-slate-700 dark:bg-slate-950">
+                    <div className="mb-1.5 font-bold text-slate-700 dark:text-slate-200">
+                      Active Slug Redirect History
+                    </div>
+                    {!flipbook.slugHistory || flipbook.slugHistory.length === 0 ? (
+                      <p className="text-[11px] text-slate-400">
+                        No slug changes recorded yet. When you rename this publication URL, previous slugs will appear here and redirect automatically.
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {flipbook.slugHistory.map((h, idx) => (
+                          <div key={idx} className="flex items-center justify-between font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                            <span>
+                              <code>/{companySlug ? `${companySlug}/docs/` : 'v/'}{h.old_slug}</code> → <b>{h.new_slug}</b>
+                            </span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">301 Active</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -260,23 +363,26 @@ export default function ShareDialog({
                   </span>
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    Custom URL Slug (`/v/...`)
-                  </label>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      value={customSlug}
-                      onChange={(e) => setCustomSlug(e.target.value)}
-                      className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                    {customSlug !== flipbook.slug && (
-                      <Button size="sm" variant="outline" onClick={save} disabled={saving}>
-                        Save Slug
-                      </Button>
-                    )}
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+                  <div>
+                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-100">
+                      Company Branding
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Use company logo, colours &amp; publisher profile in the reader
+                    </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setCompanyBrandingEnabled((v) => !v)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
+                      companyBrandingEnabled
+                        ? 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 dark:text-emerald-300'
+                        : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    {companyBrandingEnabled ? 'Enabled' : 'Hidden'}
+                  </button>
                 </div>
               </div>
 
@@ -515,7 +621,7 @@ export default function ShareDialog({
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/60 px-6 py-3.5 dark:border-slate-800 dark:bg-slate-950/50">
           <span className="text-[11px] text-slate-400">
-            Slug: <code>/v/{customSlug}</code> · {flipbook.pageCount} pages
+            Canonical URL: <code>{brandedPath}</code> · {flipbook.pageCount} pages
           </span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onClose}>

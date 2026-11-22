@@ -29,6 +29,12 @@ export interface Flipbook {
   title: string;
   description?: string;
   slug: string;
+  publicSlug?: string;
+  companySlug?: string | null;
+  canonicalUrl?: string;
+  slugUpdatedAt?: string | null;
+  slugHistory?: Array<{ old_slug: string; new_slug: string; created_at: string }>;
+  tenantName?: string | null;
   status: 'uploading' | 'processing' | 'ready' | 'failed';
   workflowStatus?: 'draft' | 'processing' | 'editing' | 'in_review' | 'scheduled' | 'published' | 'archived';
   version?: number;
@@ -360,8 +366,9 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     }
   };
 
-  const copyPublicLink = (slug: string) => {
-    const url = `${window.location.origin}/v/${slug}`;
+  const copyPublicLink = (slug: string, canonicalUrl?: string) => {
+    const path = canonicalUrl && canonicalUrl.startsWith('/') ? canonicalUrl : `/v/${slug}`;
+    const url = `${window.location.origin}${path}`;
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(url).then(() => {
         setCopiedSlug(slug);
@@ -823,9 +830,9 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   </span>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 m-0">
-                  Public Storefront URL:{' '}
+                  Publisher Profile URL:{' '}
                   <code className="bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded font-mono text-[11px] text-amber-600 dark:text-amber-400 font-bold">
-                    {window.location.origin}/biz/{storefrontInfo?.slug || 'storefront'}
+                    {window.location.origin}/{storefrontInfo?.slug || 'company'}
                   </code>
                 </p>
                 {storefrontInfo?.whatsappPhone && (
@@ -838,20 +845,20 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                 {storefrontInfo?.slug && (
                   <>
                     <a
-                      href={`/biz/${storefrontInfo.slug}`}
+                      href={`/${storefrontInfo.slug}`}
                       target="_blank"
                       rel="noreferrer"
                       className="btn-primary"
                       style={{ fontSize: '12px', padding: '7px 14px', textDecoration: 'none' }}
                     >
-                      Open Public Storefront ↗
+                      Open Publisher Profile ↗
                     </a>
                     <button
                       type="button"
                       className="btn-secondary"
                       style={{ fontSize: '12px', padding: '7px 12px' }}
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/biz/${storefrontInfo.slug}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/${storefrontInfo.slug}`);
                         setCopiedStorefrontLink(true);
                         setTimeout(() => setCopiedStorefrontLink(false), 2500);
                       }}
@@ -1400,10 +1407,10 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   <button
                     type="button"
                     className="fb-slug-pill"
-                    title="Click to copy public link"
-                    onClick={() => copyPublicLink(f.slug)}
+                    title="Click to copy branded publication link"
+                    onClick={() => copyPublicLink(f.slug, f.canonicalUrl)}
                   >
-                    <span>/v/{f.slug}</span>
+                    <span className="truncate max-w-[180px]">{f.canonicalUrl || `/v/${f.slug}`}</span>
                     {copiedSlug === f.slug ? (
                       <span className="text-emerald-500 font-semibold text-[10px]">Copied!</span>
                     ) : (

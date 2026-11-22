@@ -48,6 +48,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/forgot-password" element={<Boundary area="password reset"><ForgotPassword /></Boundary>} />
           <Route path="/reset-password" element={<Boundary area="password reset"><ResetPassword /></Boundary>} />
           <Route path="/v/:slug" element={<Boundary area="reader"><PublicViewer /></Boundary>} />
+          <Route path="/:companySlug/docs/:publicationSlug" element={<Boundary area="reader"><PublicViewer /></Boundary>} />
+          <Route path="/:companySlug/doc/:publicationSlug" element={<Boundary area="reader"><PublicViewer /></Boundary>} />
           <Route path="/biz/:slug" element={<Boundary area="business profile"><PublicBusinessProfile /></Boundary>} />
           <Route path="/edu/:slug" element={<Boundary area="school portal"><PublicSchoolPortal /></Boundary>} />
           <Route path="/explore" element={<Boundary area="directory"><PublicDirectory /></Boundary>} />
@@ -67,6 +69,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/admin" element={<Boundary area="admin console"><AdminPanel /></Boundary>} />
             <Route path="/settings" element={<Boundary area="settings"><Settings /></Boundary>} />
           </Route>
+          {/* Direct Issuu-style Publisher Profile URL: flipex.com/{companySlug} */}
+          <Route path="/:slug" element={<Boundary area="publisher profile"><PublicBusinessProfile /></Boundary>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>

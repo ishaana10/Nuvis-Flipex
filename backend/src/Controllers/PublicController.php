@@ -8,6 +8,7 @@ use App\Support\CryptoSecrets;
 use App\Support\Db;
 use App\Support\Http;
 use App\Support\PublicationLedger;
+use App\Support\PublisherIdentity;
 use App\Support\Storage;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -21,18 +22,77 @@ final class PublicController
     private const UNLOCK_TTL_SECONDS = 1800;
 
     private static bool $unlockSchemaEnsured = false;
+
+    /**
+     * Resolve Issuu-style Branded Publication URL: /{companySlug}/docs/{publicationSlug}
+     *
+     * Security flow:
+     *  1. Resolve company slug -> find tenant (or historical tenant redirect)
+     *  2. Resolve publication slug -> find flipbook strictly owned by that tenant_id
+     *  3. Check publication visibility & workflow status via show()
+     *  4. Return flipbook reader payload with company identity & canonical URL
+     */
+    public function showBranded(Request $req, Response $res, array $args): Response
+    {
+        PublisherIdentity::ensureSchema();
+        $rawCompanySlug = trim((string) ($args['companySlug'] ?? ''));
+        $rawPubSlug = trim((string) ($args['publicationSlug'] ?? ''));
+
+        if ($rawCompanySlug === '' || $rawPubSlug === '') {
+            return Http::error($res, 'Company and publication slugs are required', 400);
+        }
+
+        // 1. Resolve company slug
+        $resolvedTenant = PublisherIdentity::resolveTenantBySlug($rawCompanySlug);
+        $tenant = $resolvedTenant['tenant'];
+        if (!$tenant) {
+            return Http::error($res, 'Publisher not found', 404);
+        }
+
+        $tenantId = (int) $tenant['id'];
+
+        // 2. Resolve publication slug belonging strictly to this tenant
+        $resolvedPub = PublisherIdentity::resolvePublicationForTenant($tenantId, $rawPubSlug);
+        $f = $resolvedPub['flipbook'];
+        if (!$f) {
+            return Http::error($res, 'Publication not found for this publisher', 404);
+        }
+
+        // Delegate to show() with verified slug and attach redirect notice if applicable
+        return $this->show($req, $res, [
+            'slug' => (string) $f['slug'],
+            '_verifiedFlipbook' => $f,
+            '_redirectedCompanyFrom' => $resolvedTenant['redirectedFrom'],
+            '_redirectedPubFrom' => $resolvedPub['redirectedFrom'],
+        ]);
+    }
+
     public function show(Request $req, Response $res, array $args): Response
     {
+        PublisherIdentity::ensureSchema();
         $this->tickScheduledLifecycle();
 
-        $slug = (string) $args['slug'];
-        $previewToken = $this->extractPreviewToken($req);
-        $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
+        $slug = (string) ($args['slug'] ?? '');
+        $f = $args['_verifiedFlipbook'] ?? Db::one('SELECT * FROM flipbooks WHERE slug = ? OR public_slug = ? LIMIT 1', [$slug, $slug]);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
+        if (!$f && $slug !== '') {
+            // Check historical flipbook slug redirects
+            $redir = Db::one(
+                "SELECT entity_id FROM slug_redirects WHERE entity_type = 'flipbook' AND old_slug = ? ORDER BY id DESC LIMIT 1",
+                [$slug]
+            );
+            if ($redir && !empty($redir['entity_id'])) {
+                $f = Db::one('SELECT * FROM flipbooks WHERE id = ? LIMIT 1', [$redir['entity_id']]);
+            }
+        }
+
         if (!$f) {
             return Http::error($res, 'Not found', 404);
         }
+
+        $slug = (string) $f['slug'];
+        $previewToken = $this->extractPreviewToken($req);
+        $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
         if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
             $f['status'] = 'ready';
             try {
@@ -68,7 +128,8 @@ final class PublicController
         $seoMeta = !empty($f['seo_meta']) ? json_decode((string) $f['seo_meta'], true) : [];
         $pdfMetadata = !empty($f['pdf_metadata']) ? json_decode((string) $f['pdf_metadata'], true) : [];
         $toc = !empty($f['toc']) ? json_decode((string) $f['toc'], true) : [];
-        $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT name, slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
+        $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT id, name, display_name, slug, public_profile_enabled FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
+        $storefrontRow = !empty($f['tenant_id']) ? Db::one('SELECT business_name, slug, logo_url, website_url FROM tenant_storefronts WHERE tenant_id = ?', [$f['tenant_id']]) : null;
 
         if (empty($toc)) {
             // Generate compact TOC fallback on server using first line of text from first 20 pages or compact headings
@@ -97,14 +158,29 @@ final class PublicController
             }
         }
 
+        $companySlug = $tenantRow['slug'] ?? ($storefrontRow['slug'] ?? null);
+        $publicSlug = !empty($f['public_slug']) ? (string) $f['public_slug'] : (string) $f['slug'];
+        $canonicalUrl = !empty($f['canonical_url'])
+            ? (string) $f['canonical_url']
+            : PublisherIdentity::buildCanonicalPath($companySlug, $publicSlug);
+        $companyDisplayName = $storefrontRow['business_name'] ?? ($tenantRow['display_name'] ?? ($tenantRow['name'] ?? null));
+
         $meta = [
             'id' => (int) $f['id'],
             'title' => $f['title'],
             'description' => $f['description'],
             'slug' => $f['slug'],
-            'tenantName' => $tenantRow['name'] ?? null,
+            'publicSlug' => $publicSlug,
+            'companySlug' => $companySlug,
+            'canonicalUrl' => $canonicalUrl,
+            'companyProfileUrl' => $companySlug ? "/{$companySlug}" : null,
+            'companyLogo' => $storefrontRow['logo_url'] ?? null,
+            'redirectedCompanyFrom' => $args['_redirectedCompanyFrom'] ?? null,
+            'redirectedPubFrom' => $args['_redirectedPubFrom'] ?? null,
+            'tenantName' => $companyDisplayName,
             'version' => (int) ($f['version'] ?? 1),
             'workflowStatus' => $f['workflow_status'] ?? 'published',
+            'visibility' => $f['visibility'] ?? 'public',
             'isPreview' => $isPreview,
             'settings' => $settings,
             'seoMeta' => $seoMeta,
@@ -210,11 +286,27 @@ final class PublicController
      */
     public function renderViewerHtml(Request $req, Response $res, array $args): Response
     {
+        PublisherIdentity::ensureSchema();
         $slug = (string) ($args['slug'] ?? '');
-        $previewToken = $this->extractPreviewToken($req);
-        $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
+        $companySlugArg = trim((string) ($args['companySlug'] ?? ''));
+        $pubSlugArg = trim((string) ($args['publicationSlug'] ?? ''));
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? LIMIT 1', [$slug]);
+        $f = null;
+        if ($companySlugArg !== '' && $pubSlugArg !== '') {
+            $resTenant = PublisherIdentity::resolveTenantBySlug($companySlugArg);
+            if ($resTenant['tenant']) {
+                $resPub = PublisherIdentity::resolvePublicationForTenant((int) $resTenant['tenant']['id'], $pubSlugArg);
+                $f = $resPub['flipbook'];
+            }
+        }
+        if (!$f && $slug !== '') {
+            $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? OR public_slug = ? LIMIT 1', [$slug, $slug]);
+        }
+        if ($f) {
+            $slug = (string) $f['slug'];
+        }
+        $previewToken = $this->extractPreviewToken($req);
+        $isPreview = $slug !== '' && Storage::verifyPreviewToken($slug, $previewToken);
 
         // Fallback to static SPA bundle if publication not found
         $htmlPath = realpath(__DIR__ . '/../../../frontend/dist/index.html');
@@ -283,7 +375,12 @@ final class PublicController
         $imgWidth = !empty($pRow['width']) ? (int) $pRow['width'] : 1200;
         $imgHeight = !empty($pRow['height']) ? (int) $pRow['height'] : 1600;
 
-        $pageUrl = $requestedPage > 1 ? "{$baseUrl}/v/{$slug}?page={$requestedPage}" : "{$baseUrl}/v/{$slug}";
+        $tenantRowForSeo = !empty($f['tenant_id']) ? Db::one('SELECT slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
+        $pubSlugForSeo = !empty($f['public_slug']) ? (string) $f['public_slug'] : $slug;
+        $canonicalPath = !empty($f['canonical_url'])
+            ? (string) $f['canonical_url']
+            : PublisherIdentity::buildCanonicalPath($tenantRowForSeo['slug'] ?? null, $pubSlugForSeo);
+        $pageUrl = $requestedPage > 1 ? "{$baseUrl}{$canonicalPath}?page={$requestedPage}" : "{$baseUrl}{$canonicalPath}";
 
         // Image URL for OpenGraph and Twitter cards
         if (!empty($seoMeta['ogImage'])) {
@@ -310,6 +407,7 @@ final class PublicController
         $metaTags = <<<HTML
     <title>{$escTitle} | Nuvis Flipex</title>
     <meta name="description" content="{$escDesc}" />
+    <link rel="canonical" href="{$escPageUrl}" />
 
     <!-- Open Graph / WhatsApp / Facebook / LinkedIn / iMessage -->
     <meta property="og:type" content="article" />

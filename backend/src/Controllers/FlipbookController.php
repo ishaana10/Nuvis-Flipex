@@ -11,6 +11,7 @@ use App\Support\JobRunner;
 use App\Support\Outbox;
 use App\Support\PdfRenderer;
 use App\Support\PublicationLedger;
+use App\Support\PublisherIdentity;
 use App\Support\Rbac;
 use App\Support\Storage;
 use App\Support\StorageRegistry;
@@ -135,11 +136,16 @@ final class FlipbookController
         if ($rawTitle === '' && !empty($pdfMeta['title'])) {
             $rawTitle = (string) $pdfMeta['title'];
         }
+        PublisherIdentity::ensureSchema();
         $title = $rawTitle ?: pathinfo($file->getClientFilename() ?? 'Untitled', PATHINFO_FILENAME);
         $description = trim((string) ($body['description'] ?? ($pdfMeta['subject'] ?? ''))) ?: null;
         $categoryId = !empty($body['categoryId']) ? (int) $body['categoryId'] : null;
         $collectionId = !empty($body['collectionId']) ? (int) $body['collectionId'] : null;
         $slug = $this->uniqueSlug(!empty($body['slug']) ? (string) $body['slug'] : $title);
+        $cleanBaseSlug = PublisherIdentity::sanitizeSlug(!empty($body['slug']) ? (string) $body['slug'] : $title, 70) ?: $slug;
+        $existingPubSlug = Db::one('SELECT id FROM flipbooks WHERE tenant_id = ? AND (public_slug = ? OR slug = ?)', [$tenantId, $cleanBaseSlug, $cleanBaseSlug]);
+        $publicSlug = $existingPubSlug ? $slug : $cleanBaseSlug;
+        $canonicalUrl = PublisherIdentity::buildCanonicalPath($tenant['slug'] ?? null, $publicSlug);
 
         // Seed with Tenant Default Brand Kit if configured (or inherit brand defaults from latest workspace flipbook)
         $defaultSettingsJson = null;
@@ -174,8 +180,8 @@ final class FlipbookController
 
         Db::run(
             "INSERT INTO flipbooks
-             (user_id, tenant_id, category_id, collection_id, title, description, slug, status, workflow_status, version, settings, pdf_metadata, conversion_progress, conversion_step)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'uploading', 'processing', 1, ?, ?, 2, 'Queued for conversion')",
+             (user_id, tenant_id, category_id, collection_id, title, description, slug, public_slug, canonical_url, slug_updated_at, status, workflow_status, version, settings, pdf_metadata, conversion_progress, conversion_step)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'uploading', 'processing', 1, ?, ?, 2, 'Queued for conversion')",
             [
                 $u['id'],
                 $tenantId,
@@ -184,6 +190,8 @@ final class FlipbookController
                 mb_substr($title, 0, 200),
                 $description,
                 $slug,
+                $publicSlug,
+                $canonicalUrl,
                 $defaultSettingsJson,
                 json_encode($pdfMeta),
             ]
@@ -310,18 +318,34 @@ final class FlipbookController
             return Http::error($res, 'Validation failed', 422, ['title' => 'Title is required']);
         }
 
-        // Custom publication URL (slug) validation
-        $slug = $f['slug'];
-        if (array_key_exists('slug', $b) && trim((string) $b['slug']) !== '' && trim((string) $b['slug']) !== $f['slug']) {
-            $cleanSlug = trim(preg_replace('/[^a-z0-9-]+/', '-', strtolower(trim((string) $b['slug']))) ?? '', '-');
+        PublisherIdentity::ensureSchema();
+        // Custom publication URL (slug / publicSlug) validation & history redirect tracking
+        $slug = (string) $f['slug'];
+        $publicSlug = !empty($f['public_slug']) ? (string) $f['public_slug'] : $slug;
+        $slugChanged = false;
+        $requestedSlugInput = array_key_exists('publicSlug', $b)
+            ? trim((string) $b['publicSlug'])
+            : (array_key_exists('slug', $b) ? trim((string) $b['slug']) : '');
+
+        if ($requestedSlugInput !== '' && $requestedSlugInput !== $publicSlug && $requestedSlugInput !== $slug) {
+            $cleanSlug = PublisherIdentity::sanitizeSlug($requestedSlugInput, 80);
             if (strlen($cleanSlug) < 3 || strlen($cleanSlug) > 80) {
                 return Http::error($res, 'Custom URL slug must be between 3 and 80 characters', 422, ['slug' => 'Invalid slug length']);
             }
-            $existing = Db::one('SELECT id FROM flipbooks WHERE slug = ? AND id != ?', [$cleanSlug, $f['id']]);
+            $existing = Db::one(
+                'SELECT id FROM flipbooks WHERE (slug = ? OR (tenant_id = ? AND public_slug = ?)) AND id != ?',
+                [$cleanSlug, $f['tenant_id'], $cleanSlug, $f['id']]
+            );
             if ($existing) {
-                return Http::error($res, 'This custom URL slug is already in use by another publication', 422, ['slug' => 'Slug already taken']);
+                return Http::error($res, 'This publication URL slug is already in use', 422, ['slug' => 'Slug already taken']);
+            }
+            PublisherIdentity::recordSlugChange('flipbook', (int) $f['id'], $slug, $cleanSlug, !empty($f['tenant_id']) ? (int) $f['tenant_id'] : null);
+            if ($publicSlug !== $slug) {
+                PublisherIdentity::recordSlugChange('flipbook', (int) $f['id'], $publicSlug, $cleanSlug, !empty($f['tenant_id']) ? (int) $f['tenant_id'] : null);
             }
             $slug = $cleanSlug;
+            $publicSlug = $cleanSlug;
+            $slugChanged = true;
         }
 
         $vis = $b['visibility'] ?? $f['visibility'];
@@ -423,9 +447,14 @@ final class FlipbookController
             }
         }
 
+        $tenantRowForCanonical = Db::one('SELECT slug FROM tenants WHERE id = ?', [$tenantForEvents]);
+        $canonicalUrl = PublisherIdentity::buildCanonicalPath($tenantRowForCanonical['slug'] ?? null, $publicSlug);
+
         $updateFlipbook = static fn() => Db::run(
             'UPDATE flipbooks
-             SET title = ?, description = ?, slug = ?, category_id = ?, collection_id = ?, folder_id = ?,
+             SET title = ?, description = ?, slug = ?, public_slug = ?, canonical_url = ?,
+                 slug_updated_at = IF(? = 1, NOW(), slug_updated_at),
+                 category_id = ?, collection_id = ?, folder_id = ?,
                  visibility = ?, password_hash = ?, workflow_status = ?, published_at = ?,
                  scheduled_at = ?, expires_at = ?, settings = ?, seo_meta = ?, toc = ?
              WHERE id = ? AND tenant_id = ?',
@@ -433,6 +462,9 @@ final class FlipbookController
                 $title,
                 $desc,
                 $slug,
+                $publicSlug,
+                $canonicalUrl,
+                $slugChanged ? 1 : 0,
                 $categoryId,
                 $collectionId,
                 $folderId,
@@ -1449,16 +1481,36 @@ final class FlipbookController
             ? Storage::temporarySignedUrl($resolvedCover, 14400)
             : null;
 
+        PublisherIdentity::ensureSchema();
         $workflowStatus = $f['workflow_status'] ?? ($f['published_at'] !== null ? 'published' : ($f['status'] === 'ready' ? 'editing' : 'processing'));
         $previewToken = Storage::generatePreviewToken((string) $f['slug'], 14400);
-        $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT name, slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
+        $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT name, display_name, slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
+        $companySlug = $tenantRow['slug'] ?? null;
+        $publicSlug = !empty($f['public_slug']) ? (string) $f['public_slug'] : (string) $f['slug'];
+        $canonicalUrl = !empty($f['canonical_url'])
+            ? (string) $f['canonical_url']
+            : PublisherIdentity::buildCanonicalPath($companySlug, $publicSlug);
+
+        $slugHistory = [];
+        try {
+            $slugHistory = Db::all(
+                "SELECT old_slug, new_slug, created_at FROM slug_redirects WHERE entity_type = 'flipbook' AND entity_id = ? ORDER BY id DESC LIMIT 8",
+                [$f['id']]
+            );
+        } catch (Throwable) {
+        }
 
         return [
             'id' => (int) $f['id'],
             'title' => $f['title'],
             'description' => $f['description'],
             'slug' => $f['slug'],
-            'tenantName' => $tenantRow['name'] ?? null,
+            'publicSlug' => $publicSlug,
+            'companySlug' => $companySlug,
+            'canonicalUrl' => $canonicalUrl,
+            'slugUpdatedAt' => $f['slug_updated_at'] ?? null,
+            'slugHistory' => $slugHistory,
+            'tenantName' => $tenantRow ? ($tenantRow['display_name'] ?: $tenantRow['name']) : null,
             'status' => $f['status'],
             'workflowStatus' => $workflowStatus,
             'version' => (int) ($f['version'] ?? 1),

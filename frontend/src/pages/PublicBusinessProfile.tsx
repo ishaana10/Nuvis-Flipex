@@ -18,6 +18,8 @@ interface StorefrontData {
   tenantId: number;
   businessName: string;
   slug: string;
+  canonicalUrl?: string;
+  redirectedFrom?: string | null;
   tagline: string;
   bio: string;
   phone: string;
@@ -25,6 +27,8 @@ interface StorefrontData {
   email: string;
   address: string;
   websiteUrl: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
   bannerUrl: string;
   logoUrl: string;
   isVerified: boolean;
@@ -70,6 +74,17 @@ export default function PublicBusinessProfile() {
         setStorefront(res.storefront);
         setCatalogues(res.catalogues || []);
         setLoading(false);
+
+        if (res.storefront) {
+          document.title = `${res.storefront.businessName} — Digital Publications | Nuvis Flipex`;
+          if (res.storefront.redirectedFrom && res.storefront.slug) {
+            try {
+              window.history.replaceState(null, '', `/${res.storefront.slug}`);
+            } catch {
+              // ignore
+            }
+          }
+        }
       })
       .catch((err) => {
         setError(err.message || 'Business profile not found');
@@ -105,7 +120,8 @@ export default function PublicBusinessProfile() {
   };
 
   const copyStorefrontLink = () => {
-    navigator.clipboard?.writeText(window.location.href).then(() => {
+    const canonical = storefront?.slug ? `${window.location.origin}/${storefront.slug}` : window.location.href;
+    navigator.clipboard?.writeText(canonical).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
     });

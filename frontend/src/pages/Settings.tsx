@@ -52,11 +52,17 @@ export default function Settings() {
   // Tenant / Company Billing Details
   const [tenantBilling, setTenantBilling] = useState<TenantBilling | null>(null);
 
-  // Storefront & Commercial Profile Settings
+  // Storefront & Publisher Identity Settings
   const [storefront, setStorefront] = useState<{
     id?: number;
+    tenantId?: number;
     businessName: string;
     slug: string;
+    slugUpdatedAt?: string | null;
+    publicProfileEnabled?: boolean;
+    customDomain?: string;
+    customDomainVerified?: boolean;
+    customDomainTxt?: string;
     tagline: string;
     bio: string;
     phone: string;
@@ -64,13 +70,18 @@ export default function Settings() {
     email: string;
     address: string;
     websiteUrl: string;
+    facebookUrl?: string;
+    instagramUrl?: string;
     currency: string;
     bannerUrl: string;
     logoUrl: string;
     isVerified?: boolean;
+    slugHistory?: Array<{ old_slug: string; new_slug: string; created_at: string }>;
   }>({
     businessName: '',
     slug: '',
+    publicProfileEnabled: true,
+    customDomain: '',
     tagline: '',
     bio: '',
     phone: '',
@@ -78,10 +89,20 @@ export default function Settings() {
     email: '',
     address: '',
     websiteUrl: '',
+    facebookUrl: '',
+    instagramUrl: '',
     currency: 'FJD',
     bannerUrl: '',
     logoUrl: '',
+    slugHistory: [],
   });
+  const [initialStorefrontSlug, setInitialStorefrontSlug] = useState('');
+  const [slugAvailability, setSlugAvailability] = useState<{
+    checking: boolean;
+    available?: boolean;
+    reason?: string;
+    suggestion?: string;
+  }>({ checking: false });
   const [storefrontMsg, setStorefrontMsg] = useState('');
   const [storefrontBusy, setStorefrontBusy] = useState(false);
   const [copiedStorefrontLink, setCopiedStorefrontLink] = useState(false);
@@ -104,6 +125,7 @@ export default function Settings() {
           ...prev,
           ...d.storefront,
         }));
+        setInitialStorefrontSlug(d.storefront.slug || '');
       }
     }).catch(() => {});
 
@@ -170,19 +192,51 @@ export default function Settings() {
     }
   };
 
+  // Live company URL slug availability check in Settings
+  useEffect(() => {
+    const clean = (storefront.slug || '').trim().toLowerCase();
+    if (!clean || clean === initialStorefrontSlug) {
+      setSlugAvailability({ checking: false, available: clean ? true : undefined });
+      return;
+    }
+    if (clean.length < 3) {
+      setSlugAvailability({ checking: false, available: false, reason: 'Must be at least 3 characters' });
+      return;
+    }
+    setSlugAvailability({ checking: true });
+    const timer = window.setTimeout(() => {
+      const ex = storefront.tenantId ? `&excludeTenantId=${storefront.tenantId}` : '';
+      api<{ available: boolean; reason?: string; suggestion?: string }>(
+        `/auth/check-company-slug?slug=${encodeURIComponent(clean)}${ex}`
+      )
+        .then((res) => {
+          setSlugAvailability({
+            checking: false,
+            available: res.available,
+            reason: res.reason,
+            suggestion: res.suggestion,
+          });
+        })
+        .catch(() => setSlugAvailability({ checking: false }));
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [storefront.slug, storefront.tenantId, initialStorefrontSlug]);
+
   const handleSaveStorefront = async (e: React.FormEvent) => {
     e.preventDefault();
     setStorefrontBusy(true);
     setStorefrontMsg('');
     try {
-      const res = await api<{ storefront: any; message: string }>('/biz/settings', 'POST', storefront);
-      if (res?.storefront) {
+      await api<{ storefront?: any; slug?: string; message: string }>('/biz/settings', 'POST', storefront);
+      const refreshed = await api<{ storefront: any }>('/biz/settings');
+      if (refreshed?.storefront) {
         setStorefront((prev) => ({
           ...prev,
-          ...res.storefront,
+          ...refreshed.storefront,
         }));
+        setInitialStorefrontSlug(refreshed.storefront.slug || '');
       }
-      setStorefrontMsg('Business storefront details saved successfully!');
+      setStorefrontMsg('Company publishing identity & storefront details saved successfully!');
       setTimeout(() => setStorefrontMsg(''), 4000);
     } catch (err: any) {
       setStorefrontMsg(`Failed: ${err.message}`);
@@ -786,31 +840,31 @@ export default function Settings() {
               )}
             </div>
             <p className="muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-              Configure your public storefront (`/biz/{storefront.slug || 'slug'}`) showcasing your corporate brand, contact channels, and all published digital catalogues.
+              Configure your branded company publisher identity (<code>{window.location.host}/{storefront.slug || 'company'}</code>) and branded publication URLs (<code>{window.location.host}/{storefront.slug || 'company'}/docs/publication-slug</code>).
             </p>
           </div>
           {storefront.slug && (
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <a
-                href={`/biz/${storefront.slug}`}
+                href={`/${storefront.slug}`}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-secondary"
+                className="btn-primary"
                 style={{ fontSize: '12px', padding: '6px 12px', textDecoration: 'none' }}
               >
-                View Live Storefront ↗
+                Open Publisher Profile ↗
               </a>
               <button
                 type="button"
                 className="btn-secondary"
                 style={{ fontSize: '12px', padding: '6px 12px' }}
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/biz/${storefront.slug}`);
+                  navigator.clipboard.writeText(`${window.location.origin}/${storefront.slug}`);
                   setCopiedStorefrontLink(true);
                   setTimeout(() => setCopiedStorefrontLink(false), 2500);
                 }}
               >
-                {copiedStorefrontLink ? '✓ Copied Link' : '📋 Copy Storefront Link'}
+                {copiedStorefrontLink ? '✓ Copied Link' : '📋 Copy Publisher URL'}
               </button>
             </div>
           )}
@@ -834,35 +888,121 @@ export default function Settings() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                Business / Company Name *
+                Company Display Name *
               </label>
               <input
                 type="text"
                 required
                 value={storefront.businessName}
                 onChange={(e) => setStorefront({ ...storefront, businessName: e.target.value })}
-                placeholder="e.g. Mannat Investments Pte Ltd"
+                placeholder="e.g. Subrails Furniture Centre"
                 style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                Storefront Slug (URL)
-              </label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600 }}>
+                  Company URL Name (Unique Publisher Slug) *
+                </label>
+                {slugAvailability.checking ? (
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>Checking…</span>
+                ) : slugAvailability.available === true ? (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 999, background: 'rgba(16,185,129,0.16)', color: '#047857', border: '1px solid rgba(16,185,129,0.35)' }}>
+                    Available
+                  </span>
+                ) : slugAvailability.available === false ? (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 999, background: 'rgba(239,68,68,0.15)', color: '#b91c1c', border: '1px solid rgba(239,68,68,0.3)' }}>
+                    Unavailable
+                  </span>
+                ) : null}
+              </div>
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRight: 'none', padding: '8px 10px', borderRadius: '8px 0 0 8px', fontSize: '12px', color: '#64748b' }}>
-                  /biz/
+                <span style={{ background: 'var(--surface-muted)', border: '1px solid #cbd5e1', borderRight: 'none', padding: '8px 10px', borderRadius: '8px 0 0 8px', fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                  {window.location.host}/
                 </span>
                 <input
                   type="text"
                   value={storefront.slug}
-                  onChange={(e) => setStorefront({ ...storefront, slug: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') })}
-                  placeholder="mannat-investments"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '0 8px 8px 0', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  onChange={(e) => setStorefront({ ...storefront, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                  placeholder="subrailsfurniturecentre"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '0 8px 8px 0', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 600 }}
                 />
               </div>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                Publisher profile URL:{' '}
+                <a href={`/${storefront.slug || 'company'}`} target="_blank" rel="noreferrer" style={{ fontWeight: 700 }}>
+                  {window.location.origin}/{storefront.slug || 'company'} ↗
+                </a>
+              </div>
+              {slugAvailability.available === false && slugAvailability.reason && (
+                <div style={{ fontSize: 11.5, color: '#dc2626', marginTop: 3 }}>
+                  {slugAvailability.reason}
+                  {slugAvailability.suggestion && (
+                    <button
+                      type="button"
+                      className="link"
+                      style={{ marginLeft: 8, fontSize: 11.5, fontWeight: 700, textDecoration: 'underline' }}
+                      onClick={() => setStorefront({ ...storefront, slug: slugAvailability.suggestion! })}
+                    >
+                      Use “{slugAvailability.suggestion}”
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Public Profile Visibility & Custom Domain Mapping Row */}
+            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', padding: '12px', borderRadius: 10, background: 'var(--surface-muted)', border: '1px solid var(--border-color)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer' }}>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700 }}>Enable Public Company Publisher Profile</div>
+                  <div className="muted" style={{ fontSize: 11.5 }}>
+                    Allow visitors to browse your company profile and published catalogues at <code>/{storefront.slug || 'company'}</code>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={storefront.publicProfileEnabled !== false}
+                  onChange={(e) => setStorefront({ ...storefront, publicProfileEnabled: e.target.checked })}
+                  style={{ width: 18, height: 18, accentColor: 'var(--brand)' }}
+                />
+              </label>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700 }}>Custom Branded Domain (Optional)</label>
+                  <span className="boardui-badge boardui-badge-golden" style={{ fontSize: 10 }}>Enterprise DNS</span>
+                </div>
+                <input
+                  type="text"
+                  value={storefront.customDomain || ''}
+                  onChange={(e) => setStorefront({ ...storefront, customDomain: e.target.value })}
+                  placeholder="e.g. catalogue.subrailsfurniture.com"
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5 }}
+                />
+                {storefront.customDomain && (
+                  <div style={{ marginTop: 6, padding: '8px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border-color)', fontSize: 11 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 2 }}>Required DNS Records for <code>{storefront.customDomain}</code>:</div>
+                    <div>1. <b>CNAME</b> → <code>{window.location.hostname}</code></div>
+                    <div>2. <b>TXT (_flipex-verify)</b> → <code>{storefront.customDomainTxt || 'flipex-verify=pending'}</code></div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {storefront.slugHistory && storefront.slugHistory.length > 0 && (
+              <div style={{ gridColumn: '1 / -1', padding: '10px 12px', borderRadius: 8, background: 'var(--surface-muted)', border: '1px solid var(--border-color)', fontSize: 11.5 }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>Active Company URL Redirects (Old links automatically forward):</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {storefront.slugHistory.map((h, i) => (
+                    <span key={i} className="boardui-badge boardui-badge-default">
+                      <code>/{h.old_slug}</code> → <b>/{h.new_slug}</b>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>

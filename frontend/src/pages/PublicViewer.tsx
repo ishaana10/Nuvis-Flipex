@@ -22,6 +22,13 @@ interface PublicFlipbookData {
   description: string;
   tenantName?: string;
   slug: string;
+  publicSlug?: string;
+  companySlug?: string;
+  canonicalUrl?: string;
+  companyProfileUrl?: string;
+  companyLogo?: string;
+  redirectedCompanyFrom?: string | null;
+  redirectedPubFrom?: string | null;
   version?: number;
   workflowStatus?: string;
   isPreview?: boolean;
@@ -48,8 +55,23 @@ function setOrUpdateMeta(attr: 'name' | 'property', key: string, content?: strin
   el.setAttribute('content', content);
 }
 
+function setOrUpdateCanonical(href?: string) {
+  if (!href) return;
+  let link = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement('link');
+    link.setAttribute('rel', 'canonical');
+    document.head.appendChild(link);
+  }
+  link.setAttribute('href', href);
+}
+
 export default function PublicViewer() {
-  const { slug } = useParams();
+  const { slug, companySlug, publicationSlug } = useParams<{
+    slug?: string;
+    companySlug?: string;
+    publicationSlug?: string;
+  }>();
   const [searchParams] = useSearchParams();
   const previewToken = searchParams.get('preview') || '';
   const initialPage = Number(searchParams.get('page') || '0') || undefined;
@@ -79,7 +101,12 @@ export default function PublicViewer() {
     if (previewToken) headers['X-Preview-Token'] = previewToken;
 
     const query = previewToken ? `?preview=${encodeURIComponent(previewToken)}` : '';
-    fetch(`/api/v1/public/${slug}${query}`, { headers, credentials: 'same-origin' }).then(async (r) => {
+    const endpoint =
+      companySlug && publicationSlug
+        ? `/api/v1/public/branded/${encodeURIComponent(companySlug)}/docs/${encodeURIComponent(publicationSlug)}${query}`
+        : `/api/v1/public/${encodeURIComponent(slug || publicationSlug || '')}${query}`;
+
+    fetch(endpoint, { headers, credentials: 'same-origin' }).then(async (r) => {
       if (!r.ok) {
         try {
           const errBody = await r.json();
@@ -99,17 +126,30 @@ export default function PublicViewer() {
       const d: PublicFlipbookData = await r.json();
       setData(d);
 
-      // Apply Custom SEO Metadata
+      // If visitor opened a renamed company slug or renamed publication slug, update URL to canonical address
+      if ((d.redirectedCompanyFrom || d.redirectedPubFrom) && d.canonicalUrl) {
+        try {
+          window.history.replaceState(null, '', d.canonicalUrl + window.location.search);
+        } catch {
+          // ignore
+        }
+      }
+
+      // Apply Custom SEO & Canonical Metadata
       const seo = d.seoMeta || {};
       const pageTitle = seo.title || d.title;
       const pageDesc = seo.description || d.description || `Read ${d.title} on Nuvis Flipex`;
-      document.title = d.isPreview ? `[Draft Preview] ${pageTitle}` : pageTitle;
+      document.title = d.isPreview ? `[Draft Preview] ${pageTitle}` : (d.tenantName ? `${pageTitle} — ${d.tenantName}` : pageTitle);
 
-      const coverUrl = seo.ogImage || `${window.location.origin}/api/v1/public/${slug}/cover`;
+      const resolvedSlug = d.slug || slug || publicationSlug || '';
+      const coverUrl = seo.ogImage || `${window.location.origin}/api/v1/public/${resolvedSlug}/cover`;
+      const canonicalHref = seo.canonicalUrl || (d.canonicalUrl ? `${window.location.origin}${d.canonicalUrl}` : window.location.href);
+      setOrUpdateCanonical(canonicalHref);
       setOrUpdateMeta('name', 'description', pageDesc);
       if (seo.keywords) setOrUpdateMeta('name', 'keywords', seo.keywords);
       setOrUpdateMeta('property', 'og:type', 'article');
-      setOrUpdateMeta('property', 'og:site_name', 'Nuvis Flipex');
+      setOrUpdateMeta('property', 'og:site_name', d.tenantName || 'Nuvis Flipex');
+      setOrUpdateMeta('property', 'og:url', canonicalHref);
       setOrUpdateMeta('property', 'og:title', pageTitle);
       setOrUpdateMeta('property', 'og:description', pageDesc);
       setOrUpdateMeta('property', 'og:image', coverUrl);
@@ -122,8 +162,8 @@ export default function PublicViewer() {
       setOrUpdateMeta('name', 'robots', seo.noindex || d.isPreview ? 'noindex, nofollow' : 'index, follow');
 
       // Track reader view analytics with UTM attribution (only for live published views)
-      if (!d.locked && !d.isPreview) {
-        fetch(`/api/v1/public/${slug}/view`, {
+      if (!d.locked && !d.isPreview && resolvedSlug) {
+        fetch(`/api/v1/public/${resolvedSlug}/view`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -145,12 +185,14 @@ export default function PublicViewer() {
   useEffect(() => {
     load();
     // eslint-disable-next-line
-  }, [slug, previewToken]);
+  }, [slug, companySlug, publicationSlug, previewToken]);
+
+  const activeSlug = data?.slug || slug || publicationSlug || '';
 
   const unlock = async (e: FormEvent) => {
     e.preventDefault();
     setErr('');
-    const r = await fetch(`/api/v1/public/${slug}/unlock`, {
+    const r = await fetch(`/api/v1/public/${activeSlug}/unlock`, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -171,7 +213,7 @@ export default function PublicViewer() {
     e.preventDefault();
     setErr('');
     try {
-      const r = await fetch(`/api/v1/public/${slug}/verify-pin`, {
+      const r = await fetch(`/api/v1/public/${activeSlug}/verify-pin`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
@@ -198,7 +240,7 @@ export default function PublicViewer() {
     e.preventDefault();
     setErr('');
     try {
-      const r = await fetch(`/api/v1/public/${slug}/verify-domain`, {
+      const r = await fetch(`/api/v1/public/${activeSlug}/verify-domain`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
@@ -224,7 +266,7 @@ export default function PublicViewer() {
   const lockSession = async () => {
     const headers: Record<string, string> = {};
     if (token) headers['X-Unlock-Token'] = token;
-    await fetch(`/api/v1/public/${slug}/lock`, {
+    await fetch(`/api/v1/public/${activeSlug}/lock`, {
       method: 'POST',
       credentials: 'same-origin',
       headers,

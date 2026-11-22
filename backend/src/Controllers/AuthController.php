@@ -8,6 +8,7 @@ use App\Support\Db;
 use App\Support\Http;
 use App\Support\Jwt;
 use App\Support\Mailer;
+use App\Support\PublisherIdentity;
 use App\Support\SecurityMonitor;
 use App\Support\SessionFamilies;
 use App\Support\SessionSecurity;
@@ -27,8 +28,22 @@ final class AuthController
         return Http::json($res, ['allowed' => $allowed]);
     }
 
+    /**
+     * Public endpoint to check if a custom company URL slug is available (Issuu-style publisher URL check).
+     */
+    public function checkCompanySlug(Request $req, Response $res): Response
+    {
+        $params = $req->getQueryParams();
+        $rawSlug = trim((string) ($params['slug'] ?? ''));
+        $excludeTenantId = !empty($params['excludeTenantId']) ? (int) $params['excludeTenantId'] : null;
+
+        $result = PublisherIdentity::checkCompanySlugAvailability($rawSlug, $excludeTenantId);
+        return Http::json($res, $result);
+    }
+
     public function register(Request $req, Response $res): Response
     {
+        PublisherIdentity::ensureSchema();
         $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
         if ($setting && $setting['setting_value'] === '0') {
             return Http::error($res, 'Public self-registration is currently disabled by administrator. Please contact your organization administrator for an invite.', 403);
@@ -38,28 +53,56 @@ final class AuthController
         $email = strtolower(trim((string) ($b['email'] ?? '')));
         $name = trim((string) ($b['name'] ?? ''));
         $pass = (string) ($b['password'] ?? '');
+        $companyName = trim((string) ($b['companyName'] ?? $name));
+        $requestedSlug = trim((string) ($b['companySlug'] ?? ''));
 
         $errors = [];
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Invalid email address';
         if ($name === '' || mb_strlen($name) > 120) $errors['name'] = 'Name is required';
+        if ($companyName === '' || mb_strlen($companyName) > 150) $errors['companyName'] = 'Company / Publisher name is required';
         if (strlen($pass) < 8) $errors['password'] = 'Password must be at least 8 characters';
+
+        // Validate or auto-generate clean unique company URL slug
+        $workspaceSlug = '';
+        if ($requestedSlug !== '') {
+            $check = PublisherIdentity::checkCompanySlugAvailability($requestedSlug);
+            if (!$check['available']) {
+                $errors['companySlug'] = $check['reason'] ?? 'This company URL slug is not available';
+            } else {
+                $workspaceSlug = $check['slug'];
+            }
+        } else {
+            $baseSlug = PublisherIdentity::sanitizeSlug($companyName !== '' ? $companyName : $name, 50) ?: 'publisher';
+            $check = PublisherIdentity::checkCompanySlugAvailability($baseSlug);
+            if ($check['available']) {
+                $workspaceSlug = $check['slug'];
+            } else {
+                $workspaceSlug = substr($baseSlug, 0, 42) . '-' . bin2hex(random_bytes(2));
+            }
+        }
+
         if ($errors) return Http::error($res, 'Validation failed', 422, $errors);
 
         if (Db::one('SELECT id FROM users WHERE email = ?', [$email])) {
             return Http::error($res, 'Validation failed', 422, ['email' => 'Email already registered']);
         }
 
-        // Provision an isolated tenant workspace for the newly registered user
-        $workspaceSlug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($name)) ?? '', '-') ?: 'workspace';
-        $workspaceSlug = substr($workspaceSlug, 0, 40) . '-' . bin2hex(random_bytes(3));
+        // Provision an isolated tenant workspace & public publisher identity for the newly registered user
         $newTenantId = null;
         try {
             Db::run(
-                'INSERT INTO tenants (uuid, name, slug, plan_id, is_active, billing_name, billing_email)
-                 VALUES (?, ?, ?, 1, 1, ?, ?)',
-                [bin2hex(random_bytes(16)), $name . ' Workspace', $workspaceSlug, $name, $email]
+                'INSERT INTO tenants (uuid, name, display_name, slug, slug_updated_at, public_profile_enabled, plan_id, is_active, billing_name, billing_email)
+                 VALUES (?, ?, ?, ?, NOW(), 1, 1, 1, ?, ?)',
+                [bin2hex(random_bytes(16)), $companyName, $companyName, $workspaceSlug, $companyName, $email]
             );
             $newTenantId = (int) Db::pdo()->lastInsertId();
+
+            // Also seed tenant_storefronts so /{companySlug} public profile is immediately ready
+            Db::run(
+                'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency)
+                 VALUES (?, ?, ?, ?, ?)',
+                [$newTenantId, $companyName, $workspaceSlug, $email, 'FJD']
+            );
         } catch (\Throwable) {
         }
 
@@ -70,10 +113,18 @@ final class AuthController
         $id = (int) Db::pdo()->lastInsertId();
         $this->sendVerification($id, $email, $name);
 
-        Audit::log('user.register', 'user', $id, ['email' => $email]);
+        Audit::log('user.register', 'user', $id, [
+            'email' => $email,
+            'company_name' => $companyName,
+            'company_slug' => $workspaceSlug,
+        ]);
         Mailer::accountCreated($email, $name);
 
-        return Http::json($res, ['message' => 'Account created. Check your email to verify.'], 201);
+        return Http::json($res, [
+            'message' => 'Account created. Check your email to verify.',
+            'companySlug' => $workspaceSlug,
+            'profileUrl' => '/' . $workspaceSlug,
+        ], 201);
     }
 
     public function login(Request $req, Response $res): Response

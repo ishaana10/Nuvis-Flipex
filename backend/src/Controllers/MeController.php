@@ -7,6 +7,7 @@ use App\Support\Audit;
 use App\Support\Db;
 use App\Support\Http;
 use App\Support\PasswordPolicy;
+use App\Support\PublisherIdentity;
 use App\Support\Rbac;
 use App\Support\Totp;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -16,10 +17,11 @@ final class MeController
 {
     public function show(Request $req, Response $res): Response
     {
+        PublisherIdentity::ensureSchema();
         $u = $req->getAttribute('user');
         $fullUser = Db::one('SELECT * FROM users WHERE id = ?', [$u['id']]);
         $plan = Db::one('SELECT * FROM plans WHERE id = ?', [$u['plan_id']]);
-        $tenant = $u['tenant_id'] ? Db::one('SELECT id, name, slug FROM tenants WHERE id = ?', [$u['tenant_id']]) : null;
+        $tenant = $u['tenant_id'] ? Db::one('SELECT * FROM tenants WHERE id = ?', [$u['tenant_id']]) : null;
 
         return Http::json($res, [
             'id' => (int) $u['id'],
@@ -35,7 +37,10 @@ final class MeController
             'createdAt' => $u['created_at'],
             'plan' => $plan,
             'tenantId' => $tenant ? (int) $tenant['id'] : null,
-            'companyName' => $tenant ? $tenant['name'] : null,
+            'companyName' => $tenant ? ($tenant['display_name'] ?: $tenant['name']) : null,
+            'companySlug' => $tenant ? $tenant['slug'] : null,
+            'publicProfileEnabled' => $tenant ? (bool) ($tenant['public_profile_enabled'] ?? true) : true,
+            'customDomain' => $tenant ? ($tenant['custom_domain'] ?? null) : null,
         ]);
     }
 
