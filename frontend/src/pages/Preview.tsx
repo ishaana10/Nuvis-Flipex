@@ -158,7 +158,7 @@ export default function Preview() {
             workflowStatus: (data.workflowStatus as any) || (data.published ? 'published' : 'editing'),
             visibility: data.visibility || 'public',
             pageCount: data.pageCount || data.pages.length,
-            cover: data.pages[0]?.thumbUrl || data.pages[0]?.imageUrl || null,
+            cover: data.pages[0]?.thumb || data.pages[0]?.image || null,
             settings: data.settings as any,
           }}
           onClose={() => setShowShare(false)}
