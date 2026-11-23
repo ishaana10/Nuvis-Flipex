@@ -22,6 +22,119 @@ final class PublicController
     private const UNLOCK_TTL_SECONDS = 1800;
 
     private static bool $unlockSchemaEnsured = false;
+    private static bool $analyticsSchemaEnsured = false;
+
+    /**
+     * Ensure views, analytics_events, and scheduled_reports tables and all v3+ telemetry columns exist.
+     */
+    public static function ensureAnalyticsSchema(): void
+    {
+        if (self::$analyticsSchemaEnsured) {
+            return;
+        }
+        self::$analyticsSchemaEnsured = true;
+
+        try {
+            $pdo = Db::pdo();
+
+            // 1. Ensure analytics_events table exists with flexible VARCHAR(32) event_type
+            try {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `analytics_events` (
+                      `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                      `tenant_id` BIGINT UNSIGNED NULL,
+                      `flipbook_id` BIGINT UNSIGNED NOT NULL,
+                      `visitor_hash` CHAR(64) NOT NULL,
+                      `session_id` VARCHAR(64) NULL,
+                      `event_type` VARCHAR(32) NOT NULL DEFAULT 'page_view',
+                      `page_number` INT UNSIGNED NULL,
+                      `duration_ms` INT UNSIGNED NOT NULL DEFAULT 0,
+                      `target_url` VARCHAR(500) NULL,
+                      `meta` JSON NULL,
+                      `country` CHAR(2) NULL,
+                      `device` VARCHAR(20) NULL,
+                      `utm_source` VARCHAR(100) NULL,
+                      `utm_medium` VARCHAR(100) NULL,
+                      `utm_campaign` VARCHAR(100) NULL,
+                      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      INDEX `idx_ae_tenant` (`tenant_id`),
+                      INDEX `idx_ae_fb_type` (`flipbook_id`, `event_type`, `created_at`),
+                      INDEX `idx_ae_fb_page` (`flipbook_id`, `page_number`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ");
+            } catch (Throwable) {
+            }
+
+            // Widen event_type from old ENUM to VARCHAR(32) if needed
+            try {
+                $evCol = Db::one("SHOW COLUMNS FROM analytics_events LIKE 'event_type'");
+                $colType = strtolower((string) ($evCol['Type'] ?? $evCol['type'] ?? ''));
+                if (str_contains($colType, 'enum')) {
+                    $pdo->exec("ALTER TABLE analytics_events MODIFY COLUMN `event_type` VARCHAR(32) NOT NULL DEFAULT 'page_view'");
+                }
+            } catch (Throwable) {
+            }
+
+            // 2. Ensure all v3 telemetry columns exist on views table
+            $viewCols = [];
+            try {
+                foreach (Db::all('SHOW COLUMNS FROM views') as $cRow) {
+                    $cn = (string) ($cRow['Field'] ?? $cRow['field'] ?? '');
+                    if ($cn !== '') {
+                        $viewCols[] = strtolower($cn);
+                    }
+                }
+            } catch (Throwable) {
+            }
+
+            $viewAlters = [
+                'session_id' => "ALTER TABLE views ADD COLUMN `session_id` VARCHAR(64) NULL AFTER `visitor_hash`",
+                'duration_seconds' => "ALTER TABLE views ADD COLUMN `duration_seconds` INT UNSIGNED NOT NULL DEFAULT 0",
+                'pages_viewed' => "ALTER TABLE views ADD COLUMN `pages_viewed` INT UNSIGNED NOT NULL DEFAULT 1",
+                'max_page_reached' => "ALTER TABLE views ADD COLUMN `max_page_reached` INT UNSIGNED NOT NULL DEFAULT 1",
+                'completed' => "ALTER TABLE views ADD COLUMN `completed` TINYINT(1) NOT NULL DEFAULT 0",
+                'utm_source' => "ALTER TABLE views ADD COLUMN `utm_source` VARCHAR(100) NULL",
+                'utm_medium' => "ALTER TABLE views ADD COLUMN `utm_medium` VARCHAR(100) NULL",
+                'utm_campaign' => "ALTER TABLE views ADD COLUMN `utm_campaign` VARCHAR(100) NULL",
+                'utm_term' => "ALTER TABLE views ADD COLUMN `utm_term` VARCHAR(100) NULL",
+                'utm_content' => "ALTER TABLE views ADD COLUMN `utm_content` VARCHAR(100) NULL",
+            ];
+            foreach ($viewAlters as $col => $sql) {
+                if (!in_array($col, $viewCols, true)) {
+                    try {
+                        $pdo->exec($sql);
+                    } catch (Throwable) {
+                    }
+                }
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    /**
+     * Resolve a flipbook by slug, public_slug, or historical slug_redirects.
+     */
+    private function resolveFlipbookBySlug(string $rawSlug): ?array
+    {
+        $slug = trim($rawSlug);
+        if ($slug === '') {
+            return null;
+        }
+        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? OR public_slug = ? LIMIT 1', [$slug, $slug]);
+        if (!$f) {
+            try {
+                $redir = Db::one(
+                    "SELECT entity_id FROM slug_redirects WHERE entity_type = 'flipbook' AND old_slug = ? ORDER BY id DESC LIMIT 1",
+                    [$slug]
+                );
+                if ($redir && !empty($redir['entity_id'])) {
+                    $f = Db::one('SELECT * FROM flipbooks WHERE id = ? LIMIT 1', [$redir['entity_id']]);
+                }
+            } catch (Throwable) {
+            }
+        }
+        return $f ?: null;
+    }
 
     /**
      * Resolve Issuu-style Branded Publication URL: /{companySlug}/docs/{publicationSlug}
@@ -116,8 +229,16 @@ final class PublicController
                     'title' => $f['title'],
                 ]);
             }
-            if ($f['published_at'] === null && ($wf === 'published' || $wf === 'approved' || ($f['status'] ?? '') === 'ready')) {
-                $f['published_at'] = $f['created_at'] ?? date('Y-m-d H:i:s');
+            if (($f['status'] ?? '') === 'ready' || $wf === 'published' || $wf === 'approved') {
+                if ($f['published_at'] === null || ($wf !== 'published' && $wf !== 'approved')) {
+                    $f['published_at'] = $f['published_at'] ?: ($f['created_at'] ?? date('Y-m-d H:i:s'));
+                    $wf = 'published';
+                    $f['workflow_status'] = 'published';
+                    try {
+                        Db::run("UPDATE flipbooks SET workflow_status = 'published', published_at = COALESCE(published_at, NOW()) WHERE id = ?", [$f['id']]);
+                    } catch (\Throwable) {
+                    }
+                }
             }
             if ($f['published_at'] === null || ($wf !== 'published' && $wf !== 'approved')) {
                 return Http::error($res, 'Not found', 404);
@@ -448,19 +569,22 @@ HTML;
 
     private function serveAsset(Request $req, Response $res, string $slug, int $pageNumber, bool $isThumb): Response
     {
+        $f = $this->resolveFlipbookBySlug($slug);
+        if (!$f) return Http::error($res, 'Not found', 404);
+
+        $slug = (string) $f['slug'];
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
-        if (!$f) return Http::error($res, 'Not found', 404);
         if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
             $f['status'] = 'ready';
         }
 
         if (!$isPreview) {
             $wf = $f['workflow_status'] ?? ($f['published_at'] !== null ? 'published' : 'draft');
-            if ($f['published_at'] === null && ($wf === 'published' || $wf === 'approved' || ($f['status'] ?? '') === 'ready')) {
-                $f['published_at'] = $f['created_at'] ?? date('Y-m-d H:i:s');
+            if (($f['status'] ?? '') === 'ready' || $wf === 'published' || $wf === 'approved') {
+                $f['published_at'] = $f['published_at'] ?: ($f['created_at'] ?? date('Y-m-d H:i:s'));
+                $wf = 'published';
             }
             if ($f['published_at'] === null || ($wf !== 'published' && $wf !== 'approved')) {
                 return Http::error($res, 'Not found', 404);
@@ -684,10 +808,21 @@ HTML;
 
     public function trackView(Request $req, Response $res, array $args): Response
     {
-        $f = Db::one('SELECT id, tenant_id, page_count FROM flipbooks WHERE slug = ? AND published_at IS NOT NULL', [$args['slug']]);
+        self::ensureAnalyticsSchema();
+        $f = $this->resolveFlipbookBySlug((string) ($args['slug'] ?? ''));
         if (!$f) return Http::error($res, 'Not found', 404);
 
         $body = (array) ($req->getParsedBody() ?: []);
+        if (empty($body)) {
+            $rawBody = (string) $req->getBody();
+            if ($rawBody !== '') {
+                $decoded = json_decode($rawBody, true);
+                if (is_array($decoded)) {
+                    $body = $decoded;
+                }
+            }
+        }
+
         $server = $req->getServerParams();
         $ip = $server['REMOTE_ADDR'] ?? '127.0.0.1';
         $ua = $req->getHeaderLine('User-Agent');
@@ -708,25 +843,52 @@ HTML;
         $utmTerm = !empty($body['utmTerm']) ? substr(trim((string) $body['utmTerm']), 0, 100) : null;
         $utmContent = !empty($body['utmContent']) ? substr(trim((string) $body['utmContent']), 0, 100) : null;
 
-        $recent = Db::one(
-            'SELECT id FROM views WHERE flipbook_id = ? AND visitor_hash = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)',
-            [$f['id'], $visitorHash]
-        );
+        // Deduplicate by session_id within 30 minutes so each distinct reading session is counted
+        $recent = null;
+        try {
+            $recent = Db::one(
+                'SELECT id FROM views WHERE flipbook_id = ? AND session_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)',
+                [$f['id'], $sessionId]
+            );
+        } catch (Throwable) {
+        }
 
         if (!$recent) {
-            Db::run(
-                'INSERT INTO views (flipbook_id, visitor_hash, session_id, country, device, referrer, utm_source, utm_medium, utm_campaign, utm_term, utm_content)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$f['id'], $visitorHash, $sessionId, $country, $device, $referrer, $utmSource, $utmMedium, $utmCampaign, $utmTerm, $utmContent]
-            );
+            try {
+                Db::run(
+                    'INSERT INTO views (flipbook_id, visitor_hash, session_id, country, device, referrer, duration_seconds, pages_viewed, max_page_reached, utm_source, utm_medium, utm_campaign, utm_term, utm_content)
+                     VALUES (?, ?, ?, ?, ?, ?, 3, 1, 1, ?, ?, ?, ?, ?)',
+                    [$f['id'], $visitorHash, $sessionId, $country, $device, $referrer, $utmSource, $utmMedium, $utmCampaign, $utmTerm, $utmContent]
+                );
+            } catch (Throwable) {
+                try {
+                    Db::run(
+                        'INSERT INTO views (flipbook_id, visitor_hash, country, device, referrer)
+                         VALUES (?, ?, ?, ?, ?)',
+                        [$f['id'], $visitorHash, $country, $device, $referrer]
+                    );
+                } catch (Throwable) {
+                }
+            }
+        } else {
+            try {
+                Db::run(
+                    'UPDATE views SET duration_seconds = GREATEST(duration_seconds, 3) WHERE id = ?',
+                    [$recent['id']]
+                );
+            } catch (Throwable) {
+            }
         }
 
         // Also record page 1 initial view event
-        Db::run(
-            "INSERT INTO analytics_events (tenant_id, flipbook_id, visitor_hash, session_id, event_type, page_number, duration_ms, country, device, utm_source, utm_medium, utm_campaign)
-             VALUES (?, ?, ?, ?, 'page_view', 1, 2500, ?, ?, ?, ?, ?)",
-            [$f['tenant_id'], $f['id'], $visitorHash, $sessionId, $country, $device, $utmSource, $utmMedium, $utmCampaign]
-        );
+        try {
+            Db::run(
+                "INSERT INTO analytics_events (tenant_id, flipbook_id, visitor_hash, session_id, event_type, page_number, duration_ms, country, device, utm_source, utm_medium, utm_campaign)
+                 VALUES (?, ?, ?, ?, 'page_view', 1, 3000, ?, ?, ?, ?, ?)",
+                [$f['tenant_id'] ?? null, $f['id'], $visitorHash, $sessionId, $country, $device, $utmSource, $utmMedium, $utmCampaign]
+            );
+        } catch (Throwable) {
+        }
 
         return Http::json($res, ['recorded' => true, 'sessionId' => $sessionId]);
     }
@@ -736,7 +898,8 @@ HTML;
      */
     public function trackTelemetry(Request $req, Response $res, array $args): Response
     {
-        $f = Db::one('SELECT id, tenant_id, page_count FROM flipbooks WHERE slug = ?', [$args['slug']]);
+        self::ensureAnalyticsSchema();
+        $f = $this->resolveFlipbookBySlug((string) ($args['slug'] ?? ''));
         if (!$f) return Http::error($res, 'Not found', 404);
 
         $b = (array) ($req->getParsedBody() ?: []);
@@ -771,27 +934,30 @@ HTML;
         $utmMedium = !empty($b['utmMedium']) ? substr(trim((string) $b['utmMedium']), 0, 100) : null;
         $utmCampaign = !empty($b['utmCampaign']) ? substr(trim((string) $b['utmCampaign']), 0, 100) : null;
 
-        Db::run(
-            'INSERT INTO analytics_events
-             (tenant_id, flipbook_id, visitor_hash, session_id, event_type, page_number, duration_ms, target_url, meta, country, device, utm_source, utm_medium, utm_campaign)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-                $f['tenant_id'],
-                $f['id'],
-                $visitorHash,
-                $sessionId,
-                $eventType,
-                $pageNumber,
-                $durationMs,
-                $targetUrl,
-                $meta,
-                $country,
-                $device,
-                $utmSource,
-                $utmMedium,
-                $utmCampaign,
-            ]
-        );
+        try {
+            Db::run(
+                'INSERT INTO analytics_events
+                 (tenant_id, flipbook_id, visitor_hash, session_id, event_type, page_number, duration_ms, target_url, meta, country, device, utm_source, utm_medium, utm_campaign)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                    $f['tenant_id'] ?? null,
+                    $f['id'],
+                    $visitorHash,
+                    $sessionId,
+                    $eventType,
+                    $pageNumber,
+                    $durationMs,
+                    $targetUrl,
+                    $meta,
+                    $country,
+                    $device,
+                    $utmSource,
+                    $utmMedium,
+                    $utmCampaign,
+                ]
+            );
+        } catch (Throwable) {
+        }
 
         // Update session-level reading time, max page reached & completion status on views table
         if ($eventType === 'page_view') {
@@ -800,17 +966,26 @@ HTML;
             $totalPages = max(1, (int) $f['page_count']);
             $isCompleted = $pageNum >= $totalPages ? 1 : 0;
 
-            $lastView = Db::one(
-                'SELECT id, max_page_reached, completed FROM views WHERE flipbook_id = ? AND visitor_hash = ? ORDER BY id DESC LIMIT 1',
-                [$f['id'], $visitorHash]
-            );
-            if ($lastView) {
-                $newMax = max((int) $lastView['max_page_reached'], $pageNum);
-                $newComp = ((int) $lastView['completed'] === 1 || $isCompleted === 1 || $newMax >= $totalPages) ? 1 : 0;
-                Db::run(
-                    'UPDATE views SET duration_seconds = duration_seconds + ?, pages_viewed = pages_viewed + 1, max_page_reached = ?, completed = ? WHERE id = ?',
-                    [$addSec, $newMax, $newComp, $lastView['id']]
+            try {
+                $lastView = Db::one(
+                    'SELECT id, max_page_reached, completed FROM views WHERE flipbook_id = ? AND (session_id = ? OR visitor_hash = ?) ORDER BY id DESC LIMIT 1',
+                    [$f['id'], $sessionId, $visitorHash]
                 );
+                if ($lastView) {
+                    $newMax = max((int) $lastView['max_page_reached'], $pageNum);
+                    $newComp = ((int) $lastView['completed'] === 1 || $isCompleted === 1 || $newMax >= $totalPages) ? 1 : 0;
+                    Db::run(
+                        'UPDATE views SET duration_seconds = duration_seconds + ?, pages_viewed = pages_viewed + 1, max_page_reached = ?, completed = ? WHERE id = ?',
+                        [$addSec, $newMax, $newComp, $lastView['id']]
+                    );
+                } else {
+                    Db::run(
+                        'INSERT INTO views (flipbook_id, visitor_hash, session_id, country, device, referrer, duration_seconds, pages_viewed, max_page_reached, completed, utm_source, utm_medium, utm_campaign)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)',
+                        [$f['id'], $visitorHash, $sessionId, $country, $device, 'Direct', $addSec, $pageNum, $isCompleted, $utmSource, $utmMedium, $utmCampaign]
+                    );
+                }
+            } catch (Throwable) {
             }
         }
 

@@ -562,9 +562,9 @@ final class JobRunner
             );
         }
 
-        $nextWorkflow = in_array($f['workflow_status'] ?? 'draft', ['published', 'scheduled', 'in_review'], true)
+        $nextWorkflow = in_array($f['workflow_status'] ?? 'published', ['scheduled', 'in_review', 'archived'], true)
             ? $f['workflow_status']
-            : 'editing';
+            : 'published';
 
         $desc = $f['description'];
         if (empty($desc) && !empty($metadata['subject'])) {
@@ -575,6 +575,7 @@ final class JobRunner
             "UPDATE flipbooks
              SET status = 'ready',
                  workflow_status = ?,
+                 published_at = IF(? = 'published', COALESCE(published_at, NOW()), published_at),
                  page_count = ?,
                  description = ?,
                  pdf_metadata = ?,
@@ -584,6 +585,7 @@ final class JobRunner
                  conversion_error = NULL
              WHERE id = ?",
             [
+                $nextWorkflow,
                 $nextWorkflow,
                 count($renderedPages),
                 $desc,

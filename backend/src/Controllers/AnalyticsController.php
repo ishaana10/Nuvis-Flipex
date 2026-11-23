@@ -37,6 +37,7 @@ final class AnalyticsController
 
     public function show(Request $req, Response $res, array $args): Response
     {
+        PublicController::ensureAnalyticsSchema();
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'analytics.view');
 
@@ -47,22 +48,23 @@ final class AnalyticsController
 
         $params = $req->getQueryParams();
         [$fromDate, $toDate] = $this->resolveDateRange($params);
+        $queryToDate = date('Y-m-d', strtotime('+1 day', strtotime($toDate)));
 
-        $primaryMetrics = $this->computePublicationMetrics($f, $fromDate, $toDate);
+        $primaryMetrics = $this->computePublicationMetrics($f, $fromDate, $queryToDate);
 
         // Optional Publication Comparison
         $comparison = null;
         if (!empty($params['compareId'])) {
             $compBook = Db::one('SELECT * FROM flipbooks WHERE id = ?', [(int) $params['compareId']]);
             if ($compBook && TenantContext::canAccessFlipbook($compBook)) {
-                $comparison = $this->computePublicationMetrics($compBook, $fromDate, $toDate);
+                $comparison = $this->computePublicationMetrics($compBook, $fromDate, $queryToDate);
             }
         }
 
         // Peer publications in tenant workspace for comparison selector
         $tenantId = TenantContext::id();
         $peers = $tenantId !== null
-            ? Db::all('SELECT id, title, slug, page_count FROM flipbooks WHERE tenant_id = ? ORDER BY title ASC', [$tenantId])
+            ? Db::all('SELECT id, title, slug, page_count FROM flipbooks WHERE tenant_id = ? OR (tenant_id IS NULL AND user_id = ?) ORDER BY title ASC', [$tenantId, $u['id']])
             : Db::all('SELECT id, title, slug, page_count FROM flipbooks WHERE user_id = ? ORDER BY title ASC', [$u['id']]);
 
         return Http::json($res, $primaryMetrics + [
@@ -82,15 +84,17 @@ final class AnalyticsController
      */
     public function tenantDashboard(Request $req, Response $res): Response
     {
+        PublicController::ensureAnalyticsSchema();
         $u = $req->getAttribute('user');
         Rbac::authorize($u, 'analytics.view');
 
         $params = $req->getQueryParams();
         [$fromDate, $toDate] = $this->resolveDateRange($params);
+        $queryToDate = date('Y-m-d', strtotime('+1 day', strtotime($toDate)));
         $tenantId = TenantContext::id();
 
-        $scopeWhere = $tenantId !== null ? 'f.tenant_id = ?' : 'f.user_id = ?';
-        $scopeBind = $tenantId ?? $u['id'];
+        $scopeWhere = $tenantId !== null ? '(f.tenant_id = ? OR (f.tenant_id IS NULL AND f.user_id = ?))' : 'f.user_id = ?';
+        $scopeBinds = $tenantId !== null ? [$tenantId, $u['id']] : [$u['id']];
 
         $kpis = Db::one(
             "SELECT COUNT(v.id) AS total_views,
@@ -100,7 +104,7 @@ final class AnalyticsController
              FROM flipbooks f
              LEFT JOIN views v ON v.flipbook_id = f.id AND DATE(v.created_at) BETWEEN ? AND ?
              WHERE {$scopeWhere}",
-            [$fromDate, $toDate, $scopeBind]
+            [$fromDate, $queryToDate, ...$scopeBinds]
         );
 
         $evCounts = Db::all(
@@ -109,7 +113,7 @@ final class AnalyticsController
              JOIN flipbooks f ON f.id = e.flipbook_id
              WHERE {$scopeWhere} AND DATE(e.created_at) BETWEEN ? AND ?
              GROUP BY e.event_type",
-            [$scopeBind, $fromDate, $toDate]
+            [...$scopeBinds, $fromDate, $queryToDate]
         );
         $evMap = [];
         foreach ($evCounts as $row) {
@@ -127,7 +131,7 @@ final class AnalyticsController
              WHERE {$scopeWhere}
              GROUP BY f.id
              ORDER BY views DESC, f.id DESC",
-            [$fromDate, $toDate, $scopeBind]
+            [$fromDate, $queryToDate, ...$scopeBinds]
         );
 
         $totalViews = (int) ($kpis['total_views'] ?? 0);
@@ -457,6 +461,24 @@ final class AnalyticsController
         $uniqueReaders = (int) ($counts['unique_readers'] ?? 0);
         $avgReadingTimeSeconds = (int) round((float) ($counts['avg_duration'] ?? 0));
         $completedViews = (int) ($counts['completed_views'] ?? 0);
+
+        // Fallback: if views table had 0 rows but analytics_events has page_view sessions, synthesize from events
+        if ($totalViews === 0) {
+            $evFallback = Db::one(
+                "SELECT COUNT(DISTINCT COALESCE(session_id, visitor_hash)) AS sessions,
+                        COUNT(DISTINCT visitor_hash) AS readers,
+                        COALESCE(SUM(duration_ms), 0) AS total_ms
+                 FROM analytics_events
+                 WHERE flipbook_id = ? AND event_type = 'page_view' AND DATE(created_at) BETWEEN ? AND ?",
+                [$fid, $fromDate, $toDate]
+            );
+            if ($evFallback && (int) ($evFallback['sessions'] ?? 0) > 0) {
+                $totalViews = (int) $evFallback['sessions'];
+                $uniqueReaders = max(1, (int) $evFallback['readers']);
+                $avgReadingTimeSeconds = max(3, (int) round(((float) $evFallback['total_ms'] / 1000) / $totalViews));
+            }
+        }
+
         $completionRate = $totalViews > 0 ? round(($completedViews / $totalViews) * 100, 1) : 0.0;
 
         // 2. Daily Views Time-Series

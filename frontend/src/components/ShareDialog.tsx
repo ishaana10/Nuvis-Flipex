@@ -27,7 +27,7 @@ export default function ShareDialog({
 }) {
   const [activeTab, setActiveTab] = useState<'link' | 'embed' | 'qr' | 'access'>('link');
   const [published, setPublished] = useState(
-    flipbook.published || flipbook.workflowStatus === 'published'
+    flipbook.published || flipbook.workflowStatus === 'published' || flipbook.status === 'ready'
   );
   const [visibility, setVisibility] = useState<'public' | 'unlisted' | 'password'>(
     flipbook.visibility
@@ -80,20 +80,22 @@ export default function ShareDialog({
     });
   };
 
-  const save = async () => {
+  const save = async (forcePublished?: boolean) => {
+    const nextPublished = typeof forcePublished === 'boolean' ? forcePublished : published;
     setMsg('');
     setErr('');
     setSaving(true);
     try {
       await api(`/flipbooks/${flipbook.id}`, 'PATCH', {
-        published,
-        workflowStatus: published ? 'published' : 'editing',
+        published: nextPublished,
+        workflowStatus: nextPublished ? 'published' : 'editing',
         visibility,
         slug: customSlug.trim() || flipbook.slug,
         publicSlug: customSlug.trim() || flipbook.publicSlug || flipbook.slug,
         ...(password ? { password } : {}),
       });
-      setMsg('Sharing & access settings saved!');
+      setPublished(nextPublished);
+      setMsg(nextPublished ? 'Publication published & sharing settings saved!' : 'Sharing & access settings saved!');
       setPassword('');
       onSaved();
     } catch (e: any) {
@@ -199,13 +201,22 @@ export default function ShareDialog({
               <Button
                 size="sm"
                 variant="primary"
-                onClick={() => {
-                  setPublished(true);
-                  setTimeout(save, 10);
-                }}
+                disabled={saving}
+                onClick={() => save(true)}
               >
-                Publish Now
+                {saving ? 'Publishing…' : 'Publish Now'}
               </Button>
+            </div>
+          )}
+
+          {msg && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              ✓ {msg}
+            </div>
+          )}
+          {err && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400">
+              {err}
             </div>
           )}
 
@@ -299,7 +310,7 @@ export default function ShareDialog({
                   <Button
                     size="sm"
                     variant="primary"
-                    onClick={save}
+                    onClick={() => save(true)}
                     disabled={saving || !customSlug.trim()}
                   >
                     {saving ? 'Saving…' : 'Update Slug'}
@@ -606,11 +617,8 @@ export default function ShareDialog({
                 </div>
               )}
 
-              {msg && <p className="text-xs font-semibold text-emerald-600">{msg}</p>}
-              {err && <p className="text-xs font-semibold text-red-500">{err}</p>}
-
               <div className="flex justify-end pt-2">
-                <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+                <Button variant="primary" size="sm" onClick={() => save()} disabled={saving}>
                   {saving ? 'Saving…' : 'Save Access Settings'}
                 </Button>
               </div>

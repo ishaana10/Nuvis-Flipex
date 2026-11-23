@@ -15,6 +15,9 @@ interface FlipbookDetails {
   description?: string;
   tenantName?: string;
   slug: string;
+  publicSlug?: string;
+  companySlug?: string;
+  canonicalUrl?: string;
   visibility?: 'public' | 'unlisted' | 'password';
   settings?: ViewerSettings;
   toc?: TocItem[];
@@ -27,11 +30,22 @@ export default function Preview() {
   const [hotspots, setHotspots] = useState<Record<number, ViewerHotspot[]>>({});
   const [showCustomize, setShowCustomize] = useState(false);
   const [error, setError] = useState('');
+  const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).slice(2, 12));
 
   const loadPreview = useCallback(() => {
     api<FlipbookDetails>(`/flipbooks/${id}`)
       .then((d) => {
         setData(d);
+        if (d?.slug) {
+          fetch(`/api/v1/public/${encodeURIComponent(d.slug)}/view`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              referrer: document.referrer || 'Dashboard Preview',
+            }),
+          }).catch(() => {});
+        }
         api<ViewerHotspot[]>(`/flipbooks/${id}/hotspots`).then((list) => {
           const grouped: Record<number, ViewerHotspot[]> = {};
           for (const h of list) {
@@ -43,7 +57,7 @@ export default function Preview() {
         });
       })
       .catch((err) => setError(err.message || 'Failed to load preview'));
-  }, [id]);
+  }, [id, sessionId]);
 
   useEffect(() => {
     loadPreview();
@@ -75,7 +89,12 @@ export default function Preview() {
             <span>🎨</span>
             <span>Interactive Page Designer</span>
           </Link>
-          <a href={`/v/${data.slug}`} target="_blank" rel="noreferrer" className="btn-pub-outline">
+          <a
+            href={data.canonicalUrl || `/v/${data.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-pub-outline"
+          >
             <span>Open Reader Link</span>
             <span>↗</span>
           </a>
@@ -91,6 +110,8 @@ export default function Preview() {
         settings={data.settings}
         hotspots={hotspots}
         toc={data.toc}
+        enableTelemetry={true}
+        sessionId={sessionId}
       />
 
       {showCustomize && (

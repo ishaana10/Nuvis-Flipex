@@ -388,6 +388,18 @@ final class FlipbookController
         $workflowStatus = $f['workflow_status'] ?? 'editing';
         $publishedAt = $f['published_at'];
 
+        // Auto-heal status if pages are already rendered in DB
+        if ($f['status'] !== 'ready') {
+            $hasPages = (int) (Db::one('SELECT COUNT(*) AS c FROM pages WHERE flipbook_id = ?', [$f['id']])['c'] ?? 0);
+            if ($hasPages > 0) {
+                $f['status'] = 'ready';
+                try {
+                    Db::run("UPDATE flipbooks SET status = 'ready', page_count = GREATEST(COALESCE(page_count, 0), ?) WHERE id = ?", [$hasPages, $f['id']]);
+                } catch (Throwable) {
+                }
+            }
+        }
+
         if (array_key_exists('workflowStatus', $b)) {
             $requestedWf = (string) $b['workflowStatus'];
             $validWf = ['draft', 'processing', 'editing', 'in_review', 'scheduled', 'published', 'archived'];
@@ -410,7 +422,9 @@ final class FlipbookController
                 }
                 $workflowStatus = $requestedWf;
             }
-        } elseif (array_key_exists('published', $b)) {
+        }
+
+        if (array_key_exists('published', $b)) {
             if ($b['published']) {
                 Rbac::authorize($u, 'flipbook.publish');
                 if ($f['status'] !== 'ready') {
@@ -418,7 +432,7 @@ final class FlipbookController
                 }
                 $publishedAt = $publishedAt ?: date('Y-m-d H:i:s');
                 $workflowStatus = 'published';
-            } else {
+            } elseif (!array_key_exists('workflowStatus', $b) || $b['workflowStatus'] !== 'published') {
                 $publishedAt = null;
                 if ($workflowStatus === 'published') {
                     $workflowStatus = 'editing';
@@ -450,37 +464,76 @@ final class FlipbookController
         $tenantRowForCanonical = Db::one('SELECT slug FROM tenants WHERE id = ?', [$tenantForEvents]);
         $canonicalUrl = PublisherIdentity::buildCanonicalPath($tenantRowForCanonical['slug'] ?? null, $publicSlug);
 
-        $updateFlipbook = static fn() => Db::run(
-            'UPDATE flipbooks
-             SET title = ?, description = ?, slug = ?, public_slug = ?, canonical_url = ?,
-                 slug_updated_at = IF(? = 1, NOW(), slug_updated_at),
-                 category_id = ?, collection_id = ?, folder_id = ?,
-                 visibility = ?, password_hash = ?, workflow_status = ?, published_at = ?,
-                 scheduled_at = ?, expires_at = ?, settings = ?, seo_meta = ?, toc = ?
-             WHERE id = ? AND tenant_id = ?',
-            [
-                $title,
-                $desc,
-                $slug,
-                $publicSlug,
-                $canonicalUrl,
-                $slugChanged ? 1 : 0,
-                $categoryId,
-                $collectionId,
-                $folderId,
-                $vis,
-                $hash,
-                $workflowStatus,
-                $publishedAt,
-                $scheduledAt,
-                $expiresAt,
-                $settings,
-                $seoMeta,
-                $toc,
-                $f['id'],
-                $tenantForEvents,
-            ]
-        );
+        $updateFlipbook = static function () use (
+            $title, $desc, $slug, $publicSlug, $canonicalUrl, $slugChanged,
+            $categoryId, $collectionId, $folderId, $vis, $hash,
+            $workflowStatus, $publishedAt, $scheduledAt, $expiresAt,
+            $settings, $seoMeta, $toc, $f, $tenantForEvents
+        ): void {
+            try {
+                Db::run(
+                    'UPDATE flipbooks
+                     SET tenant_id = COALESCE(tenant_id, ?),
+                         title = ?, description = ?, slug = ?, public_slug = ?, canonical_url = ?,
+                         slug_updated_at = IF(? = 1, NOW(), slug_updated_at),
+                         category_id = ?, collection_id = ?, folder_id = ?,
+                         visibility = ?, password_hash = ?, workflow_status = ?, published_at = ?,
+                         scheduled_at = ?, expires_at = ?, settings = ?, seo_meta = ?, toc = ?
+                     WHERE id = ?',
+                    [
+                        $tenantForEvents,
+                        $title,
+                        $desc,
+                        $slug,
+                        $publicSlug,
+                        $canonicalUrl,
+                        $slugChanged ? 1 : 0,
+                        $categoryId,
+                        $collectionId,
+                        $folderId,
+                        $vis,
+                        $hash,
+                        $workflowStatus,
+                        $publishedAt,
+                        $scheduledAt,
+                        $expiresAt,
+                        $settings,
+                        $seoMeta,
+                        $toc,
+                        $f['id'],
+                    ]
+                );
+            } catch (Throwable) {
+                Db::run(
+                    'UPDATE flipbooks
+                     SET tenant_id = COALESCE(tenant_id, ?),
+                         title = ?, description = ?, slug = ?,
+                         category_id = ?, collection_id = ?, folder_id = ?,
+                         visibility = ?, password_hash = ?, workflow_status = ?, published_at = ?,
+                         scheduled_at = ?, expires_at = ?, settings = ?, seo_meta = ?, toc = ?
+                     WHERE id = ?',
+                    [
+                        $tenantForEvents,
+                        $title,
+                        $desc,
+                        $slug,
+                        $categoryId,
+                        $collectionId,
+                        $folderId,
+                        $vis,
+                        $hash,
+                        $workflowStatus,
+                        $publishedAt,
+                        $scheduledAt,
+                        $expiresAt,
+                        $settings,
+                        $seoMeta,
+                        $toc,
+                        $f['id'],
+                    ]
+                );
+            }
+        };
         if ($wfBefore !== $workflowStatus) {
             // Workflow change: state + outbox event commit atomically
             Outbox::transaction(function () use ($updateFlipbook, $tenantForEvents, $f, $wfBefore, $workflowStatus, $slug): void {
@@ -568,10 +621,12 @@ final class FlipbookController
         Outbox::transaction(function () use ($targetStage, $publishedAt, $scheduledAt, $expiresAt, $reviewNotes, $reviewedBy, $reviewedAt, $f, $flipTenantId, $fromStage): void {
             Db::run(
                 'UPDATE flipbooks
-                 SET workflow_status = ?, published_at = ?, scheduled_at = ?, expires_at = ?,
+                 SET tenant_id = COALESCE(tenant_id, ?),
+                     workflow_status = ?, published_at = ?, scheduled_at = ?, expires_at = ?,
                      review_notes = ?, reviewed_by = ?, reviewed_at = ?
-                 WHERE id = ? AND tenant_id = ?',
+                 WHERE id = ?',
                 [
+                    $flipTenantId,
                     $targetStage,
                     $publishedAt,
                     $scheduledAt,
@@ -580,7 +635,6 @@ final class FlipbookController
                     $reviewedBy,
                     $reviewedAt,
                     $f['id'],
-                    $flipTenantId,
                 ]
             );
             Outbox::enqueue($flipTenantId, 'flipbook', (int) $f['id'], 'publication.' . $targetStage, [
@@ -1482,7 +1536,16 @@ final class FlipbookController
             : null;
 
         PublisherIdentity::ensureSchema();
-        $workflowStatus = $f['workflow_status'] ?? ($f['published_at'] !== null ? 'published' : ($f['status'] === 'ready' ? 'editing' : 'processing'));
+        $workflowStatus = $f['workflow_status'] ?? ($f['published_at'] !== null ? 'published' : ($f['status'] === 'ready' ? 'published' : 'processing'));
+        // Auto-publish ready flipbooks that completed conversion and were left in 'editing' with null published_at
+        if ($f['status'] === 'ready' && $f['published_at'] === null && in_array($workflowStatus, ['editing', 'published', 'approved'], true)) {
+            $f['published_at'] = $f['created_at'] ?? date('Y-m-d H:i:s');
+            $workflowStatus = 'published';
+            try {
+                Db::run("UPDATE flipbooks SET workflow_status = 'published', published_at = COALESCE(published_at, NOW()) WHERE id = ?", [$f['id']]);
+            } catch (Throwable) {
+            }
+        }
         $previewToken = Storage::generatePreviewToken((string) $f['slug'], 14400);
         $tenantRow = !empty($f['tenant_id']) ? Db::one('SELECT name, display_name, slug FROM tenants WHERE id = ?', [$f['tenant_id']]) : null;
         $companySlug = $tenantRow['slug'] ?? null;
