@@ -110,6 +110,27 @@ export default function Settings() {
   const [storefrontMsg, setStorefrontMsg] = useState('');
   const [storefrontBusy, setStorefrontBusy] = useState(false);
   const [copiedStorefrontLink, setCopiedStorefrontLink] = useState(false);
+  const [domainVerifying, setDomainVerifying] = useState(false);
+  const [domainVerifyResult, setDomainVerifyResult] = useState<{ verified?: boolean; reason?: string } | null>(null);
+
+  const handleVerifyCustomDomain = async () => {
+    if (!storefront.customDomain) return;
+    setDomainVerifying(true);
+    setDomainVerifyResult(null);
+    try {
+      const res = await api<any>('/biz/settings/verify-domain', 'POST', {
+        customDomain: storefront.customDomain,
+      });
+      setDomainVerifyResult({ verified: res.verified, reason: res.reason });
+      if (res.verified) {
+        setStorefront((prev) => ({ ...prev, customDomainVerified: true }));
+      }
+    } catch (e: any) {
+      setDomainVerifyResult({ verified: false, reason: e.message || 'DNS verification request failed.' });
+    } finally {
+      setDomainVerifying(false);
+    }
+  };
 
   useEffect(() => {
     api<any>('/me').then((d) => {
@@ -987,9 +1008,32 @@ export default function Settings() {
                 />
                 {storefront.customDomain && (
                   <div style={{ marginTop: 6, padding: '8px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border-color)', fontSize: 11 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 2 }}>Required DNS Records for <code>{storefront.customDomain}</code>:</div>
-                    <div>1. <b>CNAME</b> → <code>{window.location.hostname}</code></div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <div style={{ fontWeight: 700 }}>Required DNS Records for <code>{storefront.customDomain}</code>:</div>
+                      {storefront.customDomainVerified ? (
+                        <span className="boardui-badge boardui-badge-success" style={{ fontSize: 10 }}>✓ DNS Verified</span>
+                      ) : (
+                        <span className="boardui-badge boardui-badge-warning" style={{ fontSize: 10 }}>⏳ Pending DNS</span>
+                      )}
+                    </div>
+                    <div>1. <b>CNAME</b> → <code>flipex.ict-fj.com</code></div>
                     <div>2. <b>TXT (_flipex-verify)</b> → <code>{storefront.customDomainTxt || 'flipex-verify=pending'}</code></div>
+                    <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={handleVerifyCustomDomain}
+                        disabled={domainVerifying}
+                        className="boardui-btn boardui-btn-sm"
+                        style={{ fontSize: 11, padding: '4px 8px' }}
+                      >
+                        {domainVerifying ? 'Checking DNS…' : '⚡ Verify DNS Now'}
+                      </button>
+                      {domainVerifyResult && (
+                        <span style={{ fontSize: 11, color: domainVerifyResult.verified ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                          {domainVerifyResult.reason}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

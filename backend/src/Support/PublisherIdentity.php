@@ -147,7 +147,7 @@ final class PublisherIdentity
     }
 
     /**
-     * Validate a company slug and check if it is available (not reserved and not used by another tenant).
+     * Validate a company slug and check if it is available (not reserved and not used by another tenant or historical redirect).
      *
      * @return array{valid: bool, available: bool, slug: string, reason?: string, suggestion?: string}
      */
@@ -165,6 +165,15 @@ final class PublisherIdentity
             ];
         }
 
+        if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {
+            return [
+                'valid' => false,
+                'available' => false,
+                'slug' => $slug,
+                'reason' => 'Company URL name can only contain lowercase alphanumeric characters and single hyphens.',
+            ];
+        }
+
         if (in_array($slug, self::RESERVED_SLUGS, true)) {
             $suggestion = $slug . '-official';
             return [
@@ -176,12 +185,16 @@ final class PublisherIdentity
             ];
         }
 
-        // Check tenants table
-        $existingTenant = $excludeTenantId
-            ? Db::one('SELECT id FROM tenants WHERE slug = ? AND id != ?', [$slug, $excludeTenantId])
-            : Db::one('SELECT id FROM tenants WHERE slug = ?', [$slug]);
+        // 1. Check tenants table
+        $existingTenant = null;
+        try {
+            $existingTenant = $excludeTenantId
+                ? Db::one('SELECT id FROM tenants WHERE slug = ? AND id != ?', [$slug, $excludeTenantId])
+                : Db::one('SELECT id FROM tenants WHERE slug = ?', [$slug]);
+        } catch (Throwable) {
+        }
 
-        // Also check tenant_storefronts table
+        // 2. Check tenant_storefronts table
         $existingStorefront = null;
         try {
             $existingStorefront = $excludeTenantId
@@ -190,16 +203,28 @@ final class PublisherIdentity
         } catch (Throwable) {
         }
 
-        if ($existingTenant || $existingStorefront) {
+        // 3. Check slug_redirects table (anti-squatting / preserve redirects for other tenants)
+        $existingRedirect = null;
+        try {
+            $existingRedirect = $excludeTenantId
+                ? Db::one("SELECT id, entity_id FROM slug_redirects WHERE entity_type = 'tenant' AND old_slug = ? AND entity_id != ? LIMIT 1", [$slug, $excludeTenantId])
+                : Db::one("SELECT id, entity_id FROM slug_redirects WHERE entity_type = 'tenant' AND old_slug = ? LIMIT 1", [$slug]);
+        } catch (Throwable) {
+        }
+
+        if ($existingTenant || $existingStorefront || $existingRedirect) {
             $suggestion = $slug . '-fj';
             if (Db::one('SELECT id FROM tenants WHERE slug = ?', [$suggestion])) {
                 $suggestion = $slug . '-' . random_int(10, 99);
             }
+            $reason = $existingRedirect && !$existingTenant && !$existingStorefront
+                ? 'This company URL name was previously used and is reserved for redirects.'
+                : 'This company URL name is already taken.';
             return [
                 'valid' => true,
                 'available' => false,
                 'slug' => $slug,
-                'reason' => 'This company URL name is already taken.',
+                'reason' => $reason,
                 'suggestion' => $suggestion,
             ];
         }
@@ -212,7 +237,8 @@ final class PublisherIdentity
     }
 
     /**
-     * Resolve a tenant by company slug (checking active tenants, storefronts, and historical redirects).
+     * Resolve a tenant by company slug (strictly checking active tenants, storefronts, and historical redirects).
+     * Unknown or fuzzy slugs strictly return null / 404 without guessing.
      *
      * @return array{tenant: ?array, redirectedFrom: ?string}
      */
@@ -225,9 +251,12 @@ final class PublisherIdentity
         }
 
         // 1. Direct match on tenants.slug
-        $tenant = Db::one('SELECT * FROM tenants WHERE slug = ? LIMIT 1', [$slug]);
-        if ($tenant) {
-            return ['tenant' => $tenant, 'redirectedFrom' => null];
+        try {
+            $tenant = Db::one('SELECT * FROM tenants WHERE slug = ? LIMIT 1', [$slug]);
+            if ($tenant) {
+                return ['tenant' => $tenant, 'redirectedFrom' => null];
+            }
+        } catch (Throwable) {
         }
 
         // 2. Match on tenant_storefronts.slug
@@ -257,58 +286,161 @@ final class PublisherIdentity
         } catch (Throwable) {
         }
 
-        // 4. Numeric or biz-{id} direct identifier match
-        if (preg_match('/^(?:biz-)?(\d+)$/', $slug, $m)) {
+        // Strict 404 on all other inputs (no guessing, fuzzy matching, or single-tenant fallback)
+        return ['tenant' => null, 'redirectedFrom' => null];
+    }
+
+    /**
+     * Atomically change a company's URL slug, creating a historical redirect
+     * and updating all dependent publication canonical URLs within a single transaction.
+     *
+     * @return array{success: bool, oldSlug: string, newSlug: string, reason?: string}
+     */
+    public static function changeCompanySlug(int $tenantId, string $rawNewSlug, ?int $userId = null): array
+    {
+        self::ensureSchema();
+        $pdo = Db::pdo();
+
+        $avail = self::checkCompanySlugAvailability($rawNewSlug, $tenantId);
+        if (!$avail['available']) {
+            return [
+                'success' => false,
+                'oldSlug' => '',
+                'newSlug' => $avail['slug'],
+                'reason' => $avail['reason'] ?? 'Slug is not available.',
+            ];
+        }
+
+        $newSlug = $avail['slug'];
+
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('SELECT id, slug FROM tenants WHERE id = ? FOR UPDATE');
+            $stmt->execute([$tenantId]);
+            $tenant = $stmt->fetch();
+            if (!$tenant) {
+                $pdo->rollBack();
+                return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'reason' => 'Tenant not found.'];
+            }
+
+            $oldSlug = strtolower(trim((string) ($tenant['slug'] ?? '')));
+            if ($oldSlug === $newSlug) {
+                $pdo->commit();
+                return ['success' => true, 'oldSlug' => $oldSlug, 'newSlug' => $newSlug];
+            }
+
+            // 1. Record historical redirect if old slug was set
+            if ($oldSlug !== '') {
+                $ins = $pdo->prepare("
+                    INSERT INTO slug_redirects (entity_type, entity_id, tenant_id, old_slug, new_slug, created_at)
+                    VALUES ('tenant', ?, ?, ?, ?, NOW())
+                ");
+                $ins->execute([$tenantId, $tenantId, $oldSlug, $newSlug]);
+            }
+
+            // 2. Update tenants table
+            $updT = $pdo->prepare('UPDATE tenants SET slug = ?, slug_updated_at = NOW() WHERE id = ?');
+            $updT->execute([$newSlug, $tenantId]);
+
+            // 3. Sync tenant_storefronts table
             try {
-                $tenant = Db::one('SELECT * FROM tenants WHERE id = ? LIMIT 1', [(int) $m[1]]);
-                if ($tenant) {
-                    return ['tenant' => $tenant, 'redirectedFrom' => null];
-                }
+                $updS = $pdo->prepare('UPDATE tenant_storefronts SET slug = ? WHERE tenant_id = ?');
+                $updS->execute([$newSlug, $tenantId]);
             } catch (Throwable) {
             }
+
+            // 4. Update canonical URLs for all flipbooks belonging to this tenant
+            $updFb = $pdo->prepare("
+                UPDATE flipbooks
+                SET canonical_url = CONCAT('/', ?, '/docs/', COALESCE(NULLIF(public_slug, ''), slug))
+                WHERE tenant_id = ?
+            ");
+            $updFb->execute([$newSlug, $tenantId]);
+
+            $pdo->commit();
+            return ['success' => true, 'oldSlug' => $oldSlug, 'newSlug' => $newSlug];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('PublisherIdentity::changeCompanySlug error: ' . $e->getMessage());
+            return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'reason' => 'Database error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Atomically change a publication's public slug within a tenant, creating a historical redirect.
+     *
+     * @return array{success: bool, oldSlug: string, newSlug: string, canonicalUrl: string, reason?: string}
+     */
+    public static function changePublicationSlug(int $tenantId, int $flipbookId, string $rawNewSlug): array
+    {
+        self::ensureSchema();
+        $pdo = Db::pdo();
+        $newSlug = self::sanitizeSlug($rawNewSlug, 80);
+
+        if (strlen($newSlug) < 2) {
+            return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'canonicalUrl' => '', 'reason' => 'Publication slug must be at least 2 characters.'];
         }
 
-        // 5. Intelligent match against company name or display_name
+        if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $newSlug)) {
+            return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'canonicalUrl' => '', 'reason' => 'Publication slug can only contain lowercase alphanumeric characters and hyphens.'];
+        }
+
+        $pdo->beginTransaction();
         try {
-            $allTenants = Db::all('SELECT id, name, slug FROM tenants');
-            foreach ($allTenants as $tRow) {
-                $candSlug = self::sanitizeSlug((string) ($tRow['slug'] ?? ''));
-                $candName = self::sanitizeSlug((string) ($tRow['name'] ?? ''));
-                if ($slug === $candSlug || $slug === $candName) {
-                    $tenant = Db::one('SELECT * FROM tenants WHERE id = ? LIMIT 1', [$tRow['id']]);
-                    if ($tenant) {
-                        return ['tenant' => $tenant, 'redirectedFrom' => $slug !== $candSlug ? $slug : null];
-                    }
-                }
+            $stmt = $pdo->prepare('SELECT id, tenant_id, slug, public_slug FROM flipbooks WHERE id = ? AND tenant_id = ? FOR UPDATE');
+            $stmt->execute([$flipbookId, $tenantId]);
+            $fb = $stmt->fetch();
+            if (!$fb) {
+                $pdo->rollBack();
+                return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'canonicalUrl' => '', 'reason' => 'Publication not found.'];
             }
 
-            // 6. Fuzzy prefix / substring matching (e.g. nuvis-flipex matching Nuvis Flipex Corp or vice-versa)
-            foreach ($allTenants as $tRow) {
-                $cands = array_filter([
-                    self::sanitizeSlug((string) ($tRow['slug'] ?? '')),
-                    self::sanitizeSlug((string) ($tRow['name'] ?? '')),
-                ]);
-                foreach ($cands as $cand) {
-                    if (strlen($cand) >= 3 && (str_starts_with($slug, $cand) || str_starts_with($cand, $slug))) {
-                        $tenant = Db::one('SELECT * FROM tenants WHERE id = ? LIMIT 1', [$tRow['id']]);
-                        if ($tenant) {
-                            return ['tenant' => $tenant, 'redirectedFrom' => $slug];
-                        }
-                    }
-                }
+            // Check if slug is taken by another publication of this tenant
+            $chk = $pdo->prepare('SELECT id FROM flipbooks WHERE tenant_id = ? AND (public_slug = ? OR slug = ?) AND id != ?');
+            $chk->execute([$tenantId, $newSlug, $newSlug, $flipbookId]);
+            if ($chk->fetch()) {
+                $pdo->rollBack();
+                return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'canonicalUrl' => '', 'reason' => 'A publication with this URL name already exists in your account.'];
             }
 
-            // 7. Generic fallback for single tenant / default placeholders (e.g. /yourcompanyname, /company)
-            if (in_array($slug, ['yourcompanyname', 'company', 'profile', 'business', 'default'], true) || count($allTenants) === 1) {
-                $tenant = Db::one('SELECT * FROM tenants WHERE is_active = 1 ORDER BY id ASC LIMIT 1');
-                if ($tenant) {
-                    return ['tenant' => $tenant, 'redirectedFrom' => $slug];
-                }
+            // Check slug_redirects within this tenant
+            $chkRedir = $pdo->prepare("SELECT id, entity_id FROM slug_redirects WHERE entity_type = 'flipbook' AND tenant_id = ? AND old_slug = ? AND entity_id != ?");
+            $chkRedir->execute([$tenantId, $newSlug, $flipbookId]);
+            if ($chkRedir->fetch()) {
+                $pdo->rollBack();
+                return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'canonicalUrl' => '', 'reason' => 'This publication URL was previously used and is reserved for redirects.'];
             }
-        } catch (Throwable) {
+
+            $oldSlug = (string) (!empty($fb['public_slug']) ? $fb['public_slug'] : $fb['slug']);
+            if ($oldSlug !== $newSlug && $oldSlug !== '') {
+                $ins = $pdo->prepare("
+                    INSERT INTO slug_redirects (entity_type, entity_id, tenant_id, old_slug, new_slug, created_at)
+                    VALUES ('flipbook', ?, ?, ?, ?, NOW())
+                ");
+                $ins->execute([$flipbookId, $tenantId, $oldSlug, $newSlug]);
+            }
+
+            // Get tenant slug for canonical_url
+            $tStmt = $pdo->prepare('SELECT slug FROM tenants WHERE id = ?');
+            $tStmt->execute([$tenantId]);
+            $tenant = $tStmt->fetch();
+            $tenantSlug = $tenant ? (string) $tenant['slug'] : '';
+            $canonicalUrl = self::buildCanonicalPath($tenantSlug, $newSlug);
+
+            $upd = $pdo->prepare('UPDATE flipbooks SET public_slug = ?, canonical_url = ?, slug_updated_at = NOW() WHERE id = ? AND tenant_id = ?');
+            $upd->execute([$newSlug, $canonicalUrl, $flipbookId, $tenantId]);
+
+            $pdo->commit();
+            return ['success' => true, 'oldSlug' => $oldSlug, 'newSlug' => $newSlug, 'canonicalUrl' => $canonicalUrl];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('PublisherIdentity::changePublicationSlug error: ' . $e->getMessage());
+            return ['success' => false, 'oldSlug' => '', 'newSlug' => $newSlug, 'canonicalUrl' => '', 'reason' => 'Database error: ' . $e->getMessage()];
         }
-
-        return ['tenant' => null, 'redirectedFrom' => null];
     }
 
     /**
@@ -325,10 +457,14 @@ final class PublisherIdentity
         }
 
         // 1. Direct match on public_slug or slug within this tenant
-        $f = Db::one(
-            'SELECT * FROM flipbooks WHERE tenant_id = ? AND (public_slug = ? OR slug = ?) LIMIT 1',
-            [$tenantId, $pubSlug, $pubSlug]
-        );
+        $f = null;
+        try {
+            $f = Db::one(
+                'SELECT * FROM flipbooks WHERE tenant_id = ? AND (public_slug = ? OR slug = ?) LIMIT 1',
+                [$tenantId, $pubSlug, $pubSlug]
+            );
+        } catch (Throwable) {
+        }
         if ($f) {
             return ['flipbook' => $f, 'redirectedFrom' => null];
         }

@@ -155,7 +155,7 @@ final class PublicController
             return Http::error($res, 'Company and publication slugs are required', 400);
         }
 
-        // 1. Resolve company slug
+        // 1. Resolve company slug (strictly by tenants.slug, tenant_storefronts.slug, or slug_redirects)
         $resolvedTenant = PublisherIdentity::resolveTenantBySlug($rawCompanySlug);
         $tenant = $resolvedTenant['tenant'];
         if (!$tenant) {
@@ -171,12 +171,17 @@ final class PublicController
             return Http::error($res, 'Publication not found for this publisher', 404);
         }
 
+        $canonicalTenantSlug = (string) $tenant['slug'];
+        $canonicalPubSlug = (string) (!empty($f['public_slug']) ? $f['public_slug'] : ($f['slug'] ?? ''));
+
         // Delegate to show() with verified slug and attach redirect notice if applicable
         return $this->show($req, $res, [
             'slug' => (string) $f['slug'],
             '_verifiedFlipbook' => $f,
             '_redirectedCompanyFrom' => $resolvedTenant['redirectedFrom'],
             '_redirectedPubFrom' => $resolvedPub['redirectedFrom'],
+            '_canonicalTenantSlug' => $canonicalTenantSlug,
+            '_canonicalPubSlug' => $canonicalPubSlug,
         ]);
     }
 
@@ -416,8 +421,25 @@ final class PublicController
         if ($companySlugArg !== '' && $pubSlugArg !== '') {
             $resTenant = PublisherIdentity::resolveTenantBySlug($companySlugArg);
             if ($resTenant['tenant']) {
-                $resPub = PublisherIdentity::resolvePublicationForTenant((int) $resTenant['tenant']['id'], $pubSlugArg);
+                $tenant = $resTenant['tenant'];
+                $resPub = PublisherIdentity::resolvePublicationForTenant((int) $tenant['id'], $pubSlugArg);
                 $f = $resPub['flipbook'];
+
+                if ($f) {
+                    $canonicalTenantSlug = (string) $tenant['slug'];
+                    $canonicalPubSlug = (string) (!empty($f['public_slug']) ? $f['public_slug'] : ($f['slug'] ?? ''));
+
+                    // Check if company slug or publication slug was redirected / non-canonical
+                    if ($resTenant['redirectedFrom'] !== null || $resPub['redirectedFrom'] !== null ||
+                        $companySlugArg !== $canonicalTenantSlug || $pubSlugArg !== $canonicalPubSlug) {
+                        $canonicalPath = "/{$canonicalTenantSlug}/docs/{$canonicalPubSlug}";
+                        $query = $req->getUri()->getQuery();
+                        if ($query !== '') {
+                            $canonicalPath .= '?' . $query;
+                        }
+                        return $res->withHeader('Location', $canonicalPath)->withStatus(301);
+                    }
+                }
             }
         }
         if (!$f && $slug !== '') {

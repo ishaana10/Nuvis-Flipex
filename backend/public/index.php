@@ -215,6 +215,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->group('/biz/settings', function (RouteCollectorProxy $bs) {
         $bs->get('', [CommercialController::class, 'getStorefrontSettings']);
         $bs->post('', [CommercialController::class, 'updateStorefrontSettings']);
+        $bs->post('/verify-domain', [CommercialController::class, 'verifyDomain']);
     })->add(new TenantScope())->add(new Auth());
 
     // Phase 4: Educational Institution Profile & Attached Lesson Resources
@@ -390,6 +391,7 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
 // Server-Side Rendered Reader Shell with OpenGraph Cover Page & Social Preview
 $app->get('/v/{slug}[/]', [PublicController::class, 'renderViewerHtml']);
 $app->get('/{companySlug}/docs/{publicationSlug}[/]', [PublicController::class, 'renderViewerHtml']);
+$app->get('/biz/{slug}[/]', [CommercialController::class, 'renderProfileHtml']);
 
 $app->run();
 

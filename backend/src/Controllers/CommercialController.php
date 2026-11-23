@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Support\Audit;
+use App\Support\CustomDomainService;
 use App\Support\Db;
 use App\Support\Http;
 use App\Support\PublisherIdentity;
@@ -671,6 +672,149 @@ final class CommercialController
             'slug' => $newSlug,
             'publicUrl' => "/{$newSlug}",
         ]);
+    }
+
+    /**
+     * Live DNS verification for tenant custom domain.
+     */
+    public function verifyDomain(Request $req, Response $res): Response
+    {
+        $u = $req->getAttribute('user');
+        $tenantId = TenantContext::id() ?? (!empty($u['tenant_id']) ? (int) $u['tenant_id'] : null);
+        if (!$tenantId) {
+            return Http::error($res, 'Tenant context required', 401);
+        }
+
+        $b = (array) ($req->getParsedBody() ?? []);
+        $domain = trim((string) ($b['customDomain'] ?? ''));
+
+        if ($domain === '') {
+            $tenant = Db::one('SELECT custom_domain FROM tenants WHERE id = ?', [$tenantId]);
+            $domain = (string) ($tenant['custom_domain'] ?? '');
+        }
+
+        if ($domain === '') {
+            return Http::error($res, 'Please provide a custom domain to verify', 400);
+        }
+
+        $result = CustomDomainService::verifyDns($tenantId, $domain);
+        return Http::json($res, $result);
+    }
+
+    /**
+     * Server-side rendered HTML profile shell with dynamic OpenGraph, Twitter Card & Schema.org JSON-LD.
+     * Issues real HTTP 301 redirects when accessed via historical company slug.
+     */
+    public function renderProfileHtml(Request $req, Response $res, array $args): Response
+    {
+        $rawSlug = trim((string) ($args['slug'] ?? $args['companySlug'] ?? ''));
+        if ($rawSlug === '' || in_array($rawSlug, PublisherIdentity::RESERVED_SLUGS, true)) {
+            return $this->serveSpaIndex($res);
+        }
+
+        $resolved = PublisherIdentity::resolveTenantBySlug($rawSlug);
+        $tenant = $resolved['tenant'];
+        if (!$tenant || (isset($tenant['public_profile_enabled']) && (int) $tenant['public_profile_enabled'] === 0)) {
+            return $this->serveSpaIndex($res, 404);
+        }
+
+        $canonicalSlug = (string) ($tenant['slug'] ?? $rawSlug);
+        if ($resolved['redirectedFrom'] !== null || $rawSlug !== $canonicalSlug) {
+            $target = "/{$canonicalSlug}";
+            $query = $req->getUri()->getQuery();
+            if ($query !== '') {
+                $target .= '?' . $query;
+            }
+            return $res->withHeader('Location', $target)->withStatus(301);
+        }
+
+        // Fetch storefront details for rich OpenGraph & Schema.org tags
+        $tenantId = (int) $tenant['id'];
+        $storefront = null;
+        try {
+            $storefront = Db::one('SELECT * FROM tenant_storefronts WHERE tenant_id = ? LIMIT 1', [$tenantId]);
+        } catch (\Throwable) {
+        }
+
+        $bizName = (string) (!empty($storefront['business_name']) ? $storefront['business_name'] : (!empty($tenant['display_name']) ? $tenant['display_name'] : ($tenant['name'] ?? 'Publisher')));
+        $tagline = (string) ($storefront['tagline'] ?? '');
+        $bio = (string) ($storefront['bio'] ?? "Browse official interactive publications, catalogues, and digital editions from {$bizName}.");
+        $logoUrl = (string) ($storefront['logo_url'] ?? '');
+        $bannerUrl = (string) ($storefront['banner_url'] ?? '');
+
+        // Determine Base URL
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ? 'https' : 'http';
+        $baseUrl = !empty($_SERVER['HTTP_HOST'])
+            ? "{$scheme}://{$_SERVER['HTTP_HOST']}"
+            : rtrim($_ENV['APP_URL'] ?? 'http://localhost:5173', '/');
+
+        $fullUrl = "{$baseUrl}/{$canonicalSlug}";
+        $shareImage = $bannerUrl !== '' ? $bannerUrl : ($logoUrl !== '' ? $logoUrl : "{$baseUrl}/branding/flipex-hero-cover.png");
+        if (str_starts_with($shareImage, '/')) {
+            $shareImage = "{$baseUrl}{$shareImage}";
+        }
+
+        // Read SPA HTML template
+        $htmlPath = realpath(__DIR__ . '/../../../frontend/dist/index.html');
+        if (!$htmlPath || !file_exists($htmlPath)) {
+            $htmlPath = realpath(__DIR__ . '/../../../frontend/index.html');
+        }
+        $html = ($htmlPath && file_exists($htmlPath))
+            ? (string) file_get_contents($htmlPath)
+            : '<!doctype html><html><head><meta charset="utf-8"><title>Nuvis Flipex</title></head><body><div id="root"></div></body></html>';
+
+        // Title and description
+        $pageTitle = htmlspecialchars("{$bizName} — Digital Publications & Catalogues | Nuvis Flipex", ENT_QUOTES, 'UTF-8');
+        $cleanDesc = htmlspecialchars(mb_strimwidth(strip_tags($tagline !== '' ? "{$tagline} — {$bio}" : $bio), 0, 190, '...'), ENT_QUOTES, 'UTF-8');
+
+        // Schema.org Organization JSON-LD
+        $schemaJson = json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => $bizName,
+            'url' => $fullUrl,
+            'logo' => $logoUrl !== '' ? (str_starts_with($logoUrl, '/') ? "{$baseUrl}{$logoUrl}" : $logoUrl) : null,
+            'description' => strip_tags($cleanDesc),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        // Inject meta tags into HTML head
+        $metaTags = "\n" . implode("\n    ", [
+            "<title>{$pageTitle}</title>",
+            "<meta name=\"description\" content=\"{$cleanDesc}\" />",
+            "<link rel=\"canonical\" href=\"{$fullUrl}\" />",
+            "<meta property=\"og:title\" content=\"{$pageTitle}\" />",
+            "<meta property=\"og:description\" content=\"{$cleanDesc}\" />",
+            "<meta property=\"og:image\" content=\"" . htmlspecialchars($shareImage, ENT_QUOTES, 'UTF-8') . "\" />",
+            "<meta property=\"og:url\" content=\"{$fullUrl}\" />",
+            "<meta property=\"og:type\" content=\"profile\" />",
+            "<meta property=\"og:site_name\" content=\"Nuvis Flipex\" />",
+            "<meta name=\"twitter:card\" content=\"summary_large_image\" />",
+            "<meta name=\"twitter:title\" content=\"{$pageTitle}\" />",
+            "<meta name=\"twitter:description\" content=\"{$cleanDesc}\" />",
+            "<meta name=\"twitter:image\" content=\"" . htmlspecialchars($shareImage, ENT_QUOTES, 'UTF-8') . "\" />",
+            "<script type=\"application/ld+json\">{$schemaJson}</script>",
+        ]) . "\n";
+
+        $html = preg_replace('/<title>.*?<\/title>/i', '', $html);
+        $html = str_replace('<head>', "<head>{$metaTags}", $html);
+
+        $res->getBody()->write($html);
+        return $res->withHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+
+    private function serveSpaIndex(Response $res, int $statusCode = 200): Response
+    {
+        $htmlPath = realpath(__DIR__ . '/../../../frontend/dist/index.html');
+        if (!$htmlPath || !file_exists($htmlPath)) {
+            $htmlPath = realpath(__DIR__ . '/../../../frontend/index.html');
+        }
+        $html = ($htmlPath && file_exists($htmlPath))
+            ? (string) file_get_contents($htmlPath)
+            : '<!doctype html><html><head><meta charset="utf-8"><title>Nuvis Flipex</title></head><body><div id="root"></div></body></html>';
+
+        $res->getBody()->write($html);
+        return $res->withHeader('Content-Type', 'text/html; charset=utf-8')->withStatus($statusCode);
     }
 
     private static bool $schemaEnsured = false;

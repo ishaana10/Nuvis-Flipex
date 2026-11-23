@@ -53,8 +53,8 @@ foreach (array_filter(array_map('trim', explode(";\n", $sql))) as $stmt) {
     }
 }
 
-// 2. Run incremental migration scripts (v2 - v8) safely
-foreach (['migrate_v2.php', 'migrate_v3.php', 'migrate_v4.php', 'migrate_v5.php', 'migrate_v6.php', 'migrate_v7.php', 'migrate_v8.php'] as $mig) {
+// 2. Run incremental migration scripts (v2 - v14) safely
+foreach (['migrate_v2.php', 'migrate_v3.php', 'migrate_v4.php', 'migrate_v5.php', 'migrate_v6.php', 'migrate_v7.php', 'migrate_v8.php', 'migrate_v9.php', 'migrate_v10.php', 'migrate_v11.php', 'migrate_v12.php', 'migrate_v13.php', 'migrate_v14.php'] as $mig) {
     $migFile = __DIR__ . '/' . $mig;
     if (file_exists($migFile)) {
         require_once $migFile;

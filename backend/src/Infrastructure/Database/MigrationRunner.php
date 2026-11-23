@@ -654,6 +654,25 @@ final class MigrationRunner
             'downSql' => 'DROP TABLE IF EXISTS studio_publications; DROP TABLE IF EXISTS studio_assets; DROP TABLE IF EXISTS studio_templates; DROP TABLE IF EXISTS studio_document_pages; DROP TABLE IF EXISTS studio_documents;',
             'reversible' => true,
         ],
+        '2026_11_24_000014_publisher_identity_and_branded_urls' => [
+            'description' => 'Branded URLs, slug redirects history, company identity, and composite unique publication slugs',
+            'upSql' => "
+                CREATE TABLE IF NOT EXISTS `slug_redirects` (
+                  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                  `entity_type` ENUM('tenant','flipbook') NOT NULL,
+                  `entity_id` BIGINT UNSIGNED NOT NULL,
+                  `tenant_id` BIGINT UNSIGNED NULL,
+                  `old_slug` VARCHAR(120) NOT NULL,
+                  `new_slug` VARCHAR(120) NOT NULL,
+                  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  INDEX `idx_redirect_lookup` (`entity_type`, `old_slug`),
+                  INDEX `idx_redirect_entity` (`entity_type`, `entity_id`),
+                  INDEX `idx_redirect_tenant_old` (`entity_type`, `tenant_id`, `old_slug`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ",
+            'downSql' => 'DROP TABLE IF EXISTS slug_redirects;',
+            'reversible' => true,
+        ],
     ];
 
     private static function executeStatements(string $sql): void

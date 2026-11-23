@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { api } from '../api/client';
 import type { Flipbook } from '../pages/Dashboard';
 import { Badge } from './ui/badge';
@@ -59,9 +60,28 @@ export default function ShareDialog({
   const companyProfileUrl = companySlug ? `${window.location.origin}/${companySlug}` : '';
   const shareUrl = startPage > 1 ? `${baseUrl}?page=${startPage}` : baseUrl;
   const coverUrl = `${window.location.origin}/api/v1/public/${flipbook.slug}/cover`;
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=12&data=${encodeURIComponent(
-    shareUrl
-  )}`;
+
+  // Local, secure QR Code state (no third-party data leakage)
+  const [localQrDataUrl, setLocalQrDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+    QRCode.toDataURL(shareUrl, {
+      width: 480,
+      margin: 2,
+      errorCorrectionLevel: 'H',
+      color: { dark: '#0f172a', light: '#ffffff' },
+    })
+      .then((dataUrl) => {
+        if (active) setLocalQrDataUrl(dataUrl);
+      })
+      .catch((e) => {
+        console.error('Failed to generate local QR code', e);
+      });
+    return () => {
+      active = false;
+    };
+  }, [shareUrl]);
 
   const iframeCode = `<iframe src="${shareUrl}" width="${embedWidth}" height="${embedHeight}" style="border:0; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.18);" allowfullscreen allow="fullscreen; autoplay"></iframe>`;
   const lightboxCode = `<a href="${shareUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;text-decoration:none;text-align:center;font-family:sans-serif;">
@@ -105,20 +125,44 @@ export default function ShareDialog({
     }
   };
 
-  const handleDownloadQr = async () => {
+  const handleDownloadQrPng = async () => {
     try {
-      const res = await fetch(qrImageUrl);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const highResDataUrl = await QRCode.toDataURL(shareUrl, {
+        width: 1024,
+        margin: 2,
+        errorCorrectionLevel: 'H',
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
       const a = document.createElement('a');
-      a.href = url;
+      a.href = highResDataUrl;
       a.download = `${customSlug || flipbook.slug}-qr-code.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
+    } catch (e) {
+      console.error('Failed to download PNG QR code', e);
+    }
+  };
+
+  const handleDownloadQrSvg = async () => {
+    try {
+      const svgString = await QRCode.toString(shareUrl, {
+        type: 'svg',
+        margin: 2,
+        errorCorrectionLevel: 'H',
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
+      const blob = new Blob([svgString], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${customSlug || flipbook.slug}-qr-code.svg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       URL.revokeObjectURL(url);
-    } catch {
-      window.open(qrImageUrl, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      console.error('Failed to download SVG QR code', e);
     }
   };
 
@@ -556,31 +600,39 @@ export default function ShareDialog({
           {activeTab === 'qr' && (
             <div className="flex flex-col items-center space-y-4 py-2 text-center">
               <div className="rounded-2xl border-2 border-amber-400/50 bg-white p-4 shadow-lg">
-                <img
-                  src={qrImageUrl}
-                  alt={`QR Code for ${flipbook.title}`}
-                  className="h-48 w-48 object-contain"
-                />
+                {localQrDataUrl ? (
+                  <img
+                    src={localQrDataUrl}
+                    alt={`QR Code for ${flipbook.title}`}
+                    className="h-48 w-48 object-contain"
+                  />
+                ) : (
+                  <div className="flex h-48 w-48 items-center justify-center text-xs text-slate-400">
+                    Generating local QR code…
+                  </div>
+                )}
               </div>
               <div className="max-w-sm space-y-1">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Print-Ready Mobile QR Code
+                  Local Print-Ready QR Code
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Place this QR code on printed brochures, store shelves, table tents, or business cards. Scanning opens{' '}
-                  <b>{flipbook.title}</b> immediately on any smartphone.
+                  Secure on-device generator. Scanning opens <b>{flipbook.title}</b> directly without third-party tracking.
                 </p>
               </div>
-              <div className="flex gap-2.5">
-                <Button size="sm" variant="primary" onClick={handleDownloadQr}>
-                  <Download className="h-3.5 w-3.5" /> Download High-Res PNG
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="sm" variant="primary" onClick={handleDownloadQrPng}>
+                  <Download className="h-3.5 w-3.5" /> High-Res PNG (1024px)
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleDownloadQrSvg}>
+                  <Download className="h-3.5 w-3.5" /> Vector SVG (Print)
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => copyText('qrLink', shareUrl)}
                 >
-                  {copiedField === 'qrLink' ? '✓ Link Copied' : 'Copy Target URL'}
+                  {copiedField === 'qrLink' ? '✓ Link Copied' : 'Copy URL'}
                 </Button>
               </div>
             </div>
