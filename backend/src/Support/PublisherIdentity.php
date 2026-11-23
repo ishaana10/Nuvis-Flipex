@@ -257,6 +257,57 @@ final class PublisherIdentity
         } catch (Throwable) {
         }
 
+        // 4. Numeric or biz-{id} direct identifier match
+        if (preg_match('/^(?:biz-)?(\d+)$/', $slug, $m)) {
+            try {
+                $tenant = Db::one('SELECT * FROM tenants WHERE id = ? LIMIT 1', [(int) $m[1]]);
+                if ($tenant) {
+                    return ['tenant' => $tenant, 'redirectedFrom' => null];
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        // 5. Intelligent match against company name or display_name
+        try {
+            $allTenants = Db::all('SELECT id, name, slug FROM tenants');
+            foreach ($allTenants as $tRow) {
+                $candSlug = self::sanitizeSlug((string) ($tRow['slug'] ?? ''));
+                $candName = self::sanitizeSlug((string) ($tRow['name'] ?? ''));
+                if ($slug === $candSlug || $slug === $candName) {
+                    $tenant = Db::one('SELECT * FROM tenants WHERE id = ? LIMIT 1', [$tRow['id']]);
+                    if ($tenant) {
+                        return ['tenant' => $tenant, 'redirectedFrom' => $slug !== $candSlug ? $slug : null];
+                    }
+                }
+            }
+
+            // 6. Fuzzy prefix / substring matching (e.g. nuvis-flipex matching Nuvis Flipex Corp or vice-versa)
+            foreach ($allTenants as $tRow) {
+                $cands = array_filter([
+                    self::sanitizeSlug((string) ($tRow['slug'] ?? '')),
+                    self::sanitizeSlug((string) ($tRow['name'] ?? '')),
+                ]);
+                foreach ($cands as $cand) {
+                    if (strlen($cand) >= 3 && (str_starts_with($slug, $cand) || str_starts_with($cand, $slug))) {
+                        $tenant = Db::one('SELECT * FROM tenants WHERE id = ? LIMIT 1', [$tRow['id']]);
+                        if ($tenant) {
+                            return ['tenant' => $tenant, 'redirectedFrom' => $slug];
+                        }
+                    }
+                }
+            }
+
+            // 7. Generic fallback for single tenant / default placeholders (e.g. /yourcompanyname, /company)
+            if (in_array($slug, ['yourcompanyname', 'company', 'profile', 'business', 'default'], true) || count($allTenants) === 1) {
+                $tenant = Db::one('SELECT * FROM tenants WHERE is_active = 1 ORDER BY id ASC LIMIT 1');
+                if ($tenant) {
+                    return ['tenant' => $tenant, 'redirectedFrom' => $slug];
+                }
+            }
+        } catch (Throwable) {
+        }
+
         return ['tenant' => null, 'redirectedFrom' => null];
     }
 

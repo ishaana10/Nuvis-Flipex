@@ -147,14 +147,20 @@ export default function PublicBusinessProfile() {
   }
 
   if (error || !storefront) {
+    const isServerError = error && (error.toLowerCase().includes('server') || error.toLowerCase().includes('unavailable') || error.toLowerCase().includes('failed'));
     return (
       <div className="bp bp-center">
         <div className="bp-state-card">
-          <h2>Publisher Not Found</h2>
+          <h2>{isServerError ? 'Temporary Connection Notice' : 'Publisher Not Found'}</h2>
           <p>{error || 'This publisher profile is not currently available.'}</p>
-          <Link to="/" className="bp-btn primary">
-            Return to Flipex
-          </Link>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '16px' }}>
+            <button type="button" onClick={() => window.location.reload()} className="bp-btn">
+              ↻ Refresh
+            </button>
+            <Link to="/" className="bp-btn primary">
+              Return to Flipex
+            </Link>
+          </div>
         </div>
       </div>
     );

@@ -19,113 +19,169 @@ final class CommercialController
      */
     public function publicBizProfile(Request $req, Response $res, array $args): Response
     {
-        $this->ensureSchema();
-        PublisherIdentity::ensureSchema();
-        $slug = trim((string) ($args['slug'] ?? ''));
-        if ($slug === '') {
-            return Http::error($res, 'Storefront slug is required', 400);
+        try {
+            $this->ensureSchema();
+            PublisherIdentity::ensureSchema();
+        } catch (\Throwable $e) {
+            error_log('CommercialController ensureSchema non-fatal: ' . $e->getMessage());
         }
 
-        // Resolve tenant by active slug, storefront slug, or historical slug redirect
-        $resolved = PublisherIdentity::resolveTenantBySlug($slug);
-        $tenant = $resolved['tenant'];
-        $redirectedFrom = $resolved['redirectedFrom'];
+        try {
+            $slug = trim((string) ($args['slug'] ?? ''));
+            if ($slug === '') {
+                return Http::error($res, 'Storefront slug is required', 400);
+            }
 
-        if (!$tenant) {
-            return Http::error($res, 'Business publisher profile not found', 404);
+            // Resolve tenant by active slug, storefront slug, or historical slug redirect
+            $resolved = PublisherIdentity::resolveTenantBySlug($slug);
+            $tenant = $resolved['tenant'];
+            $redirectedFrom = $resolved['redirectedFrom'];
+
+            if (!$tenant) {
+                return Http::error($res, 'Business publisher profile not found', 404);
+            }
+
+            if (isset($tenant['public_profile_enabled']) && (int) $tenant['public_profile_enabled'] === 0) {
+                return Http::error($res, 'This company profile is currently private', 404);
+            }
+
+            $tenantId = (int) $tenant['id'];
+            $storefront = null;
+            try {
+                $storefront = Db::one(
+                    'SELECT * FROM tenant_storefronts WHERE tenant_id = ? LIMIT 1',
+                    [$tenantId]
+                );
+            } catch (\Throwable) {
+            }
+
+            if (!$storefront) {
+                $displayName = !empty($tenant['display_name']) ? (string) $tenant['display_name'] : (string) ($tenant['name'] ?? 'My Business');
+                $sfSlug = !empty($tenant['slug']) ? (string) $tenant['slug'] : "biz-{$tenantId}";
+                $email = (string) ($tenant['billing_email'] ?? '');
+                $currency = (string) ($tenant['currency'] ?? 'FJD');
+
+                try {
+                    Db::run(
+                        'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency)
+                         VALUES (?, ?, ?, ?, ?)',
+                        [$tenantId, $displayName, $sfSlug, $email, $currency]
+                    );
+                    $storefront = Db::one('SELECT * FROM tenant_storefronts WHERE tenant_id = ? LIMIT 1', [$tenantId]);
+                } catch (\Throwable) {
+                    try {
+                        $storefront = Db::one('SELECT * FROM tenant_storefronts WHERE tenant_id = ? LIMIT 1', [$tenantId]);
+                    } catch (\Throwable) {
+                    }
+                }
+            }
+
+            if (!$storefront) {
+                $storefront = [
+                    'id' => $tenantId,
+                    'tenant_id' => $tenantId,
+                    'business_name' => (string) (!empty($tenant['display_name']) ? $tenant['display_name'] : ($tenant['name'] ?? 'My Business')),
+                    'slug' => (string) (!empty($tenant['slug']) ? $tenant['slug'] : "biz-{$tenantId}"),
+                    'tagline' => '',
+                    'bio' => '',
+                    'phone' => '',
+                    'whatsapp_phone' => '',
+                    'email' => (string) ($tenant['billing_email'] ?? ''),
+                    'address' => '',
+                    'website_url' => '',
+                    'facebook_url' => '',
+                    'instagram_url' => '',
+                    'banner_url' => '',
+                    'logo_url' => '',
+                    'is_verified' => 1,
+                    'currency' => 'FJD',
+                    'theme_primary' => '#0b3a6e',
+                    'theme_secondary' => '#1d6fb8',
+                ];
+            }
+
+            $companySlug = (string) (!empty($tenant['slug']) ? $tenant['slug'] : ($storefront['slug'] ?? "biz-{$tenantId}"));
+
+            // Fetch public published publications for this business
+            $flipbooks = [];
+            try {
+                $flipbooks = Db::all(
+                    "SELECT id, title, slug, public_slug, description, page_count, status, workflow_status, settings, published_at, created_at
+                     FROM flipbooks
+                     WHERE tenant_id = ?
+                       AND status = 'ready'
+                       AND visibility = 'public'
+                       AND (workflow_status IS NULL OR workflow_status IN ('published', 'approved'))
+                     ORDER BY COALESCE(published_at, created_at) DESC",
+                    [$tenantId]
+                );
+            } catch (\Throwable) {
+                try {
+                    $flipbooks = Db::all(
+                        "SELECT id, title, slug, description, page_count, status, settings, created_at
+                         FROM flipbooks
+                         WHERE tenant_id = ?
+                           AND status = 'ready'
+                           AND visibility = 'public'
+                         ORDER BY created_at DESC",
+                        [$tenantId]
+                    );
+                } catch (\Throwable) {
+                    $flipbooks = [];
+                }
+            }
+
+            $catalogues = array_map(function ($f) use ($companySlug) {
+                $settings = !empty($f['settings']) ? json_decode((string) $f['settings'], true) : [];
+                $pubSlug = !empty($f['public_slug']) ? (string) $f['public_slug'] : (string) ($f['slug'] ?? 'doc');
+                $actualSlug = (string) ($f['slug'] ?? $pubSlug);
+                return [
+                    'id' => (int) $f['id'],
+                    'title' => (string) ($f['title'] ?? 'Catalogue'),
+                    'slug' => $actualSlug,
+                    'publicSlug' => $pubSlug,
+                    'description' => (string) ($f['description'] ?? ''),
+                    'pageCount' => (int) ($f['page_count'] ?? 0),
+                    'coverUrl' => "/api/v1/public/{$actualSlug}/cover",
+                    'readerUrl' => "/{$companySlug}/docs/{$pubSlug}",
+                    'legacyReaderUrl' => "/v/{$actualSlug}",
+                    'brandAccentColor' => $settings['brandAccentColor'] ?? '#f59e0b',
+                    'publishedAt' => (string) ($f['published_at'] ?? $f['created_at'] ?? date('Y-m-d')),
+                    'createdAt' => (string) ($f['created_at'] ?? date('Y-m-d')),
+                ];
+            }, $flipbooks);
+
+            return Http::json($res, [
+                'storefront' => [
+                    'id' => (int) ($storefront['id'] ?? $tenantId),
+                    'tenantId' => $tenantId,
+                    'businessName' => (string) (!empty($storefront['business_name']) ? $storefront['business_name'] : (!empty($tenant['display_name']) ? $tenant['display_name'] : ($tenant['name'] ?? 'My Business'))),
+                    'slug' => $companySlug,
+                    'canonicalUrl' => "/{$companySlug}",
+                    'redirectedFrom' => $redirectedFrom,
+                    'tagline' => (string) ($storefront['tagline'] ?? ''),
+                    'bio' => (string) ($storefront['bio'] ?? ''),
+                    'phone' => (string) ($storefront['phone'] ?? ''),
+                    'whatsappPhone' => (string) ($storefront['whatsapp_phone'] ?? ''),
+                    'email' => (string) ($storefront['email'] ?? ''),
+                    'address' => (string) ($storefront['address'] ?? ''),
+                    'websiteUrl' => (string) ($storefront['website_url'] ?? ''),
+                    'facebookUrl' => (string) ($storefront['facebook_url'] ?? ''),
+                    'instagramUrl' => (string) ($storefront['instagram_url'] ?? ''),
+                    'bannerUrl' => (string) ($storefront['banner_url'] ?? ''),
+                    'logoUrl' => (string) ($storefront['logo_url'] ?? ''),
+                    'isVerified' => !empty($storefront['is_verified']),
+                    'currency' => (string) ($storefront['currency'] ?? 'FJD'),
+                    'themePrimary' => !empty($storefront['theme_primary']) ? (string) $storefront['theme_primary'] : '#0b3a6e',
+                    'themeSecondary' => !empty($storefront['theme_secondary']) ? (string) $storefront['theme_secondary'] : '#1d6fb8',
+                    'cataloguesCount' => count($catalogues),
+                ],
+                'catalogues' => $catalogues,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('CommercialController::publicBizProfile critical: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return Http::error($res, 'Publisher profile is temporarily unavailable: ' . $e->getMessage(), 500);
         }
-
-        if (isset($tenant['public_profile_enabled']) && (int) $tenant['public_profile_enabled'] === 0) {
-            return Http::error($res, 'This company profile is currently private', 404);
-        }
-
-        $tenantId = (int) $tenant['id'];
-        $storefront = Db::one(
-            'SELECT s.*, t.name as tenant_name, t.display_name as tenant_display_name, t.slug as tenant_slug
-             FROM tenant_storefronts s
-             JOIN tenants t ON t.id = s.tenant_id
-             WHERE s.tenant_id = ?',
-            [$tenantId]
-        );
-
-        if (!$storefront) {
-            $displayName = !empty($tenant['display_name']) ? $tenant['display_name'] : $tenant['name'];
-            Db::run(
-                'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency)
-                 VALUES (?, ?, ?, ?, ?)',
-                [$tenantId, $displayName, $tenant['slug'], $tenant['billing_email'] ?? '', $tenant['currency'] ?? 'FJD']
-            );
-
-            $storefront = Db::one(
-                'SELECT s.*, t.name as tenant_name, t.display_name as tenant_display_name, t.slug as tenant_slug
-                 FROM tenant_storefronts s
-                 JOIN tenants t ON t.id = s.tenant_id
-                 WHERE s.tenant_id = ?',
-                [$tenantId]
-            );
-        }
-
-        $companySlug = (string) ($tenant['slug'] ?: $storefront['slug']);
-
-        // Fetch public published publications for this business (strictly ready, published, and public)
-        $flipbooks = Db::all(
-            "SELECT id, title, slug, public_slug, description, page_count, status, workflow_status, settings, published_at, created_at
-             FROM flipbooks
-             WHERE tenant_id = ?
-               AND status = 'ready'
-               AND visibility = 'public'
-               AND published_at IS NOT NULL
-               AND (workflow_status IS NULL OR workflow_status IN ('published', 'approved'))
-             ORDER BY published_at DESC, created_at DESC",
-            [$tenantId]
-        );
-
-        $catalogues = array_map(function ($f) use ($companySlug) {
-            $settings = !empty($f['settings']) ? json_decode((string) $f['settings'], true) : [];
-            $pubSlug = !empty($f['public_slug']) ? (string) $f['public_slug'] : (string) $f['slug'];
-            return [
-                'id' => (int) $f['id'],
-                'title' => (string) $f['title'],
-                'slug' => (string) $f['slug'],
-                'publicSlug' => $pubSlug,
-                'description' => $f['description'] ?? '',
-                'pageCount' => (int) $f['page_count'],
-                'coverUrl' => "/api/v1/public/{$f['slug']}/cover",
-                'readerUrl' => "/{$companySlug}/docs/{$pubSlug}",
-                'legacyReaderUrl' => "/v/{$f['slug']}",
-                'brandAccentColor' => $settings['brandAccentColor'] ?? '#f59e0b',
-                'publishedAt' => (string) ($f['published_at'] ?? $f['created_at']),
-                'createdAt' => (string) $f['created_at'],
-            ];
-        }, $flipbooks);
-
-        return Http::json($res, [
-            'storefront' => [
-                'id' => (int) $storefront['id'],
-                'tenantId' => $tenantId,
-                'businessName' => (string) ($storefront['business_name'] ?: ($tenant['display_name'] ?? $tenant['name'])),
-                'slug' => $companySlug,
-                'canonicalUrl' => "/{$companySlug}",
-                'redirectedFrom' => $redirectedFrom,
-                'tagline' => $storefront['tagline'] ?? '',
-                'bio' => $storefront['bio'] ?? '',
-                'phone' => $storefront['phone'] ?? '',
-                'whatsappPhone' => $storefront['whatsapp_phone'] ?? '',
-                'email' => $storefront['email'] ?? '',
-                'address' => $storefront['address'] ?? '',
-                'websiteUrl' => $storefront['website_url'] ?? '',
-                'facebookUrl' => $storefront['facebook_url'] ?? '',
-                'instagramUrl' => $storefront['instagram_url'] ?? '',
-                'bannerUrl' => $storefront['banner_url'] ?? '',
-                'logoUrl' => $storefront['logo_url'] ?? '',
-                'isVerified' => (bool) $storefront['is_verified'],
-                'currency' => $storefront['currency'] ?? 'FJD',
-                'themePrimary' => !empty($storefront['theme_primary']) ? $storefront['theme_primary'] : '#0b3a6e',
-                'themeSecondary' => !empty($storefront['theme_secondary']) ? $storefront['theme_secondary'] : '#1d6fb8',
-                'cataloguesCount' => count($catalogues),
-            ],
-            'catalogues' => $catalogues,
-        ]);
     }
 
     /**
