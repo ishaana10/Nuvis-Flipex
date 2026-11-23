@@ -742,3 +742,8 @@ final class CommercialController
                 }
             }
         } catch (\Throwable $e) {
+            error_log('CommercialController ensureSchema non-fatal notice: ' . $e->getMessage());
+        }
+    }
+}
+
