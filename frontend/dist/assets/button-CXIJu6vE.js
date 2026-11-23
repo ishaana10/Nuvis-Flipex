@@ -1,0 +1,1 @@
+import{j as m}from"./index-ClxpovfF.js";function u({variant:t="primary",size:n="md",className:o="",children:r,...e}){const i=t==="primary"||t==="default"?"btn-primary":t==="outline"?"btn-secondary":t==="danger"?"action-pill delete":"link";return m.jsx("button",{type:e.type??"button",className:`${i} boardui-btn-${n} ${o}`.trim(),...e,children:r})}export{u as B};
