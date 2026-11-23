@@ -27,7 +27,7 @@ export default function ShareDialog({
 }) {
   const [activeTab, setActiveTab] = useState<'link' | 'embed' | 'qr' | 'access'>('link');
   const [published, setPublished] = useState(
-    flipbook.published || flipbook.workflowStatus === 'published' || flipbook.status === 'ready'
+    Boolean(flipbook.published && (flipbook.workflowStatus === 'published' || !flipbook.workflowStatus))
   );
   const [visibility, setVisibility] = useState<'public' | 'unlisted' | 'password'>(
     flipbook.visibility
@@ -151,13 +151,35 @@ export default function ShareDialog({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!published ? (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={saving}
+                onClick={() => save(true)}
+              >
+                {saving ? 'Publishing…' : '🚀 Publish Now'}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={saving}
+                onClick={() => save(false)}
+                title="Switch publication back to Draft mode"
+              >
+                Set to Draft
+              </Button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Tabs */}
@@ -628,10 +650,18 @@ export default function ShareDialog({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/60 px-6 py-3.5 dark:border-slate-800 dark:bg-slate-950/50">
-          <span className="text-[11px] text-slate-400">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
             Canonical URL: <code>{brandedPath}</code> · {flipbook.pageCount} pages
           </span>
           <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={saving}
+              onClick={() => save(true)}
+            >
+              {saving ? 'Publishing…' : published ? '🚀 Save & Keep Published' : '🚀 Publish Now'}
+            </Button>
             <Button variant="ghost" size="sm" onClick={onClose}>
               Done
             </Button>

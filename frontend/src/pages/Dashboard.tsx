@@ -377,6 +377,18 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     }
   };
 
+  const quickPublish = async (f: Flipbook) => {
+    try {
+      await api(`/flipbooks/${f.id}`, 'PATCH', {
+        published: true,
+        workflowStatus: 'published',
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to publish flipbook');
+    }
+  };
+
   const duplicateBook = async (f: Flipbook) => {
     const cleanTitle = f.title.replace(/^Copy of\s+/i, '').replace(/\s*\(Copy\)$/i, '');
     const proposed = window.prompt('Enter name for the duplicated publication:', `${cleanTitle} (Copy)`);
@@ -738,6 +750,14 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                         <Link to={`/dashboard/preview/${featuredBook.id}`} className="action-pill preview">
                           View flipbook 👁️
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => setShare(featuredBook)}
+                          className="action-pill preview"
+                          style={{ cursor: 'pointer', border: 'none' }}
+                        >
+                          🚀 Share &amp; Publish
+                        </button>
                         <Link to={`/dashboard/editor/${featuredBook.id}`} className="action-pill editor" title="Design interactive links, products, videos, audios & callouts">
                           🎨 Interactive Page Designer
                         </Link>
@@ -1484,18 +1504,30 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   )}
                 </div>
 
-                {/* Bottom Actions: Prominent Full-Width Share & QR Code + Responsive 4-Column Action Grid */}
+                {/* Bottom Actions: Prominent Full-Width Share & Publish + Responsive 4-Column Action Grid */}
                 <div className="w-full pt-2 mt-2 border-t border-slate-200 dark:border-slate-800">
                   {f.status === 'ready' && (
-                    <button
-                      type="button"
-                      className="w-full py-1.5 px-3 mb-1.5 rounded-lg text-xs font-semibold text-amber-900 dark:text-amber-200 bg-gradient-to-r from-amber-100 via-amber-200 to-amber-300 dark:from-amber-950/60 dark:via-amber-900/40 dark:to-amber-950/70 hover:from-amber-200 hover:via-amber-300 hover:to-amber-400 dark:hover:from-amber-900/60 dark:hover:via-amber-800/50 dark:hover:to-amber-900/70 border border-amber-300 dark:border-amber-700/60 transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                      onClick={() => setShare(f)}
-                      title="Share publication, QR Code & Embed"
-                    >
-                      <Share2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
-                      <span>Share &amp; QR Code</span>
-                    </button>
+                    <div className="flex gap-1.5 mb-1.5">
+                      {wf !== 'published' && (
+                        <button
+                          type="button"
+                          className="py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 transition-all flex items-center justify-center gap-1 shadow-sm"
+                          onClick={() => quickPublish(f)}
+                          title="Publish flipbook immediately"
+                        >
+                          <span>🚀 Publish</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-amber-900 dark:text-amber-200 bg-gradient-to-r from-amber-100 via-amber-200 to-amber-300 dark:from-amber-950/60 dark:via-amber-900/40 dark:to-amber-950/70 hover:from-amber-200 hover:via-amber-300 hover:to-amber-400 dark:hover:from-amber-900/60 dark:hover:via-amber-800/50 dark:hover:to-amber-900/70 border border-amber-300 dark:border-amber-700/60 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                        onClick={() => setShare(f)}
+                        title="Share & Publish publication, Branded URL, QR Code & Embed"
+                      >
+                        <Share2 className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+                        <span>Share &amp; Publish</span>
+                      </button>
+                    </div>
                   )}
 
                   <div className="grid grid-cols-4 gap-1 w-full">

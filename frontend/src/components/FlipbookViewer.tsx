@@ -2896,6 +2896,41 @@ export default function FlipbookViewer({
   const baseShareUrl = slug ? `${window.location.origin}/v/${slug}` : window.location.href.split('?')[0];
   const computedShareUrl = shareSpecificPage ? `${baseShareUrl}?page=${current + 1}` : baseShareUrl;
 
+  const isLightColor = (colorStr?: string): boolean => {
+    if (!colorStr) return false;
+    const c = colorStr.trim().toLowerCase();
+    if (c === 'white' || c === '#fff' || c === '#ffffff') return true;
+    const hexMatch = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      let hex = hexMatch[1];
+      if (hex.length === 3) {
+        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      }
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.58;
+    }
+    const rgbMatch = c.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rgbMatch) {
+      const r = Number(rgbMatch[1]);
+      const g = Number(rgbMatch[2]);
+      const b = Number(rgbMatch[3]);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.58;
+    }
+    return false;
+  };
+
+  const resolvedDrawerBg = settings.drawerBgColor || settings.panelBgColor || 'rgba(13, 17, 23, 0.95)';
+  const lightDrawer = isLightColor(resolvedDrawerBg);
+  const rawDrawerText = settings.drawerTextColor || settings.panelFontColor || (lightDrawer ? '#0f172a' : '#f1f5f9');
+  const resolvedDrawerText = lightDrawer
+    ? (isLightColor(rawDrawerText) ? '#0f172a' : rawDrawerText)
+    : (!isLightColor(rawDrawerText) ? '#f1f5f9' : rawDrawerText);
+  const resolvedDrawerHeaderBg = lightDrawer
+    ? (settings.drawerHeaderBgColor && isLightColor(settings.drawerHeaderBgColor) ? settings.drawerHeaderBgColor : '#f8fafc')
+    : (settings.drawerHeaderBgColor && !isLightColor(settings.drawerHeaderBgColor) ? settings.drawerHeaderBgColor : 'rgba(22, 27, 34, 0.95)');
+
   return (
     <div
       className={`heyzine-viewer effect-${settings.pageEffect || 'magazine'} ${isFullscreen ? 'is-fullscreen' : ''}`}
@@ -2907,11 +2942,20 @@ export default function FlipbookViewer({
         backgroundPosition: 'center center',
         ['--spread-aspect' as any]: `${spreadAspect}`,
         ['--hz-accent' as any]: settings.brandAccentColor || settings.toolbarButtonColor || '#f59e0b',
-        ['--hz-drawer-bg' as any]: settings.drawerBgColor || settings.panelBgColor || 'rgba(13, 17, 23, 0.95)',
-        ['--hz-drawer-header-bg' as any]: settings.drawerHeaderBgColor || 'rgba(22, 27, 34, 0.95)',
-        ['--hz-drawer-text' as any]: settings.drawerTextColor || settings.panelFontColor || '#f1f5f9',
+        ['--hz-drawer-bg' as any]: resolvedDrawerBg,
+        ['--hz-drawer-header-bg' as any]: resolvedDrawerHeaderBg,
+        ['--hz-drawer-text' as any]: resolvedDrawerText,
+        ['--hz-drawer-muted' as any]: lightDrawer ? '#475569' : '#94a3b8',
+        ['--hz-drawer-surface' as any]: lightDrawer ? 'rgba(15, 23, 42, 0.06)' : 'rgba(255, 255, 255, 0.08)',
+        ['--hz-drawer-border' as any]: lightDrawer ? 'rgba(15, 23, 42, 0.14)' : 'rgba(255, 255, 255, 0.14)',
+        ['--hz-drawer-hover-bg' as any]: lightDrawer ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)',
+        ['--hz-drawer-filter-bg' as any]: lightDrawer ? '#f1f5f9' : 'rgba(18, 22, 28, 0.7)',
+        ['--hz-drawer-footer-bg' as any]: lightDrawer ? '#f8fafc' : 'rgba(22, 27, 34, 0.7)',
+        ['--hz-drawer-active-item-bg' as any]: lightDrawer ? 'rgba(234, 88, 12, 0.14)' : 'rgba(250, 204, 21, 0.15)',
+        ['--hz-drawer-active-item-border' as any]: lightDrawer ? 'rgba(234, 88, 12, 0.45)' : 'rgba(250, 204, 21, 0.4)',
+        ['--hz-drawer-active-item-text' as any]: lightDrawer ? '#c2410c' : '#facc15',
         ['--hz-drawer-active-bg' as any]: settings.drawerActiveColor || settings.brandAccentColor || '#f59e0b',
-        ['--hz-drawer-active-text' as any]: settings.drawerActiveTextColor || '#0f172a',
+        ['--hz-drawer-active-text' as any]: settings.drawerActiveTextColor || (lightDrawer ? '#ffffff' : '#0f172a'),
         ['--hz-header-bg' as any]: settings.headerBgColor || settings.toolbarColor || 'rgba(15, 23, 42, 0.75)',
         ['--hz-header-text' as any]: settings.headerTextColor || settings.toolbarButtonColor || '#ffffff',
         ['--hz-nav-pill-bg' as any]: settings.navPillBgColor || settings.toolbarColor || 'rgba(17, 24, 39, 0.88)',
@@ -3496,12 +3540,12 @@ export default function FlipbookViewer({
             ) : showBookmarks ? (
               bookmarks.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 16px', textAlign: 'center' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '10px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--hz-drawer-surface, rgba(255,255,255,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--hz-drawer-muted, #94a3b8)', marginBottom: '10px' }}>
                     <SvgBookmark />
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No bookmarks yet</div>
-                  <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '220px', lineHeight: 1.4 }}>
-                    Click the bookmark icon in the top toolbar or press <kbd style={{ padding: '1px 5px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', fontSize: '10px' }}>B</kbd> to save any page.
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--hz-drawer-text, #e2e8f0)', marginBottom: '4px' }}>No bookmarks yet</div>
+                  <div style={{ fontSize: '11px', color: 'var(--hz-drawer-muted, #64748b)', maxWidth: '220px', lineHeight: 1.4 }}>
+                    Click the bookmark icon in the top toolbar or press <kbd style={{ padding: '1px 5px', background: 'var(--hz-drawer-surface, rgba(255,255,255,0.1))', borderRadius: '4px', fontSize: '10px' }}>B</kbd> to save any page.
                   </div>
                 </div>
               ) : (
@@ -3534,11 +3578,11 @@ export default function FlipbookViewer({
             ) : showEduResources ? (
               eduResources.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px 16px', textAlign: 'center' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '10px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--hz-drawer-surface, rgba(255,255,255,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--hz-drawer-muted, #94a3b8)', marginBottom: '10px' }}>
                     <SvgGraduation />
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No Lesson Resources Attached</div>
-                  <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '240px', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--hz-drawer-text, #e2e8f0)', marginBottom: '4px' }}>No Lesson Resources Attached</div>
+                  <div style={{ fontSize: '11px', color: 'var(--hz-drawer-muted, #64748b)', maxWidth: '240px', lineHeight: 1.4 }}>
                     Worksheets, past exam papers, and syllabus attachments published by your teachers will appear here.
                   </div>
                 </div>
@@ -3626,11 +3670,11 @@ export default function FlipbookViewer({
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
                   {studyNotes.length === 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px 16px', textAlign: 'center' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', marginBottom: '8px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--hz-drawer-surface, rgba(255,255,255,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--hz-drawer-muted, #94a3b8)', marginBottom: '8px' }}>
                         <SvgNote />
                       </div>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>No Study Notes Yet</div>
-                      <div style={{ fontSize: '11px', color: '#64748b', maxWidth: '220px', lineHeight: 1.4 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--hz-drawer-text, #e2e8f0)', marginBottom: '4px' }}>No Study Notes Yet</div>
+                      <div style={{ fontSize: '11px', color: 'var(--hz-drawer-muted, #64748b)', maxWidth: '220px', lineHeight: 1.4 }}>
                         Annotate key terms, formulas, and homework questions above for quick exam revision.
                       </div>
                     </div>
@@ -4990,12 +5034,12 @@ export default function FlipbookViewer({
             className="card max-w-md w-full space-y-4 p-6"
             style={{
               background: settings.panelBgColor || undefined,
-              color: settings.panelFontColor || undefined,
+              color: settings.panelBgColor ? (isLightColor(settings.panelBgColor) ? '#0f172a' : '#f1f5f9') : (settings.panelFontColor || undefined),
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Author Profile</h3>
+              <h3 className="text-base font-bold" style={{ color: 'inherit' }}>Author Profile</h3>
               <button className="link" onClick={() => setShowProfileModal(false)}>
                 ✕ Close
               </button>
@@ -5083,12 +5127,12 @@ export default function FlipbookViewer({
             className="card max-w-sm w-full space-y-4 p-6 text-center"
             style={{
               background: settings.panelBgColor || undefined,
-              color: settings.panelFontColor || undefined,
+              color: settings.panelBgColor ? (isLightColor(settings.panelBgColor) ? '#0f172a' : '#f1f5f9') : (settings.panelFontColor || undefined),
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Scan to Read on Mobile</h3>
+              <h3 className="text-base font-bold" style={{ color: 'inherit' }}>Scan to Read on Mobile</h3>
               <button className="link" onClick={() => setShowQrModal(false)}>
                 ✕ Close
               </button>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import CustomizationDialog from '../components/CustomizationDialog';
+import ShareDialog from '../components/ShareDialog';
 import FlipbookViewer, {
   type PageInfo,
   type TocItem,
@@ -18,6 +19,10 @@ interface FlipbookDetails {
   publicSlug?: string;
   companySlug?: string;
   canonicalUrl?: string;
+  status?: 'uploading' | 'processing' | 'ready' | 'failed';
+  published?: boolean;
+  workflowStatus?: string;
+  pageCount?: number;
   visibility?: 'public' | 'unlisted' | 'password';
   settings?: ViewerSettings;
   toc?: TocItem[];
@@ -29,6 +34,7 @@ export default function Preview() {
   const [data, setData] = useState<FlipbookDetails | null>(null);
   const [hotspots, setHotspots] = useState<Record<number, ViewerHotspot[]>>({});
   const [showCustomize, setShowCustomize] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [error, setError] = useState('');
   const [sessionId] = useState(() => 'sess_' + Math.random().toString(36).slice(2, 12));
 
@@ -75,6 +81,15 @@ export default function Preview() {
           <button
             type="button"
             className="btn-pub-primary"
+            onClick={() => setShowShare(true)}
+            title="Publish & Share Flipbook, Branded URL, QR Code & Embed"
+          >
+            <span>🚀</span>
+            <span>{data.published && data.workflowStatus === 'published' ? 'Share & Published' : 'Publish & Share'}</span>
+          </button>
+          <button
+            type="button"
+            className="btn-pub-outline"
             onClick={() => setShowCustomize(true)}
             title="Open Flipbook Style & Customization Settings"
           >
@@ -124,6 +139,29 @@ export default function Preview() {
             settings: data.settings as any,
           }}
           onClose={() => setShowCustomize(false)}
+          onSaved={loadPreview}
+        />
+      )}
+
+      {showShare && (
+        <ShareDialog
+          flipbook={{
+            id: data.id,
+            title: data.title,
+            description: data.description,
+            slug: data.slug,
+            publicSlug: data.publicSlug,
+            companySlug: data.companySlug,
+            canonicalUrl: data.canonicalUrl,
+            status: data.status || 'ready',
+            published: Boolean(data.published),
+            workflowStatus: (data.workflowStatus as any) || (data.published ? 'published' : 'editing'),
+            visibility: data.visibility || 'public',
+            pageCount: data.pageCount || data.pages.length,
+            cover: data.pages[0]?.thumbUrl || data.pages[0]?.imageUrl || null,
+            settings: data.settings as any,
+          }}
+          onClose={() => setShowShare(false)}
           onSaved={loadPreview}
         />
       )}

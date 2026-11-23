@@ -136,7 +136,7 @@ export default function Register() {
   }
 
   const hostDisplay = typeof window !== 'undefined' ? window.location.host : 'flipex.nuvistechnologies.com.fj';
-  const cleanSlug = toUrlSlug(companySlug) || 'your-company';
+  const cleanSlug = toUrlSlug(companySlug) || 'yourcompanyname';
 
   return (
     <AuthCard title="Create your publisher account">
@@ -216,7 +216,7 @@ export default function Register() {
               type="text"
               name="companySlug"
               value={companySlug}
-              placeholder="subrailsfurniturecentre"
+              placeholder="yourcompanyname"
               onChange={(e) => {
                 setSlugTouched(true);
                 setCompanySlug(toUrlSlug(e.target.value));

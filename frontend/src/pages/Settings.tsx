@@ -895,7 +895,7 @@ export default function Settings() {
                 required
                 value={storefront.businessName}
                 onChange={(e) => setStorefront({ ...storefront, businessName: e.target.value })}
-                placeholder="e.g. Subrails Furniture Centre"
+                placeholder="e.g. Your Company Name"
                 style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
               />
             </div>
@@ -925,7 +925,7 @@ export default function Settings() {
                   type="text"
                   value={storefront.slug}
                   onChange={(e) => setStorefront({ ...storefront, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-                  placeholder="subrailsfurniturecentre"
+                  placeholder="yourcompanyname"
                   style={{ width: '100%', padding: '8px 12px', borderRadius: '0 8px 8px 0', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: 600 }}
                 />
               </div>
@@ -978,7 +978,7 @@ export default function Settings() {
                   type="text"
                   value={storefront.customDomain || ''}
                   onChange={(e) => setStorefront({ ...storefront, customDomain: e.target.value })}
-                  placeholder="e.g. catalogue.subrailsfurniture.com"
+                  placeholder="e.g. catalogue.yourcompanyname.com"
                   style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5 }}
                 />
                 {storefront.customDomain && (
