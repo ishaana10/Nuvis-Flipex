@@ -76,6 +76,8 @@ export default function Settings() {
     bannerUrl: string;
     logoUrl: string;
     isVerified?: boolean;
+    themePrimary?: string;
+    themeSecondary?: string;
     slugHistory?: Array<{ old_slug: string; new_slug: string; created_at: string }>;
   }>({
     businessName: '',
@@ -94,6 +96,8 @@ export default function Settings() {
     currency: 'FJD',
     bannerUrl: '',
     logoUrl: '',
+    themePrimary: '#0b3a6e',
+    themeSecondary: '#1d6fb8',
     slugHistory: [],
   });
   const [initialStorefrontSlug, setInitialStorefrontSlug] = useState('');
@@ -1140,6 +1144,121 @@ export default function Settings() {
               />
             </div>
           </div>
+
+            {/* Color Theme Customization Section */}
+            <div style={{ gridColumn: '1 / -1', padding: '16px', borderRadius: 12, background: 'var(--surface-muted)', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    🎨 Publisher Profile &amp; Catalogue Theme Colors
+                  </h3>
+                  <p className="muted" style={{ margin: '2px 0 0', fontSize: '12px' }}>
+                    Customize the gradient header, action buttons, and verified badges on your public publisher profile.
+                  </p>
+                </div>
+                {/* Live visual preview chip */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  background: `linear-gradient(135deg, ${storefront.themePrimary || '#0b3a6e'}, ${storefront.themeSecondary || '#1d6fb8'})`,
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                }}>
+                  <span>Preview Header</span>
+                  <span style={{ background: 'rgba(255,255,255,0.25)', padding: '2px 8px', borderRadius: '6px', fontSize: '11px' }}>
+                    Read Catalogue
+                  </span>
+                </div>
+              </div>
+
+              {/* Color Presets */}
+              <div style={{ marginBottom: '14px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>Quick Brand Presets:</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
+                  {[
+                    { name: 'Pacific Ocean', p: '#0b3a6e', s: '#1d6fb8' },
+                    { name: 'Emerald Forest', p: '#065f46', s: '#059669' },
+                    { name: 'Royal Cobalt', p: '#1e3a8a', s: '#2563eb' },
+                    { name: 'Deep Crimson', p: '#881337', s: '#e11d48' },
+                    { name: 'Royal Amethyst', p: '#4c1d95', s: '#7c3aed' },
+                    { name: 'Warm Amber', p: '#78350f', s: '#d97706' },
+                    { name: 'Slate Obsidian', p: '#0f172a', s: '#334155' },
+                    { name: 'Teal Lagoon', p: '#134e4a', s: '#0d9488' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => setStorefront({ ...storefront, themePrimary: preset.p, themeSecondary: preset.s })}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        border: storefront.themePrimary === preset.p && storefront.themeSecondary === preset.s ? '2px solid var(--brand)' : '1px solid var(--border-color)',
+                        background: 'var(--surface)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: `linear-gradient(135deg, ${preset.p}, ${preset.s})`, display: 'inline-block' }} />
+                      <span>{preset.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Hex Pickers */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                    Primary Brand Color (Hero Left &amp; Buttons)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="color"
+                      value={storefront.themePrimary || '#0b3a6e'}
+                      onChange={(e) => setStorefront({ ...storefront, themePrimary: e.target.value })}
+                      style={{ width: '38px', height: '36px', borderRadius: '6px', border: '1px solid #cbd5e1', cursor: 'pointer', padding: 0 }}
+                    />
+                    <input
+                      type="text"
+                      value={storefront.themePrimary || '#0b3a6e'}
+                      onChange={(e) => setStorefront({ ...storefront, themePrimary: e.target.value })}
+                      placeholder="#0b3a6e"
+                      style={{ flex: 1, padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontFamily: 'monospace' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                    Secondary Brand Color (Hero Right Gradient)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="color"
+                      value={storefront.themeSecondary || '#1d6fb8'}
+                      onChange={(e) => setStorefront({ ...storefront, themeSecondary: e.target.value })}
+                      style={{ width: '38px', height: '36px', borderRadius: '6px', border: '1px solid #cbd5e1', cursor: 'pointer', padding: 0 }}
+                    />
+                    <input
+                      type="text"
+                      value={storefront.themeSecondary || '#1d6fb8'}
+                      onChange={(e) => setStorefront({ ...storefront, themeSecondary: e.target.value })}
+                      placeholder="#1d6fb8"
+                      style={{ flex: 1, padding: '7px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontFamily: 'monospace' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
             <button

@@ -34,6 +34,8 @@ interface StorefrontData {
   logoUrl: string;
   isVerified: boolean;
   currency: string;
+  themePrimary?: string;
+  themeSecondary?: string;
   cataloguesCount: number;
 }
 
@@ -162,7 +164,13 @@ export default function PublicBusinessProfile() {
   const totalPages = catalogues.reduce((a, c) => a + (c.pageCount || 0), 0);
 
   return (
-    <div className="bp">
+    <div
+      className="bp"
+      style={{
+        '--bp-brand': storefront.themePrimary || '#0b3a6e',
+        '--bp-brand-2': storefront.themeSecondary || '#1d6fb8',
+      } as React.CSSProperties}
+    >
       <header className="bp-top">
         <div className="bp-wrap bp-top-in">
           <Link to="/" className="bp-brandmark">

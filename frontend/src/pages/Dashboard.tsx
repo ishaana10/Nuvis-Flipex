@@ -1530,23 +1530,23 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                     </div>
                   )}
 
-                  <div className="grid grid-cols-4 gap-1 w-full">
+                  <div className="fb-quick-actions-strip">
                     {can('flipbook.edit') && (
                       <button
                         type="button"
-                        className="fb-quick-action"
+                        className="fb-quick-action fb-qa-reconvert"
                         onClick={() => reconvertBook(f)}
                         disabled={isProcessing}
                         title="Re-run conversion pipeline on original uploaded PDF to render all pages"
                       >
-                        <RotateCcw className={`h-3.5 w-3.5 ${isProcessing ? 'animate-spin text-amber-500' : 'text-sky-500'}`} />
+                        <RotateCcw className={`h-3.5 w-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
                         <span>Reconvert</span>
                       </button>
                     )}
                     {can('flipbook.edit') && (
                       <button
                         type="button"
-                        className="fb-quick-action"
+                        className="fb-quick-action fb-qa-replace"
                         onClick={() => setLifecycleBook({ book: f, tab: 'versions' })}
                         disabled={isProcessing}
                         title="Upload a new PDF revision while keeping the same public URL and QR code"
@@ -1558,7 +1558,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                     {can('flipbook.create') && (
                       <button
                         type="button"
-                        className="fb-quick-action"
+                        className="fb-quick-action fb-qa-duplicate"
                         onClick={() => duplicateBook(f)}
                         disabled={isProcessing}
                         title="Duplicate publication"
@@ -1570,7 +1570,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                     {can('flipbook.delete') && (
                       <button
                         type="button"
-                        className="fb-quick-action danger"
+                        className="fb-quick-action fb-qa-delete"
                         onClick={() => remove(f)}
                         title="Delete publication"
                       >

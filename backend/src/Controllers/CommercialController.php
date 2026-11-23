@@ -120,6 +120,8 @@ final class CommercialController
                 'logoUrl' => $storefront['logo_url'] ?? '',
                 'isVerified' => (bool) $storefront['is_verified'],
                 'currency' => $storefront['currency'] ?? 'FJD',
+                'themePrimary' => !empty($storefront['theme_primary']) ? $storefront['theme_primary'] : '#0b3a6e',
+                'themeSecondary' => !empty($storefront['theme_secondary']) ? $storefront['theme_secondary'] : '#1d6fb8',
                 'cataloguesCount' => count($catalogues),
             ],
             'catalogues' => $catalogues,
@@ -410,6 +412,8 @@ final class CommercialController
                 'logoUrl' => $storefront['logo_url'] ?? '',
                 'isVerified' => (bool) $storefront['is_verified'],
                 'currency' => $storefront['currency'] ?? 'FJD',
+                'themePrimary' => !empty($storefront['theme_primary']) ? $storefront['theme_primary'] : '#0b3a6e',
+                'themeSecondary' => !empty($storefront['theme_secondary']) ? $storefront['theme_secondary'] : '#1d6fb8',
                 'publicUrl' => "/{$companySlug}",
                 'legacyBizUrl' => "/biz/{$companySlug}",
                 'slugHistory' => $slugHistory,
@@ -522,25 +526,31 @@ final class CommercialController
         $bannerUrl = array_key_exists('bannerUrl', $b) ? (trim((string) $b['bannerUrl']) ?: null) : ($storefront['banner_url'] ?? null);
         $logoUrl = array_key_exists('logoUrl', $b) ? (trim((string) $b['logoUrl']) ?: null) : ($storefront['logo_url'] ?? null);
         $currency = !empty($b['currency']) ? trim((string) $b['currency']) : ($storefront['currency'] ?? 'FJD');
+        $themePrimary = array_key_exists('themePrimary', $b)
+            ? (trim((string) $b['themePrimary']) ?: '#0b3a6e')
+            : ($storefront['theme_primary'] ?? '#0b3a6e');
+        $themeSecondary = array_key_exists('themeSecondary', $b)
+            ? (trim((string) $b['themeSecondary']) ?: '#1d6fb8')
+            : ($storefront['theme_secondary'] ?? '#1d6fb8');
 
         if (!$storefront) {
             try {
                 Db::run(
                     'INSERT INTO tenant_storefronts (
                         tenant_id, business_name, slug, tagline, bio, phone, whatsapp_phone,
-                        email, address, website_url, facebook_url, instagram_url, banner_url, logo_url, currency
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        email, address, website_url, facebook_url, instagram_url, banner_url, logo_url, currency, theme_primary, theme_secondary
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     [
                         $tenantId, $businessName, $newSlug, $tagline, $bio, $phone, $whatsappPhone,
                         $email, $address, $websiteUrl, $facebookUrl, $instagramUrl,
-                        $bannerUrl, $logoUrl, $currency
+                        $bannerUrl, $logoUrl, $currency, $themePrimary, $themeSecondary
                     ]
                 );
             } catch (\Throwable) {
                 Db::run(
-                    'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency)
-                     VALUES (?, ?, ?, ?, ?)',
-                    [$tenantId, $businessName, $newSlug, $email ?? '', $currency]
+                    'INSERT INTO tenant_storefronts (tenant_id, business_name, slug, email, currency, theme_primary, theme_secondary)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [$tenantId, $businessName, $newSlug, $email ?? '', $currency, $themePrimary, $themeSecondary]
                 );
             }
         } else {
@@ -560,12 +570,14 @@ final class CommercialController
                         instagram_url = ?,
                         banner_url = ?,
                         logo_url = ?,
-                        currency = ?
+                        currency = ?,
+                        theme_primary = ?,
+                        theme_secondary = ?
                      WHERE tenant_id = ?',
                     [
                         $businessName, $newSlug, $tagline, $bio, $phone, $whatsappPhone,
                         $email, $address, $websiteUrl, $facebookUrl, $instagramUrl,
-                        $bannerUrl, $logoUrl, $currency, $tenantId
+                        $bannerUrl, $logoUrl, $currency, $themePrimary, $themeSecondary, $tenantId
                     ]
                 );
             } catch (\Throwable) {
@@ -665,8 +677,12 @@ final class CommercialController
                   INDEX `idx_storefront_tenant` (`tenant_id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
+
+            // Tenant-selected profile colour theme (idempotent, non-destructive)
+            foreach (['theme_primary' => 'VARCHAR(9) NULL', 'theme_secondary' => 'VARCHAR(9) NULL'] as $col => $ddl) {
+                $exists = $pdo->query("SHOW COLUMNS FROM `tenant_storefronts` LIKE '{$col}'")->fetch();
+                if (!$exists) {
+                    $pdo->exec("ALTER TABLE `tenant_storefronts` ADD COLUMN `{$col}` {$ddl}");
+                }
+            }
         } catch (\Throwable $e) {
-            error_log('CommercialController ensureSchema non-fatal notice: ' . $e->getMessage());
-        }
-    }
-}
