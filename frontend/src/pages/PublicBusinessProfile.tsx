@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { APP_VERSION } from '../version';
+import FlipexLoader from '../components/FlipexLoader';
 import './bizProfile.css';
 import {
   ExternalLink,
@@ -139,10 +140,7 @@ export default function PublicBusinessProfile() {
   if (loading) {
     return (
       <div className="bp bp-center">
-        <div style={{ textAlign: 'center' }}>
-          <div className="bp-spin" />
-          <span>Loading publisher profile…</span>
-        </div>
+        <FlipexLoader size="lg" label="Loading publisher profile…" />
       </div>
     );
   }

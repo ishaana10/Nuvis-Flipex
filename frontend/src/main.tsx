@@ -27,11 +27,12 @@ const IntegrationsHub = lazy(() => import('./pages/IntegrationsHub'));
 const BillingPortal = lazy(() => import('./pages/BillingPortal'));
 const DevOpsCenter = lazy(() => import('./pages/DevOpsCenter'));
 const FlipexStudio = lazy(() => import('./pages/FlipexStudio'));
+import FlipexLoader from './components/FlipexLoader';
 
 /** One loading boundary per area so a slow chunk only blanks its own region. */
 function Boundary({ area, children }: { area: string; children: ReactNode }) {
   return (
-    <Suspense fallback={<p className="center" role="status" aria-label={`Loading ${area}`}>Loading {area}…</p>}>
+    <Suspense fallback={<FlipexLoader size="lg" label={`Loading ${area}…`} />}>
       {children}
     </Suspense>
   );

@@ -1,13 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError } from '../api/client';
 import { APP_VERSION } from '../version';
+import FlipexLoader from './FlipexLoader';
 
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="auth-wrap">
-      <div className="auth-brand-header">
-        <img src="/logo.png" alt="Nuvis Flipex" className="nuvis-brand-logo" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="auth-brand-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+        <FlipexLoader size="md" centered={false} label={null} speedMs={260} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
           <span className="nuvis-brand-text" style={{ fontSize: '24px' }}>Nuvis Flipex</span>
           <span
             className="auth-version-chip"

@@ -7,6 +7,7 @@ import FlipbookViewer, {
   type ViewerSettings,
 } from '../components/FlipbookViewer';
 import { Badge } from '../components/ui/badge';
+import FlipexLoader from '../components/FlipexLoader';
 
 interface SeoMeta {
   title?: string;
@@ -316,7 +317,7 @@ export default function PublicViewer() {
   }
 
   if (missing) return <p className="center">This flipbook doesn't exist or isn't published.</p>;
-  if (!data) return <p className="center">Loading flipbook…</p>;
+  if (!data) return <FlipexLoader size="hero" label="Opening interactive digital edition…" />;
 
   if (data.locked) {
     if (data.lockType === 'pin') {

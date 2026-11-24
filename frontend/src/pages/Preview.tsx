@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import CustomizationDialog from '../components/CustomizationDialog';
 import ShareDialog from '../components/ShareDialog';
+import FlipexLoader from '../components/FlipexLoader';
 import FlipbookViewer, {
   type PageInfo,
   type TocItem,
@@ -70,7 +71,7 @@ export default function Preview() {
   }, [loadPreview]);
 
   if (error) return <p className="center err">{error}</p>;
-  if (!data) return <p className="center">Loading preview…</p>;
+  if (!data) return <FlipexLoader size="hero" label="Preparing publication preview…" />;
 
   return (
     <div className="preview-wrap">

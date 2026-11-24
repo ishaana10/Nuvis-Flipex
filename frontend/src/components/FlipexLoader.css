@@ -1,0 +1,130 @@
+.flipex-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.flipex-loader-centered {
+  min-height: 280px;
+  width: 100%;
+  margin: auto;
+  padding: 32px 16px;
+}
+
+.flipex-book-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: flipexBookFloat 2.8s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.flipex-book-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transform: scale(0.985);
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s ease-out;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 28px rgba(245, 197, 66, 0.38)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+}
+
+.flipex-book-frame.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.flipex-book-glow {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 75%;
+  height: 24%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(245, 197, 66, 0.45) 0%, rgba(217, 119, 6, 0.15) 55%, transparent 75%);
+  filter: blur(12px);
+  pointer-events: none;
+  animation: flipexGlowPulse 2.8s ease-in-out infinite;
+}
+
+/* Size Variants */
+.flipex-loader-icon .flipex-book-stage {
+  width: 50px;
+  height: 84px;
+}
+
+.flipex-loader-sm .flipex-book-stage {
+  width: 70px;
+  height: 118px;
+}
+
+.flipex-loader-md .flipex-book-stage {
+  width: 105px;
+  height: 176px;
+}
+
+.flipex-loader-lg .flipex-book-stage {
+  width: 145px;
+  height: 244px;
+}
+
+.flipex-loader-hero .flipex-book-stage {
+  width: 195px;
+  height: 328px;
+}
+
+/* Keyframe animations */
+@keyframes flipexBookFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-0.5deg);
+  }
+}
+
+@keyframes flipexGlowPulse {
+  0%, 100% {
+    opacity: 0.65;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.15);
+  }
+}
+
+.flipex-loader-label {
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.flipex-loader-dots span {
+  display: inline-block;
+  animation: flipexDotPulse 1.4s infinite ease-in-out both;
+  color: #F5C542;
+  font-weight: bold;
+}
+
+.flipex-loader-dots span:nth-child(1) { animation-delay: 0s; }
+.flipex-loader-dots span:nth-child(2) { animation-delay: 0.2s; }
+.flipex-loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes flipexDotPulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
