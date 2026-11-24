@@ -7819,3 +7819,14 @@ html[data-theme="dark"] .fixed .st-segment .st-tab:hover { background: #1e293b; 
   .hz-pill-btn.fs { padding-left: 8px !important; }
   .hz-nav-pill .relative:has(> input[aria-label="Scrub pages"]) { flex-basis: 70px; }
 }
+
+/* First / last page prompt: one compact pill (icon, short title, small action, close). */
+.hz-page-toast-wrapper { top: 64px; }
+.hz-page-toast-card { gap: 8px; padding: 5px 6px 5px 8px; max-width: calc(100vw - 24px); flex-wrap: nowrap; white-space: nowrap; }
+.hz-toast-icon-wrap { width: 22px; height: 22px; flex: 0 0 auto; }
+.hz-toast-icon { width: 14px; height: 14px; }
+.hz-toast-body { flex: 0 1 auto; }
+.hz-toast-title { font-size: 13px; font-weight: 600; line-height: 1.2; }
+.hz-toast-badge, .hz-toast-msg { display: none !important; }
+.hz-toast-action-btn { font-size: 12px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.hz-toast-close-btn { width: 22px; height: 22px; flex: 0 0 auto; }

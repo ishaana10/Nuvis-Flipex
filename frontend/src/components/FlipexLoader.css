@@ -1,144 +1,56 @@
-.flipex-loader-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-}
+.flipex-loader-container { display: flex; flex-direction: column; align-items: center; justify-content: center; user-select: none; }
+.flipex-loader-centered { min-height: 200px; width: 100%; margin: auto; padding: 24px 16px; }
 
-.flipex-loader-centered {
-  min-height: 280px;
-  width: 100%;
-  margin: auto;
-  padding: 32px 16px;
-}
+.flipex-book-stage { position: relative; display: block; animation: flipexBookFloat 4.2s ease-in-out infinite; }
 
-.flipex-book-stage {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: flipexBookFloat 2.8s ease-in-out infinite;
-  transform-origin: center bottom;
-}
-
+/* Frames are stacked. The new one fades in over the previous one, which stays until it is covered, so there is no dip. */
 .flipex-book-frame {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 0;
-  transform: scale(0.985);
-  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s ease-out;
-  pointer-events: none;
-  filter: drop-shadow(0 12px 28px rgba(245, 197, 66, 0.38)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+  opacity: 0; z-index: 1; pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgba(245, 197, 66, 0.35));
 }
-
-.flipex-book-frame.active {
-  opacity: 1;
-  transform: scale(1);
-}
+.flipex-book-frame.leaving { opacity: 1; z-index: 2; animation: flipexFrameOut calc(var(--fx-fade, 650ms) * 1.4) ease-in both; }
+@keyframes flipexFrameOut { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
+.flipex-book-frame.active { opacity: 1; z-index: 3; animation: flipexFrameIn var(--fx-fade, 650ms) cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes flipexFrameIn { from { opacity: 0; transform: scale(0.97) rotate(-1.5deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
 
 .flipex-book-glow {
-  position: absolute;
-  bottom: 8%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 75%;
-  height: 24%;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(245, 197, 66, 0.45) 0%, rgba(217, 119, 6, 0.15) 55%, transparent 75%);
-  filter: blur(12px);
-  pointer-events: none;
-  animation: flipexGlowPulse 2.8s ease-in-out infinite;
+  position: absolute; inset: 14%; border-radius: 50%; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle, rgba(245, 197, 66, 0.35) 0%, rgba(217, 119, 6, 0.12) 55%, transparent 72%);
+  filter: blur(8px); animation: flipexGlowPulse 4.2s ease-in-out infinite;
 }
 
-/* Size Variants */
-.flipex-loader-xs .flipex-book-stage {
-  width: 26px;
-  height: 44px;
-  animation-duration: 3.2s;
+/* Gold sparkles */
+.flipex-sparkle {
+  position: absolute; z-index: 4; pointer-events: none;
+  width: calc(var(--s, 1) * 16%); aspect-ratio: 1; transform: translate(-50%, -50%) scale(0); opacity: 0;
+  fill: #ffe08a; filter: drop-shadow(0 0 4px rgba(255, 214, 102, 0.95));
+  animation: flipexTwinkle 3.2s ease-in-out infinite;
+}
+@keyframes flipexTwinkle {
+  0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0) rotate(0deg); }
+  40% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(45deg); }
+  60% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.75) rotate(70deg); }
 }
 
-.flipex-loader-xs .flipex-book-glow {
-  filter: blur(6px);
-}
+/* Sizes (small by default) */
+.flipex-loader-xs .flipex-book-stage { width: 32px; height: 32px; }
+.flipex-loader-icon .flipex-book-stage { width: 44px; height: 44px; }
+.flipex-loader-sm .flipex-book-stage { width: 56px; height: 56px; }
+.flipex-loader-md .flipex-book-stage { width: 76px; height: 76px; }
+.flipex-loader-lg .flipex-book-stage { width: 96px; height: 96px; }
+.flipex-loader-hero .stage, .flipex-loader-hero .flipex-book-stage { width: 128px; height: 128px; }
+.flipex-loader-xs .flipex-sparkle:nth-of-type(n+4) { display: none; }
 
-.flipex-loader-xs .flipex-book-frame {
-  filter: drop-shadow(0 2px 8px rgba(245, 197, 66, 0.4));
-}
+@keyframes flipexBookFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes flipexGlowPulse { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.12); } }
 
-.flipex-loader-icon .flipex-book-stage {
-  width: 50px;
-  height: 84px;
-}
+.flipex-loader-label { margin-top: 10px; font-size: 12px; font-weight: 600; color: #94a3b8; letter-spacing: 0.3px; }
 
-.flipex-loader-sm .flipex-book-stage {
-  width: 70px;
-  height: 118px;
-}
-
-.flipex-loader-md .flipex-book-stage {
-  width: 105px;
-  height: 176px;
-}
-
-.flipex-loader-lg .flipex-book-stage {
-  width: 145px;
-  height: 244px;
-}
-
-.flipex-loader-hero .flipex-book-stage {
-  width: 195px;
-  height: 328px;
-}
-
-/* Keyframe animations */
-@keyframes flipexBookFloat {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-8px) rotate(-0.5deg);
-  }
-}
-
-@keyframes flipexGlowPulse {
-  0%, 100% {
-    opacity: 0.65;
-    transform: translateX(-50%) scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: translateX(-50%) scale(1.15);
-  }
-}
-
-.flipex-loader-label {
-  margin-top: 14px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #94a3b8;
-  letter-spacing: 0.4px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.flipex-loader-dots span {
-  display: inline-block;
-  animation: flipexDotPulse 1.4s infinite ease-in-out both;
-  color: #F5C542;
-  font-weight: bold;
-}
-
-.flipex-loader-dots span:nth-child(1) { animation-delay: 0s; }
-.flipex-loader-dots span:nth-child(2) { animation-delay: 0.2s; }
-.flipex-loader-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes flipexDotPulse {
-  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1.2); }
+@media (prefers-reduced-motion: reduce) {
+  .flipex-book-stage, .flipex-book-glow, .flipex-sparkle { animation: none; }
+  .flipex-book-frame.active { animation: none; }
+  .flipex-sparkle { display: none; }
+  .flipex-book-frame:not(:first-of-type) { opacity: 0; }
+  .flipex-book-frame:first-of-type { opacity: 1; z-index: 3; }
 }
