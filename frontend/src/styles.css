@@ -7803,3 +7803,19 @@ html[data-theme="dark"] .fixed .st-segment .st-tab:hover { background: #1e293b; 
 .hz-lp-layout { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; color: #64748b; }
 .hz-lp-layout .flipex-layout-thumb { border: 1px solid rgba(100,116,139,.35); }
 .flipex-effects-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+/* Reader bottom bar: never wrap the page counter or stack the fullscreen label, and shed optional controls on small screens. */
+.hz-nav-pill { flex-wrap: nowrap; max-width: calc(100vw - 16px); box-sizing: border-box; }
+.hz-pill-counter { white-space: nowrap; flex: 0 0 auto; }
+.hz-pill-btn { flex: 0 0 auto; white-space: nowrap; }
+.hz-pill-btn.fs { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; }
+.hz-nav-pill .relative:has(> input[aria-label="Scrub pages"]) { min-width: 60px; flex: 1 1 90px; }
+@media (max-width: 900px) {
+  .hz-zoom-controls { display: none !important; }
+}
+@media (max-width: 560px) {
+  .hz-nav-pill { gap: 6px !important; padding: 2px 8px !important; }
+  .hz-pill-btn.fs .hz-fs-label { display: none; }
+  .hz-pill-btn.fs { padding-left: 8px !important; }
+  .hz-nav-pill .relative:has(> input[aria-label="Scrub pages"]) { flex-basis: 70px; }
+}
