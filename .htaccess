@@ -9,6 +9,7 @@
 #   4. SPA Deep Links  -> frontend/dist/index.html
 # ==============================================================================
 
+# LiteSpeed Reload Marker: 2026-11-24 13:48:00
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
