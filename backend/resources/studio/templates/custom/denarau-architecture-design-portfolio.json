@@ -1,180 +1,859 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_cre_portfolio_10",
-    "title": "Denarau Architecture & Design Portfolio",
-    "description": "Minimalist design portfolio for architects, interior designers, and visual creatives with project case studies.",
-    "category": "creative_portfolio",
-    "docType": "custom",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cre_portfolio_10",
+ "title": "Architecture & Design Portfolio",
+ "description": "Minimal studio portfolio with project pages, services and contact page.",
+ "category": "creative_portfolio",
+ "docType": "custom",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#f5f5f4",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e227",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 60,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 60,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#78716c",
+      "textAlign": "left",
+      "letterSpacing": "5px"
+     },
+     "content": "STUDIO PORTFOLIO 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#18181B",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "cp_logo",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 40,
-                        "width": 300,
-                        "height": 25
-                    },
-                    "x": 40,
-                    "y": 40,
-                    "w": 300,
-                    "h": 25,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 11,
-                        "fontWeight": "600",
-                        "color": "#A1A1AA",
-                        "letterSpacing": "2px"
-                    },
-                    "content": "STUDIO VITI \u2022 ARCHITECTURE & SPATIAL DESIGN",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "cp_hd",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 75,
-                        "width": 515,
-                        "height": 60
-                    },
-                    "x": 40,
-                    "y": 75,
-                    "w": 515,
-                    "h": 60,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 26,
-                        "fontWeight": "700",
-                        "color": "#F4F4F5"
-                    },
-                    "content": "Harmonizing Modern Form with Pacific Vernacular",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "cp_img1",
-                    "type": "imageFrame",
-                    "frame": {
-                        "x": 40,
-                        "y": 150,
-                        "width": 515,
-                        "height": 320
-                    },
-                    "x": 40,
-                    "y": 150,
-                    "w": 515,
-                    "h": 320,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1,
-                    "assetRef": {
-                        "source": "external",
-                        "assetId": null,
-                        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-                        "alt": "",
-                        "fit": "cover"
-                    },
-                    "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
-                },
-                {
-                    "id": "cp_txt",
-                    "type": "article",
-                    "frame": {
-                        "x": 40,
-                        "y": 490,
-                        "width": 515,
-                        "height": 120
-                    },
-                    "x": 40,
-                    "y": 490,
-                    "w": 515,
-                    "h": 120,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 13,
-                        "color": "#A1A1AA",
-                        "lineHeight": 1.6
-                    },
-                    "content": "Selected Works (2024\u20132026): Embracing cross-ventilation, native mahogany timber joinery, and natural basalt stonework to create tropical pavilions that breathe with the trade winds.",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "portfolio",
-        "architecture",
-        "interior design",
-        "creative",
-        "case studies"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e228",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 160
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 160,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 44,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Tropical architecture, built to breathe",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e229",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 320,
+      "width": 515,
+      "height": 400
+     },
+     "x": 40,
+     "y": 320,
+     "w": 515,
+     "h": 400,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 6
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_re_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_re_02.svg",
+     "src": "/api/v1/studio-stock/stock_re_02.svg",
+     "image": "/api/v1/studio-stock/stock_re_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e230",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 760,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 760,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#78716c",
+      "textAlign": "left"
+     },
+     "content": "Lagoon & Co. Architects  -  Denarau Island",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e231",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Selected work",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e232",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 96,
+      "width": 515,
+      "height": 300
+     },
+     "x": 40,
+     "y": 96,
+     "w": 515,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 6
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_re_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_re_01.svg",
+     "src": "/api/v1/studio-stock/stock_re_01.svg",
+     "image": "/api/v1/studio-stock/stock_re_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e233",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 410,
+      "width": 515,
+      "height": 28
+     },
+     "x": 40,
+     "y": 410,
+     "w": 515,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Waterfront Villa, Denarau",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e234",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 442,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 442,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12.5,
+      "fontWeight": "normal",
+      "color": "#57534e",
+      "textAlign": "left",
+      "lineHeight": 1.6
+     },
+     "content": "Passive-cooled living around a lagoon-facing courtyard, with locally milled timber and no air-conditioning in the main living spaces.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e235",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 520,
+      "width": 250,
+      "height": 210
+     },
+     "x": 40,
+     "y": 520,
+     "w": 250,
+     "h": 210,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 6
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_biz_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_biz_01.svg",
+     "src": "/api/v1/studio-stock/stock_biz_01.svg",
+     "image": "/api/v1/studio-stock/stock_biz_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e236",
+     "type": "imageFrame",
+     "frame": {
+      "x": 305,
+      "y": 520,
+      "width": 250,
+      "height": 210
+     },
+     "x": 305,
+     "y": 520,
+     "w": 250,
+     "h": 210,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 6
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_re_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_re_02.svg",
+     "src": "/api/v1/studio-stock/stock_re_02.svg",
+     "image": "/api/v1/studio-stock/stock_re_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e237",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Lagoon & Co. Architects",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#fafaf9",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e238",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Services",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e239",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 90
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e240",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 116,
+      "width": 475,
+      "height": 26
+     },
+     "x": 60,
+     "y": 116,
+     "w": 475,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Residential design",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e241",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 144,
+      "width": 475,
+      "height": 40
+     },
+     "x": 60,
+     "y": 144,
+     "w": 475,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#57534e",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Custom homes and renovations, from concept to completion.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e242",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 205,
+      "width": 515,
+      "height": 90
+     },
+     "x": 40,
+     "y": 205,
+     "w": 515,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e243",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 221,
+      "width": 475,
+      "height": 26
+     },
+     "x": 60,
+     "y": 221,
+     "w": 475,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Resort & hospitality",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e244",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 249,
+      "width": 475,
+      "height": 40
+     },
+     "x": 60,
+     "y": 249,
+     "w": 475,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#57534e",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Bures, villas and guest facilities that respect the landscape.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e245",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 310,
+      "width": 515,
+      "height": 90
+     },
+     "x": 40,
+     "y": 310,
+     "w": 515,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e246",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 326,
+      "width": 475,
+      "height": 26
+     },
+     "x": 60,
+     "y": 326,
+     "w": 475,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Project management",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e247",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 354,
+      "width": 475,
+      "height": 40
+     },
+     "x": 60,
+     "y": 354,
+     "w": 475,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#57534e",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Budget, programme and contractor coordination across the islands.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e248",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Lagoon & Co. Architects",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 4,
+   "id": "page_4",
+   "name": "Page 4",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#0f172a",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e249",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 300,
+      "width": 515,
+      "height": 50
+     },
+     "x": 40,
+     "y": 300,
+     "w": 515,
+     "h": 50,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 36,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "center"
+     },
+     "content": "Let's build something",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e250",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 370,
+      "width": 475,
+      "height": 60
+     },
+     "x": 60,
+     "y": 370,
+     "w": 475,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "normal",
+      "color": "#d6d3d1",
+      "textAlign": "center"
+     },
+     "content": "hello@lagoonco.example  -  +679 999 1234",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e251",
+     "type": "button",
+     "frame": {
+      "x": 190,
+      "y": 450,
+      "width": 215,
+      "height": 42
+     },
+     "x": 190,
+     "y": 450,
+     "w": 215,
+     "h": 42,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "color": "#0f172a",
+      "borderRadius": 21.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Start a project",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  }
+ ]
 }

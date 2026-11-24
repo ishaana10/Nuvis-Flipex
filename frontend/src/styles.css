@@ -130,7 +130,7 @@ html.dark .nuvis-brand-text {
   border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
   width: 100%;
@@ -6977,8 +6977,8 @@ html[data-theme="dark"] .studio-empty-desc {
 }
 
 .studio-template-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: #0f172a;
+  border: 1px solid #1e293b;
   border-radius: 16px;
   overflow: hidden;
   display: flex;

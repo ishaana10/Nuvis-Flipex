@@ -10,6 +10,9 @@ use App\Support\FdsAdapter;
 use App\Support\FdsValidator;
 use App\Support\Http;
 use App\Support\Rbac;
+use App\Support\SvgSafety;
+use App\Support\StudioSvgRenderer;
+use App\Support\StockLibrary;
 use App\Support\Storage;
 use App\Support\TenantContext;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -18,6 +21,77 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 final class StudioController
 {
     private static bool $schemaEnsured = false;
+
+    private const MAX_ELEMENTS_PER_PAGE = 600;
+    private const MAX_PAGE_JSON_BYTES = 2 * 1024 * 1024;
+    private const MAX_PAGES_PER_DOCUMENT = 300;
+    private const MAX_REVISIONS = 50;
+
+    /** Validate + encode a page's elements. Returns [json, error]. */
+    private function cleanElements(mixed $v): array
+    {
+        if ($v === null) {
+            return ['[]', null];
+        }
+        if (is_string($v)) {
+            $decoded = json_decode($v, true);
+            if (!is_array($decoded)) {
+                return [null, 'elements must be a JSON array'];
+            }
+            $v = $decoded;
+        }
+        if (!is_array($v) || (!empty($v) && array_keys($v) !== range(0, count($v) - 1))) {
+            return [null, 'elements must be a list'];
+        }
+        if (count($v) > self::MAX_ELEMENTS_PER_PAGE) {
+            return [null, 'A page can hold at most ' . self::MAX_ELEMENTS_PER_PAGE . ' elements'];
+        }
+        foreach ($v as $el) {
+            if (!is_array($el)) {
+                return [null, 'Every element must be an object'];
+            }
+        }
+        $json = json_encode($v, JSON_UNESCAPED_SLASHES);
+        if ($json === false || strlen($json) > self::MAX_PAGE_JSON_BYTES) {
+            return [null, 'Page content is too large (limit 2 MB)'];
+        }
+        return [$json, null];
+    }
+
+    private function cleanBackground(mixed $v): array
+    {
+        if ($v === null) {
+            return [null, null];
+        }
+        if (is_string($v)) {
+            $d = json_decode($v, true);
+            $v = is_array($d) ? $d : ['type' => 'color', 'value' => $v];
+        }
+        if (!is_array($v)) {
+            return [null, 'background must be an object'];
+        }
+        $json = json_encode($v, JSON_UNESCAPED_SLASHES);
+        return $json !== false && strlen($json) <= 4096 ? [$json, null] : [null, 'background is too large'];
+    }
+
+    /** Thumbnails are display hints only: http(s) or site-relative URLs that fit the column. */
+    private function cleanThumb(mixed $v): ?string
+    {
+        $t = trim((string) $v);
+        if ($t === '' || strlen($t) > 500 || preg_match('/[\x00-\x1f]/', $t)) {
+            return null;
+        }
+        return preg_match('#^(https?://|/(?!/))#i', $t) ? $t : null;
+    }
+
+    private function pruneRevisions(int $docId): void
+    {
+        Db::run(
+            'DELETE FROM studio_document_revisions WHERE document_id = ? AND revision_number <= (
+                SELECT m FROM (SELECT MAX(revision_number) - ? AS m FROM studio_document_revisions WHERE document_id = ?) t)',
+            [$docId, self::MAX_REVISIONS, $docId]
+        );
+    }
 
     /**
      * Resolves safe tenant ID falling back to user tenant or tenant 1.
@@ -31,7 +105,8 @@ final class StudioController
         if (!empty($user['tenant_id']) && (int) $user['tenant_id'] > 0) {
             return (int) $user['tenant_id'];
         }
-        return 1;
+        // Never silently fall back to a default tenant: that would leak/mix another workspace's data.
+        throw new \App\Support\TenantContextRequiredException('No workspace is associated with this account');
     }
 
     /**
@@ -40,6 +115,12 @@ final class StudioController
     private function ensureSchema(): void
     {
         if (self::$schemaEnsured) {
+            return;
+        }
+        $manifestFile = __DIR__ . '/../../resources/studio/templates/manifest.json';
+        $guardKey = 'studio_' . substr(md5((string) @filemtime($manifestFile) . ':' . (string) @filesize($manifestFile)), 0, 10);
+        if (\App\Support\SchemaGuard::isCurrent($guardKey)) {
+            self::$schemaEnsured = true;
             return;
         }
 
@@ -342,6 +423,9 @@ final class StudioController
         if ($title === '') {
             return Http::error($res, 'Document title is required', 400);
         }
+        if (mb_strlen($title) > 200) {
+            return Http::error($res, 'Document title must be 200 characters or fewer', 400);
+        }
 
         $docType = trim((string) ($body['doc_type'] ?? 'catalogue'));
         if (!in_array($docType, ['catalogue', 'magazine', 'album', 'custom'], true)) {
@@ -352,6 +436,9 @@ final class StudioController
         $height = isset($body['height_pt']) ? (float) $body['height_pt'] : 841.89;
         $orientation = in_array(($body['orientation'] ?? ''), ['portrait', 'landscape'], true) ? $body['orientation'] : 'portrait';
         $bleed = isset($body['bleed_pt']) ? (float) $body['bleed_pt'] : 9.00;
+        if ($width < 72 || $width > 5000 || $height < 72 || $height > 5000 || $bleed < 0 || $bleed > 100) {
+            return Http::error($res, 'Page size must be between 72 and 5000 points (bleed 0-100).', 400);
+        }
 
         $palette = isset($body['palette']) ? json_encode($body['palette']) : null;
         $settings = isset($body['settings']) ? json_encode($body['settings']) : json_encode([
@@ -424,7 +511,8 @@ final class StudioController
             if (Db::pdo()->inTransaction()) {
                 Db::pdo()->rollBack();
             }
-            return Http::error($res, 'Failed to create studio document: ' . $e->getMessage(), 500);
+            error_log('Studio create failed: ' . $e->getMessage());
+            return Http::error($res, 'Failed to create the document', 500);
         }
     }
 
@@ -540,8 +628,14 @@ final class StudioController
         $maxPage = (int) (Db::one('SELECT COALESCE(MAX(page_number), 0) as m FROM studio_document_pages WHERE document_id = ?', [$id])['m'] ?? 0);
         $nextPageNum = $maxPage + 1;
 
-        $bg = isset($body['background']) ? json_encode($body['background']) : json_encode(['type' => 'color', 'value' => '#FFFFFF']);
-        $elements = isset($body['elements']) ? json_encode($body['elements']) : '[]';
+        if ($maxPage >= self::MAX_PAGES_PER_DOCUMENT) {
+            return Http::error($res, 'A document can have at most ' . self::MAX_PAGES_PER_DOCUMENT . ' pages', 422);
+        }
+        [$bg, $bgErr] = $this->cleanBackground($body['background'] ?? ['type' => 'color', 'value' => '#FFFFFF']);
+        [$elements, $elErr] = $this->cleanElements($body['elements'] ?? null);
+        if ($bgErr || $elErr) {
+            return Http::error($res, $bgErr ?? $elErr, 422);
+        }
 
         Db::run(
             'INSERT INTO studio_document_pages (document_id, page_number, background, elements)
@@ -583,9 +677,24 @@ final class StudioController
         }
 
         $body = (array) $req->getParsedBody();
-        $bg = isset($body['background']) ? json_encode($body['background']) : $page['background'];
-        $elements = isset($body['elements']) ? json_encode($body['elements']) : $page['elements'];
-        $thumb = isset($body['thumbnail_url']) ? trim((string) $body['thumbnail_url']) : $page['thumbnail_url'];
+        $bg = $page['background'];
+        $elements = $page['elements'];
+        $thumb = $page['thumbnail_url'];
+        if (array_key_exists('background', $body)) {
+            [$bg, $err] = $this->cleanBackground($body['background']);
+            if ($err) {
+                return Http::error($res, $err, 422);
+            }
+        }
+        if (array_key_exists('elements', $body)) {
+            [$elements, $err] = $this->cleanElements($body['elements']);
+            if ($err) {
+                return Http::error($res, $err, 422);
+            }
+        }
+        if (array_key_exists('thumbnail_url', $body)) {
+            $thumb = $this->cleanThumb($body['thumbnail_url']);
+        }
 
         Db::run(
             'UPDATE studio_document_pages SET background = ?, elements = ?, thumbnail_url = ?, updated_at = NOW() WHERE id = ?',
@@ -673,7 +782,7 @@ final class StudioController
             if (Db::pdo()->inTransaction()) {
                 Db::pdo()->rollBack();
             }
-            return Http::error($res, 'Reorder failed: ' . $e->getMessage(), 500);
+            return Http::error($res, 'Reorder failed', 500);
         }
     }
 
@@ -792,6 +901,7 @@ final class StudioController
     {
         $this->ensureSchema();
         $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
         $tenantId = $this->resolveTenantId($u);
         $body = (array) ($req->getParsedBody() ?? []);
 
@@ -799,11 +909,13 @@ final class StudioController
         $description = trim((string) ($body['description'] ?? ''));
         $category = trim((string) ($body['category'] ?? 'business_corporate'));
         $documentId = (int) ($body['document_id'] ?? 0);
-        $thumbnailUrl = trim((string) ($body['thumbnail_url'] ?? ''));
+        $thumbnailUrl = $this->cleanThumb($body['thumbnail_url'] ?? '') ?? '';
 
-        if ($name === '') {
-            return Http::json($res, ['error' => 'Template name is required'], 422);
+        if ($name === '' || mb_strlen($name) > 120) {
+            return Http::json($res, ['error' => 'Template name is required (max 120 characters)'], 422);
         }
+        $description = mb_substr($description, 0, 500);
+        $category = preg_match('/^[a-z0-9_]{1,40}$/', $category) ? $category : 'business_corporate';
 
         if ($documentId <= 0) {
             return Http::json($res, ['error' => 'Document ID is required to create a template'], 422);
@@ -835,7 +947,7 @@ final class StudioController
         if ($thumbnailUrl === '') {
             $thumbnailUrl = !empty($doc['cover_thumb'])
                 ? $doc['cover_thumb']
-                : ($previewThumbs[0] ?? 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80');
+                : ($previewThumbs[0] ?? '/api/v1/studio-stock/stock_ret_06.svg');
         }
 
         $meta = [
@@ -887,12 +999,109 @@ final class StudioController
     }
 
     /**
+     * POST /studio/templates/import: add a template from an FDS v1.0 JSON document (API / API-key friendly).
+     * Body: the FDS document itself, or {"name","description","category","template": {FDS}}.
+     */
+    public function importTemplate(Request $req, Response $res): Response
+    {
+        $this->ensureSchema();
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
+        $tenantId = $this->resolveTenantId($u);
+        $body = (array) ($req->getParsedBody() ?? []);
+
+        $fds = isset($body['template']) && is_array($body['template']) ? $body['template'] : $body;
+        $raw = json_encode($fds, JSON_UNESCAPED_SLASHES);
+        if ($raw === false || strlen($raw) > 1536 * 1024) {
+            return Http::error($res, 'Template is too large (limit 1.5 MB)', 413);
+        }
+        if (!FdsAdapter::isFds($fds)) {
+            return Http::error($res, 'Body is not a Flipex Design Schema (FDS v1.0) document', 422);
+        }
+        $pages = is_array($fds['pages'] ?? null) ? $fds['pages'] : [];
+        if (count($pages) < 1 || count($pages) > 60) {
+            return Http::error($res, 'A template needs between 1 and 60 pages', 422);
+        }
+        foreach ($pages as &$pg) {
+            [$ej, $err] = $this->cleanElements($pg['elements'] ?? []);
+            if ($err) {
+                return Http::error($res, $err, 422);
+            }
+            $els = json_decode((string) $ej, true) ?: [];
+            foreach ($els as &$e) {
+                foreach (['linkUrl', 'url'] as $k) {
+                    if (isset($e[$k]) && is_string($e[$k]) && !preg_match('#^(data:image/(png|jpe?g|webp|gif);base64,|https?://|/(?!/))#i', $e[$k])) {
+                        unset($e[$k]); // drop javascript:, file:, protocol-relative and unknown schemes
+                    }
+                }
+                if (isset($e['linkUrl']) && SvgSafety::safeLinkUrl($e['linkUrl']) === null && !str_starts_with((string) $e['linkUrl'], 'data:')) {
+                    unset($e['linkUrl']);
+                }
+            }
+            unset($e);
+            $pg['elements'] = $els;
+        }
+        unset($pg);
+        $fds['pages'] = $pages;
+
+        $validation = FdsValidator::validate($fds);
+        if (!$validation['valid']) {
+            return Http::json($res, ['error' => 'Template validation failed against FDS v1.0', 'details' => array_slice($validation['errors'], 0, 20)], 422);
+        }
+
+        $name = trim((string) ($body['name'] ?? $fds['title'] ?? ''));
+        if ($name === '' || mb_strlen($name) > 120) {
+            return Http::error($res, 'Template name is required (max 120 characters)', 422);
+        }
+        $description = mb_substr(trim((string) ($body['description'] ?? $fds['description'] ?? '')), 0, 500);
+        $category = (string) ($body['category'] ?? $fds['category'] ?? 'business_corporate');
+        $category = preg_match('/^[a-z0-9_]{1,40}$/', $category) ? $category : 'business_corporate';
+        $docType = (string) ($fds['docType'] ?? 'custom');
+        $docType = in_array($docType, ['catalogue', 'magazine', 'album', 'custom'], true) ? $docType : 'custom';
+        $count = (int) Db::one('SELECT COUNT(*) c FROM studio_templates WHERE tenant_id = ? AND is_system = 0', [$tenantId])['c'];
+        if ($count >= 200) {
+            return Http::error($res, 'Template limit reached for this workspace (200)', 422);
+        }
+
+        Db::run(
+            'INSERT INTO studio_templates (category, doc_type, name, description, thumbnail_url, canvas_spec, is_system, tenant_id)
+             VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
+            [$category, $docType, $name, $description, '/api/v1/studio-stock/stock_abs_01.svg', json_encode($fds, JSON_UNESCAPED_SLASHES), $tenantId]
+        );
+        $id = (int) Db::pdo()->lastInsertId();
+        try {
+            Audit::log('studio_template.import', 'studio_template', $id, ['name' => $name, 'pages' => count($pages)]);
+        } catch (\Throwable) {
+        }
+        return Http::json($res, ['ok' => true, 'template_id' => $id, 'pages' => count($pages), 'message' => 'Template imported'], 201);
+    }
+
+    /** GET /studio/templates/{id}/export: download a template as FDS v1.0 JSON. */
+    public function exportTemplate(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
+        $tenantId = $this->resolveTenantId($u);
+        $tpl = Db::one('SELECT name, canvas_spec FROM studio_templates WHERE id = ? AND (is_system = 1 OR tenant_id = ?)', [(int) ($args['id'] ?? 0), $tenantId]);
+        if (!$tpl) {
+            return Http::error($res, 'Template not found', 404);
+        }
+        $slug = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $tpl['name'])), '-') ?: 'template';
+        $res->getBody()->write((string) $tpl['canvas_spec']);
+        return $res->withHeader('Content-Type', 'application/json')
+            ->withHeader('Content-Disposition', 'attachment; filename="' . $slug . '.flipex.json"')
+            ->withHeader('X-Content-Type-Options', 'nosniff');
+    }
+
+    /**
      * DELETE /studio/templates/{id}: Delete a custom template owned by this tenant.
      */
     public function deleteTemplate(Request $req, Response $res, array $args): Response
     {
         $this->ensureSchema();
         $u = $req->getAttribute('user');
+        Rbac::authorize($u, 'flipbook.edit');
         $tenantId = $this->resolveTenantId($u);
         $id = (int) ($args['id'] ?? 0);
 
@@ -982,21 +1191,7 @@ final class StudioController
     /** Reject SVG files that can execute script or pull in external resources. */
     private static function isSafeSvg(string $svg): bool
     {
-        if ($svg === '' || strlen($svg) > 5 * 1024 * 1024) {
-            return false;
-        }
-        $patterns = [
-            '/<\s*script\b/i', '/<\s*foreignObject\b/i', '/<\s*iframe\b/i', '/<\s*embed\b/i', '/<\s*object\b/i',
-            '/<\s*audio\b/i', '/<\s*video\b/i', '/<\s*link\b/i', '/<!ENTITY/i', '/<!DOCTYPE[^>]*\[/i',
-            '/\son[a-z]+\s*=/i', '/javascript\s*:/i', '/data\s*:\s*text\/html/i',
-            '/(?:xlink:)?href\s*=\s*["\']\s*(?:https?:)?\/\//i', '/url\(\s*["\']?\s*(?:https?:)?\/\//i', '/@import/i',
-        ];
-        foreach ($patterns as $re) {
-            if (preg_match($re, $svg)) {
-                return false;
-            }
-        }
-        return true;
+        return SvgSafety::isSafe($svg);
     }
 
     public function uploadAsset(Request $req, Response $res): Response
@@ -1186,54 +1381,56 @@ final class StudioController
      */
     public function getStockLibraryAssets(string $category = '', string $q = ''): array
     {
-        $library = [
-            // Retail & Groceries
-            ['id' => 'stock_ret_01', 'name' => 'Premium Island Rice 10kg', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,groceries,rice,food,staple'],
-            ['id' => 'stock_ret_02', 'name' => 'Fresh Yellow Island Bananas', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,bananas,fruit,market,fresh'],
-            ['id' => 'stock_ret_03', 'name' => 'Cold-Pressed Coconut & Island Oil', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,oil,cooking,fmcg'],
-            ['id' => 'stock_ret_04', 'name' => 'Organic Sweet Pineapples', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,fruit,pineapple,market'],
-            ['id' => 'stock_ret_05', 'name' => 'Vine-Ripened Field Tomatoes', 'category' => 'retail', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1546470427-e26264be0b11?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'retail,vegetables,tomatoes,fresh'],
+        return StockLibrary::items($category, $q);
+    }
 
-            // Dining & Hospitality
-            ['id' => 'stock_din_01', 'name' => 'Island Kokoda Ceviche Bowl', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'dining,seafood,kokoda,fiji,restaurant'],
-            ['id' => 'stock_din_02', 'name' => 'Grilled Coral Rock Lobster Platter', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1533777857889-4be7c70b33f7?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'dining,lobster,seafood,fine dining'],
-            ['id' => 'stock_din_03', 'name' => 'Pacific Sunset Tropical Rum Cocktail', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'dining,cocktail,drinks,bar,resort'],
-            ['id' => 'stock_din_04', 'name' => 'Handcrafted Botanical Gin & Tonic', 'category' => 'dining', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 800, 'tags' => 'dining,cocktail,beverage,tonic'],
+    /** GET /studio-stock/{name}.svg: public, cacheable bundled artwork (no auth: used by <img> tags in the editor). */
+    public function serveStock(Request $req, Response $res, array $args): Response
+    {
+        $path = StockLibrary::path((string) ($args['name'] ?? ''));
+        if ($path === null) {
+            return Http::error($res, 'Not found', 404);
+        }
+        $body = (string) file_get_contents($path);
+        $res->getBody()->write($body);
+        return $res
+            ->withHeader('Content-Type', 'image/svg+xml')
+            ->withHeader('Cache-Control', 'public, max-age=604800')
+            ->withHeader('X-Content-Type-Options', 'nosniff')
+            ->withHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    }
 
-            // Technology & Gadgets
-            ['id' => 'stock_tch_01', 'name' => 'ANC Wireless Headphones Pro', 'category' => 'tech', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'tech,audio,headphones,gadgets'],
-            ['id' => 'stock_tch_02', 'name' => 'GPS Multisport Smartwatch', 'category' => 'tech', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'tech,smartwatch,wearables,fitness'],
-            ['id' => 'stock_tch_03', 'name' => 'ProBook Laptop Ultra-Slim', 'category' => 'tech', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'tech,laptop,computer,workstation'],
-
-            // Real Estate & Architecture
-            ['id' => 'stock_re_01', 'name' => 'Denarau Island Luxury Waterfront Villa', 'category' => 'realestate', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'realestate,villa,luxury,denarau,waterfront'],
-            ['id' => 'stock_re_02', 'name' => 'Tropical Pavilion Architecture Pool', 'category' => 'realestate', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'realestate,pool,architecture,residence'],
-
-            // Scenery & Nature
-            ['id' => 'stock_nat_01', 'name' => 'Pristine Barrier Reef Coral Lagoon', 'category' => 'nature', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'nature,ocean,coral,reef,diving,marine'],
-            ['id' => 'stock_nat_02', 'name' => 'Turquoise Ocean Wave & White Sand Cay', 'category' => 'nature', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', 'width' => 800, 'height' => 600, 'tags' => 'nature,beach,pacific,tropical,sand'],
-
-            // Portraits & Yearbooks
-            ['id' => 'stock_prt_01', 'name' => 'Female Student Academic Portrait', 'category' => 'people', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80', 'width' => 600, 'height' => 800, 'tags' => 'people,student,portrait,yearbook'],
-            ['id' => 'stock_prt_02', 'name' => 'Male Student Graduate Portrait', 'category' => 'people', 'asset_type' => 'image', 'url' => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80', 'width' => 600, 'height' => 800, 'tags' => 'people,graduate,portrait,student'],
-
-            // Badges & Commercial Assets
-            ['id' => 'stock_bdg_01', 'name' => 'Fiji Grown & Crafted Badge', 'category' => 'badges', 'asset_type' => 'badge', 'url' => 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80', 'width' => 400, 'height' => 400, 'tags' => 'badge,fiji made,seal,local,organic']
-        ];
-
-        return array_values(array_filter($library, function ($item) use ($category, $q) {
-            if ($category !== '' && $category !== 'all' && ($item['category'] ?? '') !== $category) {
-                return false;
+    /** GET /studio-template-thumb/{key}.svg: public preview of a SYSTEM template's first page. */
+    public function serveTemplateThumb(Request $req, Response $res, array $args): Response
+    {
+        $this->ensureSchema();
+        $key = (string) ($args['key'] ?? '');
+        $tpl = preg_match('/^[A-Za-z0-9_\-]{1,80}$/', $key)
+            ? Db::one('SELECT id, version, canvas_spec FROM studio_templates WHERE template_key = ? AND is_system = 1', [$key])
+            : null;
+        if (!$tpl) {
+            return Http::error($res, 'Not found', 404);
+        }
+        $cacheKey = 'tplthumb:' . $key . ':' . $tpl['version'] . ':' . md5((string) $tpl['canvas_spec']);
+        $svg = \App\Infrastructure\Cache\CacheManager::get($cacheKey);
+        if (!is_string($svg)) {
+            $spec = json_decode((string) $tpl['canvas_spec'], true) ?: [];
+            $legacy = FdsAdapter::isFds($spec) ? FdsAdapter::toLegacy($spec) : $spec;
+            $page = $legacy['pages'][0] ?? ['elements' => []];
+            $w = (float) ($spec['document']['width'] ?? $legacy['width_pt'] ?? 595.28);
+            $h = (float) ($spec['document']['height'] ?? $legacy['height_pt'] ?? 841.89);
+            $svg = StudioSvgRenderer::renderPage($page, $w, $h, 0, 1);
+            if (!SvgSafety::isSafe($svg)) {
+                return Http::error($res, 'Not found', 404);
             }
-            if ($q !== '') {
-                $needle = strtolower($q);
-                $haystack = strtolower(($item['name'] ?? '') . ' ' . ($item['tags'] ?? ''));
-                if (!str_contains($haystack, $needle)) {
-                    return false;
-                }
-            }
-            return true;
-        }));
+            \App\Infrastructure\Cache\CacheManager::set($cacheKey, $svg, 86400);
+        }
+        $res->getBody()->write($svg);
+        return $res
+            ->withHeader('Content-Type', 'image/svg+xml')
+            ->withHeader('Cache-Control', 'public, max-age=3600')
+            ->withHeader('X-Content-Type-Options', 'nosniff')
+            ->withHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
     }
 
     /**
@@ -1243,7 +1440,7 @@ final class StudioController
     {
         $this->ensureSchema();
         $u = $req->getAttribute('user');
-        Rbac::authorize($u, 'flipbook.edit');
+        Rbac::authorize($u, 'flipbook.publish');
 
         $tenantId = $this->resolveTenantId($u);
         $docId = (int) ($args['id'] ?? 0);
@@ -1254,25 +1451,28 @@ final class StudioController
         }
 
         $body = (array) $req->getParsedBody();
-        $pageRenders = $body['page_renders'] ?? ($body['pageRenders'] ?? []);
 
         $pages = Db::all('SELECT * FROM studio_document_pages WHERE document_id = ? ORDER BY page_number ASC', [$docId]);
         if (empty($pages)) {
             return Http::error($res, 'Document must have at least one page to publish', 400);
         }
 
+        $writtenFiles = [];
         Db::pdo()->beginTransaction();
         try {
             $flipbookId = $doc['flipbook_id'] ? (int) $doc['flipbook_id'] : null;
-            $existingFb = $flipbookId ? Db::one('SELECT id, slug, published_at FROM flipbooks WHERE id = ?', [$flipbookId]) : null;
+            $existingFb = $flipbookId ? Db::one('SELECT id, slug, published_at FROM flipbooks WHERE id = ? AND tenant_id = ?', [$flipbookId, $tenantId]) : null;
+            if ($flipbookId && !$existingFb) {
+                $flipbookId = null; // linked flipbook is gone (or not ours): publish a fresh one
+            }
             $slug = !empty($existingFb['slug']) ? $existingFb['slug'] : ('doc-' . $docId . '-' . substr(bin2hex(random_bytes(4)), 0, 8));
 
             if ($flipbookId && $existingFb) {
                 // Update existing flipbook
                 Db::run(
                     'UPDATE flipbooks SET tenant_id = ?, user_id = ?, title = ?, page_count = ?, status = "ready", workflow_status = "published", visibility = "public", published_at = IFNULL(published_at, NOW()), updated_at = NOW()
-                     WHERE id = ?',
-                    [$tenantId, $u['id'], $doc['title'], count($pages), $flipbookId]
+                     WHERE id = ? AND tenant_id = ?',
+                    [$tenantId, $u['id'], $doc['title'], count($pages), $flipbookId, $tenantId]
                 );
                 // Clean old pages & hotspots for re-compilation
                 Db::run('DELETE FROM pages WHERE flipbook_id = ?', [$flipbookId]);
@@ -1294,52 +1494,27 @@ final class StudioController
                 $elements = $p['elements'] ? json_decode($p['elements'], true) : [];
                 $bg = $p['background'] ? json_decode($p['background'], true) : null;
 
-                $thumbUrl = '';
-                if (!empty($pageRenders[$pageNum])) {
-                    $thumbUrl = (string) $pageRenders[$pageNum];
-                } elseif (!empty($pageRenders[(string) $pageNum])) {
-                    $thumbUrl = (string) $pageRenders[(string) $pageNum];
-                } elseif (!empty($p['thumbnail_url'])) {
-                    $thumbUrl = (string) $p['thumbnail_url'];
+                // Render the page server-side into a self-contained SVG file under the tenant's publication folder.
+                // (Storing data: URIs in pages.image_path overflowed the VARCHAR(255) column and broke publishing.)
+                $svg = StudioSvgRenderer::renderPage(
+                    ['background' => $bg, 'elements' => $elements],
+                    (float) $doc['width_pt'],
+                    (float) $doc['height_pt'],
+                    $tenantId,
+                    $pageNum
+                );
+                if (!SvgSafety::isSafe($svg)) {
+                    throw new \RuntimeException('Page ' . $pageNum . ' could not be rendered safely');
                 }
-
-                if ($thumbUrl === '') {
-                    // Extract first product or image element as preview image if present
-                    foreach ($elements as $el) {
-                        if (!empty($el['image'])) {
-                            $thumbUrl = $el['image'];
-                            break;
-                        }
-                        if (!empty($el['src'])) {
-                            $thumbUrl = $el['src'];
-                            break;
-                        }
-                    }
+                $relDir = "tenants/{$tenantId}/publications/{$flipbookId}/studio";
+                Storage::ensureDir(Storage::root() . '/' . $relDir);
+                $relFile = sprintf('%s/page-%03d-%s.svg', $relDir, $pageNum, substr(hash('sha256', $svg), 0, 10));
+                if (@file_put_contents(Storage::root() . '/' . $relFile, $svg, LOCK_EX) === false) {
+                    throw new \RuntimeException('Could not store rendered page ' . $pageNum);
                 }
-
-                // If thumbnail is still empty, synthesize high-fidelity vector SVG composite
-                if ($thumbUrl === '') {
-                    $bgFill = '#ffffff';
-                    if (!empty($bg['value'])) {
-                        $bgFill = $bg['value'];
-                    } elseif (!empty($bg['color'])) {
-                        $bgFill = $bg['color'];
-                    }
-                    $isGrad = str_contains($bgFill, 'gradient');
-                    $svgW = (int) ($doc['width_pt'] ?? 595);
-                    $svgH = (int) ($doc['height_pt'] ?? 841);
-
-                    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' . $svgW . '" height="' . $svgH . '" viewBox="0 0 ' . $svgW . ' ' . $svgH . '">';
-                    if ($isGrad) {
-                        $svg .= '<defs><linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0f172a"/><stop offset="50%" stop-color="#0369a1"/><stop offset="100%" stop-color="#0284c7"/></linearGradient></defs>';
-                        $svg .= '<rect width="100%" height="100%" fill="url(#bgGrad)"/>';
-                    } else {
-                        $svg .= '<rect width="100%" height="100%" fill="' . htmlspecialchars($bgFill) . '"/>';
-                    }
-                    $svg .= '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#0284c7">Page ' . $pageNum . '</text>';
-                    $svg .= '</svg>';
-                    $thumbUrl = 'data:image/svg+xml;utf8,' . rawurlencode($svg);
-                }
+                @chmod(Storage::root() . '/' . $relFile, 0640);
+                $writtenFiles[] = $relFile;
+                $thumbUrl = $relFile;
 
                 // Extract text content for full-text search
                 $texts = [];
@@ -1393,7 +1568,7 @@ final class StudioController
                             'whatsapp_number' => $el['whatsappNumber'] ?? null,
                             'whatsappPhone' => $el['whatsappNumber'] ?? null,
                             'whatsapp_url' => $waUrl,
-                            'url' => $waUrl ?? ($el['linkUrl'] ?? null),
+                            'url' => $waUrl ?? SvgSafety::safeLinkUrl($el['linkUrl'] ?? ''),
                             'imageUrl' => $prodImg,
                             'image' => $prodImg,
                             'description' => $el['description'] ?? '',
@@ -1415,7 +1590,7 @@ final class StudioController
                             'quote' => $el['quote'] ?? ($el['description'] ?? ''),
                             'imageUrl' => $studentImg,
                             'image' => $studentImg,
-                            'url' => $el['linkUrl'] ?? null,
+                            'url' => SvgSafety::safeLinkUrl($el['linkUrl'] ?? ''),
                         ]);
                         Db::run(
                             'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
@@ -1454,8 +1629,8 @@ final class StudioController
                                 );
                             }
                         }
-                    } elseif ($type === 'link' || !empty($el['linkUrl'])) {
-                        $payload = json_encode(['url' => $el['linkUrl'] ?? '']);
+                    } elseif (($type === 'link' || !empty($el['linkUrl'])) && SvgSafety::safeLinkUrl($el['linkUrl'] ?? '') !== null) {
+                        $payload = json_encode(['url' => SvgSafety::safeLinkUrl($el['linkUrl'])]);
                         Db::run(
                             'INSERT INTO hotspots (flipbook_id, page_number, type, x, y, w, h, payload)
                              VALUES (?, ?, "link", ?, ?, ?, ?, ?)',
@@ -1477,13 +1652,20 @@ final class StudioController
 
             Db::pdo()->commit();
 
+            // Drop page files from earlier publishes that are no longer referenced.
+            foreach (glob(Storage::root() . "/tenants/{$tenantId}/publications/{$flipbookId}/studio/page-*.svg") ?: [] as $old) {
+                if (!in_array(substr($old, strlen(Storage::root()) + 1), $writtenFiles, true)) {
+                    @unlink($old);
+                }
+            }
+
             try {
                 Audit::log('studio_document.publish', 'flipbook', $flipbookId, ['document_id' => $docId]);
             } catch (\Throwable $ae) {
                 error_log('Audit log error on studio_document.publish: ' . $ae->getMessage());
             }
 
-            $fb = Db::one('SELECT slug FROM flipbooks WHERE id = ?', [$flipbookId]);
+            $fb = Db::one('SELECT slug FROM flipbooks WHERE id = ? AND tenant_id = ?', [$flipbookId, $tenantId]);
             $effectiveSlug = $fb['slug'] ?? $slug;
 
             return Http::json($res, [
@@ -1499,7 +1681,11 @@ final class StudioController
             if (Db::pdo()->inTransaction()) {
                 Db::pdo()->rollBack();
             }
-            return Http::error($res, 'Publishing failed: ' . $e->getMessage(), 500);
+            foreach ($writtenFiles as $wf) {
+                @unlink(Storage::root() . '/' . $wf);
+            }
+            error_log('Studio publish failed: ' . $e->getMessage());
+            return Http::error($res, 'Publishing failed. Please try again or contact support.', 500);
         }
     }
 
@@ -1758,9 +1944,27 @@ final class StudioController
 
         $body = (array) $req->getParsedBody();
         $title = isset($body['title']) ? trim((string) $body['title']) : $doc['title'];
+        if ($title === '' || mb_strlen($title) > 200) {
+            return Http::error($res, 'Title must be 1-200 characters', 422);
+        }
         $settings = isset($body['settings']) ? (is_string($body['settings']) ? $body['settings'] : json_encode($body['settings'])) : $doc['settings'];
         $palette = isset($body['palette']) ? (is_string($body['palette']) ? $body['palette'] : json_encode($body['palette'])) : $doc['palette'];
         $pages = isset($body['pages']) && is_array($body['pages']) ? $body['pages'] : null;
+        if ($pages !== null && count($pages) > self::MAX_PAGES_PER_DOCUMENT) {
+            return Http::error($res, 'A document can have at most ' . self::MAX_PAGES_PER_DOCUMENT . ' pages', 422);
+        }
+        $cleanPages = [];
+        foreach ($pages ?? [] as $p) {
+            if (!is_array($p)) {
+                return Http::error($res, 'Each page must be an object', 422);
+            }
+            [$pBg, $e1] = $this->cleanBackground($p['background'] ?? null);
+            [$pEl, $e2] = $this->cleanElements($p['elements'] ?? null);
+            if ($e1 || $e2) {
+                return Http::error($res, $e1 ?? $e2, 422);
+            }
+            $cleanPages[] = ['page_number' => max(1, (int) ($p['page_number'] ?? 1)), 'bg' => $pBg, 'el' => $pEl, 'thumb' => $this->cleanThumb($p['thumbnail_url'] ?? '')];
+        }
 
         $newRevision = ((int) ($doc['revision'] ?? 1)) + 1;
 
@@ -1772,11 +1976,11 @@ final class StudioController
             );
 
             if ($pages !== null) {
-                foreach ($pages as $p) {
-                    $pNum = (int) ($p['page_number'] ?? 1);
-                    $pBg = isset($p['background']) ? (is_string($p['background']) ? $p['background'] : json_encode($p['background'])) : null;
-                    $pEl = isset($p['elements']) ? (is_string($p['elements']) ? $p['elements'] : json_encode($p['elements'])) : '[]';
-                    $pThumb = !empty($p['thumbnail_url']) ? (string) $p['thumbnail_url'] : null;
+                foreach ($cleanPages as $p) {
+                    $pNum = $p['page_number'];
+                    $pBg = $p['bg'];
+                    $pEl = $p['el'];
+                    $pThumb = $p['thumb'];
 
                     $existingPage = Db::one('SELECT id FROM studio_document_pages WHERE document_id = ? AND page_number = ?', [$docId, $pNum]);
                     if ($existingPage) {
@@ -1791,8 +1995,7 @@ final class StudioController
                         );
                     }
                 }
-                // Update page_count
-                Db::run('UPDATE studio_documents SET page_count = ? WHERE id = ?', [count($pages), $docId]);
+                Db::run('UPDATE studio_documents SET page_count = (SELECT COUNT(*) FROM studio_document_pages WHERE document_id = ?) WHERE id = ?', [$docId, $docId]);
             }
 
             // Snapshot revision
@@ -1809,6 +2012,7 @@ final class StudioController
             );
 
             Db::pdo()->commit();
+            $this->pruneRevisions($docId);
 
             return Http::json($res, [
                 'ok' => true,
@@ -1820,7 +2024,8 @@ final class StudioController
             if (Db::pdo()->inTransaction()) {
                 Db::pdo()->rollBack();
             }
-            return Http::error($res, 'Autosave failed: ' . $e->getMessage(), 500);
+            error_log('Studio autosave failed: ' . $e->getMessage());
+            return Http::error($res, 'Autosave failed. Your changes are still in this browser; try again.', 500);
         }
     }
 
@@ -2047,7 +2252,7 @@ final class StudioController
             if (Db::pdo()->inTransaction()) {
                 Db::pdo()->rollBack();
             }
-            return Http::error($res, 'Data sync failed: ' . $e->getMessage(), 500);
+            return Http::error($res, 'Data sync failed', 500);
         }
     }
 
@@ -2177,7 +2382,7 @@ final class StudioController
             if (Db::pdo()->inTransaction()) {
                 Db::pdo()->rollBack();
             }
-            return Http::error($res, 'Currency conversion failed: ' . $e->getMessage(), 500);
+            return Http::error($res, 'Currency conversion failed', 500);
         }
     }
 }

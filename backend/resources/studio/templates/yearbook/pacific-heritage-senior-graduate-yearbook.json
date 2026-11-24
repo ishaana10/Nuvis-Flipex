@@ -1,224 +1,985 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_mag_yearbook_05",
-    "title": "Pacific Heritage Senior Graduate Yearbook",
-    "description": "Comprehensive school and university yearbook with senior portraits, academic awards, quotes, and memories.",
-    "category": "school_yearbook",
-    "docType": "magazine",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_mag_yearbook_05",
+ "title": "Pacific Heritage Senior Yearbook",
+ "description": "School yearbook with cover, principal message, graduate profile cards and awards.",
+ "category": "school_yearbook",
+ "docType": "magazine",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #0a2a5e, #0ea5e9)",
+    "stops": [
+     "#0a2a5e",
+     "#0b5cad",
+     "#0ea5e9"
+    ],
+    "angle": 135,
+    "stop1": "#0a2a5e",
+    "stop2": "#0b5cad",
+    "stop3": "#0ea5e9"
+   },
+   "elements": [
+    {
+     "id": "e104",
+     "type": "imageFrame",
+     "frame": {
+      "x": 60,
+      "y": 70,
+      "width": 475,
+      "height": 340
+     },
+     "x": 60,
+     "y": 70,
+     "w": 475,
+     "h": 340,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 20
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_edu_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_edu_01.svg",
+     "src": "/api/v1/studio-stock/stock_edu_01.svg",
+     "image": "/api/v1/studio-stock/stock_edu_01.svg",
+     "objectFit": "cover"
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "gradient",
-                "value": "linear-gradient(180deg, #0F172A 0%, #1E293B 50%, #0E7490 100%)",
-                "stops": null,
-                "angle": 180
-            },
-            "elements": [
-                {
-                    "id": "yb1",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 60,
-                        "width": 515,
-                        "height": 40
-                    },
-                    "x": 40,
-                    "y": 60,
-                    "w": 515,
-                    "h": 40,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 26,
-                        "fontWeight": "bold",
-                        "color": "#E0E7FF",
-                        "textAlign": "center"
-                    },
-                    "content": "CLASS OF 2026 GRADUATES",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "yb2",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 105,
-                        "width": 515,
-                        "height": 25
-                    },
-                    "x": 40,
-                    "y": 105,
-                    "w": 515,
-                    "h": 25,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 14,
-                        "fontStyle": "italic",
-                        "color": "#38BDF8",
-                        "textAlign": "center"
-                    },
-                    "content": "\"Leading with Excellence, Rooted in Tradition\"",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "img1",
-                    "type": "studentCard",
-                    "frame": {
-                        "x": 50,
-                        "y": 150,
-                        "width": 150,
-                        "height": 180
-                    },
-                    "x": 50,
-                    "y": 150,
-                    "w": 150,
-                    "h": 180,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "img2",
-                    "type": "studentCard",
-                    "frame": {
-                        "x": 220,
-                        "y": 150,
-                        "width": 150,
-                        "height": 180
-                    },
-                    "x": 220,
-                    "y": 150,
-                    "w": 150,
-                    "h": 180,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "img3",
-                    "type": "studentCard",
-                    "frame": {
-                        "x": 390,
-                        "y": 150,
-                        "width": 150,
-                        "height": 180
-                    },
-                    "x": 390,
-                    "y": 150,
-                    "w": 150,
-                    "h": 180,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "yb3",
-                    "type": "article",
-                    "frame": {
-                        "x": 50,
-                        "y": 360,
-                        "width": 490,
-                        "height": 120
-                    },
-                    "x": 50,
-                    "y": 360,
-                    "w": 490,
-                    "h": 120,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 13,
-                        "color": "#C7D2FE",
-                        "lineHeight": 1.6
-                    },
-                    "content": "Principal\u2019s Message: To the graduating class of 2026, you have demonstrated resilience, leadership, and remarkable academic curiosity across your journey. As you venture forth into higher learning and your careers, remember the foundations forged on these shores.",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
+    {
+     "id": "e105",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 450,
+      "width": 515,
+      "height": 100
+     },
+     "x": 40,
+     "y": 450,
+     "w": 515,
+     "h": 100,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 52,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "center"
+     },
+     "content": "Class of 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e106",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 540,
+      "width": 515,
+      "height": 30
+     },
+     "x": 40,
+     "y": 540,
+     "w": 515,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "center",
+      "letterSpacing": "4px"
+     },
+     "content": "PACIFIC HERITAGE COLLEGE",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e107",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 600,
+      "width": 475,
+      "height": 60
+     },
+     "x": 60,
+     "y": 600,
+     "w": 475,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#bae6fd",
+      "textAlign": "center",
+      "lineHeight": 1.5
+     },
+     "content": "Senior Yearbook  -  Rooted in tradition, leading with excellence.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #0a2a5e, #0b5cad)",
+    "stops": [
+     "#0a2a5e",
+     "#0b5cad"
     ],
-    "tags": [
-        "school",
-        "university",
-        "yearbook",
-        "students",
-        "education",
-        "graduation"
+    "angle": 135,
+    "stop1": "#0a2a5e",
+    "stop2": "#0b5cad",
+    "stop3": "#0b5cad"
+   },
+   "elements": [
+    {
+     "id": "e108",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Principal's Message",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e109",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 400
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 400,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "normal",
+      "color": "#e0f2fe",
+      "textAlign": "left",
+      "lineHeight": 1.7
+     },
+     "content": "To the graduating class of 2026,\n\nYou have shown resilience, leadership and remarkable academic curiosity across your years with us. As you venture into higher learning and your careers, remember the foundations forged on these shores: respect, service and community.\n\nCarry our school values wherever you go, and return often. This is your home.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e110",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 520,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 520,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "fontStyle": "italic"
+     },
+     "content": "Mrs. Litia Waqa, Principal",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e111",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Pacific Heritage College - Class of 2026",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #0a2a5e, #0b5cad)",
+    "stops": [
+     "#0a2a5e",
+     "#0b5cad"
     ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80"
+    "angle": 135,
+    "stop1": "#0a2a5e",
+    "stop2": "#0b5cad",
+    "stop3": "#0b5cad"
+   },
+   "elements": [
+    {
+     "id": "e112",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Our Graduates",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e113",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 76,
+      "width": 515,
+      "height": 22
+     },
+     "x": 40,
+     "y": 76,
+     "w": 515,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#7dd3fc",
+      "textAlign": "left"
+     },
+     "content": "Class of 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e114",
+     "type": "studentCard",
+     "frame": {
+      "x": 40,
+      "y": 120,
+      "width": 165,
+      "height": 200
+     },
+     "x": 40,
+     "y": 120,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Aisha Rahman",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Dux",
+     "quote": "Dream big, work hard.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e115",
+     "type": "studentCard",
+     "frame": {
+      "x": 220,
+      "y": 120,
+      "width": 165,
+      "height": 200
+     },
+     "x": 220,
+     "y": 120,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Jone Tuilagi",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_02.svg",
+     "award": "Sports Captain",
+     "quote": "Play with heart.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e116",
+     "type": "studentCard",
+     "frame": {
+      "x": 400,
+      "y": 120,
+      "width": 165,
+      "height": 200
+     },
+     "x": 400,
+     "y": 120,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Mere Vakacegu",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Arts Award",
+     "quote": "Create every day.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e117",
+     "type": "studentCard",
+     "frame": {
+      "x": 40,
+      "y": 340,
+      "width": 165,
+      "height": 200
+     },
+     "x": 40,
+     "y": 340,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Sami Prasad",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_02.svg",
+     "award": "Science Prize",
+     "quote": "Stay curious.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e118",
+     "type": "studentCard",
+     "frame": {
+      "x": 220,
+      "y": 340,
+      "width": 165,
+      "height": 200
+     },
+     "x": 220,
+     "y": 340,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Losana Nadan",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Head Girl",
+     "quote": "Lead by example.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e119",
+     "type": "studentCard",
+     "frame": {
+      "x": 400,
+      "y": 340,
+      "width": 165,
+      "height": 200
+     },
+     "x": 400,
+     "y": 340,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Ravi Chand",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_02.svg",
+     "award": "Music Award",
+     "quote": "Let it ring.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e120",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 590,
+      "width": 515,
+      "height": 120
+     },
+     "x": 40,
+     "y": 590,
+     "w": 515,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#e0f2fe",
+      "textAlign": "left",
+      "lineHeight": 1.6,
+      "fontStyle": "italic"
+     },
+     "content": "Memories made together last a lifetime. To every graduate: thank you for the laughs, the lessons and the legacy you leave behind.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e121",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Pacific Heritage College - Class of 2026",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 4,
+   "id": "page_4",
+   "name": "Page 4",
+   "type": "inside",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #0b5cad, #0a2a5e)",
+    "stops": [
+     "#0b5cad",
+     "#0a2a5e"
+    ],
+    "angle": 135,
+    "stop1": "#0b5cad",
+    "stop2": "#0a2a5e",
+    "stop3": "#0a2a5e"
+   },
+   "elements": [
+    {
+     "id": "e122",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Awards & Honours",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e123",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 76,
+      "width": 515,
+      "height": 22
+     },
+     "x": 40,
+     "y": 76,
+     "w": 515,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#7dd3fc",
+      "textAlign": "left"
+     },
+     "content": "Class of 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e124",
+     "type": "studentCard",
+     "frame": {
+      "x": 40,
+      "y": 120,
+      "width": 165,
+      "height": 200
+     },
+     "x": 40,
+     "y": 120,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Aisha Rahman",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Dux",
+     "quote": "Dream big, work hard.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e125",
+     "type": "studentCard",
+     "frame": {
+      "x": 220,
+      "y": 120,
+      "width": 165,
+      "height": 200
+     },
+     "x": 220,
+     "y": 120,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Jone Tuilagi",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_02.svg",
+     "award": "Sports Captain",
+     "quote": "Play with heart.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e126",
+     "type": "studentCard",
+     "frame": {
+      "x": 400,
+      "y": 120,
+      "width": 165,
+      "height": 200
+     },
+     "x": 400,
+     "y": 120,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Mere Vakacegu",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Arts Award",
+     "quote": "Create every day.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e127",
+     "type": "studentCard",
+     "frame": {
+      "x": 40,
+      "y": 340,
+      "width": 165,
+      "height": 200
+     },
+     "x": 40,
+     "y": 340,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Sami Prasad",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_02.svg",
+     "award": "Science Prize",
+     "quote": "Stay curious.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e128",
+     "type": "studentCard",
+     "frame": {
+      "x": 220,
+      "y": 340,
+      "width": 165,
+      "height": 200
+     },
+     "x": 220,
+     "y": 340,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Losana Nadan",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Head Girl",
+     "quote": "Lead by example.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e129",
+     "type": "studentCard",
+     "frame": {
+      "x": 400,
+      "y": 340,
+      "width": 165,
+      "height": 200
+     },
+     "x": 400,
+     "y": 340,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Ravi Chand",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_02.svg",
+     "award": "Music Award",
+     "quote": "Let it ring.",
+     "classYear": "2026"
+    },
+    {
+     "id": "e130",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 590,
+      "width": 515,
+      "height": 120
+     },
+     "x": 40,
+     "y": 590,
+     "w": 515,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#e0f2fe",
+      "textAlign": "left",
+      "lineHeight": 1.6,
+      "fontStyle": "italic"
+     },
+     "content": "Memories made together last a lifetime. To every graduate: thank you for the laughs, the lessons and the legacy you leave behind.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e131",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Pacific Heritage College - Class of 2026",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
 }

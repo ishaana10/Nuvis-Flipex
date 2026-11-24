@@ -1,247 +1,1058 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_rep_annual_08",
-    "title": "Pacific Enterprise Corporate Annual Report",
-    "description": "Executive annual financial & governance review with KPI metric callouts, chairman message, and strategic highlights.",
-    "category": "annual_report",
-    "docType": "custom",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_rep_annual_08",
+ "title": "Pacific Enterprise Annual Report",
+ "description": "Corporate annual report with highlights, key figures, chairman message and outlook.",
+ "category": "annual_report",
+ "docType": "custom",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #050f26, #0b5cad)",
+    "stops": [
+     "#050f26",
+     "#0a2a5e",
+     "#0b5cad"
+    ],
+    "angle": 135,
+    "stop1": "#050f26",
+    "stop2": "#0a2a5e",
+    "stop3": "#0b5cad"
+   },
+   "elements": [
+    {
+     "id": "e168",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 60,
+      "width": 515,
+      "height": 22
+     },
+     "x": 40,
+     "y": 60,
+     "w": 515,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "5px"
+     },
+     "content": "ANNUAL REPORT 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#0F172A",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "ar_tag",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 45,
-                        "width": 300,
-                        "height": 25
-                    },
-                    "x": 40,
-                    "y": 45,
-                    "w": 300,
-                    "h": 25,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 11,
-                        "fontWeight": "bold",
-                        "color": "#38BDF8",
-                        "letterSpacing": "1.5px"
-                    },
-                    "content": "ANNUAL PERFORMANCE REVIEW \u2022 FY2026",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "ar_hd",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 75,
-                        "width": 515,
-                        "height": 60
-                    },
-                    "x": 40,
-                    "y": 75,
-                    "w": 515,
-                    "h": 60,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 28,
-                        "fontWeight": "800",
-                        "color": "#FFFFFF"
-                    },
-                    "content": "Sustainable Growth Across Pacific Markets",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "ar_kpi1",
-                    "type": "shape",
-                    "frame": {
-                        "x": 40,
-                        "y": 150,
-                        "width": 165,
-                        "height": 100
-                    },
-                    "x": 40,
-                    "y": 150,
-                    "w": 165,
-                    "h": 100,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "backgroundColor": "#1E293B",
-                        "borderRadius": 12,
-                        "borderWidth": 1,
-                        "borderColor": "#334155",
-                        "color": "#34D399",
-                        "fontSize": 16,
-                        "textAlign": "center"
-                    },
-                    "content": "$42.8M\nNet Revenue (+18%)",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "ar_kpi2",
-                    "type": "shape",
-                    "frame": {
-                        "x": 215,
-                        "y": 150,
-                        "width": 165,
-                        "height": 100
-                    },
-                    "x": 215,
-                    "y": 150,
-                    "w": 165,
-                    "h": 100,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "backgroundColor": "#1E293B",
-                        "borderRadius": 12,
-                        "borderWidth": 1,
-                        "borderColor": "#334155",
-                        "color": "#38BDF8",
-                        "fontSize": 16,
-                        "textAlign": "center"
-                    },
-                    "content": "124,000\nActive Subscribers",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "ar_kpi3",
-                    "type": "shape",
-                    "frame": {
-                        "x": 390,
-                        "y": 150,
-                        "width": 165,
-                        "height": 100
-                    },
-                    "x": 390,
-                    "y": 150,
-                    "w": 165,
-                    "h": 100,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "backgroundColor": "#1E293B",
-                        "borderRadius": 12,
-                        "borderWidth": 1,
-                        "borderColor": "#334155",
-                        "color": "#38BDF8",
-                        "fontSize": 16,
-                        "textAlign": "center"
-                    },
-                    "content": "99.98%\nInfrastructure Uptime",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "ar_body",
-                    "type": "article",
-                    "frame": {
-                        "x": 40,
-                        "y": 280,
-                        "width": 515,
-                        "height": 220
-                    },
-                    "x": 40,
-                    "y": 280,
-                    "w": 515,
-                    "h": 220,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 14,
-                        "color": "#CBD5E1",
-                        "lineHeight": 1.7
-                    },
-                    "content": "Chairman\u2019s Overview: FY2026 marked a pivotal milestone in our regional expansion across Fiji, Samoa, and Tonga. Through accelerated digital transformation, clean solar energy infrastructure adoption, and resilient supply chain partnerships, we achieved record operational margins.",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "corporate",
-        "annual report",
-        "finance",
-        "kpi",
-        "governance",
-        "executive"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e169",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 200
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 46,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Building a stronger Pacific together",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e170",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 420,
+      "width": 515,
+      "height": 300
+     },
+     "x": 40,
+     "y": 420,
+     "w": 515,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 16
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_biz_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_biz_01.svg",
+     "src": "/api/v1/studio-stock/stock_biz_01.svg",
+     "image": "/api/v1/studio-stock/stock_biz_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e171",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 760,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 760,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#93c5fd",
+      "textAlign": "left"
+     },
+     "content": "Pacific Enterprise Group  -  Suva, Fiji",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e172",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Year in numbers",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e173",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 160,
+      "height": 110
+     },
+     "x": 40,
+     "y": 100,
+     "w": 160,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e174",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 122,
+      "width": 160,
+      "height": 44
+     },
+     "x": 40,
+     "y": 122,
+     "w": 160,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "center"
+     },
+     "content": "FJ$48m",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e175",
+     "type": "text",
+     "frame": {
+      "x": 50,
+      "y": 170,
+      "width": 140,
+      "height": 34
+     },
+     "x": 50,
+     "y": 170,
+     "w": 140,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Revenue, up 12%",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e176",
+     "type": "shape",
+     "frame": {
+      "x": 218,
+      "y": 100,
+      "width": 160,
+      "height": 110
+     },
+     "x": 218,
+     "y": 100,
+     "w": 160,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e177",
+     "type": "text",
+     "frame": {
+      "x": 218,
+      "y": 122,
+      "width": 160,
+      "height": 44
+     },
+     "x": 218,
+     "y": 122,
+     "w": 160,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "center"
+     },
+     "content": "1,240",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e178",
+     "type": "text",
+     "frame": {
+      "x": 228,
+      "y": 170,
+      "width": 140,
+      "height": 34
+     },
+     "x": 228,
+     "y": 170,
+     "w": 140,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Team members",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e179",
+     "type": "shape",
+     "frame": {
+      "x": 396,
+      "y": 100,
+      "width": 160,
+      "height": 110
+     },
+     "x": 396,
+     "y": 100,
+     "w": 160,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e180",
+     "type": "text",
+     "frame": {
+      "x": 396,
+      "y": 122,
+      "width": 160,
+      "height": 44
+     },
+     "x": 396,
+     "y": 122,
+     "w": 160,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "center"
+     },
+     "content": "9",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e181",
+     "type": "text",
+     "frame": {
+      "x": 406,
+      "y": 170,
+      "width": 140,
+      "height": 34
+     },
+     "x": 406,
+     "y": 170,
+     "w": 140,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Island offices",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e182",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 240,
+      "width": 160,
+      "height": 110
+     },
+     "x": 40,
+     "y": 240,
+     "w": 160,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e183",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 262,
+      "width": 160,
+      "height": 44
+     },
+     "x": 40,
+     "y": 262,
+     "w": 160,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#059669",
+      "textAlign": "center"
+     },
+     "content": "94%",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e184",
+     "type": "text",
+     "frame": {
+      "x": 50,
+      "y": 310,
+      "width": 140,
+      "height": 34
+     },
+     "x": 50,
+     "y": 310,
+     "w": 140,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Customer satisfaction",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e185",
+     "type": "shape",
+     "frame": {
+      "x": 218,
+      "y": 240,
+      "width": 160,
+      "height": 110
+     },
+     "x": 218,
+     "y": 240,
+     "w": 160,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e186",
+     "type": "text",
+     "frame": {
+      "x": 218,
+      "y": 262,
+      "width": 160,
+      "height": 44
+     },
+     "x": 218,
+     "y": 262,
+     "w": 160,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#059669",
+      "textAlign": "center"
+     },
+     "content": "FJ$3.1m",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e187",
+     "type": "text",
+     "frame": {
+      "x": 228,
+      "y": 310,
+      "width": 140,
+      "height": 34
+     },
+     "x": 228,
+     "y": 310,
+     "w": 140,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Community investment",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e188",
+     "type": "shape",
+     "frame": {
+      "x": 396,
+      "y": 240,
+      "width": 160,
+      "height": 110
+     },
+     "x": 396,
+     "y": 240,
+     "w": 160,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e189",
+     "type": "text",
+     "frame": {
+      "x": 396,
+      "y": 262,
+      "width": 160,
+      "height": 44
+     },
+     "x": 396,
+     "y": 262,
+     "w": 160,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#059669",
+      "textAlign": "center"
+     },
+     "content": "31%",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e190",
+     "type": "text",
+     "frame": {
+      "x": 406,
+      "y": 310,
+      "width": 140,
+      "height": 34
+     },
+     "x": 406,
+     "y": 310,
+     "w": 140,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Renewable energy",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e191",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 390,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 390,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Highlights",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e192",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 424,
+      "width": 515,
+      "height": 300
+     },
+     "x": 40,
+     "y": 424,
+     "w": 515,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#334155",
+      "textAlign": "left",
+      "lineHeight": 1.7
+     },
+     "content": "Opened three new regional service centres in Labasa, Savusavu and Taveuni.\n\nLaunched a graduate programme that placed 64 young Fijians in full-time roles.\n\nCut operating emissions by 18% through fleet and facility upgrades.\n\nCompleted the digital migration of all customer records, reducing service times by 40%.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e193",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Pacific Enterprise - Annual Report 2026",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#f8fafc",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e194",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Chairman's message",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e195",
+     "type": "article",
+     "frame": {
+      "x": 40,
+      "y": 96,
+      "width": 515,
+      "height": 460
+     },
+     "x": 40,
+     "y": 96,
+     "w": 515,
+     "h": 460,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12.5,
+      "color": "#334155",
+      "lineHeight": 1.6
+     },
+     "content": "This was a year of disciplined growth. We invested in people, infrastructure and the communities we serve, and the results speak for themselves.\n\nOur strategy remains simple: be close to our customers, be responsible with our resources and be ambitious for the region. Thank you to our staff, partners and shareholders for your trust.\n\nLooking ahead, we will expand into new markets, deepen our local supply chains and keep investing in the skills that will carry the Pacific forward.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "columns": 2,
+     "columnGutter": 24
+    },
+    {
+     "id": "e196",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 580,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 580,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left",
+      "fontStyle": "italic"
+     },
+     "content": "Ratu Epeli Naqica, Chairman",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e197",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Pacific Enterprise - Annual Report 2026",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 4,
+   "id": "page_4",
+   "name": "Page 4",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#0a2a5e",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e198",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 300,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 300,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "center"
+     },
+     "content": "Outlook 2027",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e199",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 380,
+      "width": 455,
+      "height": 120
+     },
+     "x": 70,
+     "y": 380,
+     "w": 455,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "normal",
+      "color": "#bfdbfe",
+      "textAlign": "center",
+      "lineHeight": 1.6
+     },
+     "content": "Growth in tourism, renewables and digital services positions us well. We will keep building responsibly.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  }
+ ]
 }

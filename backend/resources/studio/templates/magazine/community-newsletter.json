@@ -1,0 +1,666 @@
+{
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_mag_newsletter_13",
+ "title": "Community Newsletter",
+ "description": "Two-page newsletter for clubs, councils and churches with notices and events.",
+ "category": "community_magazine",
+ "docType": "magazine",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e306",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 150
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#0a2a5e",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e307",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 50
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 50,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 38,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "fontFamily": "Georgia"
+     },
+     "content": "The Village Voice",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e308",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#bfdbfe",
+      "textAlign": "left"
+     },
+     "content": "Community newsletter  -  Issue 12  -  November",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e309",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 180,
+      "width": 515,
+      "height": 260
+     },
+     "x": 40,
+     "y": 180,
+     "w": 515,
+     "h": 260,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_02.svg",
+     "src": "/api/v1/studio-stock/stock_nat_02.svg",
+     "image": "/api/v1/studio-stock/stock_nat_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e310",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 460,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 460,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 22,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left",
+      "lineHeight": 1.2
+     },
+     "content": "Fundraiser raises FJ$12,000 for the new hall",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e311",
+     "type": "article",
+     "frame": {
+      "x": 40,
+      "y": 520,
+      "width": 515,
+      "height": 240
+     },
+     "x": 40,
+     "y": 520,
+     "w": 515,
+     "h": 240,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "color": "#334155",
+      "lineHeight": 1.55
+     },
+     "content": "Thanks to the generosity of more than 300 families, the annual fundraiser has smashed its target. Funds will go towards a new roof and kitchen for the community hall.\n\nVolunteers are needed this month to help with painting and landscaping. Bring a brush and a smile on Saturday morning.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "columns": 2,
+     "columnGutter": 22
+    },
+    {
+     "id": "e312",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "The Village Voice",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#f8fafc",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e313",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 34
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Diary dates",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e314",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 90,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 90,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e315",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 104,
+      "width": 100,
+      "height": 40
+     },
+     "x": 60,
+     "y": 104,
+     "w": 100,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left"
+     },
+     "content": "14 Nov",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e316",
+     "type": "text",
+     "frame": {
+      "x": 170,
+      "y": 104,
+      "width": 370,
+      "height": 44
+     },
+     "x": 170,
+     "y": 104,
+     "w": 370,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.4
+     },
+     "content": "Working bee at the hall, 8am. Morning tea provided.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e317",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 175,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 175,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e318",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 189,
+      "width": 100,
+      "height": 40
+     },
+     "x": 60,
+     "y": 189,
+     "w": 100,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left"
+     },
+     "content": "21 Nov",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e319",
+     "type": "text",
+     "frame": {
+      "x": 170,
+      "y": 189,
+      "width": 370,
+      "height": 44
+     },
+     "x": 170,
+     "y": 189,
+     "w": 370,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.4
+     },
+     "content": "Youth rugby fixtures at the village ground.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e320",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 260,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 260,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e321",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 274,
+      "width": 100,
+      "height": 40
+     },
+     "x": 60,
+     "y": 274,
+     "w": 100,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left"
+     },
+     "content": "5 Dec",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e322",
+     "type": "text",
+     "frame": {
+      "x": 170,
+      "y": 274,
+      "width": 370,
+      "height": 44
+     },
+     "x": 170,
+     "y": 274,
+     "w": 370,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.4
+     },
+     "content": "Christmas carols and lovo night, bring a plate to share.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e323",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 360,
+      "width": 515,
+      "height": 30
+     },
+     "x": 40,
+     "y": 360,
+     "w": 515,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 22,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Notices",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e324",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 396,
+      "width": 515,
+      "height": 200
+     },
+     "x": 40,
+     "y": 396,
+     "w": 515,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.7
+     },
+     "content": "Water supply maintenance on Tuesday, expect low pressure from 9am to 1pm.\n\nLost: a blue school bag near the bus stop. Please contact the office.\n\nNew members are always welcome. Speak to any committee member.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e325",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "The Village Voice",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
+}

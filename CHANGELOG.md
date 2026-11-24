@@ -5,6 +5,16 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+### Studio (Flipex Studio)
+- **Publish now works from Studio:** pages are rendered server-side to SVG (`StudioSvgRenderer`) and stored per tenant, so documents created in the editor, from a template or through the API all publish the same way and open in the public flipbook viewer.
+- **18 new bundled templates** (supermarket, tech, restaurant, real estate, yearbook, lifestyle magazine, wedding, annual report, adventure, portfolio, cafe menu, price list, newsletter, school prospectus, family album, travel journal, event programme, lookbook), 3-4 pages each with real content. Regenerate with `scripts/gen-templates.py`.
+- **26 original CC0 stock illustrations** served from `/api/v1/studio-stock/{id}.svg` (`scripts/gen-stock-art.py`); every Unsplash hotlink is gone, so Studio has no external image dependency.
+- **Template API:** `POST /api/v1/studio/templates/import` and `GET /api/v1/studio/templates/{id}/export` (FDS v1.0 JSON). API keys with the flipbooks scope can now use `/studio`.
+- **Navigation:** "Back to Dashboard" on the Studio hub and a gold "Dashboard" button in the editor (saves first).
+- **Security:** tenant context is required (no fallback to tenant 1), `flipbook.publish` / `flipbook.edit` permission checks, strict size and count limits, SVG safety checks, sanitized link URLs, CSP sandbox on served SVG, and no exception text leaked to clients.
+- **UI fixes:** template card titles and the "Keep Editing" button were unreadable (light-on-light).
+- After deploying, run `php backend/bin/cache.php flush` so the new template manifest is picked up.
+
 ### Added
 - Dependency-free Redis support (phpredis or built-in client; unix socket for A2 Turbo, TCP for VPS) with automatic file/MySQL fallback.
 - Redis-backed rate limiting, locks, cache namespaces and a schema-check guard (`SchemaGuard`) so DDL no longer runs on every request.

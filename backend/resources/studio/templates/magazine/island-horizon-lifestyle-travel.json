@@ -1,240 +1,749 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_mag_lifestyle_06",
-    "title": "Island Horizon Lifestyle & Travel Magazine",
-    "description": "Multi-column editorial magazine spread with drop caps, pull-quotes, full-bleed scenic backdrops, and author bylines.",
-    "category": "community_magazine",
-    "docType": "magazine",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_mag_lifestyle_06",
+ "title": "Island Horizon Lifestyle & Travel Magazine",
+ "description": "Editorial magazine with feature spread, pull quote, contents page and column text.",
+ "category": "community_magazine",
+ "docType": "magazine",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#0c4a6e",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e132",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 841.89
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 841.89,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_02.svg",
+     "src": "/api/v1/studio-stock/stock_nat_02.svg",
+     "image": "/api/v1/studio-stock/stock_nat_02.svg",
+     "objectFit": "cover"
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#FFFFFF",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "cat1",
-                    "type": "badge",
-                    "frame": {
-                        "x": 40,
-                        "y": 40,
-                        "width": 200,
-                        "height": 20
-                    },
-                    "x": 40,
-                    "y": 40,
-                    "w": 200,
-                    "h": 20,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 11,
-                        "fontWeight": "bold",
-                        "color": "#0284C7",
-                        "letterSpacing": "1.5px"
-                    },
-                    "content": "ECO-TOURISM & ADVENTURE",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "hd1",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 65,
-                        "width": 515,
-                        "height": 70
-                    },
-                    "x": 40,
-                    "y": 65,
-                    "w": 515,
-                    "h": 70,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 28,
-                        "fontWeight": "800",
-                        "color": "#0F172A",
-                        "lineHeight": 1.2
-                    },
-                    "content": "Untouched Coral Sanctuaries: Exploring the Mamanuca Reefs",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "imghero",
-                    "type": "imageFrame",
-                    "frame": {
-                        "x": 40,
-                        "y": 145,
-                        "width": 515,
-                        "height": 280
-                    },
-                    "x": 40,
-                    "y": 145,
-                    "w": 515,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1,
-                    "assetRef": {
-                        "source": "external",
-                        "assetId": null,
-                        "url": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
-                        "alt": "Coral Reef Survey",
-                        "fit": "cover"
-                    },
-                    "url": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80"
-                },
-                {
-                    "id": "cap",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 430,
-                        "width": 515,
-                        "height": 20
-                    },
-                    "x": 40,
-                    "y": 430,
-                    "w": 515,
-                    "h": 20,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 11,
-                        "color": "#64748B",
-                        "fontStyle": "italic"
-                    },
-                    "content": "Photo: Marine conservation divers surveying barrier reefs off Castaway Island.",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "txt1",
-                    "type": "article",
-                    "frame": {
-                        "x": 40,
-                        "y": 460,
-                        "width": 245,
-                        "height": 260
-                    },
-                    "x": 40,
-                    "y": 460,
-                    "w": 245,
-                    "h": 260,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 13,
-                        "color": "#334155",
-                        "lineHeight": 1.6
-                    },
-                    "content": "Rising before dawn, the boat guides smoothly cut through crystal clear lagoon waters towards the outer barrier wall. Here, sea turtles glide effortlessly amongst towering coral gardens preserved through community tabu conservation reserves.",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "txt2",
-                    "type": "article",
-                    "frame": {
-                        "x": 310,
-                        "y": 460,
-                        "width": 245,
-                        "height": 260
-                    },
-                    "x": 310,
-                    "y": 460,
-                    "w": 245,
-                    "h": 260,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 13,
-                        "color": "#334155",
-                        "lineHeight": 1.6
-                    },
-                    "content": "Visitors are welcomed with traditional sevusevu protocols, connecting cultural heritage directly with modern sustainable marine stewardship. Every visitor footprint helps fund community-managed nurseries and local youth guides.",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "magazine",
-        "travel",
-        "lifestyle",
-        "editorial",
-        "ecotourism",
-        "pacific"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e133",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 560,
+      "width": 595.28,
+      "height": 282
+     },
+     "x": 0,
+     "y": 560,
+     "w": 595.28,
+     "h": 282,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#0c4a6e",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 2,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e134",
+     "type": "text",
+     "frame": {
+      "x": 36,
+      "y": 590,
+      "width": 520,
+      "height": 60
+     },
+     "x": 36,
+     "y": 590,
+     "w": 520,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "6px"
+     },
+     "content": "ISLAND HORIZON",
+     "locked": false,
+     "editable": true,
+     "zIndex": 3
+    },
+    {
+     "id": "e135",
+     "type": "text",
+     "frame": {
+      "x": 36,
+      "y": 650,
+      "width": 520,
+      "height": 80
+     },
+     "x": 36,
+     "y": 650,
+     "w": 520,
+     "h": 80,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 22,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.25
+     },
+     "content": "The Slow Travel Issue: lagoons, lovo and local legends",
+     "locked": false,
+     "editable": true,
+     "zIndex": 3
+    },
+    {
+     "id": "e136",
+     "type": "text",
+     "frame": {
+      "x": 36,
+      "y": 760,
+      "width": 520,
+      "height": 24
+     },
+     "x": 36,
+     "y": 760,
+     "w": 520,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#bae6fd",
+      "textAlign": "left"
+     },
+     "content": "Summer 2026  -  FJ$9.95",
+     "locked": false,
+     "editable": true,
+     "zIndex": 3
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e137",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 34
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "In this issue",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e138",
+     "type": "toc",
+     "frame": {
+      "x": 40,
+      "y": 90,
+      "width": 515,
+      "height": 260
+     },
+     "x": 40,
+     "y": 90,
+     "w": 515,
+     "h": 260,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "Contents",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "tocItems": [
+      {
+       "title": "Letter from the editor",
+       "page_number": 3
+      },
+      {
+       "title": "Lagoon hopping in the Yasawas",
+       "page_number": 4
+      },
+      {
+       "title": "Kitchen: the art of lovo",
+       "page_number": 5
+      },
+      {
+       "title": "Island playlist",
+       "page_number": 6
+      }
+     ]
+    },
+    {
+     "id": "e139",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 390,
+      "width": 515,
+      "height": 300
+     },
+     "x": 40,
+     "y": 390,
+     "w": 515,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_03.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_03.svg",
+     "src": "/api/v1/studio-stock/stock_nat_03.svg",
+     "image": "/api/v1/studio-stock/stock_nat_03.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e140",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 710,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 710,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left",
+      "fontStyle": "italic"
+     },
+     "content": "On the cover: dusk over a Mamanuca cay, photographed from the water.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e141",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Island Horizon - Summer 2026",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#fffbeb",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e142",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 10,
+      "fontWeight": "bold",
+      "color": "#d97706",
+      "textAlign": "left",
+      "letterSpacing": "3px"
+     },
+     "content": "EDITOR",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e143",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 62,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 62,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left",
+      "lineHeight": 1.15
+     },
+     "content": "Slow down, you are on island time",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e144",
+     "type": "article",
+     "frame": {
+      "x": 40,
+      "y": 150,
+      "width": 515,
+      "height": 380
+     },
+     "x": 40,
+     "y": 150,
+     "w": 515,
+     "h": 380,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12.5,
+      "color": "#334155",
+      "lineHeight": 1.55
+     },
+     "content": "There is a particular rhythm to life on the islands. Mornings start with kava and conversation, afternoons stretch out under the shade of a breadfruit tree, and evenings belong to the tide.\n\nThis issue is an invitation to travel that way: unhurried, curious and connected to the people who call these places home. We visit villages that welcome visitors with a sevusevu, taste recipes passed down through generations and find the quiet corners that guidebooks miss.\n\nWherever you read this, we hope it sends you somewhere beautiful.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "columns": 2,
+     "columnGutter": 24
+    },
+    {
+     "id": "e145",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 560,
+      "width": 515,
+      "height": 140
+     },
+     "x": 40,
+     "y": 560,
+     "w": 515,
+     "h": 140,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#0c4a6e",
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e146",
+     "type": "text",
+     "frame": {
+      "x": 64,
+      "y": 580,
+      "width": 467,
+      "height": 100
+     },
+     "x": 64,
+     "y": 580,
+     "w": 467,
+     "h": 100,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 20,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "fontFamily": "Georgia",
+      "lineHeight": 1.35,
+      "fontStyle": "italic"
+     },
+     "content": "\"The best journeys are the ones that change your pace.\"",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e147",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Island Horizon - Summer 2026",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 4,
+   "id": "page_4",
+   "name": "Page 4",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e148",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 380
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 380,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_01.svg",
+     "src": "/api/v1/studio-stock/stock_nat_01.svg",
+     "image": "/api/v1/studio-stock/stock_nat_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e149",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 410,
+      "width": 515,
+      "height": 30
+     },
+     "x": 40,
+     "y": 410,
+     "w": 515,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 10,
+      "fontWeight": "bold",
+      "color": "#0284c7",
+      "textAlign": "left",
+      "letterSpacing": "3px"
+     },
+     "content": "FEATURE",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e150",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 436,
+      "width": 515,
+      "height": 90
+     },
+     "x": 40,
+     "y": 436,
+     "w": 515,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left",
+      "lineHeight": 1.15
+     },
+     "content": "Lagoon hopping in the Yasawas",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e151",
+     "type": "article",
+     "frame": {
+      "x": 40,
+      "y": 540,
+      "width": 515,
+      "height": 230
+     },
+     "x": 40,
+     "y": 540,
+     "w": 515,
+     "h": 230,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "color": "#334155",
+      "lineHeight": 1.55
+     },
+     "content": "Seven days, six islands and not a single traffic light. Our route follows the Yasawa chain north from Nadi, trading resort comforts for village stays, snorkelling over living reef and evenings of string-band music.\n\nPack light, bring reef-safe sunscreen and leave room in your bag for the handwoven gifts you will not be able to resist.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "columns": 2,
+     "columnGutter": 24
+    },
+    {
+     "id": "e152",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Island Horizon - Summer 2026",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
 }

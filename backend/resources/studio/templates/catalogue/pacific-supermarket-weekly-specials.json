@@ -1,366 +1,1042 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_cat_supermarket_01",
-    "title": "Pacific Supermarket Weekly Specials",
-    "description": "High-conversion FMCG promotional catalogue with price splashes, discount badges, product grids, and 1-tap WhatsApp ordering.",
-    "category": "retail_catalogue",
-    "docType": "catalogue",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cat_supermarket_01",
+ "title": "Pacific Supermarket Weekly Specials",
+ "description": "Promotional grocery catalogue with price tags, savings badges, product grids and one-tap WhatsApp ordering.",
+ "category": "retail_catalogue",
+ "docType": "catalogue",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#0f172a",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e1",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 400
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 400,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_ret_06.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_ret_06.svg",
+     "src": "/api/v1/studio-stock/stock_ret_06.svg",
+     "image": "/api/v1/studio-stock/stock_ret_06.svg",
+     "objectFit": "cover"
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#0F172A",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "h1",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 50,
-                        "width": 515,
-                        "height": 60
-                    },
-                    "x": 40,
-                    "y": 50,
-                    "w": 515,
-                    "h": 60,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 32,
-                        "fontWeight": "bold",
-                        "color": "#FBBF24",
-                        "textAlign": "center",
-                        "letterSpacing": "2px"
-                    },
-                    "content": "ISLAND HARVEST SUPERMARKET",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "sub1",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 110,
-                        "width": 515,
-                        "height": 30
-                    },
-                    "x": 40,
-                    "y": 110,
-                    "w": 515,
-                    "h": 30,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 14,
-                        "fontWeight": "600",
-                        "color": "#E2E8F0",
-                        "textAlign": "center"
-                    },
-                    "content": "WEEKLY FRESH DEALS & SPECIALS \u2022 VALID THIS WEEK ONLY",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p1",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 50,
-                        "y": 160,
-                        "width": 230,
-                        "height": 300
-                    },
-                    "x": 50,
-                    "y": 160,
-                    "w": 230,
-                    "h": 300,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 315,
-                        "y": 160,
-                        "width": 230,
-                        "height": 300
-                    },
-                    "x": 315,
-                    "y": 160,
-                    "w": 230,
-                    "h": 300,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p3",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 50,
-                        "y": 480,
-                        "width": 230,
-                        "height": 290
-                    },
-                    "x": 50,
-                    "y": 480,
-                    "w": 230,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p4",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 315,
-                        "y": 480,
-                        "width": 230,
-                        "height": 290
-                    },
-                    "x": 315,
-                    "y": 480,
-                    "w": 230,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        },
-        {
-            "pageNumber": 2,
-            "id": "page_2",
-            "name": "Page 2",
-            "type": "inside",
-            "background": {
-                "type": "solid",
-                "value": "#1E293B",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "p2_h",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 40,
-                        "width": 515,
-                        "height": 45
-                    },
-                    "x": 40,
-                    "y": 40,
-                    "w": 515,
-                    "h": 45,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 24,
-                        "fontWeight": "bold",
-                        "color": "#34D399",
-                        "textAlign": "center"
-                    },
-                    "content": "FARM FRESH FRUITS & GREEN MARKET",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2_p1",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 50,
-                        "y": 110,
-                        "width": 230,
-                        "height": 290
-                    },
-                    "x": 50,
-                    "y": 110,
-                    "w": 230,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2_p2",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 315,
-                        "y": 110,
-                        "width": 230,
-                        "height": 290
-                    },
-                    "x": 315,
-                    "y": 110,
-                    "w": 230,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2_p3",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 50,
-                        "y": 420,
-                        "width": 230,
-                        "height": 290
-                    },
-                    "x": 50,
-                    "y": 420,
-                    "w": 230,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2_p4",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 315,
-                        "y": 420,
-                        "width": 230,
-                        "height": 290
-                    },
-                    "x": 315,
-                    "y": 420,
-                    "w": 230,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "retail",
-        "fmcg",
-        "groceries",
-        "supermarket",
-        "weekly specials",
-        "fiji",
-        "discounts"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e2",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 372,
+      "width": 595.28,
+      "height": 56
+     },
+     "x": 0,
+     "y": 372,
+     "w": 595.28,
+     "h": 56,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e3",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 384,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 384,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "center",
+      "letterSpacing": "2px"
+     },
+     "content": "WEEKLY SPECIALS  -  VALID THIS WEEK ONLY",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e4",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 460,
+      "width": 515,
+      "height": 90
+     },
+     "x": 40,
+     "y": 460,
+     "w": 515,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "center",
+      "lineHeight": 1.1
+     },
+     "content": "Island Harvest Supermarket",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e5",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 560,
+      "width": 475,
+      "height": 60
+     },
+     "x": 60,
+     "y": 560,
+     "w": 475,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "normal",
+      "color": "#cbd5e1",
+      "textAlign": "center",
+      "lineHeight": 1.5
+     },
+     "content": "Fresh produce, pantry staples and household favourites at prices your whole family will love.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e6",
+     "type": "button",
+     "frame": {
+      "x": 180,
+      "y": 660,
+      "width": 235,
+      "height": 40
+     },
+     "x": 180,
+     "y": 660,
+     "w": 235,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 20.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Order on WhatsApp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    },
+    {
+     "id": "e7",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 770,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 770,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 10,
+      "fontWeight": "normal",
+      "color": "#94a3b8",
+      "textAlign": "center"
+     },
+     "content": "Prices in FJD  -  while stocks last",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#f8fafc",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e8",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Fresh & Pantry",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e9",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 76,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 76,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "Hand-picked weekly savings",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e10",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 110,
+      "width": 235,
+      "height": 300
+     },
+     "x": 40,
+     "y": 110,
+     "w": 235,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Premium Island Rice 10kg",
+     "price": "FJ$22.50",
+     "image": "/api/v1/studio-stock/stock_ret_01.svg",
+     "src": "/api/v1/studio-stock/stock_ret_01.svg",
+     "url": "/api/v1/studio-stock/stock_ret_01.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "originalPrice": "FJ$26.00",
+     "badge": "SAVE $3.50",
+     "sku": "RC-10"
+    },
+    {
+     "id": "e11",
+     "type": "productCard",
+     "frame": {
+      "x": 320,
+      "y": 110,
+      "width": 235,
+      "height": 300
+     },
+     "x": 320,
+     "y": 110,
+     "w": 235,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Sweet Yellow Bananas 1kg",
+     "price": "FJ$2.99",
+     "image": "/api/v1/studio-stock/stock_ret_02.svg",
+     "src": "/api/v1/studio-stock/stock_ret_02.svg",
+     "url": "/api/v1/studio-stock/stock_ret_02.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "originalPrice": "FJ$3.80",
+     "badge": "FRESH",
+     "sku": "BN-01"
+    },
+    {
+     "id": "e12",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 440,
+      "width": 235,
+      "height": 300
+     },
+     "x": 40,
+     "y": 440,
+     "w": 235,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Pure Coconut Oil 2L",
+     "price": "FJ$11.95",
+     "image": "/api/v1/studio-stock/stock_ret_03.svg",
+     "src": "/api/v1/studio-stock/stock_ret_03.svg",
+     "url": "/api/v1/studio-stock/stock_ret_03.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "originalPrice": "FJ$14.20",
+     "badge": "HOT DEAL",
+     "sku": "OL-02"
+    },
+    {
+     "id": "e13",
+     "type": "productCard",
+     "frame": {
+      "x": 320,
+      "y": 440,
+      "width": 235,
+      "height": 300
+     },
+     "x": 320,
+     "y": 440,
+     "w": 235,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Organic Pineapples each",
+     "price": "FJ$4.50",
+     "image": "/api/v1/studio-stock/stock_ret_04.svg",
+     "src": "/api/v1/studio-stock/stock_ret_04.svg",
+     "url": "/api/v1/studio-stock/stock_ret_04.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "badge": "LOCAL",
+     "sku": "PN-01"
+    },
+    {
+     "id": "e14",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Island Harvest - Weekly Specials",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#fff7ed",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e15",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#9a3412",
+      "textAlign": "left"
+     },
+     "content": "Fruit & Veg Market",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e16",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 76,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 76,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#9a3412",
+      "textAlign": "left"
+     },
+     "content": "Straight from the farm gate",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e17",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 110,
+      "width": 235,
+      "height": 300
+     },
+     "x": 40,
+     "y": 110,
+     "w": 235,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Vine-Ripened Tomatoes 1kg",
+     "price": "FJ$3.80",
+     "image": "/api/v1/studio-stock/stock_ret_05.svg",
+     "src": "/api/v1/studio-stock/stock_ret_05.svg",
+     "url": "/api/v1/studio-stock/stock_ret_05.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "badge": "FARM FRESH"
+    },
+    {
+     "id": "e18",
+     "type": "productCard",
+     "frame": {
+      "x": 320,
+      "y": 110,
+      "width": 235,
+      "height": 300
+     },
+     "x": 320,
+     "y": 110,
+     "w": 235,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Kokoda Seafood Pack",
+     "price": "FJ$18.00",
+     "image": "/api/v1/studio-stock/stock_din_01.svg",
+     "src": "/api/v1/studio-stock/stock_din_01.svg",
+     "url": "/api/v1/studio-stock/stock_din_01.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "originalPrice": "FJ$21.00",
+     "badge": "CHEF PICK"
+    },
+    {
+     "id": "e19",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 440,
+      "width": 515,
+      "height": 150
+     },
+     "x": 40,
+     "y": 440,
+     "w": 515,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ea580c",
+      "borderRadius": 16
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e20",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 462,
+      "width": 455,
+      "height": 40
+     },
+     "x": 70,
+     "y": 462,
+     "w": 455,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Bulk Buy Saver",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e21",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 506,
+      "width": 455,
+      "height": 60
+     },
+     "x": 70,
+     "y": 506,
+     "w": 455,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#ffedd5",
+      "textAlign": "left",
+      "lineHeight": 1.45
+     },
+     "content": "Buy any 3 pantry items and get FJ$5 off your basket. Show this page at the checkout.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e22",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 620,
+      "width": 515,
+      "height": 110
+     },
+     "x": 40,
+     "y": 620,
+     "w": 515,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e23",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 636,
+      "width": 475,
+      "height": 28
+     },
+     "x": 60,
+     "y": 636,
+     "w": 475,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Store hours",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e24",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 666,
+      "width": 475,
+      "height": 50
+     },
+     "x": 60,
+     "y": 666,
+     "w": 475,
+     "h": 50,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Mon-Sat 7:00am - 8:00pm   |   Sunday 8:00am - 4:00pm",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e25",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Island Harvest - Weekly Specials",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 4,
+   "id": "page_4",
+   "name": "Page 4",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#0f172a",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e26",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 300
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_02.svg",
+     "src": "/api/v1/studio-stock/stock_nat_02.svg",
+     "image": "/api/v1/studio-stock/stock_nat_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e27",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 340,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 340,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 32,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "center"
+     },
+     "content": "Shop smarter, every week",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e28",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 420,
+      "width": 475,
+      "height": 70
+     },
+     "x": 60,
+     "y": 420,
+     "w": 475,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "normal",
+      "color": "#cbd5e1",
+      "textAlign": "center",
+      "lineHeight": 1.5
+     },
+     "content": "Message us your order and collect in store or choose home delivery in the greater Suva area.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e29",
+     "type": "button",
+     "frame": {
+      "x": 160,
+      "y": 520,
+      "width": 275,
+      "height": 44
+     },
+     "x": 160,
+     "y": 520,
+     "w": 275,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 22.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Chat & Order on WhatsApp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    },
+    {
+     "id": "e30",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 620,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 620,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#94a3b8",
+      "textAlign": "center"
+     },
+     "content": "Island Harvest Supermarket  -  Suva, Fiji",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  }
+ ]
 }

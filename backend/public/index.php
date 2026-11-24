@@ -199,6 +199,8 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
         $st->get('/export/status/{jobId:[0-9]+}', [StudioController::class, 'getExportStatus']);
         $st->get('/templates', [StudioController::class, 'listTemplates']);
         $st->get('/templates/{id:[0-9]+}', [StudioController::class, 'getTemplate']);
+        $st->get('/templates/{id:[0-9]+}/export', [StudioController::class, 'exportTemplate']);
+        $st->post('/templates/import', [StudioController::class, 'importTemplate']);
         $st->post('/templates', [StudioController::class, 'saveTemplate']);
         $st->delete('/templates/{id:[0-9]+}', [StudioController::class, 'deleteTemplate']);
         $st->get('/assets', [StudioController::class, 'listAssets']);
@@ -246,6 +248,8 @@ $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->post('/public/{slug}/verify-domain', [EducationalController::class, 'verifyDomain'])->add(new RateLimit('verify_domain', 20, 300));
 
     // Phase 5: Pacific Regional Directory & Advertising Marketplace
+    $g->get('/studio-stock/{name:[a-z0-9_]+}.svg', [StudioController::class, 'serveStock']);
+    $g->get('/studio-template-thumb/{key:[A-Za-z0-9_\-]+}.svg', [StudioController::class, 'serveTemplateThumb']);
     $g->get('/public/directory', [PacificExpansionController::class, 'listDirectory']);
     $g->get('/public/ads/serve', [PacificExpansionController::class, 'servePublicAds']);
     $g->post('/public/ads/{id:[0-9]+}/track', [PacificExpansionController::class, 'trackAdEvent'])->add(new RateLimit('ad_track', 60, 300));

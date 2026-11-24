@@ -1,0 +1,418 @@
+{
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cat_lookbook_18",
+ "title": "Island Wear Lookbook",
+ "description": "Fashion lookbook with featured pieces, prices and shop-the-look buttons.",
+ "category": "retail_catalogue",
+ "docType": "catalogue",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#164e63",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e403",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 430
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 430,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_02.svg",
+     "src": "/api/v1/studio-stock/stock_nat_02.svg",
+     "image": "/api/v1/studio-stock/stock_nat_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e404",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 400,
+      "width": 595.28,
+      "height": 40
+     },
+     "x": 0,
+     "y": 400,
+     "w": 595.28,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e405",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 470,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 470,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "3px",
+      "textTransform": "uppercase"
+     },
+     "content": "Spring / Summer",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e406",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 504,
+      "width": 515,
+      "height": 130
+     },
+     "x": 40,
+     "y": 504,
+     "w": 515,
+     "h": 130,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Island Wear Lookbook",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e407",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 640,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 640,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#cbd5e1",
+      "textAlign": "left",
+      "lineHeight": 1.45
+     },
+     "content": "Linen, sulu prints and breezy cuts made for the tropics.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e408",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#164e63",
+      "textAlign": "left"
+     },
+     "content": "Shop the look",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e409",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 245,
+      "height": 300
+     },
+     "x": 40,
+     "y": 100,
+     "w": 245,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Sulu Print Shirt",
+     "price": "FJ$79",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "url": "/api/v1/studio-stock/stock_prt_02.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "badge": "NEW"
+    },
+    {
+     "id": "e410",
+     "type": "productCard",
+     "frame": {
+      "x": 310,
+      "y": 100,
+      "width": 245,
+      "height": 300
+     },
+     "x": 310,
+     "y": 100,
+     "w": 245,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Linen Wrap Dress",
+     "price": "FJ$129",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "url": "/api/v1/studio-stock/stock_prt_01.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "originalPrice": "FJ$159",
+     "badge": "SAVE $30"
+    },
+    {
+     "id": "e411",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 430,
+      "width": 245,
+      "height": 300
+     },
+     "x": 40,
+     "y": 430,
+     "w": 245,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Woven Sun Hat",
+     "price": "FJ$45",
+     "image": "/api/v1/studio-stock/stock_ret_06.svg",
+     "src": "/api/v1/studio-stock/stock_ret_06.svg",
+     "url": "/api/v1/studio-stock/stock_ret_06.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5
+    },
+    {
+     "id": "e412",
+     "type": "productCard",
+     "frame": {
+      "x": 310,
+      "y": 430,
+      "width": 245,
+      "height": 300
+     },
+     "x": 310,
+     "y": 430,
+     "w": 245,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Pearl Shell Necklace",
+     "price": "FJ$59",
+     "image": "/api/v1/studio-stock/stock_bdg_01.svg",
+     "src": "/api/v1/studio-stock/stock_bdg_01.svg",
+     "url": "/api/v1/studio-stock/stock_bdg_01.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5
+    },
+    {
+     "id": "e413",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Island Wear Lookbook",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,770 @@
+{
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_mkt_event_17",
+ "title": "Event Programme",
+ "description": "Conference or festival programme with schedule, speakers and venue info.",
+ "category": "event",
+ "docType": "custom",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #2e1065, #c026d3)",
+    "stops": [
+     "#2e1065",
+     "#6d28d9",
+     "#c026d3"
+    ],
+    "angle": 135,
+    "stop1": "#2e1065",
+    "stop2": "#6d28d9",
+    "stop3": "#c026d3"
+   },
+   "elements": [
+    {
+     "id": "e380",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 60,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 60,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "5px"
+     },
+     "content": "SAVE THE DATE",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e381",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 200
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 50,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.08
+     },
+     "content": "Pacific Innovation Summit 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e382",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 340,
+      "width": 515,
+      "height": 300
+     },
+     "x": 40,
+     "y": 340,
+     "w": 515,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 18
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_abs_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_abs_01.svg",
+     "src": "/api/v1/studio-stock/stock_abs_01.svg",
+     "image": "/api/v1/studio-stock/stock_abs_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e383",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 670,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 670,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "bold",
+      "color": "#f5d0fe",
+      "textAlign": "left"
+     },
+     "content": "18-19 March  -  Grand Pacific Hotel, Suva",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e384",
+     "type": "button",
+     "frame": {
+      "x": 40,
+      "y": 740,
+      "width": 200,
+      "height": 40
+     },
+     "x": 40,
+     "y": 740,
+     "w": 200,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "color": "#2e1065",
+      "borderRadius": 20.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Register now",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e385",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#6d28d9",
+      "textAlign": "left"
+     },
+     "content": "Day one schedule",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e386",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 96,
+      "width": 515,
+      "height": 56
+     },
+     "x": 40,
+     "y": 96,
+     "w": 515,
+     "h": 56,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#faf5ff",
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e387",
+     "type": "text",
+     "frame": {
+      "x": 56,
+      "y": 110,
+      "width": 90,
+      "height": 28
+     },
+     "x": 56,
+     "y": 110,
+     "w": 90,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#6d28d9",
+      "textAlign": "left"
+     },
+     "content": "9:00",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e388",
+     "type": "text",
+     "frame": {
+      "x": 150,
+      "y": 110,
+      "width": 395,
+      "height": 28
+     },
+     "x": 150,
+     "y": 110,
+     "w": 395,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Welcome and opening keynote",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e389",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 164,
+      "width": 515,
+      "height": 56
+     },
+     "x": 40,
+     "y": 164,
+     "w": 515,
+     "h": 56,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#faf5ff",
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e390",
+     "type": "text",
+     "frame": {
+      "x": 56,
+      "y": 178,
+      "width": 90,
+      "height": 28
+     },
+     "x": 56,
+     "y": 178,
+     "w": 90,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#6d28d9",
+      "textAlign": "left"
+     },
+     "content": "10:30",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e391",
+     "type": "text",
+     "frame": {
+      "x": 150,
+      "y": 178,
+      "width": 395,
+      "height": 28
+     },
+     "x": 150,
+     "y": 178,
+     "w": 395,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Panel: building for the islands",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e392",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 232,
+      "width": 515,
+      "height": 56
+     },
+     "x": 40,
+     "y": 232,
+     "w": 515,
+     "h": 56,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#faf5ff",
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e393",
+     "type": "text",
+     "frame": {
+      "x": 56,
+      "y": 246,
+      "width": 90,
+      "height": 28
+     },
+     "x": 56,
+     "y": 246,
+     "w": 90,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#6d28d9",
+      "textAlign": "left"
+     },
+     "content": "12:30",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e394",
+     "type": "text",
+     "frame": {
+      "x": 150,
+      "y": 246,
+      "width": 395,
+      "height": 28
+     },
+     "x": 150,
+     "y": 246,
+     "w": 395,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Lunch and networking",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e395",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 300,
+      "width": 515,
+      "height": 56
+     },
+     "x": 40,
+     "y": 300,
+     "w": 515,
+     "h": 56,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#faf5ff",
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e396",
+     "type": "text",
+     "frame": {
+      "x": 56,
+      "y": 314,
+      "width": 90,
+      "height": 28
+     },
+     "x": 56,
+     "y": 314,
+     "w": 90,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#6d28d9",
+      "textAlign": "left"
+     },
+     "content": "2:00",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e397",
+     "type": "text",
+     "frame": {
+      "x": 150,
+      "y": 314,
+      "width": 395,
+      "height": 28
+     },
+     "x": 150,
+     "y": 314,
+     "w": 395,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Workshops: data, design and delivery",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e398",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 400,
+      "width": 515,
+      "height": 30
+     },
+     "x": 40,
+     "y": 400,
+     "w": 515,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 22,
+      "fontWeight": "bold",
+      "color": "#6d28d9",
+      "textAlign": "left"
+     },
+     "content": "Speakers",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e399",
+     "type": "studentCard",
+     "frame": {
+      "x": 40,
+      "y": 440,
+      "width": 165,
+      "height": 200
+     },
+     "x": 40,
+     "y": 440,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Dr. Ana Tui",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Keynote",
+     "quote": "Technology for people.",
+     "classYear": ""
+    },
+    {
+     "id": "e400",
+     "type": "studentCard",
+     "frame": {
+      "x": 218,
+      "y": 440,
+      "width": 165,
+      "height": 200
+     },
+     "x": 218,
+     "y": 440,
+     "w": 165,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Peni Bola",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_02.svg",
+     "award": "Panel chair",
+     "quote": "Build local.",
+     "classYear": ""
+    },
+    {
+     "id": "e401",
+     "type": "studentCard",
+     "frame": {
+      "x": 396,
+      "y": 440,
+      "width": 159,
+      "height": 200
+     },
+     "x": 396,
+     "y": 440,
+     "w": 159,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Salote Ram",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "photoUrl": "/api/v1/studio-stock/stock_prt_01.svg",
+     "award": "Workshop lead",
+     "quote": "Learn by doing.",
+     "classYear": ""
+    },
+    {
+     "id": "e402",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Pacific Innovation Summit 2026",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,172 +1,925 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_mkt_adventure_09",
-    "title": "Viti Bula Tour & Eco-Adventure Guide",
-    "description": "Vibrant tourism marketing brochure with excursion packages, diving safari rates, and booking QR code.",
-    "category": "marketing_brochure",
-    "docType": "custom",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_mkt_adventure_09",
+ "title": "Viti Bula Eco-Adventure Guide",
+ "description": "Tourism brochure with featured tours, prices and booking buttons.",
+ "category": "marketing_brochure",
+ "docType": "custom",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#052e16",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e200",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 430
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 430,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_04.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_04.svg",
+     "src": "/api/v1/studio-stock/stock_nat_04.svg",
+     "image": "/api/v1/studio-stock/stock_nat_04.svg",
+     "objectFit": "cover"
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#064E3B",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "mb_hd",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 50,
-                        "width": 515,
-                        "height": 55
-                    },
-                    "x": 40,
-                    "y": 50,
-                    "w": 515,
-                    "h": 55,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 32,
-                        "fontWeight": "900",
-                        "color": "#6EE7B7",
-                        "textAlign": "center",
-                        "letterSpacing": "2px"
-                    },
-                    "content": "EXPLORE UNTAMED FIJI",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "mb_sub",
-                    "type": "badge",
-                    "frame": {
-                        "x": 40,
-                        "y": 110,
-                        "width": 515,
-                        "height": 30
-                    },
-                    "x": 40,
-                    "y": 110,
-                    "w": 515,
-                    "h": 30,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 12,
-                        "fontWeight": "700",
-                        "color": "#D1FAE5",
-                        "textAlign": "center",
-                        "letterSpacing": "1.5px"
-                    },
-                    "content": "ISLAND ADVENTURES \u2022 WATERFALL TREKS \u2022 REEF DIVING",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "mb_pkg1",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 160,
-                        "width": 245,
-                        "height": 280
-                    },
-                    "x": 40,
-                    "y": 160,
-                    "w": 245,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "mb_pkg2",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 310,
-                        "y": 160,
-                        "width": 245,
-                        "height": 280
-                    },
-                    "x": 310,
-                    "y": 160,
-                    "w": 245,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "brochure",
-        "tourism",
-        "adventure",
-        "travel",
-        "fiji",
-        "tours"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e201",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 400,
+      "width": 595.28,
+      "height": 40
+     },
+     "x": 0,
+     "y": 400,
+     "w": 595.28,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e202",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 470,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 470,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "3px",
+      "textTransform": "uppercase"
+     },
+     "content": "Fiji adventures",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e203",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 504,
+      "width": 515,
+      "height": 130
+     },
+     "x": 40,
+     "y": 504,
+     "w": 515,
+     "h": 130,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Viti Bula Eco Tours",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e204",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 640,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 640,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#cbd5e1",
+      "textAlign": "left",
+      "lineHeight": 1.45
+     },
+     "content": "Reefs, rainforest and village life with local guides.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#f0fdf4",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e205",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#14532d",
+      "textAlign": "left"
+     },
+     "content": "Featured Tours",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e206",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 76,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 76,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#166534",
+      "textAlign": "left"
+     },
+     "content": "Small groups, local guides, reef-safe operators",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e207",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 130,
+      "width": 200,
+      "height": 190
+     },
+     "x": 40,
+     "y": 130,
+     "w": 200,
+     "h": 190,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_01.svg",
+     "src": "/api/v1/studio-stock/stock_nat_01.svg",
+     "image": "/api/v1/studio-stock/stock_nat_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e208",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 136,
+      "width": 295,
+      "height": 30
+     },
+     "x": 260,
+     "y": 136,
+     "w": 295,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#14532d",
+      "textAlign": "left"
+     },
+     "content": "Reef Snorkel Safari",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e209",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 172,
+      "width": 295,
+      "height": 90
+     },
+     "x": 260,
+     "y": 172,
+     "w": 295,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.55
+     },
+     "content": "Half-day boat trip to three coral gardens with lunch on a sandbar.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e210",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 268,
+      "width": 150,
+      "height": 28
+     },
+     "x": 260,
+     "y": 268,
+     "w": 150,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#c2410c",
+      "textAlign": "left"
+     },
+     "content": "FJ$89 pp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e211",
+     "type": "button",
+     "frame": {
+      "x": 420,
+      "y": 266,
+      "width": 135,
+      "height": 30
+     },
+     "x": 420,
+     "y": 266,
+     "w": 135,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 15.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Book now",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    },
+    {
+     "id": "e212",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 345,
+      "width": 200,
+      "height": 190
+     },
+     "x": 40,
+     "y": 345,
+     "w": 200,
+     "h": 190,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_04.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_04.svg",
+     "src": "/api/v1/studio-stock/stock_nat_04.svg",
+     "image": "/api/v1/studio-stock/stock_nat_04.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e213",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 351,
+      "width": 295,
+      "height": 30
+     },
+     "x": 260,
+     "y": 351,
+     "w": 295,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#14532d",
+      "textAlign": "left"
+     },
+     "content": "Highland Trail Trek",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e214",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 387,
+      "width": 295,
+      "height": 90
+     },
+     "x": 260,
+     "y": 387,
+     "w": 295,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.55
+     },
+     "content": "Guided rainforest walk to a hidden waterfall and village sevusevu.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e215",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 483,
+      "width": 150,
+      "height": 28
+     },
+     "x": 260,
+     "y": 483,
+     "w": 150,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#c2410c",
+      "textAlign": "left"
+     },
+     "content": "FJ$65 pp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e216",
+     "type": "button",
+     "frame": {
+      "x": 420,
+      "y": 481,
+      "width": 135,
+      "height": 30
+     },
+     "x": 420,
+     "y": 481,
+     "w": 135,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 15.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Book now",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    },
+    {
+     "id": "e217",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 560,
+      "width": 200,
+      "height": 190
+     },
+     "x": 40,
+     "y": 560,
+     "w": 200,
+     "h": 190,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_03.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_03.svg",
+     "src": "/api/v1/studio-stock/stock_nat_03.svg",
+     "image": "/api/v1/studio-stock/stock_nat_03.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e218",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 566,
+      "width": 295,
+      "height": 30
+     },
+     "x": 260,
+     "y": 566,
+     "w": 295,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#14532d",
+      "textAlign": "left"
+     },
+     "content": "Sunset Lagoon Cruise",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e219",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 602,
+      "width": 295,
+      "height": 90
+     },
+     "x": 260,
+     "y": 602,
+     "w": 295,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.55
+     },
+     "content": "Two hours on the water with canapes, drinks and live ukulele.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e220",
+     "type": "text",
+     "frame": {
+      "x": 260,
+      "y": 698,
+      "width": 150,
+      "height": 28
+     },
+     "x": 260,
+     "y": 698,
+     "w": 150,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#c2410c",
+      "textAlign": "left"
+     },
+     "content": "FJ$75 pp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e221",
+     "type": "button",
+     "frame": {
+      "x": 420,
+      "y": 696,
+      "width": 135,
+      "height": 30
+     },
+     "x": 420,
+     "y": 696,
+     "w": 135,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 15.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Book now",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    },
+    {
+     "id": "e222",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Viti Bula Eco Tours",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#14532d",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e223",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 300
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_02.svg",
+     "src": "/api/v1/studio-stock/stock_nat_02.svg",
+     "image": "/api/v1/studio-stock/stock_nat_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e224",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 340,
+      "width": 515,
+      "height": 50
+     },
+     "x": 40,
+     "y": 340,
+     "w": 515,
+     "h": 50,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 32,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "center"
+     },
+     "content": "Plan your adventure",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e225",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 400,
+      "width": 475,
+      "height": 70
+     },
+     "x": 60,
+     "y": 400,
+     "w": 475,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#bbf7d0",
+      "textAlign": "center",
+      "lineHeight": 1.5
+     },
+     "content": "Group discounts for 6 or more. Transfers from Nadi and Denarau hotels included.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e226",
+     "type": "button",
+     "frame": {
+      "x": 160,
+      "y": 500,
+      "width": 275,
+      "height": 44
+     },
+     "x": 160,
+     "y": 500,
+     "w": 275,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 22.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Book on WhatsApp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  }
+ ]
 }

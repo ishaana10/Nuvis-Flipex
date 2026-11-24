@@ -1,202 +1,873 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_cat_realestate_04",
-    "title": "Suva Waterfront Villa & Property Showcase",
-    "description": "Exclusive island real estate portfolio with architectural photography, property specs, land tenure details, and agent contact.",
-    "category": "real_estate",
-    "docType": "catalogue",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cat_realestate_04",
+ "title": "Waterfront Villa & Property Showcase",
+ "description": "Property brochure with hero imagery, key facts, floor highlights and an enquiry button.",
+ "category": "real_estate",
+ "docType": "catalogue",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#0b1f3a",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e78",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 430
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 430,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_re_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_re_01.svg",
+     "src": "/api/v1/studio-stock/stock_re_01.svg",
+     "image": "/api/v1/studio-stock/stock_re_01.svg",
+     "objectFit": "cover"
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#0F172A",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "re_tag",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 40,
-                        "width": 250,
-                        "height": 25
-                    },
-                    "x": 40,
-                    "y": 40,
-                    "w": 250,
-                    "h": 25,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 11,
-                        "fontWeight": "bold",
-                        "color": "#38BDF8",
-                        "letterSpacing": "1.5px"
-                    },
-                    "content": "PACIFIC PRIME REALTY \u2022 EXCLUSIVE LISTING",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "re_hd",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 70,
-                        "width": 515,
-                        "height": 50
-                    },
-                    "x": 40,
-                    "y": 70,
-                    "w": 515,
-                    "h": 50,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 28,
-                        "fontWeight": "800",
-                        "color": "#FFFFFF"
-                    },
-                    "content": "The Palms Waterfront Sanctuary, Denarau",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "re_hero",
-                    "type": "imageFrame",
-                    "frame": {
-                        "x": 40,
-                        "y": 130,
-                        "width": 515,
-                        "height": 310
-                    },
-                    "x": 40,
-                    "y": 130,
-                    "w": 515,
-                    "h": 310,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1,
-                    "assetRef": {
-                        "source": "external",
-                        "assetId": null,
-                        "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-                        "alt": "",
-                        "fit": "cover"
-                    },
-                    "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"
-                },
-                {
-                    "id": "re_p1",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 460,
-                        "width": 245,
-                        "height": 260
-                    },
-                    "x": 40,
-                    "y": 460,
-                    "w": 245,
-                    "h": 260,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "re_p2",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 310,
-                        "y": 460,
-                        "width": 245,
-                        "height": 260
-                    },
-                    "x": 310,
-                    "y": 460,
-                    "w": 245,
-                    "h": 260,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "real estate",
-        "property",
-        "luxury villa",
-        "residence",
-        "architecture",
-        "investment"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e79",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 400,
+      "width": 595.28,
+      "height": 40
+     },
+     "x": 0,
+     "y": 400,
+     "w": 595.28,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e80",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 470,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 470,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "3px",
+      "textTransform": "uppercase"
+     },
+     "content": "For sale - freehold",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e81",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 504,
+      "width": 515,
+      "height": 130
+     },
+     "x": 40,
+     "y": 504,
+     "w": 515,
+     "h": 130,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Waterfront Villa, Denarau",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e82",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 640,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 640,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#cbd5e1",
+      "textAlign": "left",
+      "lineHeight": 1.45
+     },
+     "content": "4 bedrooms  -  3 bathrooms  -  private pool  -  120m of beach frontage",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e83",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "The Residence",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e84",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 84,
+      "width": 515,
+      "height": 110
+     },
+     "x": 40,
+     "y": 84,
+     "w": 515,
+     "h": 110,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.6
+     },
+     "content": "A light-filled villa designed around the lagoon. Open-plan living flows onto a shaded deck and infinity pool, with every bedroom opening to garden or sea views.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e85",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 210,
+      "width": 515,
+      "height": 280
+     },
+     "x": 40,
+     "y": 210,
+     "w": 515,
+     "h": 280,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_re_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_re_02.svg",
+     "src": "/api/v1/studio-stock/stock_re_02.svg",
+     "image": "/api/v1/studio-stock/stock_re_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e86",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 520,
+      "width": 120,
+      "height": 100
+     },
+     "x": 40,
+     "y": 520,
+     "w": 120,
+     "h": 100,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e87",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 540,
+      "width": 120,
+      "height": 30
+     },
+     "x": 40,
+     "y": 540,
+     "w": 120,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "center"
+     },
+     "content": "4",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e88",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 580,
+      "width": 120,
+      "height": 24
+     },
+     "x": 40,
+     "y": 580,
+     "w": 120,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Bedrooms",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e89",
+     "type": "shape",
+     "frame": {
+      "x": 172,
+      "y": 520,
+      "width": 120,
+      "height": 100
+     },
+     "x": 172,
+     "y": 520,
+     "w": 120,
+     "h": 100,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e90",
+     "type": "text",
+     "frame": {
+      "x": 172,
+      "y": 540,
+      "width": 120,
+      "height": 30
+     },
+     "x": 172,
+     "y": 540,
+     "w": 120,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "center"
+     },
+     "content": "3",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e91",
+     "type": "text",
+     "frame": {
+      "x": 172,
+      "y": 580,
+      "width": 120,
+      "height": 24
+     },
+     "x": 172,
+     "y": 580,
+     "w": 120,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Bathrooms",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e92",
+     "type": "shape",
+     "frame": {
+      "x": 304,
+      "y": 520,
+      "width": 120,
+      "height": 100
+     },
+     "x": 304,
+     "y": 520,
+     "w": 120,
+     "h": 100,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e93",
+     "type": "text",
+     "frame": {
+      "x": 304,
+      "y": 540,
+      "width": 120,
+      "height": 30
+     },
+     "x": 304,
+     "y": 540,
+     "w": 120,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 22,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "center"
+     },
+     "content": "520m2",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e94",
+     "type": "text",
+     "frame": {
+      "x": 304,
+      "y": 580,
+      "width": 120,
+      "height": 24
+     },
+     "x": 304,
+     "y": 580,
+     "w": 120,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Living area",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e95",
+     "type": "shape",
+     "frame": {
+      "x": 436,
+      "y": 520,
+      "width": 119,
+      "height": 100
+     },
+     "x": 436,
+     "y": 520,
+     "w": 119,
+     "h": 100,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f1f5f9",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e96",
+     "type": "text",
+     "frame": {
+      "x": 436,
+      "y": 540,
+      "width": 119,
+      "height": 30
+     },
+     "x": 436,
+     "y": 540,
+     "w": 119,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "center"
+     },
+     "content": "2",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e97",
+     "type": "text",
+     "frame": {
+      "x": 436,
+      "y": 580,
+      "width": 119,
+      "height": 24
+     },
+     "x": 436,
+     "y": 580,
+     "w": 119,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "center"
+     },
+     "content": "Car bays",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e98",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 650,
+      "width": 515,
+      "height": 90
+     },
+     "x": 40,
+     "y": 650,
+     "w": 515,
+     "h": 90,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.6
+     },
+     "content": "Included: designer kitchen, solar hot water, air-conditioning throughout, security system and landscaped gardens.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e99",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Waterfront Villa, Denarau",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#0a2a5e",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e100",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 300
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_03.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_03.svg",
+     "src": "/api/v1/studio-stock/stock_nat_03.svg",
+     "image": "/api/v1/studio-stock/stock_nat_03.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e101",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 340,
+      "width": 515,
+      "height": 44
+     },
+     "x": 40,
+     "y": 340,
+     "w": 515,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "center"
+     },
+     "content": "Arrange a private viewing",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e102",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 400,
+      "width": 475,
+      "height": 70
+     },
+     "x": 60,
+     "y": 400,
+     "w": 475,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#bfdbfe",
+      "textAlign": "center",
+      "lineHeight": 1.5
+     },
+     "content": "Offers invited above FJ$2.4m. Foreign buyers welcome with approved consent.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e103",
+     "type": "button",
+     "frame": {
+      "x": 160,
+      "y": 500,
+      "width": 275,
+      "height": 44
+     },
+     "x": 160,
+     "y": 500,
+     "w": 275,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 22.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Enquire on WhatsApp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  }
+ ]
 }

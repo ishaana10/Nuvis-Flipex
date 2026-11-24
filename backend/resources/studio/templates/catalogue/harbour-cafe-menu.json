@@ -1,0 +1,412 @@
+{
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cat_menu_cafe_11",
+ "title": "Harbour Cafe Menu",
+ "description": "Casual cafe menu with breakfast, mains and drinks and a pickup order button.",
+ "category": "food_restaurant",
+ "docType": "catalogue",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#fef3c7",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e252",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 360
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 360,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 24
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_din_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_din_01.svg",
+     "src": "/api/v1/studio-stock/stock_din_01.svg",
+     "image": "/api/v1/studio-stock/stock_din_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e253",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 440,
+      "width": 515,
+      "height": 80
+     },
+     "x": 40,
+     "y": 440,
+     "w": 515,
+     "h": 80,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 52,
+      "fontWeight": "bold",
+      "color": "#92400e",
+      "textAlign": "center",
+      "fontFamily": "Georgia"
+     },
+     "content": "Harbour Cafe",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e254",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 530,
+      "width": 515,
+      "height": 30
+     },
+     "x": 40,
+     "y": 530,
+     "w": 515,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "bold",
+      "color": "#b45309",
+      "textAlign": "center",
+      "letterSpacing": "3px"
+     },
+     "content": "COFFEE  -  BRUNCH  -  ISLAND PLATES",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e255",
+     "type": "button",
+     "frame": {
+      "x": 180,
+      "y": 620,
+      "width": 235,
+      "height": 44
+     },
+     "x": 180,
+     "y": 620,
+     "w": 235,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#b45309",
+      "color": "#ffffff",
+      "borderRadius": 22.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Order for pickup",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e256",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#92400e",
+      "textAlign": "left",
+      "fontFamily": "Georgia"
+     },
+     "content": "Brunch",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e257",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 245,
+      "height": 290
+     },
+     "x": 40,
+     "y": 100,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Kokoda Bowl",
+     "price": "FJ$16",
+     "image": "/api/v1/studio-stock/stock_din_01.svg",
+     "src": "/api/v1/studio-stock/stock_din_01.svg",
+     "url": "/api/v1/studio-stock/stock_din_01.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "badge": "POPULAR"
+    },
+    {
+     "id": "e258",
+     "type": "productCard",
+     "frame": {
+      "x": 310,
+      "y": 100,
+      "width": 245,
+      "height": 290
+     },
+     "x": 310,
+     "y": 100,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Banana Pancake Stack",
+     "price": "FJ$14",
+     "image": "/api/v1/studio-stock/stock_ret_02.svg",
+     "src": "/api/v1/studio-stock/stock_ret_02.svg",
+     "url": "/api/v1/studio-stock/stock_ret_02.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5
+    },
+    {
+     "id": "e259",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 420,
+      "width": 515,
+      "height": 300
+     },
+     "x": 40,
+     "y": 420,
+     "w": 515,
+     "h": 300,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#fffbeb",
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e260",
+     "type": "text",
+     "frame": {
+      "x": 64,
+      "y": 440,
+      "width": 467,
+      "height": 28
+     },
+     "x": 64,
+     "y": 440,
+     "w": 467,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 20,
+      "fontWeight": "bold",
+      "color": "#92400e",
+      "textAlign": "left",
+      "fontFamily": "Georgia"
+     },
+     "content": "Drinks",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e261",
+     "type": "text",
+     "frame": {
+      "x": 64,
+      "y": 478,
+      "width": 467,
+      "height": 220
+     },
+     "x": 64,
+     "y": 478,
+     "w": 467,
+     "h": 220,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#78350f",
+      "textAlign": "left",
+      "lineHeight": 2
+     },
+     "content": "Flat white  -  FJ$6\nIced coconut latte  -  FJ$8\nFresh pineapple juice  -  FJ$7\nGinger and lemon tea  -  FJ$5",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e262",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Harbour Cafe",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
+}

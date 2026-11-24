@@ -730,6 +730,7 @@ HTML;
             'webp' => 'image/webp',
             'avif' => 'image/avif',
             'png' => 'image/png',
+            'svg' => 'image/svg+xml',
             default => 'image/jpeg',
         };
 
@@ -754,6 +755,11 @@ HTML;
 
         $fh = fopen($path, 'rb');
         $stream = new Stream($fh);
+
+        if ($mime === 'image/svg+xml') {
+            // Defence in depth: an SVG opened directly must never run script or load anything remote.
+            $res = $res->withHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox");
+        }
 
         return $res
             ->withHeader('Content-Type', $mime)
