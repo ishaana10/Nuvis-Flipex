@@ -4576,7 +4576,8 @@ export default function FlipbookViewer({
                 title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
                 style={{ color: settings.toolbarButtonColor || settings.toolbarFontColor }}
               >
-                {isFullscreen ? '✕ Exit' : '⛶ Fullscreen'}
+                <span className="hz-fs-ico" aria-hidden="true">{isFullscreen ? '✕' : '⛶'}</span>
+                <span className="hz-fs-label">{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
               </button>
             )}
           </div>

@@ -5,6 +5,11 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+## [2.3.4] - 2026-11-24
+
+### Fixes
+- **Reader bottom bar on small screens:** the page counter no longer wraps one character per line, the Fullscreen button stays on one line (icon only on phones), and the zoom slider is hidden below 900px so the bar fits the screen.
+
 ## [2.3.3] - 2026-11-24
 
 ### Fixes
