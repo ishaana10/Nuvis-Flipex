@@ -450,6 +450,7 @@ export default function CustomizationDialog({
   const [designTab, setDesignTab] = useState<'colors' | 'basic' | 'toolbar'>('colors');
   // Themes Sub-tabs
   const [themesTab, setThemesTab] = useState<'layouts' | 'presets' | 'effects'>('presets');
+  const [hoverFx, setHoverFx] = useState<string | null>(null);
   const [layoutDevice, setLayoutDevice] = useState<'pc' | 'mobile'>('pc');
   const [layoutSearch, setLayoutSearch] = useState('');
 
@@ -2517,9 +2518,13 @@ export default function CustomizationDialog({
                             aria-pressed={isSel}
                             className={`flipex-effect-card ${isSel ? 'active' : ''}`}
                             onClick={() => setBackgroundEffect(eff.id)}
+                            onMouseEnter={() => setHoverFx(eff.id)}
+                            onMouseLeave={() => setHoverFx(null)}
+                            onFocus={() => setHoverFx(eff.id)}
+                            onBlur={() => setHoverFx(null)}
                           >
                             <span className="flipex-effect-stage" style={{ background }}>
-                              {eff.id !== 'none' ? <AmbientEffect kind={eff.id} /> : <span className="flipex-effect-none">No effect</span>}
+                              {eff.id !== 'none' ? ((isSel || hoverFx === eff.id) ? <AmbientEffect kind={eff.id} /> : <span className="flipex-effect-idle">Hover to preview</span>) : <span className="flipex-effect-none">No effect</span>}
                             </span>
                             <span className="flipex-effect-name">{eff.name}</span>
                             {isSel && <span className="flipex-selected-tick">Selected</span>}
