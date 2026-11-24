@@ -306,6 +306,15 @@ final class Auth implements MiddlewareInterface
 
     private static function ensureApiKeyColumns(): void
     {
+        if (\App\Support\SchemaGuard::isCurrent('api_key_columns')) {
+            return;
+        }
+        self::ensureApiKeyColumnsImpl();
+        \App\Support\SchemaGuard::done('api_key_columns');
+    }
+
+    private static function ensureApiKeyColumnsImpl(): void
+    {
         if (self::$schemaChecked) {
             return;
         }

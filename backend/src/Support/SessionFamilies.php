@@ -18,6 +18,15 @@ final class SessionFamilies
 
     public static function ensureSchema(): void
     {
+        if (\App\Support\SchemaGuard::isCurrent('session_families')) {
+            return;
+        }
+        self::ensureSchemaImpl();
+        \App\Support\SchemaGuard::done('session_families');
+    }
+
+    private static function ensureSchemaImpl(): void
+    {
         if (self::$ensured) {
             return;
         }

@@ -24,6 +24,15 @@ final class AuthController
 
     public static function ensureAuthSchema(): void
     {
+        if (\App\Support\SchemaGuard::isCurrent('auth')) {
+            return;
+        }
+        self::ensureAuthSchemaImpl();
+        \App\Support\SchemaGuard::done('auth');
+    }
+
+    private static function ensureAuthSchemaImpl(): void
+    {
         if (self::$authSchemaEnsured) {
             return;
         }

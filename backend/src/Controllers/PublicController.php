@@ -29,6 +29,15 @@ final class PublicController
      */
     public static function ensureAnalyticsSchema(): void
     {
+        if (\App\Support\SchemaGuard::isCurrent('analytics')) {
+            return;
+        }
+        self::ensureAnalyticsSchemaImpl();
+        \App\Support\SchemaGuard::done('analytics');
+    }
+
+    private static function ensureAnalyticsSchemaImpl(): void
+    {
         if (self::$analyticsSchemaEnsured) {
             return;
         }

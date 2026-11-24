@@ -3,8 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import '@fontsource-variable/plus-jakarta-sans';
-import './tailwind.css';
+import './utilities.css';
 import './styles.css';
 import './theme-commercial.css';
 

@@ -3,6 +3,19 @@
 All notable changes to Nuvis Flipex. Versions follow semver; the number lives in `/VERSION`
 (run `node scripts/bump-version.mjs patch|minor|major` to cut a release).
 
+## [Unreleased]
+
+### Added
+- Dependency-free Redis support (phpredis or built-in client; unix socket for A2 Turbo, TCP for VPS) with automatic file/MySQL fallback.
+- Redis-backed rate limiting, locks, cache namespaces and a schema-check guard (`SchemaGuard`) so DDL no longer runs on every request.
+- `backend/bin/cache.php` (status, ping, flush, gc).
+
+### Changed
+- Removed Tailwind and the fontsource npm packages: utilities are now a static `utilities.css` and the font is bundled locally. No new external dependencies.
+
+### Fixed
+- Dashboard filter pills and other buttons had unreadable text (cascade-layer conflict with base button styles).
+
 ## v2.2.0 - 2026-11-24
 
 ### Versioning

@@ -1,6 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -36,7 +35,7 @@ function versionManifest(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), versionManifest()],
+  plugins: [react(), versionManifest()],
   define: {
     __APP_VERSION__: JSON.stringify(version),
     __APP_BUILD__: JSON.stringify(build),
