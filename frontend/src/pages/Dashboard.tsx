@@ -103,6 +103,23 @@ export interface LeadStats {
   converted: number;
 }
 
+/** Signed file URLs carry a rolling expiry/signature; ignore those when deciding whether a row really changed. */
+const stripSig = (v: unknown) =>
+  JSON.stringify(v, (_k, x) => (typeof x === 'string' ? x.replace(/([?&])(expires|sig)=[^&"]*/g, '$1') : x));
+
+/** Keep the previous object for every unchanged row so images keep their src and nothing re-renders (no flicker). */
+function mergeStable<T extends { id: number }>(prev: T[], next: T[]): T[] {
+  const old = new Map(prev.map((p) => [p.id, p]));
+  let same = prev.length === next.length;
+  const out = next.map((n, i) => {
+    const o = old.get(n.id);
+    if (o && stripSig(o) === stripSig(n)) { if (prev[i] !== o) same = false; return o; }
+    same = false;
+    return n;
+  });
+  return same ? prev : out;
+}
+
 export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 'flipbooks' | 'leads' }) {
   const { user, can } = useAuth();
   const navigate = useNavigate();
@@ -161,7 +178,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     if (collectionFilter) params.set('collectionId', collectionFilter);
     return api<Flipbook[]>(`/flipbooks?${params.toString()}`).then((next) =>
       // keep the previous array when nothing changed so polling never re-renders (or flickers) the grid
-      setItems((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
+      setItems((prev) => mergeStable(prev, next))
     );
   }, [q, workflowFilter, categoryFilter, collectionFilter]);
 

@@ -5,6 +5,11 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-11-24
+
+### Fixes
+- **Flicker (frontend side):** the library now ignores rolling signed-URL expiry/signature changes when polling, so thumbnails keep their image and rows no longer re-render, even if the server is still handing out fresh URLs on every request.
+
 ## [2.3.1] - 2026-11-24
 
 ### Customise panel
