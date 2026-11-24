@@ -93,7 +93,7 @@ export default function Login() {
   return (
     <AuthCard title="Sign in">
       <form onSubmit={f.submit}>
-        <Field label="Email" name="email" type="email" autoComplete="email" value={email} onChange={setEmail} />
+        <Field label="Email or Username" name="email" type="text" autoComplete="username" value={email} onChange={setEmail} />
         <Field label="Password" name="password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
         {f.error && <p className="err">{f.error}</p>}
         <button disabled={f.busy} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>

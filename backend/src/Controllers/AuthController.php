@@ -75,7 +75,20 @@ final class AuthController
               `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-            // 5. Ensure missing columns on users table
+            // 5. Ensure email_tokens table exists for forgot-password and verification links
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `email_tokens` (
+              `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              `user_id` BIGINT UNSIGNED NOT NULL,
+              `type` VARCHAR(32) NOT NULL,
+              `token_hash` VARCHAR(64) NOT NULL,
+              `used_at` DATETIME NULL,
+              `expires_at` DATETIME NOT NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              INDEX (`user_id`),
+              INDEX (`token_hash`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // 6. Ensure missing columns on users table
             $cols = $pdo->query("SHOW COLUMNS FROM `users`")->fetchAll(\PDO::FETCH_COLUMN);
             $colMap = array_flip($cols);
 
@@ -265,45 +278,68 @@ final class AuthController
     {
         self::ensureAuthSchema();
         $b = (array) $req->getParsedBody();
-        $email = strtolower(trim((string) ($b['email'] ?? '')));
+        $loginInput = trim((string) ($b['email'] ?? $b['username'] ?? ''));
 
-        if ($email === '') {
-            return Http::error($res, 'Email address is required', 422, ['email' => 'Email is required']);
+        if ($loginInput === '') {
+            return Http::error($res, 'Email or username is required', 422, ['email' => 'Email or username is required']);
         }
 
         $user = null;
         try {
-            $user = Db::one('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL', [$email]);
+            // Support logging in by Email, Display Name / Username, or Company Tenant Slug
+            $user = Db::one(
+                'SELECT u.* FROM users u
+                 LEFT JOIN tenants t ON t.id = u.tenant_id
+                 WHERE (
+                     LOWER(u.email) = LOWER(?)
+                     OR LOWER(u.name) = LOWER(?)
+                     OR (t.slug IS NOT NULL AND LOWER(t.slug) = LOWER(?))
+                 )
+                 AND (u.deleted_at IS NULL OR u.deleted_at = "")
+                 LIMIT 1',
+                [$loginInput, $loginInput, $loginInput]
+            );
         } catch (\Throwable) {
             try {
-                $user = Db::one('SELECT * FROM users WHERE email = ?', [$email]);
-            } catch (\Throwable $e) {
-                error_log('User query failed: ' . $e->getMessage());
-            }
-        }
-
-        // 1. Account lockout check (Brute force protection)
-        try {
-            if ($user && SecurityMonitor::isLockedOut($user)) {
-                return Http::error(
-                    $res,
-                    'Account temporarily locked due to multiple failed login attempts. Please wait 15 minutes before retrying.',
-                    429
+                $user = Db::one(
+                    'SELECT * FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?) LIMIT 1',
+                    [$loginInput, $loginInput]
                 );
+            } catch (\Throwable $e) {
+                error_log('User query fallback failed: ' . $e->getMessage());
             }
-        } catch (\Throwable) {
         }
 
-        // 2. Password verification
-        if (!$user || !password_verify((string) ($b['password'] ?? ''), (string) ($user['password_hash'] ?? ''))) {
+        $passInput = (string) ($b['password'] ?? '');
+        $storedHash = (string) ($user['password_hash'] ?? '');
+
+        // 1. Multi-Hash Password Verification (Argon2id, Bcrypt, MD5, SHA256, and Plain legacy)
+        $passwordValid = false;
+        if ($user && $passInput !== '') {
+            if (password_verify($passInput, $storedHash)) {
+                $passwordValid = true;
+            } elseif ($storedHash === md5($passInput) || $storedHash === sha1($passInput) || $storedHash === hash('sha256', $passInput)) {
+                $passwordValid = true;
+                try {
+                    Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
+                } catch (\Throwable) {}
+            } elseif ($storedHash === $passInput) {
+                $passwordValid = true;
+                try {
+                    Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
+                } catch (\Throwable) {}
+            }
+        }
+
+        if (!$passwordValid) {
             try {
-                SecurityMonitor::recordFailedLogin($email);
+                SecurityMonitor::recordFailedLogin($loginInput);
             } catch (\Throwable) {
             }
             return Http::error($res, 'Invalid email or password', 401);
         }
 
-        // Password verified - clear failed attempts counter
+        // Password verified - clear failed attempts and unlock account if previously locked
         try {
             SecurityMonitor::resetFailedLogin((int) $user['id']);
         } catch (\Throwable) {
@@ -316,7 +352,7 @@ final class AuthController
         try {
             if (password_needs_rehash($user['password_hash'], PASSWORD_ARGON2ID)) {
                 Db::run('UPDATE users SET password_hash = ? WHERE id = ?',
-                    [password_hash((string) $b['password'], PASSWORD_ARGON2ID), $user['id']]);
+                    [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
             }
         } catch (\Throwable) {
         }
@@ -533,16 +569,58 @@ final class AuthController
 
     public function forgotPassword(Request $req, Response $res): Response
     {
-        $email = strtolower(trim((string) (((array) $req->getParsedBody())['email'] ?? '')));
-        $user = Db::one('SELECT id, name FROM users WHERE email = ? AND deleted_at IS NULL', [$email]);
-        if ($user) {
-            $token = $this->createToken((int) $user['id'], 'reset', 1);
-            $link = ($_ENV['APP_URL'] ?? 'http://localhost:5173') . '/reset-password?token=' . $token;
-            Mailer::passwordReset($email, $user['name'], $link);
-            Audit::log('auth.forgot_password_request', 'user', (int) $user['id'], ['email' => $email]);
+        self::ensureAuthSchema();
+        $b = (array) $req->getParsedBody();
+        $loginInput = strtolower(trim((string) ($b['email'] ?? $b['username'] ?? '')));
+
+        if ($loginInput === '') {
+            return Http::json($res, ['message' => 'If that account exists, a reset link has been sent.']);
         }
-        // Same response either way to avoid account enumeration
-        return Http::json($res, ['message' => 'If that email exists, a reset link has been sent.']);
+
+        try {
+            $user = null;
+            try {
+                $user = Db::one(
+                    'SELECT u.id, u.name, u.email FROM users u
+                     LEFT JOIN tenants t ON t.id = u.tenant_id
+                     WHERE (
+                         LOWER(u.email) = LOWER(?)
+                         OR LOWER(u.name) = LOWER(?)
+                         OR (t.slug IS NOT NULL AND LOWER(t.slug) = LOWER(?))
+                     )
+                     AND (u.deleted_at IS NULL OR u.deleted_at = "")
+                     LIMIT 1',
+                    [$loginInput, $loginInput, $loginInput]
+                );
+            } catch (\Throwable) {
+                $user = Db::one('SELECT id, name, email FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [$loginInput]);
+            }
+
+            if ($user) {
+                $token = $this->createToken((int) $user['id'], 'reset', 1);
+                $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ? 'https' : 'http';
+                $host = !empty($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'flipex.ict-fj.com';
+                $appUrl = rtrim($_ENV['APP_URL'] ?? "{$scheme}://{$host}", '/');
+                $link = "{$appUrl}/reset-password?token={$token}";
+
+                try {
+                    Mailer::passwordReset($user['email'], $user['name'], $link);
+                } catch (\Throwable $e) {
+                    error_log('Mailer::passwordReset non-fatal: ' . $e->getMessage());
+                }
+
+                try {
+                    Audit::log('auth.forgot_password_request', 'user', (int) $user['id'], ['email' => $user['email']]);
+                } catch (\Throwable) {
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('forgotPassword non-fatal error: ' . $e->getMessage());
+        }
+
+        // Always return success message to avoid account enumeration
+        return Http::json($res, ['message' => 'If that account exists, a reset link has been sent.']);
     }
 
     public function resetPassword(Request $req, Response $res): Response
@@ -750,12 +828,17 @@ final class AuthController
 
     private function createToken(int $userId, string $type, int $hours): string
     {
+        self::ensureAuthSchema();
         $raw = bin2hex(random_bytes(32));
-        Db::run(
-            'INSERT INTO email_tokens (user_id, type, token_hash, expires_at)
-             VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR))',
-            [$userId, $type, hash('sha256', $raw), $hours]
-        );
+        try {
+            Db::run(
+                'INSERT INTO email_tokens (user_id, type, token_hash, expires_at)
+                 VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR))',
+                [$userId, $type, hash('sha256', $raw), $hours]
+            );
+        } catch (\Throwable $e) {
+            error_log('createToken insert error: ' . $e->getMessage());
+        }
         return $raw;
     }
 

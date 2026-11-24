@@ -10,9 +10,9 @@ export default function ForgotPassword() {
 
   return (
     <AuthCard title="Reset password">
-      {sent ? <p>If that email exists, a reset link is on its way.</p> : (
+      {sent ? <p>If that account exists, a reset link is on its way.</p> : (
         <form onSubmit={f.submit}>
-          <Field label="Email" name="email" type="email" value={email} onChange={setEmail} />
+          <Field label="Email or Username" name="email" type="text" value={email} onChange={setEmail} />
           {f.error && <p className="err">{f.error}</p>}
           <button disabled={f.busy}>Send reset link</button>
         </form>
