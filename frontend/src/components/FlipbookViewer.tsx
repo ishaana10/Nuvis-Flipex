@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { PageFlip } from 'page-flip';
 import { playPageFlipSound, unlockAudio } from '../utils/sound';
 import { getCanvasDpr, getReaderProfile, pagesToLoad } from './viewer/adaptiveLoading';
+import AmbientEffect from './viewer/AmbientEffect';
 import { SliderStage, CardsDeckStage, CoverflowStage } from './viewer/PageEffectStages';
 import type { FlipbookSettings } from './CustomizationDialog';
 import { api } from '../api/client';
@@ -2931,9 +2932,30 @@ export default function FlipbookViewer({
     ? (settings.drawerHeaderBgColor && isLightColor(settings.drawerHeaderBgColor) ? settings.drawerHeaderBgColor : '#f8fafc')
     : (settings.drawerHeaderBgColor && !isLightColor(settings.drawerHeaderBgColor) ? settings.drawerHeaderBgColor : 'rgba(22, 27, 34, 0.95)');
 
+  // Layout template (separate choice for phones) and reader visibility switches from the Customise panel.
+  const [narrowScreen, setNarrowScreen] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setNarrowScreen(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const activeLayoutId =
+    (narrowScreen && settings.layoutTemplateMobileId ? settings.layoutTemplateMobileId : settings.layoutTemplateId) || 'popular';
+  const hideClasses = (
+    [
+      ['showTopBar', 'topbar'], ['showTitle', 'title'], ['showTocButton', 'toc'], ['showBookmarkButton', 'bookmark'],
+      ['showResourcesButton', 'resources'], ['showNotesButton', 'notes'], ['showPresentationButton', 'present'],
+      ['showOfflineButton', 'offline'], ['showShortcutsButton', 'shortcuts'], ['showPageSlider', 'slider'],
+      ['showZoomControls', 'zoom'], ['showNavArrows', 'arrows'], ['showPageNumber', 'pageno'],
+    ] as const
+  )
+    .filter(([key]) => (settings as any)[key] === false)
+    .map(([, cls]) => `hz-hide-${cls}`)
+    .join(' ');
+
   return (
     <div
-      className={`heyzine-viewer effect-${settings.pageEffect || 'magazine'} ${isFullscreen ? 'is-fullscreen' : ''}`}
+      className={`heyzine-viewer effect-${settings.pageEffect || 'magazine'} layout-${activeLayoutId} ${hideClasses} ${isFullscreen ? 'is-fullscreen' : ''}`}
       dir={settings.rightToLeft ? 'rtl' : 'ltr'}
       style={{
         background: settings.backgroundImage ? settings.backgroundImage : (settings.backgroundGradient || activeBg),
@@ -2968,6 +2990,7 @@ export default function FlipbookViewer({
         }
       }}
     >
+      <AmbientEffect kind={settings.backgroundEffect} />
       {settings.bgAudioUrl && (
         <audio
           src={settings.bgAudioUrl}

@@ -1,4 +1,6 @@
 import StudioIcon from './studio/StudioIcon';
+import AmbientEffect from './viewer/AmbientEffect';
+import LayoutThumb from './viewer/LayoutThumb';
 import { useState, useEffect, type ChangeEvent } from 'react';
 import TabBar from './studio/TabBar';
 import { createPortal } from 'react-dom';
@@ -62,6 +64,21 @@ export interface FlipbookSettings {
   backgroundEffect?: string;
   presetSkinId?: string;
   layoutTemplateId?: string;
+  layoutTemplateMobileId?: string;
+
+  // Reader visibility (all default to shown; false hides)
+  showTopBar?: boolean;
+  showTitle?: boolean;
+  showTocButton?: boolean;
+  showBookmarkButton?: boolean;
+  showResourcesButton?: boolean;
+  showPresentationButton?: boolean;
+  showOfflineButton?: boolean;
+  showShortcutsButton?: boolean;
+  showPageSlider?: boolean;
+  showZoomControls?: boolean;
+  showNavArrows?: boolean;
+  showPageNumber?: boolean;
 
   // Logo & Branding (Image 1)
   customLogoUrl?: string;
@@ -331,6 +348,65 @@ export const AMBIENT_EFFECTS = [
   { id: 'fireflies', name: 'Enchanted Fireflies 💡' },
 ];
 
+export const PAGE_EFFECTS: { id: PageEffectType; name: string; desc: string }[] = [
+  { id: 'magazine', name: '3D Magazine Flip', desc: 'Realistic curling page with soft shadow (default)' },
+  { id: 'book', name: 'Hardcover Book', desc: 'Slower turn, thick cover edge and spine' },
+  { id: 'album', name: 'Photo Album', desc: 'Flat mounted pages with a quick, light turn' },
+  { id: 'notebook', name: 'Spiral Notebook', desc: 'Spiral binding down the centre' },
+  { id: 'slider', name: 'Horizontal Slide', desc: 'Pages slide sideways; swipe on touch screens' },
+  { id: 'cards', name: 'Card Stack', desc: 'Pages stack like a deck of cards' },
+  { id: 'coverflow', name: 'Coverflow 3D', desc: 'Pages sit on a tilted 3D carousel' },
+  { id: 'one_page', name: 'Single Page', desc: 'One page at a time, classic flip' },
+];
+
+/** Reader controls that can be hidden. A key that is not false means the control is shown. */
+export const VISIBILITY_GROUPS: { title: string; hint: string; items: { key: string; label: string }[] }[] = [
+  {
+    title: 'Top bar',
+    hint: 'The strip along the top of the reader.',
+    items: [
+      { key: 'showTopBar', label: 'Show the whole top bar' },
+      { key: 'showTitle', label: 'Publication title' },
+      { key: 'showSearchButton', label: 'Search' },
+      { key: 'showTocButton', label: 'Contents (table of contents)' },
+      { key: 'showBookmarkButton', label: 'Bookmark' },
+      { key: 'showShareButton', label: 'Share' },
+      { key: 'showQrCode', label: 'QR code' },
+      { key: 'showThumbnailsButton', label: 'Page thumbnails' },
+      { key: 'showFullscreenButton', label: 'Fullscreen' },
+      { key: 'showProfileButton', label: 'Author profile' },
+      { key: 'showResourcesButton', label: 'Resources / attachments' },
+      { key: 'showNotesButton', label: 'Study notes' },
+      { key: 'showPresentationButton', label: 'Presentation mode' },
+      { key: 'showOfflineButton', label: 'Save for offline' },
+      { key: 'showShortcutsButton', label: 'Keyboard shortcuts' },
+    ],
+  },
+  {
+    title: 'Bottom bar and navigation',
+    hint: 'Page controls at the bottom and on the sides.',
+    items: [
+      { key: 'showToolbar', label: 'Show the whole bottom bar' },
+      { key: 'showPageNumber', label: 'Page number' },
+      { key: 'showPageSlider', label: 'Page slider' },
+      { key: 'showZoomControls', label: 'Zoom controls' },
+      { key: 'showNavArrows', label: 'Side arrows' },
+    ],
+  },
+  {
+    title: 'Content and branding',
+    hint: 'What readers can see or take away.',
+    items: [
+      { key: 'allowDownload', label: 'Download PDF button' },
+      { key: 'showDisclaimer', label: 'Disclaimer / publication info' },
+      { key: 'showPoweredBy', label: '“Powered by Nuvis Flipex” badge' },
+    ],
+  },
+];
+/** Keys that already have their own state/setter in this dialog; the rest are stored in `vis`. */
+const EXISTING_VIS_KEYS = new Set(['showSearchButton', 'showShareButton', 'showThumbnailsButton', 'showFullscreenButton', 'showToolbar', 'showPoweredBy', 'showProfileButton', 'showQrCode', 'allowDownload', 'showDisclaimer']);
+export const VISIBILITY_KEYS = VISIBILITY_GROUPS.flatMap((g) => g.items.map((i) => i.key)).filter((k) => !EXISTING_VIS_KEYS.has(k));
+
 type MainNavGroup =
   | 'book_info'
   | 'design'
@@ -517,6 +593,42 @@ export default function CustomizationDialog({
   // 8. Themes (Images 3 & 9)
   const [presetSkinId, setPresetSkinId] = useState(current.presetSkinId || 'classical');
   const [layoutTemplateId, setLayoutTemplateId] = useState(current.layoutTemplateId || 'popular');
+  const [layoutTemplateMobileId, setLayoutTemplateMobileId] = useState(current.layoutTemplateMobileId || current.layoutTemplateId || 'popular');
+  const [vis, setVis] = useState<Record<string, boolean>>(() => {
+    const o: Record<string, boolean> = {};
+    for (const k of VISIBILITY_KEYS) o[k] = (current as any)[k] !== false;
+    return o;
+  });
+  const visGet = (k: string): boolean => {
+    switch (k) {
+      case 'showSearchButton': return showSearchButton;
+      case 'showShareButton': return showShareButton;
+      case 'showThumbnailsButton': return showThumbnailsButton;
+      case 'showFullscreenButton': return showFullscreenButton;
+      case 'showToolbar': return showToolbar;
+      case 'showPoweredBy': return showPoweredBy;
+      case 'showProfileButton': return showProfileButton;
+      case 'showQrCode': return showQrCode;
+      case 'allowDownload': return allowDownload;
+      case 'showDisclaimer': return showDisclaimer;
+      default: return vis[k] !== false;
+    }
+  };
+  const visSet = (k: string, v: boolean) => {
+    switch (k) {
+      case 'showSearchButton': return setShowSearchButton(v);
+      case 'showShareButton': return setShowShareButton(v);
+      case 'showThumbnailsButton': return setShowThumbnailsButton(v);
+      case 'showFullscreenButton': return setShowFullscreenButton(v);
+      case 'showToolbar': return setShowToolbar(v);
+      case 'showPoweredBy': return setShowPoweredBy(v);
+      case 'showProfileButton': return setShowProfileButton(v);
+      case 'showQrCode': return setShowQrCode(v);
+      case 'allowDownload': return setAllowDownload(v);
+      case 'showDisclaimer': return setShowDisclaimer(v);
+      default: setVis((prev) => ({ ...prev, [k]: v }));
+    }
+  };
   const [backgroundEffect, setBackgroundEffect] = useState(current.backgroundEffect || 'none');
   const [background, setBackground] = useState(current.background || '#1e293b');
   const [backgroundImage, setBackgroundImage] = useState(current.backgroundImage || '');
@@ -726,6 +838,8 @@ export default function CustomizationDialog({
         backgroundImage,
         presetSkinId,
         layoutTemplateId,
+        layoutTemplateMobileId,
+        ...vis,
         backgroundEffect,
         customLogoUrl,
         logoTargetUrl,
@@ -1067,6 +1181,7 @@ export default function CustomizationDialog({
               <aside className="hz-live-preview" aria-label="Live reader preview" data-testid="cust-live-preview">
                 <div className="hz-lp-label">Live preview</div>
                 <div className="hz-lp-reader" style={{ background }}>
+                  {backgroundEffect !== 'none' && <AmbientEffect kind={backgroundEffect} />}
                   <div className="hz-lp-header" style={{ background: headerBgColor, color: headerTextColor }}>
                     <span className="hz-lp-menu" style={{ background: headerTextColor }} />
                     <span className="hz-lp-title">{companyName || flipbook.title}</span>
@@ -1092,7 +1207,11 @@ export default function CustomizationDialog({
                     <span className="hz-lp-pageno" style={{ color: pageNumberFontColor }}>1 / {flipbook.pageCount ?? 1}</span>
                   </div>
                 </div>
-                <p className="hz-lp-note">Updates as you change colours and themes. Save to apply to the public reader.</p>
+                <div className="hz-lp-layout" title="Selected layout">
+                  <LayoutThumb id={layoutTemplateId} />
+                  <span>Layout: {LAYOUT_TEMPLATES.find((l) => l.id === layoutTemplateId)?.name || 'Popular'}</span>
+                </div>
+                <p className="hz-lp-note">Updates as you change colours, layout and effects. Save to apply to the public reader.</p>
               </aside>
             )}
             {/* ==================== 1. BRANDING -> LOGO (IMAGE 1) ==================== */}
@@ -2348,43 +2467,66 @@ export default function CustomizationDialog({
                       </div>
                     </div>
 
-                    <div className="flipex-presets-grid">
+                    <p className="text-[11px] text-slate-500 m-0 mb-3">
+                      Choose how the reader controls are arranged {layoutDevice === 'pc' ? 'on computers and tablets' : 'on phones'}.
+                      The wireframe shows the top bar, bottom bar, side arrows and page slider.
+                    </p>
+                    <div className="flipex-presets-grid" data-testid="layout-grid">
                       {LAYOUT_TEMPLATES.filter((l) =>
                         l.name.toLowerCase().includes(layoutSearch.toLowerCase())
-                      ).map((tmpl) => (
-                        <div
-                          key={tmpl.id}
-                          className={`flipex-preset-card ${layoutTemplateId === tmpl.id ? 'active' : ''}`}
-                          onClick={() => setLayoutTemplateId(tmpl.id)}
-                        >
-                          <div className="flipex-preset-thumb bg-slate-200 dark:bg-slate-800 flex flex-col items-center justify-center p-2 text-center">
-                            <span className="text-xl mb-1">📑</span>
-                            <span className="text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2">{tmpl.desc}</span>
-                          </div>
-                          <span className="flipex-preset-card-name">{tmpl.name}</span>
-                        </div>
-                      ))}
+                      ).map((tmpl) => {
+                        const selId = layoutDevice === 'pc' ? layoutTemplateId : layoutTemplateMobileId;
+                        const isSel = selId === tmpl.id;
+                        return (
+                          <button
+                            type="button"
+                            key={tmpl.id}
+                            data-testid={`layout-${tmpl.id}`}
+                            aria-pressed={isSel}
+                            className={`flipex-preset-card flipex-layout-card ${isSel ? 'active' : ''}`}
+                            onClick={() => (layoutDevice === 'pc' ? setLayoutTemplateId(tmpl.id) : setLayoutTemplateMobileId(tmpl.id))}
+                            title={tmpl.desc}
+                          >
+                            <div className="flipex-layout-thumb-wrap">
+                              <LayoutThumb id={tmpl.id} />
+                              {isSel && <span className="flipex-selected-tick">Selected</span>}
+                            </div>
+                            <span className="flipex-preset-card-name">{tmpl.name}</span>
+                            <span className="flipex-layout-desc">{tmpl.desc}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
                 {/* Ambient Effects */}
                 {themesTab === 'effects' && (
-                  <div className="grid grid-cols-2 gap-3">
-                    {AMBIENT_EFFECTS.map((eff) => (
-                      <button
-                        key={eff.id}
-                        type="button"
-                        className={`p-3.5 rounded-xl border text-left font-medium text-xs transition-all ${
-                          backgroundEffect === eff.id
-                            ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 shadow-sm'
-                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                        }`}
-                        onClick={() => setBackgroundEffect(eff.id)}
-                      >
-                        {eff.name}
-                      </button>
-                    ))}
+                  <div>
+                    <p className="text-[11px] text-slate-500 m-0 mb-3">
+                      Soft animated particles drift over the reader background. They never block clicks and stop automatically for readers who prefer reduced motion.
+                    </p>
+                    <div className="flipex-effects-grid" data-testid="effects-grid">
+                      {AMBIENT_EFFECTS.map((eff) => {
+                        const isSel = backgroundEffect === eff.id;
+                        return (
+                          <button
+                            key={eff.id}
+                            type="button"
+                            data-testid={`effect-${eff.id}`}
+                            aria-pressed={isSel}
+                            className={`flipex-effect-card ${isSel ? 'active' : ''}`}
+                            onClick={() => setBackgroundEffect(eff.id)}
+                          >
+                            <span className="flipex-effect-stage" style={{ background }}>
+                              {eff.id !== 'none' ? <AmbientEffect kind={eff.id} /> : <span className="flipex-effect-none">No effect</span>}
+                            </span>
+                            <span className="flipex-effect-name">{eff.name}</span>
+                            {isSel && <span className="flipex-selected-tick">Selected</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2395,20 +2537,25 @@ export default function CustomizationDialog({
               <div className="space-y-4">
                 <div className="field">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Page Flip Transition</label>
-                  <select
-                    className="hz-form-select"
-                    value={pageEffect}
-                    onChange={(e) => setPageEffect(e.target.value as PageEffectType)}
-                  >
-                    <option value="magazine">3D Realistic Magazine Flip (Default)</option>
-                    <option value="book">Hardcover Book</option>
-                    <option value="album">Photo Album</option>
-                    <option value="notebook">Spiral Notebook</option>
-                    <option value="slider">Horizontal Slide (Touch swipe)</option>
-                    <option value="cards">Card Stack Deck</option>
-                    <option value="coverflow">Coverflow 3D Carousel</option>
-                    <option value="one_page">Single Page Flip</option>
-                  </select>
+                  <div className="flipex-effect-options" role="radiogroup" aria-label="Page flip transition" data-testid="flip-options">
+                    {PAGE_EFFECTS.map((fx) => (
+                      <button
+                        key={fx.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={pageEffect === fx.id}
+                        data-testid={`flip-${fx.id}`}
+                        className={`flipex-flip-card ${pageEffect === fx.id ? 'active' : ''}`}
+                        onClick={() => setPageEffect(fx.id)}
+                      >
+                        <span className={`flipex-flip-icon fx-${fx.id}`} aria-hidden="true"><i /><i /><i /></span>
+                        <span className="flipex-flip-text">
+                          <strong>{fx.name}</strong>
+                          <small>{fx.desc}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="field">
@@ -2702,6 +2849,48 @@ export default function CustomizationDialog({
             )}
 
             {/* ==================== 9. MONETIZE & LEADS ==================== */}
+            {/* ==================== VISIBILITY ==================== */}
+            {activeNav === 'visibility' && (
+              <div className="space-y-4" data-testid="visibility-panel">
+                <p className="text-xs text-slate-500 m-0">
+                  Choose which controls readers see. Turn a switch off to hide that control in the published reader; it takes effect as soon as you save.
+                  Password and link access are managed in <b>Share &amp; Publish → Visibility &amp; Password</b>.
+                </p>
+                {VISIBILITY_GROUPS.map((g) => (
+                  <div className="card p-4 space-y-3" key={g.title}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white m-0">{g.title}</h4>
+                        <p className="text-[11px] text-slate-500 m-0 mt-0.5">{g.hint}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button type="button" className="flipex-mini-btn" onClick={() => g.items.forEach((i) => visSet(i.key, true))}>Show all</button>
+                        <button type="button" className="flipex-mini-btn" onClick={() => g.items.forEach((i) => visSet(i.key, false))}>Hide all</button>
+                      </div>
+                    </div>
+                    <div className="flipex-vis-grid">
+                      {g.items.map((i) => {
+                        const on = visGet(i.key);
+                        return (
+                          <label key={i.key} className={`flipex-vis-row ${on ? 'on' : ''}`} data-testid={`vis-${i.key}`}>
+                            <span>{i.label}</span>
+                            <input
+                              type="checkbox"
+                              role="switch"
+                              checked={on}
+                              onChange={(e) => visSet(i.key, e.target.checked)}
+                              aria-label={i.label}
+                            />
+                            <span className="flipex-switch" aria-hidden="true" />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {activeNav === 'monetize' && (
               <div className="space-y-4">
                 <div className="card space-y-4 p-5">
