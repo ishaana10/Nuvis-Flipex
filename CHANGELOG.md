@@ -5,6 +5,8 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-24
+
 ### Fixes: flicker, Studio layout, publish
 - **Flicker fixed:** signed thumbnail URLs were regenerated on every list refresh, so while any publication was converting every cover image reloaded every ~2 seconds. URLs are now stable within a time bucket and the library skips re-rendering when nothing changed.
 - **Studio editor room:** the recovery-snapshot banner was a stray grid row that squeezed the canvas; it is now a small corner notice. Header buttons (Brand Kits, As Template) no longer stretch full width; side panels are slimmer.
