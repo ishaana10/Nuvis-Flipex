@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import TabBar from '../components/studio/TabBar';
 import { api } from '../api/client';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -336,36 +337,19 @@ export default function BillingPortal() {
       )}
 
       {/* Navigation Tabs */}
-      <div className="admin-tabs">
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          📊 Usage Metering & Billing Settings
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'plans' ? 'active' : ''}`}
-          onClick={() => setActiveTab('plans')}
-        >
-          🚀 Upgrade / Downgrade Plan
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'invoices' ? 'active' : ''}`}
-          onClick={() => setActiveTab('invoices')}
-        >
-          🧾 Tax Invoices & Reconciliation ({data.invoices.length})
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          📜 Subscription History ({data.history.length})
-        </button>
-      </div>
+      <TabBar
+        variant="app"
+        ariaLabel="Billing sections"
+        testId="billing-tabs"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as any)}
+        tabs={[
+          { id: 'overview', label: 'Usage & Billing Settings', icon: 'chart' },
+          { id: 'plans', label: 'Change Plan', icon: 'rocket' },
+          { id: 'invoices', label: 'Tax Invoices', icon: 'receipt', count: data.invoices.length },
+          { id: 'history', label: 'Subscription History', icon: 'history', count: data.history.length },
+        ]}
+      />
 
       {/* TAB 1: USAGE METERING & BILLING SETTINGS */}
       {activeTab === 'overview' && (

@@ -104,7 +104,7 @@ final class StudioDesignSchemaTest
                             'y' => 110,
                             'w' => 400,
                             'h' => 250,
-                            'url' => 'https://images.unsplash.com/photo-1542838132-92c53300491e'
+                            'url' => '/api/v1/studio-stock/stock_ret_06.svg'
                         ]
                     ]
                 ]
@@ -352,11 +352,11 @@ final class StudioDesignSchemaTest
         }
 
         // Test bandwidth-adaptive image optimization helper logic
-        $rawUrl = 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=1200&q=80';
+        $rawUrl = '/api/v1/studio-stock/stock_ret_01.svg';
         $optimizedUrl = preg_replace('/w=\d+/', 'w=350', $rawUrl);
         $optimizedUrl = preg_replace('/q=\d+/', 'q=60', $optimizedUrl);
         $assertions['bandwidth_adaptive_image_optimization_accuracy'] = (
-            $optimizedUrl === 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=350&q=60'
+            $optimizedUrl === '/api/v1/studio-stock/stock_ret_01.svg'
         );
 
         // Test spatial virtualization window calculation for 50-page document

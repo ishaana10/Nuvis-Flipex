@@ -1,4 +1,6 @@
+import StudioIcon from './studio/StudioIcon';
 import { useEffect, useState } from 'react';
+import TabBar from './studio/TabBar';
 import QRCode from 'qrcode';
 import { api } from '../api/client';
 import type { Flipbook } from '../pages/Dashboard';
@@ -203,7 +205,7 @@ export default function ShareDialog({
                 disabled={saving}
                 onClick={() => save(true)}
               >
-                {saving ? 'Publishing…' : '🚀 Publish Now'}
+                {saving ? 'Publishing…' : <><StudioIcon name="rocket" size={15} /> Publish Now</>}
               </Button>
             ) : (
               <Button
@@ -227,32 +229,20 @@ export default function ShareDialog({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50/70 px-6 dark:border-slate-800 dark:bg-slate-950/40">
-          {[
-            { id: 'link', label: 'Direct Link & Social', icon: Globe },
-            { id: 'embed', label: 'Website Embed', icon: Code },
-            { id: 'qr', label: 'QR Code (Print)', icon: QrCode },
-            { id: 'access', label: 'Visibility & Password', icon: Lock },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 border-b-2 px-4 py-3 text-xs font-bold transition-colors ${
-                  active
-                    ? 'border-amber-400 text-amber-600 dark:text-amber-400'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <TabBar
+          variant="app"
+          className="st-compact-modal"
+          ariaLabel="Share options"
+          testId="share-tabs"
+          value={activeTab}
+          onChange={(id) => setActiveTab(id as any)}
+          tabs={[
+            { id: 'link', label: 'Direct Link & Social', icon: 'link' },
+            { id: 'embed', label: 'Website Embed', icon: 'code' },
+            { id: 'qr', label: 'QR Code (Print)', icon: 'qr' },
+            { id: 'access', label: 'Visibility & Password', icon: 'lock' },
+          ]}
+        />
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
@@ -712,7 +702,7 @@ export default function ShareDialog({
               disabled={saving}
               onClick={() => save(true)}
             >
-              {saving ? 'Publishing…' : published ? '🚀 Save & Keep Published' : '🚀 Publish Now'}
+              {saving ? 'Publishing…' : published ? <><StudioIcon name="rocket" size={15} /> Save & Keep Published</> : <><StudioIcon name="rocket" size={15} /> Publish Now</>}
             </Button>
             <Button variant="ghost" size="sm" onClick={onClose}>
               Done

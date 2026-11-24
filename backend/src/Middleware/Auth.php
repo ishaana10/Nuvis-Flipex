@@ -239,7 +239,8 @@ final class Auth implements MiddlewareInterface
             str_starts_with($rel, '/flipbooks') ||
             str_starts_with($rel, '/folders') ||
             str_starts_with($rel, '/categories') ||
-            str_starts_with($rel, '/collections')
+            str_starts_with($rel, '/collections') ||
+            str_starts_with($rel, '/studio')
         ) {
             if (in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
                 if (!Rbac::apiKeyHasScope($keyRow, ['flipbooks:read', 'flipbooks:write'])) {

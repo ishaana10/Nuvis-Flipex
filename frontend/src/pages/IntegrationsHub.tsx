@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import TabBar from '../components/studio/TabBar';
 import { Link } from 'react-router-dom';
 import { api, getAccessToken } from '../api/client';
 import { Badge } from '../components/ui/badge';
@@ -327,36 +328,19 @@ export default function IntegrationsHub() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="admin-tabs">
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'api_erp' ? 'active' : ''}`}
-          onClick={() => setActiveTab('api_erp')}
-        >
-          🔑 REST API & ERP Catalogue Push
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'webhooks' ? 'active' : ''}`}
-          onClick={() => setActiveTab('webhooks')}
-        >
-          🪝 Webhooks ({webhooks.length})
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'connectors' ? 'active' : ''}`}
-          onClick={() => setActiveTab('connectors')}
-        >
-          🏢 SSO, LDAP/AD, CRM & Cloud Storage
-        </button>
-        <button
-          type="button"
-          className={`admin-tab ${activeTab === 'wordpress' ? 'active' : ''}`}
-          onClick={() => setActiveTab('wordpress')}
-        >
-          🌐 WordPress & oEmbed
-        </button>
-      </div>
+      <TabBar
+        variant="app"
+        ariaLabel="Integration sections"
+        testId="integrations-tabs"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as any)}
+        tabs={[
+          { id: 'api_erp', label: 'REST API & ERP Push', icon: 'key' },
+          { id: 'webhooks', label: 'Webhooks', icon: 'hook', count: webhooks.length },
+          { id: 'connectors', label: 'SSO, CRM & Cloud Storage', icon: 'plug' },
+          { id: 'wordpress', label: 'WordPress & oEmbed', icon: 'globe' },
+        ]}
+      />
 
       {/* TAB 1: REST API KEYS & AUTOMATED ERP CATALOGUE PUBLISHING */}
       {activeTab === 'api_erp' && (

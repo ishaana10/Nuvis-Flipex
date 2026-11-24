@@ -1,319 +1,761 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_cat_restaurant_03",
-    "title": "Coral Coast Luxury Resort Menu & Wine List",
-    "description": "Fine dining tropical resort menu with seafood platters, cocktail pairings, pricing, and QR table ordering.",
-    "category": "food_restaurant",
-    "docType": "catalogue",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cat_restaurant_03",
+ "title": "Coral Coast Resort Menu & Wine List",
+ "description": "Elegant dining menu with signature dishes, drinks and a reservation button.",
+ "category": "food_restaurant",
+ "docType": "catalogue",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#1c1917",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e57",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 430
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 430,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_din_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_din_01.svg",
+     "src": "/api/v1/studio-stock/stock_din_01.svg",
+     "image": "/api/v1/studio-stock/stock_din_01.svg",
+     "objectFit": "cover"
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#1C1917",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "m_hd",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 50,
-                        "width": 515,
-                        "height": 45
-                    },
-                    "x": 40,
-                    "y": 50,
-                    "w": 515,
-                    "h": 45,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 30,
-                        "fontFamily": "'Cinzel', serif",
-                        "fontWeight": "bold",
-                        "color": "#FDE047",
-                        "textAlign": "center",
-                        "letterSpacing": "3px"
-                    },
-                    "content": "NAVATU OCEAN DINING",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "m_sub",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 100,
-                        "width": 515,
-                        "height": 25
-                    },
-                    "x": 40,
-                    "y": 100,
-                    "w": 515,
-                    "h": 25,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 12,
-                        "fontWeight": "600",
-                        "color": "#D6D3D1",
-                        "textAlign": "center",
-                        "letterSpacing": "2px"
-                    },
-                    "content": "PACIFIC SEAFOOD & CHEF SPECIALTIES",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "d1",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 140,
-                        "width": 515,
-                        "height": 270
-                    },
-                    "x": 40,
-                    "y": 140,
-                    "w": 515,
-                    "h": 270,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "d2",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 430,
-                        "width": 245,
-                        "height": 290
-                    },
-                    "x": 40,
-                    "y": 430,
-                    "w": 245,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "d3",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 310,
-                        "y": 430,
-                        "width": 245,
-                        "height": 290
-                    },
-                    "x": 310,
-                    "y": 430,
-                    "w": 245,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        },
-        {
-            "pageNumber": 2,
-            "id": "page_2",
-            "name": "Page 2",
-            "type": "inside",
-            "background": {
-                "type": "solid",
-                "value": "#1C1917",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "m2_hd",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 50,
-                        "width": 515,
-                        "height": 40
-                    },
-                    "x": 40,
-                    "y": 50,
-                    "w": 515,
-                    "h": 40,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 26,
-                        "fontFamily": "'Cinzel', serif",
-                        "fontWeight": "bold",
-                        "color": "#FDE047",
-                        "textAlign": "center"
-                    },
-                    "content": "COCKTAIL LOUNGE & DESSERTS",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "c1",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 110,
-                        "width": 245,
-                        "height": 280
-                    },
-                    "x": 40,
-                    "y": 110,
-                    "w": 245,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "c2",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 310,
-                        "y": 110,
-                        "width": 245,
-                        "height": 280
-                    },
-                    "x": 310,
-                    "y": 110,
-                    "w": 245,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "c3",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 410,
-                        "width": 515,
-                        "height": 280
-                    },
-                    "x": 40,
-                    "y": 410,
-                    "w": 515,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "dining",
-        "restaurant",
-        "seafood",
-        "menu",
-        "wine list",
-        "resort",
-        "culinary"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e58",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 400,
+      "width": 595.28,
+      "height": 40
+     },
+     "x": 0,
+     "y": 400,
+     "w": 595.28,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e59",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 470,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 470,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "3px",
+      "textTransform": "uppercase"
+     },
+     "content": "Fine dining by the lagoon",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e60",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 504,
+      "width": 515,
+      "height": 130
+     },
+     "x": 40,
+     "y": 504,
+     "w": 515,
+     "h": 130,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Navatu Ocean Dining",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e61",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 640,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 640,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#cbd5e1",
+      "textAlign": "left",
+      "lineHeight": 1.45
+     },
+     "content": "Seafood, island flavours and sunset cocktails on the water.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#1c1917",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e62",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "fontFamily": "Georgia",
+      "letterSpacing": "2px"
+     },
+     "content": "Signature Plates",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e63",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 230
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 230,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Island Kokoda",
+     "price": "FJ$28",
+     "image": "/api/v1/studio-stock/stock_din_01.svg",
+     "src": "/api/v1/studio-stock/stock_din_01.svg",
+     "url": "/api/v1/studio-stock/stock_din_01.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "Fresh walu cured in lime and coconut cream",
+     "rating": 5,
+     "badge": "CHEF'S PICK"
+    },
+    {
+     "id": "e64",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 350,
+      "width": 245,
+      "height": 290
+     },
+     "x": 40,
+     "y": 350,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Coral Rock Lobster",
+     "price": "FJ$85",
+     "image": "/api/v1/studio-stock/stock_din_02.svg",
+     "src": "/api/v1/studio-stock/stock_din_02.svg",
+     "url": "/api/v1/studio-stock/stock_din_02.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "badge": "SEASONAL"
+    },
+    {
+     "id": "e65",
+     "type": "productCard",
+     "frame": {
+      "x": 310,
+      "y": 350,
+      "width": 245,
+      "height": 290
+     },
+     "x": 310,
+     "y": 350,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Lovo Slow-Roast Pork",
+     "price": "FJ$42",
+     "image": "/api/v1/studio-stock/stock_ret_06.svg",
+     "src": "/api/v1/studio-stock/stock_ret_06.svg",
+     "url": "/api/v1/studio-stock/stock_ret_06.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5
+    },
+    {
+     "id": "e66",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Navatu Ocean Dining",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#292524",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e67",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "fontFamily": "Georgia",
+      "letterSpacing": "2px"
+     },
+     "content": "Sunset Drinks",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e68",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 245,
+      "height": 290
+     },
+     "x": 40,
+     "y": 100,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Pacific Sunset Cocktail",
+     "price": "FJ$22",
+     "image": "/api/v1/studio-stock/stock_din_03.svg",
+     "src": "/api/v1/studio-stock/stock_din_03.svg",
+     "url": "/api/v1/studio-stock/stock_din_03.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "badge": "HAPPY HOUR"
+    },
+    {
+     "id": "e69",
+     "type": "productCard",
+     "frame": {
+      "x": 310,
+      "y": 100,
+      "width": 245,
+      "height": 290
+     },
+     "x": 310,
+     "y": 100,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Botanical Gin & Tonic",
+     "price": "FJ$24",
+     "image": "/api/v1/studio-stock/stock_din_04.svg",
+     "src": "/api/v1/studio-stock/stock_din_04.svg",
+     "url": "/api/v1/studio-stock/stock_din_04.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5
+    },
+    {
+     "id": "e70",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 430,
+      "width": 515,
+      "height": 270
+     },
+     "x": 40,
+     "y": 430,
+     "w": 515,
+     "h": 270,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#1c1917",
+      "borderRadius": 16
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e71",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 452,
+      "width": 455,
+      "height": 30
+     },
+     "x": 70,
+     "y": 452,
+     "w": 455,
+     "h": 30,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 20,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "fontFamily": "Georgia"
+     },
+     "content": "Wine by the glass",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e72",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 492,
+      "width": 455,
+      "height": 190
+     },
+     "x": 70,
+     "y": 492,
+     "w": 455,
+     "h": 190,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#e7e5e4",
+      "textAlign": "left",
+      "lineHeight": 1.9
+     },
+     "content": "Marlborough Sauvignon Blanc  -  FJ$16\nBarossa Shiraz  -  FJ$18\nProsecco Brut  -  FJ$15\nFresh young coconut  -  FJ$6",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e73",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Navatu Ocean Dining",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 4,
+   "id": "page_4",
+   "name": "Page 4",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#1c1917",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e74",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 320
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 320,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_03.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_03.svg",
+     "src": "/api/v1/studio-stock/stock_nat_03.svg",
+     "image": "/api/v1/studio-stock/stock_nat_03.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e75",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 360,
+      "width": 515,
+      "height": 50
+     },
+     "x": 40,
+     "y": 360,
+     "w": 515,
+     "h": 50,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 32,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "center",
+      "fontFamily": "Georgia"
+     },
+     "content": "Reserve your table",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e76",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 420,
+      "width": 475,
+      "height": 60
+     },
+     "x": 60,
+     "y": 420,
+     "w": 475,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#d6d3d1",
+      "textAlign": "center",
+      "lineHeight": 1.5
+     },
+     "content": "Dinner service 5:30pm - 10:00pm daily. Sunset seating is popular, so please book ahead.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e77",
+     "type": "button",
+     "frame": {
+      "x": 170,
+      "y": 520,
+      "width": 255,
+      "height": 44
+     },
+     "x": 170,
+     "y": 520,
+     "w": 255,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 22.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Book on WhatsApp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  }
+ ]
 }

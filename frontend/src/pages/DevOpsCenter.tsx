@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import TabBar from '../components/studio/TabBar';
 import { Navigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -548,53 +549,24 @@ export default function DevOpsCenter() {
       </div>
 
       {/* SUB-NAVIGATION TABS */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: '0.6rem' }}>
-        <button
-          type="button"
-          className={activeTab === 'architecture' ? 'btn-primary' : 'btn-secondary'}
-          onClick={() => setActiveTab('architecture')}
-        >
-          🏗️ Modular Architecture ({architecture.modules.length})
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'telemetry' ? 'btn-primary' : 'btn-secondary'}
-          onClick={() => setActiveTab('telemetry')}
-        >
-          📊 CPU, Storage, Redis & CDN
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'queue' ? 'btn-primary' : 'btn-secondary'}
-          onClick={() => setActiveTab('queue')}
-        >
-          ⚙️ Persistent Queue & DLQ ({health.queue.deadLetterCount})
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'logs' ? 'btn-primary' : 'btn-secondary'}
-          onClick={() => setActiveTab('logs')}
-        >
-          📜 JSONL Logs & Error Monitor ({errorReports.filter((e) => !e.resolved).length})
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'backups' ? 'btn-primary' : 'btn-secondary'}
-          onClick={() => setActiveTab('backups')}
-        >
-          🛡️ Backups, Migrations & CI/CD
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'security' ? 'btn-primary' : 'btn-secondary'}
-          onClick={() => {
-            setActiveTab('security');
-            loadSecurityData();
-          }}
-        >
-          🔐 Session Security & Expiration
-        </button>
-      </div>
+      <TabBar
+        variant="app"
+        ariaLabel="DevOps sections"
+        testId="devops-tabs"
+        value={activeTab}
+        onChange={(id) => {
+          setActiveTab(id as any);
+          if (id === 'security') loadSecurityData();
+        }}
+        tabs={[
+          { id: 'architecture', label: 'Architecture', icon: 'cube', count: architecture.modules.length },
+          { id: 'telemetry', label: 'CPU, Storage & CDN', icon: 'cpu' },
+          { id: 'queue', label: 'Queue & DLQ', icon: 'queue', count: health.queue.deadLetterCount },
+          { id: 'logs', label: 'Logs & Errors', icon: 'file', count: errorReports.filter((e) => !e.resolved).length },
+          { id: 'backups', label: 'Backups & CI/CD', icon: 'database' },
+          { id: 'security', label: 'Session Security', icon: 'lock' },
+        ]}
+      />
 
       {/* TAB 1: MODULAR ARCHITECTURE */}
       {activeTab === 'architecture' && (

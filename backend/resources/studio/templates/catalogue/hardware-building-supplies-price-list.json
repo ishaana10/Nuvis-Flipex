@@ -1,0 +1,1360 @@
+{
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cat_pricelist_12",
+ "title": "Hardware & Building Supplies Price List",
+ "description": "Clear trade price list with sections, units and a quote request button.",
+ "category": "retail_catalogue",
+ "docType": "catalogue",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#0a2a5e",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e263",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 60,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 60,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "4px"
+     },
+     "content": "TRADE PRICE LIST - 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e264",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 515,
+      "height": 150
+     },
+     "x": 40,
+     "y": 100,
+     "w": 515,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Pacific Hardware & Building Supplies",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e265",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 300,
+      "width": 515,
+      "height": 340
+     },
+     "x": 40,
+     "y": 300,
+     "w": 515,
+     "h": 340,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_biz_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_biz_01.svg",
+     "src": "/api/v1/studio-stock/stock_biz_01.svg",
+     "image": "/api/v1/studio-stock/stock_biz_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e266",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 670,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 670,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#bfdbfe",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Prices exclude VAT and are valid until 31 March. Bulk and contractor rates on request.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e267",
+     "type": "button",
+     "frame": {
+      "x": 40,
+      "y": 750,
+      "width": 220,
+      "height": 40
+     },
+     "x": 40,
+     "y": 750,
+     "w": 220,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "color": "#0a2a5e",
+      "borderRadius": 20.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Request a quote",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e268",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Timber & Boards",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e269",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 84,
+      "width": 515,
+      "height": 34
+     },
+     "x": 40,
+     "y": 84,
+     "w": 515,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#0a2a5e",
+      "borderRadius": 6
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e270",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 92,
+      "width": 300,
+      "height": 20
+     },
+     "x": 48,
+     "y": 92,
+     "w": 300,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Item",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e271",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 92,
+      "width": 90,
+      "height": 20
+     },
+     "x": 350,
+     "y": 92,
+     "w": 90,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Unit",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e272",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 92,
+      "width": 95,
+      "height": 20
+     },
+     "x": 450,
+     "y": 92,
+     "w": 95,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "right"
+     },
+     "content": "Price",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e273",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 130,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 130,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Treated pine 100x50 (2.4m)",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e274",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 130,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 130,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "each",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e275",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 130,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 130,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$14.50",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e276",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 162,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 162,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Treated pine 150x50 (3.0m)",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e277",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 162,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 162,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "each",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e278",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 162,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 162,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$26.80",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e279",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 194,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 194,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Plywood 12mm (2400x1200)",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e280",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 194,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 194,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "sheet",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e281",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 194,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 194,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$68.00",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e282",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 226,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 226,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Hardboard 6mm (2400x1200)",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e283",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 226,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 226,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "sheet",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e284",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 226,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 226,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$34.50",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e285",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 258,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 258,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Roofing iron 0.42 (3.0m)",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e286",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 258,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 258,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "sheet",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e287",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 258,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 258,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$46.90",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e288",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 320,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 320,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Fasteners & Paint",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e289",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 368,
+      "width": 515,
+      "height": 34
+     },
+     "x": 40,
+     "y": 368,
+     "w": 515,
+     "h": 34,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#0a2a5e",
+      "borderRadius": 6
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e290",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 376,
+      "width": 300,
+      "height": 20
+     },
+     "x": 48,
+     "y": 376,
+     "w": 300,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Item",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e291",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 376,
+      "width": 90,
+      "height": 20
+     },
+     "x": 350,
+     "y": 376,
+     "w": 90,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Unit",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e292",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 376,
+      "width": 95,
+      "height": 20
+     },
+     "x": 450,
+     "y": 376,
+     "w": 95,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "right"
+     },
+     "content": "Price",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e293",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 414,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 414,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Galvanised nails 75mm",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e294",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 414,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 414,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "1kg",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e295",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 414,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 414,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$8.90",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e296",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 446,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 446,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Roofing screws 65mm",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e297",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 446,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 446,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "box 100",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e298",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 446,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 446,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$19.00",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e299",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 478,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 478,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Exterior acrylic paint",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e300",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 478,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 478,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "10L",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e301",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 478,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 478,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$149.00",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e302",
+     "type": "text",
+     "frame": {
+      "x": 48,
+      "y": 510,
+      "width": 300,
+      "height": 22
+     },
+     "x": 48,
+     "y": 510,
+     "w": 300,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Undercoat primer",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e303",
+     "type": "text",
+     "frame": {
+      "x": 350,
+      "y": 510,
+      "width": 90,
+      "height": 22
+     },
+     "x": 350,
+     "y": 510,
+     "w": 90,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#64748b",
+      "textAlign": "left"
+     },
+     "content": "4L",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e304",
+     "type": "text",
+     "frame": {
+      "x": 450,
+      "y": 510,
+      "width": 95,
+      "height": 22
+     },
+     "x": 450,
+     "y": 510,
+     "w": 95,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "right"
+     },
+     "content": "FJ$62.00",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e305",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Pacific Hardware - Trade Price List",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
+}

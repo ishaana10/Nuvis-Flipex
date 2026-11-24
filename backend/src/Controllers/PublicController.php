@@ -730,6 +730,7 @@ HTML;
             'webp' => 'image/webp',
             'avif' => 'image/avif',
             'png' => 'image/png',
+            'svg' => 'image/svg+xml',
             default => 'image/jpeg',
         };
 
@@ -755,6 +756,11 @@ HTML;
         $fh = fopen($path, 'rb');
         $stream = new Stream($fh);
 
+        if ($mime === 'image/svg+xml') {
+            // Defence in depth: an SVG opened directly must never run script or load anything remote.
+            $res = $res->withHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox");
+        }
+
         return $res
             ->withHeader('Content-Type', $mime)
             ->withHeader('Cache-Control', $cacheControl)
@@ -769,7 +775,10 @@ HTML;
     {
         self::ensureUnlockRevocationSchema();
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ? AND published_at IS NOT NULL AND visibility = "password"', [$args['slug']]);
+        $f = $this->resolveFlipbookBySlug((string) $args['slug']);
+        if ($f && ($f['published_at'] === null || ($f['visibility'] ?? '') !== 'password')) {
+            $f = null;
+        }
         $pw = (string) (((array) $req->getParsedBody())['password'] ?? '');
         if (!$f || !password_verify($pw, (string) $f['password_hash'])) {
             return Http::error($res, 'Incorrect password', 403);
@@ -805,7 +814,7 @@ HTML;
     {
         self::ensureUnlockRevocationSchema();
 
-        $f = Db::one('SELECT id, tenant_id, slug FROM flipbooks WHERE slug = ?', [(string) $args['slug']]);
+        $f = $this->resolveFlipbookBySlug((string) $args['slug']);
         if (!$f) {
             return Http::error($res, 'Not found', 404);
         }
@@ -1032,7 +1041,7 @@ HTML;
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
+        $f = $this->resolveFlipbookBySlug($slug);
         if (!$f) return Http::error($res, 'Not found', 404);
         if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
             $f['status'] = 'ready';
@@ -1078,7 +1087,7 @@ HTML;
         $previewToken = $this->extractPreviewToken($req);
         $isPreview = Storage::verifyPreviewToken($slug, $previewToken);
 
-        $f = Db::one('SELECT * FROM flipbooks WHERE slug = ?', [$slug]);
+        $f = $this->resolveFlipbookBySlug($slug);
         if (!$f) return Http::error($res, 'Not found', 404);
         if ($f['status'] !== 'ready' && ($f['workflow_status'] === 'published' || $f['workflow_status'] === 'approved')) {
             $f['status'] = 'ready';

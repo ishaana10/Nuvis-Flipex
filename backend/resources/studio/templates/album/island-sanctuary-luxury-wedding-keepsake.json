@@ -1,218 +1,572 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_alb_wedding_07",
-    "title": "Island Sanctuary Luxury Wedding Keepsake",
-    "description": "Luxury photo album layout with elegant typography, multi-photo frames, vows keepsakes, and guest remembrance.",
-    "category": "wedding_album",
-    "docType": "album",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_alb_wedding_07",
+ "title": "Island Sanctuary Wedding Keepsake Album",
+ "description": "Romantic wedding album with cover, photo spreads, vows and thank-you page.",
+ "category": "wedding_album",
+ "docType": "album",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #fff1f2, #ffe4e6)",
+    "stops": [
+     "#fff1f2",
+     "#ffe4e6"
+    ],
+    "angle": 135,
+    "stop1": "#fff1f2",
+    "stop2": "#ffe4e6",
+    "stop3": "#ffe4e6"
+   },
+   "elements": [
+    {
+     "id": "e153",
+     "type": "imageFrame",
+     "frame": {
+      "x": 80,
+      "y": 90,
+      "width": 435,
+      "height": 330
+     },
+     "x": 80,
+     "y": 90,
+     "w": 435,
+     "h": 330,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 200
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_wed_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_wed_01.svg",
+     "src": "/api/v1/studio-stock/stock_wed_01.svg",
+     "image": "/api/v1/studio-stock/stock_wed_01.svg",
+     "objectFit": "cover"
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#FAFAF9",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "m1",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 50,
-                        "width": 515,
-                        "height": 40
-                    },
-                    "x": 40,
-                    "y": 50,
-                    "w": 515,
-                    "h": 40,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 24,
-                        "fontWeight": "300",
-                        "color": "#44403C",
-                        "textAlign": "center",
-                        "letterSpacing": "4px"
-                    },
-                    "content": "DAVID & SERA",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "m2",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 95,
-                        "width": 515,
-                        "height": 20
-                    },
-                    "x": 40,
-                    "y": 95,
-                    "w": 515,
-                    "h": 20,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 11,
-                        "fontWeight": "600",
-                        "color": "#A8A29E",
-                        "textAlign": "center",
-                        "letterSpacing": "2px"
-                    },
-                    "content": "OCTOBER 14, 2026 \u2022 DENARAU ISLAND, FIJI",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "imgw1",
-                    "type": "imageFrame",
-                    "frame": {
-                        "x": 40,
-                        "y": 130,
-                        "width": 250,
-                        "height": 340
-                    },
-                    "x": 40,
-                    "y": 130,
-                    "w": 250,
-                    "h": 340,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1,
-                    "assetRef": {
-                        "source": "external",
-                        "assetId": null,
-                        "url": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=500&q=80",
-                        "alt": "",
-                        "fit": "cover"
-                    },
-                    "url": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=500&q=80"
-                },
-                {
-                    "id": "imgw2",
-                    "type": "imageFrame",
-                    "frame": {
-                        "x": 305,
-                        "y": 130,
-                        "width": 250,
-                        "height": 340
-                    },
-                    "x": 305,
-                    "y": 130,
-                    "w": 250,
-                    "h": 340,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1,
-                    "assetRef": {
-                        "source": "external",
-                        "assetId": null,
-                        "url": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=500&q=80",
-                        "alt": "",
-                        "fit": "cover"
-                    },
-                    "url": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=500&q=80"
-                },
-                {
-                    "id": "wquote",
-                    "type": "text",
-                    "frame": {
-                        "x": 50,
-                        "y": 500,
-                        "width": 495,
-                        "height": 60
-                    },
-                    "x": 50,
-                    "y": 500,
-                    "w": 495,
-                    "h": 60,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 14,
-                        "fontStyle": "italic",
-                        "color": "#78716C",
-                        "textAlign": "center"
-                    },
-                    "content": "\"From this day forward, our journeys are woven together like coconut sennit along the pacific tide.\"",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "wedding",
-        "album",
-        "photo album",
-        "keepsake",
-        "luxury",
-        "romance"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e154",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 470,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 470,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 44,
+      "fontWeight": "bold",
+      "color": "#9f1239",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Mere & Josefa",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e155",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 550,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 550,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "bold",
+      "color": "#be123c",
+      "textAlign": "center",
+      "letterSpacing": "6px"
+     },
+     "content": "12 . 09 . 2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e156",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 600,
+      "width": 475,
+      "height": 60
+     },
+     "x": 60,
+     "y": 600,
+     "w": 475,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#9f1239",
+      "textAlign": "center",
+      "lineHeight": 1.5,
+      "fontStyle": "italic"
+     },
+     "content": "Together with our families, in the shelter of the palms.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e157",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 330
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 330,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_03.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_03.svg",
+     "src": "/api/v1/studio-stock/stock_nat_03.svg",
+     "image": "/api/v1/studio-stock/stock_nat_03.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e158",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 390,
+      "width": 250,
+      "height": 250
+     },
+     "x": 40,
+     "y": 390,
+     "w": 250,
+     "h": 250,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_02.svg",
+     "src": "/api/v1/studio-stock/stock_nat_02.svg",
+     "image": "/api/v1/studio-stock/stock_nat_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e159",
+     "type": "imageFrame",
+     "frame": {
+      "x": 305,
+      "y": 390,
+      "width": 250,
+      "height": 250
+     },
+     "x": 305,
+     "y": 390,
+     "w": 250,
+     "h": 250,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_wed_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_wed_01.svg",
+     "src": "/api/v1/studio-stock/stock_wed_01.svg",
+     "image": "/api/v1/studio-stock/stock_wed_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e160",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 670,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 670,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 22,
+      "fontWeight": "bold",
+      "color": "#9f1239",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Golden hour on the sand",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e161",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Mere & Josefa",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#fff1f2",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e162",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 80,
+      "width": 515,
+      "height": 50
+     },
+     "x": 40,
+     "y": 80,
+     "w": 515,
+     "h": 50,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 34,
+      "fontWeight": "bold",
+      "color": "#9f1239",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Our Vows",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e163",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 170,
+      "width": 455,
+      "height": 360
+     },
+     "x": 70,
+     "y": 170,
+     "w": 455,
+     "h": 360,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 17,
+      "fontWeight": "normal",
+      "color": "#881337",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "lineHeight": 1.9,
+      "fontStyle": "italic"
+     },
+     "content": "I promise to be your calm in the storm,\nyour laughter on ordinary days,\nand your home wherever we are.\n\nI promise to walk beside you,\nto choose you again each morning,\nand to love you with all that I am.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e164",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Mere & Josefa",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 4,
+   "id": "page_4",
+   "name": "Page 4",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#9f1239",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e165",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 280,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 280,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#fff1f2",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Vinaka vakalevu",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e166",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 360,
+      "width": 455,
+      "height": 120
+     },
+     "x": 70,
+     "y": 360,
+     "w": 455,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "normal",
+      "color": "#fecdd3",
+      "textAlign": "center",
+      "lineHeight": 1.6
+     },
+     "content": "Thank you for celebrating with us. Your love made our day unforgettable.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e167",
+     "type": "shape",
+     "frame": {
+      "x": 272,
+      "y": 520,
+      "width": 50,
+      "height": 50
+     },
+     "x": 272,
+     "y": 520,
+     "w": 50,
+     "h": 50,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542"
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "circle"
+    }
+   ]
+  }
+ ]
 }

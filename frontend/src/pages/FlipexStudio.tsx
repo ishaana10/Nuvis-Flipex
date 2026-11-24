@@ -4,6 +4,8 @@ import { api, uploadForm } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import StudioIcon from '../components/studio/StudioIcon';
+import { ToolbarWrap, TabBar } from '../components/studio/TabBar';
 import {
   Sparkles,
   Upload,
@@ -251,17 +253,17 @@ export interface StudioTemplate {
 }
 
 export const TEMPLATE_CATEGORIES = [
-  { id: 'all', label: 'All Categories', icon: '🌟' },
-  { id: 'retail_catalogue', label: 'Retail & Supermarket', icon: '🛒' },
-  { id: 'electronics_tech', label: 'Tech & Electronics', icon: '⚡' },
-  { id: 'food_restaurant', label: 'Food & Dining Menus', icon: '🍽️' },
-  { id: 'real_estate', label: 'Real Estate & Property', icon: '🏡' },
-  { id: 'school_yearbook', label: 'School & Yearbooks', icon: '🎓' },
-  { id: 'community_magazine', label: 'Editorial Magazines', icon: '📖' },
-  { id: 'wedding_album', label: 'Wedding & Keepsakes', icon: '💍' },
-  { id: 'annual_report', label: 'Corporate & Annual Reports', icon: '📊' },
-  { id: 'marketing_brochure', label: 'Marketing & Brochures', icon: '🚀' },
-  { id: 'creative_portfolio', label: 'Creative Portfolios', icon: '🎨' },
+  { id: 'all', label: 'All Categories', icon: 'sparkles' },
+  { id: 'retail_catalogue', label: 'Retail & Supermarket', icon: 'cart' },
+  { id: 'electronics_tech', label: 'Tech & Electronics', icon: 'bolt' },
+  { id: 'food_restaurant', label: 'Food & Dining Menus', icon: 'utensils' },
+  { id: 'real_estate', label: 'Real Estate & Property', icon: 'building' },
+  { id: 'school_yearbook', label: 'School & Yearbooks', icon: 'grad' },
+  { id: 'community_magazine', label: 'Editorial Magazines', icon: 'book' },
+  { id: 'wedding_album', label: 'Wedding & Keepsakes', icon: 'heart' },
+  { id: 'annual_report', label: 'Corporate & Annual Reports', icon: 'chart' },
+  { id: 'marketing_brochure', label: 'Marketing & Brochures', icon: 'rocket' },
+  { id: 'creative_portfolio', label: 'Creative Portfolios', icon: 'palette' },
 ];
 
 export interface StudioAsset {
@@ -353,12 +355,6 @@ export function calculateElementDpi(el: CanvasElement): {
 export function optimizeImageUrlForBandwidth(url: string | undefined, isDataSaver: boolean): string {
   if (!url) return '';
   if (!isDataSaver) return url;
-  if (url.includes('images.unsplash.com')) {
-    if (url.includes('w=')) {
-      return url.replace(/w=\d+/, 'w=350').replace(/q=\d+/, 'q=60');
-    }
-    return url.includes('?') ? `${url}&w=350&q=60` : `${url}?w=350&q=60`;
-  }
   return url;
 }
 
@@ -674,10 +670,10 @@ export default function FlipexStudio() {
 
   // Stage 7: Staged Bulk Photos for Keepsake Album & College Rosters
   const [stagedAlbumPhotos, setStagedAlbumPhotos] = useState<Array<{ url: string; caption?: string; tilt?: number }>>([
-    { url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=500', caption: 'The First Dance', tilt: -2 },
-    { url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=500', caption: 'Sunset on the Lagoon', tilt: 3 },
-    { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500', caption: 'Island Memories', tilt: -1 },
-    { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=500', caption: 'Coral Reef Exploration', tilt: 2 },
+    { url: '/api/v1/studio-stock/stock_wed_01.svg', caption: 'The First Dance', tilt: -2 },
+    { url: '/api/v1/studio-stock/stock_nat_03.svg', caption: 'Sunset on the Lagoon', tilt: 3 },
+    { url: '/api/v1/studio-stock/stock_nat_02.svg', caption: 'Island Memories', tilt: -1 },
+    { url: '/api/v1/studio-stock/stock_nat_01.svg', caption: 'Coral Reef Exploration', tilt: 2 },
   ]);
   const albumFileInputRef = useRef<HTMLInputElement>(null);
   const rosterFileInputRef = useRef<HTMLInputElement>(null);
@@ -704,10 +700,10 @@ export default function FlipexStudio() {
   const [flashDiscountScope, setFlashDiscountScope] = useState<'page' | 'all'>('page');
   const [csvText, setCsvText] = useState<string>(
     'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU,Description\n' +
-    'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10,Premium long grain fortified parboiled rice.\n' +
+    'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,/api/v1/studio-stock/stock_ret_01.svg long grain fortified parboiled rice.\n' +
     'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01,Organic farm fresh ripe Cavendish bananas per bunch.\n' +
-    'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500,+6799991234,OIL-02,Pure blended vegetable cooking oil for high-heat frying.\n' +
-    'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500,+6799991234,MLK-06,Pasteurised homogenized fresh dairy milk carton bundle.'
+    'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,/api/v1/studio-stock/stock_ret_03.svg blended vegetable cooking oil for high-heat frying.\n' +
+    'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,/api/v1/studio-stock/stock_ret_06.svg homogenized fresh dairy milk carton bundle.'
   );
 
   // Sprint 4: Regional Currency, Live SKU Sync & Preflight Inspection
@@ -1275,23 +1271,27 @@ export default function FlipexStudio() {
     setActivePageIndex(toIndex);
   };
 
-  // Publish to interactive flipbook with Stage 8 high-fidelity composite page rendering
+  // Leave Studio for the main dashboard, saving the open page first so nothing is lost.
+  const goToDashboard = async () => {
+    try {
+      if (currentDoc) await handleSavePage();
+    } catch {
+      /* autosave/offline backup already protect the draft */
+    }
+    navigate('/dashboard');
+  };
+
+  // Publish to the interactive flipbook reader (pages are rendered on the server)
   const handlePublish = async () => {
     if (!currentDoc) return;
     await handleSavePage();
     setSaving(true);
     try {
-      // Stage 8: Unified High-Fidelity Rendering Pipeline (Vector SVG composites per page)
-      const pageRenders: Record<number, string> = {};
-      pages.forEach((p) => {
-        const svg = renderPageToSvg(p, currentDoc.width_pt, currentDoc.height_pt);
-        pageRenders[p.page_number] = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-      });
-
+      // Pages are rendered server-side from the saved canvas (single source of truth, works for API-created docs too).
       const res = await api<{ ok: boolean; slug: string; public_url: string; viewer_url: string; flipbook_id?: number; preview_url?: string }>(
         `/studio/documents/${currentDoc.id}/publish`,
         'POST',
-        { page_renders: pageRenders }
+        {}
       );
       if (res.flipbook_id) {
         currentDoc.flipbook_id = res.flipbook_id;
@@ -2183,9 +2183,9 @@ export default function FlipexStudio() {
   const handleAddPolaroidScatter = () => {
     if (!currentDoc || !activePage) return;
     const photos = stagedAlbumPhotos.length >= 2 ? stagedAlbumPhotos.slice(0, 4) : [
-      { url: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=500', caption: 'The First Dance', tilt: -3 },
-      { url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=500', caption: 'Sunset on the Lagoon', tilt: 3 },
-      { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500', caption: 'Island Memories', tilt: -1 },
+      { url: '/api/v1/studio-stock/stock_wed_01.svg', caption: 'The First Dance', tilt: -3 },
+      { url: '/api/v1/studio-stock/stock_nat_03.svg', caption: 'Sunset on the Lagoon', tilt: 3 },
+      { url: '/api/v1/studio-stock/stock_nat_02.svg', caption: 'Island Memories', tilt: -1 },
     ];
     addElement({
       type: 'album_spread',
@@ -2205,9 +2205,9 @@ export default function FlipexStudio() {
   // Collage Layout 2: Modern Mosaic (Masonry 1 Hero + 2 Stacked)
   const handleAddModernMosaic = () => {
     if (!currentDoc || !activePage) return;
-    const p1 = stagedAlbumPhotos[0]?.url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600';
-    const p2 = stagedAlbumPhotos[1]?.url || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400';
-    const p3 = stagedAlbumPhotos[2]?.url || 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400';
+    const p1 = stagedAlbumPhotos[0]?.url || '/api/v1/studio-stock/stock_nat_02.svg';
+    const p2 = stagedAlbumPhotos[1]?.url || '/api/v1/studio-stock/stock_nat_01.svg';
+    const p3 = stagedAlbumPhotos[2]?.url || '/api/v1/studio-stock/stock_wed_01.svg';
 
     addElement({
       type: 'album_spread',
@@ -2227,12 +2227,12 @@ export default function FlipexStudio() {
   const handleAddCleanGrid = () => {
     if (!currentDoc || !activePage) return;
     const stockUrls = [
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
-      'https://images.unsplash.com/photo-1519741497674-611481863552?w=400',
-      'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400',
-      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=400',
-      'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400',
-      'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400',
+      '/api/v1/studio-stock/stock_nat_02.svg',
+      '/api/v1/studio-stock/stock_wed_01.svg',
+      '/api/v1/studio-stock/stock_nat_01.svg',
+      '/api/v1/studio-stock/stock_nat_03.svg',
+      '/api/v1/studio-stock/stock_ret_03.svg',
+      '/api/v1/studio-stock/stock_ret_02.svg',
     ];
     const photos = stagedAlbumPhotos.length >= 6
       ? stagedAlbumPhotos.slice(0, 6)
@@ -2255,7 +2255,7 @@ export default function FlipexStudio() {
   // Collage Layout 4: Full-Bleed Photo Hero
   const handleAddFullBleedHero = () => {
     if (!currentDoc || !activePage) return;
-    const heroUrl = stagedAlbumPhotos[0]?.url || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200';
+    const heroUrl = stagedAlbumPhotos[0]?.url || '/api/v1/studio-stock/stock_nat_02.svg';
     addElement({
       type: 'image',
       x: 0,
@@ -2273,18 +2273,18 @@ export default function FlipexStudio() {
   const handleAddYearbookGridPreset = (presetSize: 4 | 6 | 8 | 12) => {
     if (!currentDoc || !activePage) return;
     const allStudents: StudentProfile[] = [
-      { name: 'Alisi Tavua', award: 'Dux of School', quote: '"Wisdom begins in quiet curiosity."', role: 'Valedictorian', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400' },
-      { name: 'Jone Naivalu', award: 'Head Boy', quote: '"Lead through service and resilience."', role: 'Student Council', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400' },
-      { name: 'Mereani Koroi', award: 'Head Girl', quote: '"Honor our roots wherever we travel."', role: 'Prefect', photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' },
-      { name: 'Timoci Ravuvu', award: 'Sports Captain', quote: '"Clear eyes and courageous hearts."', role: 'Rugby Lead', photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400' },
-      { name: 'Sera Vakaloloma', award: 'Arts Excellence', quote: '"Creativity is the voice of our ancestors."', role: 'Music Society', photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400' },
-      { name: 'Kavita Sharma', award: 'Top in STEM', quote: '"In science we find unity with nature."', role: 'Robotics Club', photoUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400' },
-      { name: 'Peni Qalo', award: 'Community Service', quote: '"Give without hesitation."', role: 'Red Cross', photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400' },
-      { name: 'Litia Bale', award: 'Debating Champion', quote: '"Words hold the power of mountains."', role: 'Debating Lead', photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400' },
-      { name: 'Sakiusa Vuetaki', award: 'Math Olympiad', quote: '"Precision in thought, courage in deed."', role: 'Math Club', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400' },
-      { name: 'Kesaia Seniloli', award: 'Drama Trophy', quote: '"Life is our stage."', role: 'Drama Lead', photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400' },
-      { name: 'Viliame Ratu', award: 'Athletics Blue', quote: '"Never surrender."', role: 'Track Team', photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400' },
-      { name: 'Adi Cakobau', award: 'Leadership Medal', quote: '"Stand firm for what is true."', role: 'Head Prefect', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400' },
+      { name: 'Alisi Tavua', award: 'Dux of School', quote: '"Wisdom begins in quiet curiosity."', role: 'Valedictorian', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
+      { name: 'Jone Naivalu', award: 'Head Boy', quote: '"Lead through service and resilience."', role: 'Student Council', photoUrl: '/api/v1/studio-stock/stock_prt_02.svg' },
+      { name: 'Mereani Koroi', award: 'Head Girl', quote: '"Honor our roots wherever we travel."', role: 'Prefect', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
+      { name: 'Timoci Ravuvu', award: 'Sports Captain', quote: '"Clear eyes and courageous hearts."', role: 'Rugby Lead', photoUrl: '/api/v1/studio-stock/stock_prt_02.svg' },
+      { name: 'Sera Vakaloloma', award: 'Arts Excellence', quote: '"Creativity is the voice of our ancestors."', role: 'Music Society', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
+      { name: 'Kavita Sharma', award: 'Top in STEM', quote: '"In science we find unity with nature."', role: 'Robotics Club', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
+      { name: 'Peni Qalo', award: 'Community Service', quote: '"Give without hesitation."', role: 'Red Cross', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
+      { name: 'Litia Bale', award: 'Debating Champion', quote: '"Words hold the power of mountains."', role: 'Debating Lead', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
+      { name: 'Sakiusa Vuetaki', award: 'Math Olympiad', quote: '"Precision in thought, courage in deed."', role: 'Math Club', photoUrl: '/api/v1/studio-stock/stock_prt_02.svg' },
+      { name: 'Kesaia Seniloli', award: 'Drama Trophy', quote: '"Life is our stage."', role: 'Drama Lead', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
+      { name: 'Viliame Ratu', award: 'Athletics Blue', quote: '"Never surrender."', role: 'Track Team', photoUrl: '/api/v1/studio-stock/stock_prt_02.svg' },
+      { name: 'Adi Cakobau', award: 'Leadership Medal', quote: '"Stand firm for what is true."', role: 'Head Prefect', photoUrl: '/api/v1/studio-stock/stock_prt_01.svg' },
     ];
 
     const targetStudents = allStudents.slice(0, presetSize);
@@ -2310,7 +2310,7 @@ export default function FlipexStudio() {
       if (parts[0]) {
         parsedStudents.push({
           name: parts[0],
-          photoUrl: parts[1] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+          photoUrl: parts[1] || '/api/v1/studio-stock/stock_prt_01.svg',
           award: parts[2] || undefined,
           quote: parts[3] ? `"${parts[3]}"` : undefined,
           role: parts[4] || undefined,
@@ -2515,7 +2515,7 @@ export default function FlipexStudio() {
         badge: 'SAVE $100 • TOP RATED',
         sku: 'SONY-WH-XM5',
         whatsappNumber: '+6799991234',
-        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800',
+        image: '/api/v1/studio-stock/stock_tch_01.svg',
         description: 'Industry-leading noise cancellation with two processors and 8 microphones. Up to 30-hour battery life with quick charging (3 min charge for 3 hours playback). Ultra-comfortable lightweight design with soft fit leather.',
         rating: 5,
         stockStatus: 'in_stock',
@@ -2582,7 +2582,7 @@ export default function FlipexStudio() {
         badge: 'SAVE $400 • M3 MAX',
         sku: 'APL-MBP-16',
         whatsappNumber: '+6799991234',
-        image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600',
+        image: '/api/v1/studio-stock/stock_tch_03.svg',
         description: 'Apple M3 Max chip with 16-core CPU, 40-core GPU, 48GB unified memory, and 1TB ultra-fast SSD storage. Liquid Retina XDR display with ProMotion 120Hz.',
         rating: 5,
         stockStatus: 'in_stock',
@@ -2601,7 +2601,7 @@ export default function FlipexStudio() {
         badge: 'SAVE $400 • 4K OLED',
         sku: 'DEL-XPS-16',
         whatsappNumber: '+6799991234',
-        image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=600',
+        image: '/api/v1/studio-stock/stock_tch_03.svg',
         description: 'Intel Core Ultra 9 processor, 32GB LPDDR5x RAM, 4K+ OLED Touchscreen with studio-grade NVIDIA GeForce RTX 4070 graphics and CNC machined aluminum.',
         rating: 5,
         stockStatus: 'in_stock',
@@ -2637,7 +2637,7 @@ export default function FlipexStudio() {
         badge: 'TOP RATED 2026 • SAVE $150',
         sku: 'DYS-V15',
         whatsappNumber: '+6799991234',
-        image: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?w=700',
+        image: '/api/v1/studio-stock/stock_nat_04.svg',
         description: 'Laser illuminates invisible dust on hard floors. Piezo sensor continuously sizes and counts dust particles, automatically ramping suction power.',
         rating: 5,
         stockStatus: 'in_stock',
@@ -2656,7 +2656,7 @@ export default function FlipexStudio() {
         badge: 'SPECIAL',
         sku: 'DYS-AIR',
         whatsappNumber: '+6799991234',
-        image: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=500',
+        image: '/api/v1/studio-stock/stock_ret_05.svg',
         description: 'HEPA filtration removes 99.97% of allergens and pollutants.',
         rating: 5,
         stockStatus: 'in_stock',
@@ -2674,7 +2674,7 @@ export default function FlipexStudio() {
         badge: 'HOT PICK',
         sku: 'DYS-HAIR',
         whatsappNumber: '+6799991234',
-        image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=500',
+        image: '/api/v1/studio-stock/stock_edu_01.svg',
         description: 'Fast drying with no extreme heat. Engineered for different hair types.',
         rating: 5,
         stockStatus: 'in_stock',
@@ -2697,10 +2697,10 @@ export default function FlipexStudio() {
         },
       });
       const items = [
-        { name: 'Island Organic Single-Origin Coffee Beans 1kg', price: '$18.99', was: '$24.00', badge: 'SAVE 20%', sku: 'COF-01', img: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500' },
-        { name: 'Artisan Sourdough Woodfired Country Loaf', price: '$7.50', was: '$9.50', badge: 'FRESH BAKE', sku: 'BAK-02', img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500' },
-        { name: 'Cold-Pressed Pure Virgin Coconut Oil 1L', price: '$14.50', was: '$18.00', badge: 'PURE PACIFIC', sku: 'OIL-03', img: 'https://images.unsplash.com/photo-1526947425960-945c6e72858f?w=500' },
-        { name: 'Wild Rainforest Raw Honey Jar 500g', price: '$16.99', was: '$22.00', badge: 'NATURAL', sku: 'HON-04', img: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500' },
+        { name: 'Island Organic Single-Origin Coffee Beans 1kg', price: '$18.99', was: '$24.00', badge: 'SAVE 20%', sku: 'COF-01', img: '/api/v1/studio-stock/stock_din_01.svg' },
+        { name: 'Artisan Sourdough Woodfired Country Loaf', price: '$7.50', was: '$9.50', badge: 'FRESH BAKE', sku: 'BAK-02', img: '/api/v1/studio-stock/stock_ret_06.svg' },
+        { name: 'Cold-Pressed Pure Virgin Coconut Oil 1L', price: '$14.50', was: '$18.00', badge: 'PURE PACIFIC', sku: 'OIL-03', img: '/api/v1/studio-stock/stock_ret_06.svg' },
+        { name: 'Wild Rainforest Raw Honey Jar 500g', price: '$16.99', was: '$22.00', badge: 'NATURAL', sku: 'HON-04', img: '/api/v1/studio-stock/stock_ret_02.svg' },
       ];
       const coords = [
         { x: 35, y: 60, w: 250, h: 345 },
@@ -2743,12 +2743,12 @@ export default function FlipexStudio() {
         },
       });
       const items = [
-        { name: 'Punjas Premium Rice 10kg', price: '$22.50', was: '$26.50', badge: 'SAVE $4.00', sku: 'FMCG-01', img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400' },
-        { name: 'Golden Sunflower Cooking Oil 2L', price: '$11.95', was: '$15.50', badge: 'HOT DEAL', sku: 'FMCG-02', img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400' },
-        { name: 'Fresh Farm Salted Butter 500g', price: '$6.50', was: '$9.00', badge: 'HALF PRICE', sku: 'FMCG-03', img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400' },
-        { name: 'Sweet Island Papaya 2kg Pack', price: '$4.99', was: '$7.50', badge: 'FRESH PICK', sku: 'FMCG-04', img: 'https://images.unsplash.com/photo-1517282009859-f000ec3b26fe?w=400' },
-        { name: 'Grass-Fed Beef Sausages 1kg', price: '$13.99', was: '$17.50', badge: 'SAVE $3.50', sku: 'FMCG-05', img: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=400' },
-        { name: 'Pacific Tuna Chunks In Brine 6x', price: '$10.50', was: '$14.00', badge: 'VALUE PACK', sku: 'FMCG-06', img: 'https://images.unsplash.com/photo-1534483509719-3feaee7c30da?w=400' },
+        { name: 'Punjas Premium Rice 10kg', price: '$22.50', was: '$26.50', badge: 'SAVE $4.00', sku: 'FMCG-01', img: '/api/v1/studio-stock/stock_ret_01.svg' },
+        { name: 'Golden Sunflower Cooking Oil 2L', price: '$11.95', was: '$15.50', badge: 'HOT DEAL', sku: 'FMCG-02', img: '/api/v1/studio-stock/stock_ret_03.svg' },
+        { name: 'Fresh Farm Salted Butter 500g', price: '$6.50', was: '$9.00', badge: 'HALF PRICE', sku: 'FMCG-03', img: '/api/v1/studio-stock/stock_din_02.svg' },
+        { name: 'Sweet Island Papaya 2kg Pack', price: '$4.99', was: '$7.50', badge: 'FRESH PICK', sku: 'FMCG-04', img: '/api/v1/studio-stock/stock_nat_03.svg' },
+        { name: 'Grass-Fed Beef Sausages 1kg', price: '$13.99', was: '$17.50', badge: 'SAVE $3.50', sku: 'FMCG-05', img: '/api/v1/studio-stock/stock_din_04.svg' },
+        { name: 'Pacific Tuna Chunks In Brine 6x', price: '$10.50', was: '$14.00', badge: 'VALUE PACK', sku: 'FMCG-06', img: '/api/v1/studio-stock/stock_abs_01.svg' },
       ];
       const coords = [
         { x: 30, y: 72, w: 165, h: 335 },
@@ -3157,7 +3157,7 @@ export default function FlipexStudio() {
         dropCap: true,
         authorName: 'Dr. Mereana Rokovada',
         authorRole: 'Senior Marine Biologist',
-        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+        authorAvatar: '/api/v1/studio-stock/stock_prt_01.svg',
         linkedNextId: rightColId,
         content:
           'Throughout the vast expanse of the South Pacific, marine biologist cooperatives and island elders have pioneered a groundbreaking model of community-managed marine protected areas. Traditional protocols, refined over centuries of seafaring navigation, are now paired with high-resolution satellite thermal telemetry to map bleaching anomalies in real time.\n\nDuring recent warm water pulses, elder navigators identified deep-water upwelling channels where cooler sub-thermocline currents shield juvenile corals from heat stress. Divers harvested micro-fragments of heat-resilient Porites and Acropora strains, anchoring them onto bio-composite reef matrices woven from local coconut coir and non-toxic calcium carbonate binding mortars. Within eight months, juvenile polyps established robust calcification zones, attracting herbivorous parrotfish and grazing sea urchins that suppress macroalgal blooms.\n\nToday, regional schools participate in bi-monthly coral propagation workshops, ensuring ecological literacy is passed to the next generation of Pacific ocean guardians.',
@@ -3183,7 +3183,7 @@ export default function FlipexStudio() {
         y: 48,
         w: 490,
         h: 240,
-        src: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900',
+        src: '/api/v1/studio-stock/stock_nat_01.svg',
         style: { borderRadius: 12 },
       },
       {
@@ -3279,7 +3279,7 @@ export default function FlipexStudio() {
             price: parts[1] || '$0.00',
             originalPrice: parts[2] || undefined,
             badge: parts[3] || undefined,
-            image: parts[4] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500',
+            image: parts[4] || '/api/v1/studio-stock/stock_ret_06.svg',
             whatsappNumber: parts[5] || '+6799991234',
             sku: parts[6] || `SKU-${idx + 1}`,
             description: parts[7] || undefined,
@@ -3423,7 +3423,7 @@ export default function FlipexStudio() {
         if (parts.length >= 1 && parts[0]) {
           students.push({
             name: parts[0],
-            photoUrl: parts[1] || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+            photoUrl: parts[1] || '/api/v1/studio-stock/stock_prt_01.svg',
             award: parts[2] || undefined,
             quote: parts[3] || undefined,
             role: parts[4] || undefined,
@@ -3604,6 +3604,15 @@ export default function FlipexStudio() {
         {/* Header Banner - High-contrast Deep Ocean / Slate */}
         <div className="studio-hero-banner">
           <div style={{ position: 'absolute', top: 0, right: 0, width: '380px', height: '380px', background: 'radial-gradient(circle, rgba(14,116,144,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', zIndex: 1, marginBottom: '14px' }}>
+            <Link
+              to="/dashboard"
+              data-testid="studio-hub-back-dashboard"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '999px', background: 'linear-gradient(135deg, #f5c542, #d99a0b)', color: '#0a2a5e', fontWeight: 800, fontSize: '0.82rem', textDecoration: 'none', border: '1px solid #d99a0b' }}
+            >
+              <StudioIcon name="arrowLeft" size={14} stroke={2.4} /> Back to Dashboard
+            </Link>
+          </div>
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -3633,61 +3642,52 @@ export default function FlipexStudio() {
                   borderRadius: '12px',
                 }}
               >
-                <span>➕</span> Create New Document
+                <StudioIcon name="plus" size={16} stroke={2.4} /> Create New Document
               </button>
             </div>
           </div>
         </div>
 
         {/* Stage 4: Top Navigation View Switcher (My Documents vs Template Discovery Browser) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '14px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setHubView('documents')}
-            className={`studio-filter-pill ${hubView === 'documents' ? 'active' : ''}`}
-            style={{ fontSize: '0.88rem', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <span>📚</span>
-            <span>My Documents ({documents.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setHubView('templates');
-              loadTemplates();
+        <div style={{ marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '14px' }}>
+          <TabBar
+            ariaLabel="Studio sections"
+            testId="studio-hub-tabs"
+            variant="pill"
+            value={hubView}
+            tabs={[
+              { id: 'documents', label: 'My Documents', icon: 'files', count: documents.length },
+              { id: 'templates', label: 'Template Discovery Browser', icon: 'layout', count: templates.length },
+            ]}
+            onChange={(id) => {
+              setHubView(id as 'documents' | 'templates');
+              if (id === 'templates') loadTemplates();
             }}
-            className={`studio-filter-pill ${hubView === 'templates' ? 'active' : ''}`}
-            style={{ fontSize: '0.88rem', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <span>🎨</span>
-            <span>Template Discovery Browser ({templates.length})</span>
-          </button>
+          />
         </div>
 
         {hubView === 'documents' ? (
           <>
             {/* Filter Pills & Search */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-            {[
-              { id: 'all', label: 'All Documents' },
-              { id: 'catalogue', label: '🛒 Product Catalogues' },
-              { id: 'magazine', label: '📖 Magazines & Yearbooks' },
-              { id: 'album', label: '📷 Keepsake Albums' },
-              { id: 'custom', label: '🎨 Custom Vector' },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setFilterType(f.id)}
-                className={`studio-filter-pill ${filterType === f.id ? 'active' : ''}`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <TabBar
+              ariaLabel="Filter documents by type"
+              testId="studio-doc-filter"
+              value={filterType}
+              onChange={setFilterType}
+              tabs={[
+                { id: 'all', label: 'All Documents', icon: 'files' },
+                { id: 'catalogue', label: 'Product Catalogues', icon: 'cart' },
+                { id: 'magazine', label: 'Magazines & Yearbooks', icon: 'book' },
+                { id: 'album', label: 'Keepsake Albums', icon: 'camera' },
+                { id: 'custom', label: 'Custom Vector', icon: 'palette' },
+              ]}
+            />
           </div>
 
           <div className="studio-search-wrap">
-            <span className="studio-search-icon">🔍</span>
+            <span className="studio-search-icon"><StudioIcon name="search" size={15} /></span>
             <input
               type="text"
               placeholder="Search documents…"
@@ -3856,46 +3856,28 @@ export default function FlipexStudio() {
              ========================================================== */
           <div className="space-y-6">
             {/* 10 Commercial Categories Filter Row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '6px' }}>
-              {TEMPLATE_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setTemplateCategory(cat.id)}
-                  className={`studio-filter-pill ${templateCategory === cat.id ? 'active' : ''}`}
-                  style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <span>{cat.icon}</span>
-                  <span>{cat.label}</span>
-                </button>
-              ))}
-            </div>
+            <TabBar
+              ariaLabel="Template categories"
+              testId="studio-template-cats"
+              value={templateCategory}
+              onChange={setTemplateCategory}
+              tabs={TEMPLATE_CATEGORIES.map((c) => ({ id: c.id, label: c.label, icon: c.icon }))}
+            />
 
             {/* Scope Tabs & Search Controls */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setTemplateScope('all')}
-                  className={`studio-fmt-btn ${templateScope === 'all' ? 'active' : ''}`}
-                >
-                  All Templates
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTemplateScope('system')}
-                  className={`studio-fmt-btn ${templateScope === 'system' ? 'active' : ''}`}
-                >
-                  ⭐ Official Presets
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTemplateScope('custom')}
-                  className={`studio-fmt-btn ${templateScope === 'custom' ? 'active' : ''}`}
-                >
-                  🏢 My Custom Templates
-                </button>
-              </div>
+              <TabBar
+                variant="segment"
+                ariaLabel="Template source"
+                testId="studio-template-scope"
+                value={templateScope}
+                onChange={(id) => setTemplateScope(id as any)}
+                tabs={[
+                  { id: 'all', label: 'All Templates', icon: 'layout' },
+                  { id: 'system', label: 'Official Presets', icon: 'star' },
+                  { id: 'custom', label: 'My Custom Templates', icon: 'building' },
+                ]}
+              />
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <select
@@ -3905,14 +3887,14 @@ export default function FlipexStudio() {
                   style={{ width: '160px', padding: '6px 10px', fontSize: '11px' }}
                 >
                   <option value="all">All Formats</option>
-                  <option value="catalogue">🛒 Catalogues</option>
-                  <option value="magazine">📖 Magazines</option>
-                  <option value="album">📷 Photo Albums</option>
-                  <option value="custom">🎨 Custom</option>
+                  <option value="catalogue">Catalogues</option>
+                  <option value="magazine">Magazines</option>
+                  <option value="album">Photo Albums</option>
+                  <option value="custom">Custom</option>
                 </select>
 
                 <div className="studio-search-wrap" style={{ width: '240px' }}>
-                  <span className="studio-search-icon">🔍</span>
+                  <span className="studio-search-icon"><StudioIcon name="search" size={15} /></span>
                   <input
                     type="text"
                     placeholder="Search templates…"
@@ -4004,7 +3986,7 @@ export default function FlipexStudio() {
                         className="studio-tool-btn ocean"
                         style={{ flex: 1, padding: '8px 0', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                       >
-                        <span>👁️</span> Preview
+                        <StudioIcon name="eye" size={14} /> Preview
                       </button>
                       <button
                         type="button"
@@ -4012,7 +3994,7 @@ export default function FlipexStudio() {
                         className="studio-gradient-btn cosmic"
                         style={{ flex: 1, padding: '8px 0', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                       >
-                        <span>✨</span> Use Template
+                        <StudioIcon name="sparkles" size={14} /> Use Template
                       </button>
                     </div>
                   </div>
@@ -4346,7 +4328,7 @@ export default function FlipexStudio() {
       className="flipex-studio-root"
       style={{
         display: 'grid',
-        gridTemplateRows: bottomStripCollapsed ? '56px minmax(0, 1fr) 34px' : '56px minmax(0, 1fr) 115px',
+        gridTemplateRows: bottomStripCollapsed ? 'auto minmax(0, 1fr) 34px' : 'auto minmax(0, 1fr) 115px',
         height: '100vh',
         width: '100vw',
         maxWidth: '100vw',
@@ -4358,9 +4340,10 @@ export default function FlipexStudio() {
       }}
     >
       {/* TOP STUDIO TOOLBAR - Single line, non-wrapping, clean layout with 3-Gradients */}
-      <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'nowrap', overflowX: 'auto' }}>
+      <header style={{ minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '6px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%', width: '100%', flexShrink: 0, boxSizing: 'border-box' }}>
+        <ToolbarWrap className="studio-header-strip">
         {/* Left: Back, Sidebar Toggle & Document Metadata */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 1, flexWrap: 'wrap', minWidth: 0 }}>
           <button
             type="button"
             onClick={() => {
@@ -4382,7 +4365,29 @@ export default function FlipexStudio() {
             }}
             title="Return to Documents Hub"
           >
-            ← Back
+            <StudioIcon name="arrowLeft" size={14} stroke={2.2} /> Documents
+          </button>
+
+          <button
+            type="button"
+            onClick={goToDashboard}
+            data-testid="studio-back-dashboard"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #f5c542, #d99a0b)',
+              color: '#0a2a5e',
+              border: '1px solid #d99a0b',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            title="Save and go back to your Flipex dashboard"
+          >
+            <StudioIcon name="home" size={14} stroke={2.2} /> Dashboard
           </button>
 
           {/* Toggle Left Tools Sidebar */}
@@ -4404,7 +4409,7 @@ export default function FlipexStudio() {
             }}
             title={sidebarCollapsed ? "Expand Tools Sidebar" : "Collapse Tools Sidebar to Expand Canvas Workspace"}
           >
-            {sidebarCollapsed ? '⇥ Tools' : '⇤ Tools'}
+            <StudioIcon name={sidebarCollapsed ? 'panelOpen' : 'panel'} size={14} /> Tools
           </button>
 
           <div style={{ height: '18px', width: '1px', background: '#334155' }} />
@@ -4428,7 +4433,7 @@ export default function FlipexStudio() {
               }}
               title="Commercial Tier: Enterprise Suite Active (Full 300 DPI Export, Brand Kits & Catalogues)"
             >
-              🏢 ENTERPRISE
+              <StudioIcon name="shield" size={11} /> ENTERPRISE
             </span>
             <span
               style={{
@@ -4480,7 +4485,7 @@ export default function FlipexStudio() {
         </div>
 
         {/* Center: Page Switcher, Zoom & Fit, Bleed, Snap & Auto Tools */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 1, flexWrap: 'wrap', minWidth: 0 }}>
           {/* Page Switcher (Adapts in Spread Mode) */}
           <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '2px', fontSize: '12px' }}>
             <button
@@ -4700,7 +4705,7 @@ export default function FlipexStudio() {
         </div>
 
         {/* Right: Print PDF, Save, Publish Action & Inspector Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 1, flexWrap: 'wrap', minWidth: 0 }}>
           {/* Stage 8: Commercial Print & Vector PDF Export Modal */}
           <button
             type="button"
@@ -4788,7 +4793,7 @@ export default function FlipexStudio() {
             }}
             title="Run Preflight Quality & Readiness Check"
           >
-            <span>✈️</span> Preflight
+            <StudioIcon name="checkCircle" size={15} /> Preflight
           </button>
           <button
             type="button"
@@ -4801,7 +4806,7 @@ export default function FlipexStudio() {
               borderRadius: '8px',
             }}
           >
-            <span>🚀</span> Publish to Flipbook
+            <StudioIcon name="send" size={15} /> Publish to Flipbook
           </button>
 
           {/* Toggle Right Inspector */}
@@ -4827,6 +4832,7 @@ export default function FlipexStudio() {
             {inspectorCollapsed ? 'Inspector ⇤' : 'Inspector ⇥'}
           </button>
         </div>
+      </ToolbarWrap>
       </header>
 
       {/* Stage 8: Local Crash Recovery Snapshot Banner */}
@@ -4909,43 +4915,24 @@ export default function FlipexStudio() {
             zIndex: 20,
           }}
         >
-          <div className="flex items-center border-b border-slate-800 text-xs overflow-x-auto p-1 bg-slate-900/60">
-            {[
-              { id: 'products', label: '🛒 Products' },
-              { id: 'magazine', label: '📖 Magazine' },
-              { id: 'yearbook', label: '🎓 Yearbook' },
-              { id: 'album', label: '📷 Album' },
-              { id: 'text', label: '🔤 Text' },
-              { id: 'media', label: '🖼️ Media' },
-              { id: 'shapes', label: '⭐ Badges' },
-              { id: 'csv', label: '📊 CSV Import' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveToolTab(tab.id as any)}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '11px',
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'all 0.2s ease',
-                  background:
-                    activeToolTab === tab.id
-                      ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0c4a6e 100%)'
-                      : 'transparent',
-                  color: activeToolTab === tab.id ? '#ffffff' : '#94a3b8',
-                  boxShadow:
-                    activeToolTab === tab.id
-                      ? '0 2px 10px rgba(2, 132, 199, 0.4)'
-                      : 'none',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="border-b border-slate-800 bg-slate-900/60">
+            <TabBar
+              variant="grid"
+              ariaLabel="Studio tools"
+              testId="studio-tool-tabs"
+              value={activeToolTab}
+              onChange={(id) => setActiveToolTab(id as any)}
+              tabs={[
+                { id: 'products', label: 'Products', icon: 'cart' },
+                { id: 'magazine', label: 'Magazine', icon: 'book' },
+                { id: 'yearbook', label: 'Yearbook', icon: 'grad' },
+                { id: 'album', label: 'Album', icon: 'camera' },
+                { id: 'text', label: 'Text', icon: 'type' },
+                { id: 'media', label: 'Media', icon: 'image' },
+                { id: 'shapes', label: 'Badges', icon: 'award' },
+                { id: 'csv', label: 'CSV', icon: 'table' },
+              ]}
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -5128,7 +5115,7 @@ export default function FlipexStudio() {
                         badge: 'SPECIAL 20% OFF',
                         sku: 'PROD-01',
                         whatsappNumber: '+6799991234',
-                        image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500',
+                        image: '/api/v1/studio-stock/stock_ret_06.svg',
                         w: 240,
                         h: 310,
                       })
@@ -5148,7 +5135,7 @@ export default function FlipexStudio() {
                         originalPrice: '$299.00',
                         badge: 'SAVE $50',
                         sku: 'TECH-ANC-02',
-                        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+                        image: '/api/v1/studio-stock/stock_tch_01.svg',
                         description: 'Ultra high-definition spatial audio with 30-hour active battery.',
                         w: 260,
                         h: 330,
@@ -5225,7 +5212,7 @@ export default function FlipexStudio() {
                         dropCap: true,
                         authorName: 'Alisi Tavua',
                         authorRole: 'Marine Ecology Fellow',
-                        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+                        authorAvatar: '/api/v1/studio-stock/stock_prt_01.svg',
                         w: 500,
                         h: 240,
                         style: { fontSize: 13, color: isDark ? '#FFFFFF' : '#1E293B', lineHeight: 1.6 },
@@ -5278,7 +5265,7 @@ export default function FlipexStudio() {
                         content: 'BY ALISI TAVUA • SENIOR ENVIRONMENTAL FELLOW',
                         authorName: 'Alisi Tavua',
                         authorRole: 'Senior Environmental Fellow',
-                        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+                        authorAvatar: '/api/v1/studio-stock/stock_prt_01.svg',
                         w: 360,
                         h: 40,
                         style: { fontSize: 11, fontWeight: 'bold', color: '#0284C7', letterSpacing: '1px' },
@@ -5482,9 +5469,9 @@ export default function FlipexStudio() {
                       award: '🏆 Dux of Class 2026',
                       classYear: 'Class of 2026 • Form 7 Arts',
                       quote: 'Integrity, resilience, and curiosity will forever guide our voyage beyond these island shores.',
-                      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-                      src: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-                      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+                      image: '/api/v1/studio-stock/stock_prt_01.svg',
+                      src: '/api/v1/studio-stock/stock_prt_01.svg',
+                      photoUrl: '/api/v1/studio-stock/stock_prt_01.svg',
                       w: 240,
                       h: 290,
                     })
@@ -6055,14 +6042,14 @@ export default function FlipexStudio() {
                           setCsvMode('products');
                           setCsvText(
                             'Name,Price,WasPrice,Badge,Image,WhatsApp,SKU,Description\n' +
-                            'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500,+6799991234,PUN-10,Fortified long grain rice\n' +
+                            'Punjas Premium Rice 10kg,$22.50,$26.00,SAVE $3.50,/api/v1/studio-stock/stock_ret_01.svg long grain rice\n' +
                             'Fiji Fresh Island Bananas,$5.99,$8.50,FRESH,+6799991234,BAN-01,Ripe organic Cavendish bananas\n' +
-                            'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500,+6799991234,OIL-02,Pure blended vegetable cooking oil\n' +
-                            'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500,+6799991234,MLK-06,Pasteurised fresh dairy milk bundle\n' +
-                            'Island Gold Pure Honey 500g,$14.50,$18.00,NATURAL,https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500,+6799991234,HON-05,Wild rainforest raw honey jar\n' +
-                            'Coral Coast Sea Salt 1kg,$4.20,$5.50,LOCAL,https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=500,+6799991234,SLT-03,Natural mineral sea salt flakes\n' +
-                            'Bakehouse Crusty Bread,$3.50,$4.80,FRESH,https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500,+6799991234,BRD-07,Woodfired crusty sourdough loaf\n' +
-                            'Pacific Cacao Dark Bar 100g,$6.99,$8.90,SAVE 20%,https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=500,+6799991234,CHOC-08,Single-origin 72% organic dark chocolate'
+                            'Pacific Sun Cooking Oil 2L,$11.95,$14.20,HOT DEAL,/api/v1/studio-stock/stock_ret_03.svg blended vegetable cooking oil\n' +
+                            'Rewa Fresh Milk 1L x 6,$16.80,$19.50,BULK BUY,/api/v1/studio-stock/stock_ret_06.svg fresh dairy milk bundle\n' +
+                            'Island Gold Pure Honey 500g,$14.50,$18.00,NATURAL,/api/v1/studio-stock/stock_ret_02.svg rainforest raw honey jar\n' +
+                            'Coral Coast Sea Salt 1kg,$4.20,$5.50,LOCAL,/api/v1/studio-stock/stock_nat_04.svg mineral sea salt flakes\n' +
+                            'Bakehouse Crusty Bread,$3.50,$4.80,FRESH,/api/v1/studio-stock/stock_ret_06.svg crusty sourdough loaf\n' +
+                            'Pacific Cacao Dark Bar 100g,$6.99,$8.90,SAVE 20%,/api/v1/studio-stock/stock_din_03.svg 72% organic dark chocolate'
                           );
                         }}
                         className={`px-1.5 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-all text-center ${
@@ -6100,8 +6087,8 @@ export default function FlipexStudio() {
                           setCsvMode('yearbook');
                           setCsvText(
                             'Name,PhotoUrl,Award,Quote,Role\n' +
-                            'Alisi Tavua,https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400,Dux of School,"Lead with integrity",Prefect\n' +
-                            'Jone Naivalu,https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400,Head Boy,"Honor our elders",Student Council'
+                            'Alisi Tavua,/api/v1/studio-stock/stock_prt_01.svg of School,"Lead with integrity",Prefect\n' +
+                            'Jone Naivalu,/api/v1/studio-stock/stock_prt_02.svg Boy,"Honor our elders",Student Council'
                           );
                         }}
                         className={`px-1.5 py-1.5 rounded text-[10px] font-bold cursor-pointer transition-all text-center ${
@@ -7002,7 +6989,7 @@ export default function FlipexStudio() {
                       )}
                       <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-sky-500 shadow-md my-2 bg-slate-100 flex-shrink-0">
                         <img
-                          src={el.image || el.src || el.photoUrl || el.url || el.assetRef?.url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                          src={el.image || el.src || el.photoUrl || el.url || el.assetRef?.url || '/api/v1/studio-stock/stock_prt_01.svg'}
                           alt={el.name || 'Student'}
                           className="w-full h-full object-cover"
                         />
@@ -7899,10 +7886,10 @@ export default function FlipexStudio() {
                       <label className="studio-prop-label">Sample Presets</label>
                       <div className="grid grid-cols-2 gap-1.5">
                         {[
-                          { label: '🏖️ Tropical Beach', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80' },
-                          { label: '🎧 Tech Gadget', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80' },
-                          { label: '🍹 Luxury Dining', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80' },
-                          { label: '🥦 Fresh Produce', url: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800&q=80' },
+                          { label: '🏖️ Tropical Beach', url: '/api/v1/studio-stock/stock_nat_02.svg' },
+                          { label: '🎧 Tech Gadget', url: '/api/v1/studio-stock/stock_tch_01.svg' },
+                          { label: '🍹 Luxury Dining', url: '/api/v1/studio-stock/stock_din_01.svg' },
+                          { label: '🥦 Fresh Produce', url: '/api/v1/studio-stock/stock_ret_02.svg' },
                         ].map((preset) => (
                           <button
                             key={preset.label}
@@ -9599,9 +9586,14 @@ export default function FlipexStudio() {
             </div>
 
             <div className="flex items-center justify-center gap-3 flex-wrap">
-              <Button variant="outline" onClick={() => setPublishModal(null)} className="border-slate-700 text-slate-300 hover:text-white">
+              <button
+                type="button"
+                data-testid="studio-publish-keep-editing"
+                onClick={() => setPublishModal(null)}
+                style={{ background: '#1e293b', color: '#f8fafc', border: '1px solid #475569', borderRadius: '10px', padding: '9px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+              >
                 Keep Editing
-              </Button>
+              </button>
               {(publishModal.previewUrl || publishModal.flipbookId) && (
                 <a
                   href={publishModal.previewUrl || `/dashboard/preview/${publishModal.flipbookId}`}
@@ -9668,7 +9660,7 @@ export default function FlipexStudio() {
                 >
                   {TEMPLATE_CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.icon} {c.label}
+                      {c.label}
                     </option>
                   ))}
                 </select>

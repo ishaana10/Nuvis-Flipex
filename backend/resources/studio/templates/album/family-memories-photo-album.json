@@ -1,0 +1,601 @@
+{
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_alb_family_15",
+ "title": "Family Memories Photo Album",
+ "description": "Warm family album with captioned photo pages for holidays and milestones.",
+ "category": "family_album",
+ "docType": "album",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #fef3c7, #fde68a)",
+    "stops": [
+     "#fef3c7",
+     "#fde68a"
+    ],
+    "angle": 135,
+    "stop1": "#fef3c7",
+    "stop2": "#fde68a",
+    "stop3": "#fde68a"
+   },
+   "elements": [
+    {
+     "id": "e348",
+     "type": "imageFrame",
+     "frame": {
+      "x": 70,
+      "y": 80,
+      "width": 455,
+      "height": 360
+     },
+     "x": 70,
+     "y": 80,
+     "w": 455,
+     "h": 360,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 18
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_02.svg",
+     "src": "/api/v1/studio-stock/stock_nat_02.svg",
+     "image": "/api/v1/studio-stock/stock_nat_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e349",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 480,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 480,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 44,
+      "fontWeight": "bold",
+      "color": "#92400e",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Our Family Album",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e350",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 560,
+      "width": 515,
+      "height": 26
+     },
+     "x": 40,
+     "y": 560,
+     "w": 515,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#b45309",
+      "textAlign": "center",
+      "letterSpacing": "3px"
+     },
+     "content": "Summer in the islands  -  2026",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e351",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 40,
+      "width": 515,
+      "height": 340
+     },
+     "x": 40,
+     "y": 40,
+     "w": 515,
+     "h": 340,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_03.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_03.svg",
+     "src": "/api/v1/studio-stock/stock_nat_03.svg",
+     "image": "/api/v1/studio-stock/stock_nat_03.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e352",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 392,
+      "width": 515,
+      "height": 26
+     },
+     "x": 40,
+     "y": 392,
+     "w": 515,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#92400e",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Sunset on the first evening",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e353",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 440,
+      "width": 250,
+      "height": 240
+     },
+     "x": 40,
+     "y": 440,
+     "w": 250,
+     "h": 240,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_01.svg",
+     "src": "/api/v1/studio-stock/stock_nat_01.svg",
+     "image": "/api/v1/studio-stock/stock_nat_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e354",
+     "type": "imageFrame",
+     "frame": {
+      "x": 305,
+      "y": 440,
+      "width": 250,
+      "height": 240
+     },
+     "x": 305,
+     "y": 440,
+     "w": 250,
+     "h": 240,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 8
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_nat_04.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_nat_04.svg",
+     "src": "/api/v1/studio-stock/stock_nat_04.svg",
+     "image": "/api/v1/studio-stock/stock_nat_04.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e355",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 692,
+      "width": 250,
+      "height": 22
+     },
+     "x": 40,
+     "y": 692,
+     "w": 250,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#92400e",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Snorkelling with the kids",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e356",
+     "type": "text",
+     "frame": {
+      "x": 305,
+      "y": 692,
+      "width": 250,
+      "height": 22
+     },
+     "x": 305,
+     "y": 692,
+     "w": 250,
+     "h": 22,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#92400e",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "The hike to the waterfall",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e357",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Our Family Album",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#fffbeb",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e358",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 60,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 60,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 30,
+      "fontWeight": "bold",
+      "color": "#92400e",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "fontStyle": "italic"
+     },
+     "content": "Little moments",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e359",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 130,
+      "width": 160,
+      "height": 200
+     },
+     "x": 40,
+     "y": 130,
+     "w": 160,
+     "h": 200,
+     "transform": {
+      "rotation": -3,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_prt_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e360",
+     "type": "imageFrame",
+     "frame": {
+      "x": 218,
+      "y": 150,
+      "width": 160,
+      "height": 200
+     },
+     "x": 218,
+     "y": 150,
+     "w": 160,
+     "h": 200,
+     "transform": {
+      "rotation": 2,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_prt_02.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_prt_02.svg",
+     "src": "/api/v1/studio-stock/stock_prt_02.svg",
+     "image": "/api/v1/studio-stock/stock_prt_02.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e361",
+     "type": "imageFrame",
+     "frame": {
+      "x": 396,
+      "y": 130,
+      "width": 160,
+      "height": 200
+     },
+     "x": 396,
+     "y": 130,
+     "w": 160,
+     "h": 200,
+     "transform": {
+      "rotation": -2,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 10
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_prt_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e362",
+     "type": "text",
+     "frame": {
+      "x": 60,
+      "y": 400,
+      "width": 475,
+      "height": 200
+     },
+     "x": 60,
+     "y": 400,
+     "w": 475,
+     "h": 200,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 16,
+      "fontWeight": "normal",
+      "color": "#78350f",
+      "textAlign": "center",
+      "fontFamily": "Georgia",
+      "lineHeight": 1.8,
+      "fontStyle": "italic"
+     },
+     "content": "Missing teeth and sandy toes. Late-night card games and early-morning swims. The days we want to remember forever, written down so we never forget.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e363",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Our Family Album",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
+}

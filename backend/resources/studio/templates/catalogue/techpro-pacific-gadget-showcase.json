@@ -1,312 +1,893 @@
 {
-    "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
-    "schema": "flipex.design",
-    "schemaVersion": "1.0.0",
-    "id": "tpl_cat_techpro_02",
-    "title": "TechPro Pacific Gadget Showcase",
-    "description": "Modern tech lookbook with specifications table, warranty callouts, inquiry forms, and crisp dark mode styling.",
-    "category": "electronics_tech",
-    "docType": "catalogue",
-    "version": "1.0.0",
-    "document": {
-        "width": 595.28,
-        "height": 841.89,
-        "unit": "pt",
-        "orientation": "portrait",
-        "dpi": 300,
-        "bleed": {
-            "top": 9,
-            "right": 9,
-            "bottom": 9,
-            "left": 9
-        },
-        "safeMargins": {
-            "top": 36,
-            "right": 36,
-            "bottom": 36,
-            "left": 36
-        },
-        "grid": {
-            "columns": 12,
-            "rows": 8,
-            "gutter": 12
-        }
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_cat_techpro_02",
+ "title": "TechPro Pacific Gadget Showcase",
+ "description": "Electronics and gadget catalogue with feature spec cards, price drops and WhatsApp ordering.",
+ "category": "electronics_tech",
+ "docType": "catalogue",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "gradient",
+    "value": "linear-gradient(135deg, #050b1a, #0b5cad)",
+    "stops": [
+     "#050b1a",
+     "#0b2a63",
+     "#0b5cad"
+    ],
+    "angle": 135,
+    "stop1": "#050b1a",
+    "stop2": "#0b2a63",
+    "stop3": "#0b5cad"
+   },
+   "elements": [
+    {
+     "id": "e31",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 50,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 50,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#38bdf8",
+      "textAlign": "left",
+      "letterSpacing": "4px"
+     },
+     "content": "TECHPRO PACIFIC",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
     },
-    "pages": [
-        {
-            "pageNumber": 1,
-            "id": "page_1",
-            "name": "Page 1",
-            "type": "cover",
-            "background": {
-                "type": "solid",
-                "value": "#090D16",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "logo1",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 40,
-                        "width": 200,
-                        "height": 30
-                    },
-                    "x": 40,
-                    "y": 40,
-                    "w": 200,
-                    "h": 30,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 18,
-                        "fontWeight": "bold",
-                        "color": "#38BDF8"
-                    },
-                    "content": "\u26a1 TECHPRO PACIFIC",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "t1",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 80,
-                        "width": 515,
-                        "height": 50
-                    },
-                    "x": 40,
-                    "y": 80,
-                    "w": 515,
-                    "h": 50,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 28,
-                        "fontWeight": "800",
-                        "color": "#F8FAFC"
-                    },
-                    "content": "Next-Gen Audio & Mobile Devices",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "prod1",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 150,
-                        "width": 515,
-                        "height": 320
-                    },
-                    "x": 40,
-                    "y": 150,
-                    "w": 515,
-                    "h": 320,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "prod2",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 490,
-                        "width": 245,
-                        "height": 280
-                    },
-                    "x": 40,
-                    "y": 490,
-                    "w": 245,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "prod3",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 310,
-                        "y": 490,
-                        "width": 245,
-                        "height": 280
-                    },
-                    "x": 310,
-                    "y": 490,
-                    "w": 245,
-                    "h": 280,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        },
-        {
-            "pageNumber": 2,
-            "id": "page_2",
-            "name": "Page 2",
-            "type": "inside",
-            "background": {
-                "type": "solid",
-                "value": "#0F172A",
-                "stops": null,
-                "angle": null
-            },
-            "elements": [
-                {
-                    "id": "p2_tech_hd",
-                    "type": "text",
-                    "frame": {
-                        "x": 40,
-                        "y": 40,
-                        "width": 515,
-                        "height": 40
-                    },
-                    "x": 40,
-                    "y": 40,
-                    "w": 515,
-                    "h": 40,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": {
-                        "fontSize": 22,
-                        "fontWeight": "bold",
-                        "color": "#38BDF8"
-                    },
-                    "content": "ULTRA-PORTABLE LAPTOPS & WORKSTATIONS",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2_prod4",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 100,
-                        "width": 515,
-                        "height": 310
-                    },
-                    "x": 40,
-                    "y": 100,
-                    "w": 515,
-                    "h": 310,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2_prod5",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 40,
-                        "y": 430,
-                        "width": 245,
-                        "height": 290
-                    },
-                    "x": 40,
-                    "y": 430,
-                    "w": 245,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                },
-                {
-                    "id": "p2_prod6",
-                    "type": "productCard",
-                    "frame": {
-                        "x": 310,
-                        "y": 430,
-                        "width": 245,
-                        "height": 290
-                    },
-                    "x": 310,
-                    "y": 430,
-                    "w": 245,
-                    "h": 290,
-                    "transform": {
-                        "rotation": 0,
-                        "scaleX": 1,
-                        "scaleY": 1,
-                        "opacity": 1
-                    },
-                    "style": [],
-                    "content": "",
-                    "locked": false,
-                    "editable": true,
-                    "zIndex": 1
-                }
-            ]
-        }
-    ],
-    "tags": [
-        "tech",
-        "electronics",
-        "gadgets",
-        "audio",
-        "computers",
-        "hardware",
-        "mobile"
-    ],
-    "thumbnailUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80"
+    {
+     "id": "e32",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 90,
+      "width": 515,
+      "height": 150
+     },
+     "x": 40,
+     "y": 90,
+     "w": 515,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 44,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Next-Gen Audio, Wearables & Laptops",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e33",
+     "type": "imageFrame",
+     "frame": {
+      "x": 60,
+      "y": 290,
+      "width": 475,
+      "height": 340
+     },
+     "x": 60,
+     "y": 290,
+     "w": 475,
+     "h": 340,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 24
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_tch_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_tch_01.svg",
+     "src": "/api/v1/studio-stock/stock_tch_01.svg",
+     "image": "/api/v1/studio-stock/stock_tch_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e34",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 660,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 660,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#bfdbfe",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Authorised dealer  -  12 month warranty  -  free setup in store",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e35",
+     "type": "button",
+     "frame": {
+      "x": 40,
+      "y": 740,
+      "width": 200,
+      "height": 40
+     },
+     "x": 40,
+     "y": 740,
+     "w": 200,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "color": "#0a2a5e",
+      "borderRadius": 20.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Shop the range",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#0b1220",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e36",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left"
+     },
+     "content": "Audio & Wearables",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e37",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 72,
+      "width": 515,
+      "height": 20
+     },
+     "x": 40,
+     "y": 72,
+     "w": 515,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#7dd3fc",
+      "textAlign": "left"
+     },
+     "content": "Hear it. Track it. Wear it.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e38",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 110,
+      "width": 515,
+      "height": 320
+     },
+     "x": 40,
+     "y": 110,
+     "w": 515,
+     "h": 320,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "ANC Wireless Headphones Pro",
+     "price": "FJ$399",
+     "image": "/api/v1/studio-stock/stock_tch_01.svg",
+     "src": "/api/v1/studio-stock/stock_tch_01.svg",
+     "url": "/api/v1/studio-stock/stock_tch_01.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "40h battery, adaptive noise cancelling",
+     "rating": 5,
+     "originalPrice": "FJ$469",
+     "badge": "LAUNCH PRICE",
+     "sku": "HP-ANC1"
+    },
+    {
+     "id": "e39",
+     "type": "productCard",
+     "frame": {
+      "x": 40,
+      "y": 460,
+      "width": 245,
+      "height": 290
+     },
+     "x": 40,
+     "y": 460,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "GPS Multisport Watch",
+     "price": "FJ$549",
+     "image": "/api/v1/studio-stock/stock_tch_02.svg",
+     "src": "/api/v1/studio-stock/stock_tch_02.svg",
+     "url": "/api/v1/studio-stock/stock_tch_02.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "badge": "NEW",
+     "sku": "SW-GPS2"
+    },
+    {
+     "id": "e40",
+     "type": "productCard",
+     "frame": {
+      "x": 310,
+      "y": 460,
+      "width": 245,
+      "height": 290
+     },
+     "x": 310,
+     "y": 460,
+     "w": 245,
+     "h": 290,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "name": "Slim Laptop 14\"",
+     "price": "FJ$1,799",
+     "image": "/api/v1/studio-stock/stock_tch_03.svg",
+     "src": "/api/v1/studio-stock/stock_tch_03.svg",
+     "url": "/api/v1/studio-stock/stock_tch_03.svg",
+     "whatsappNumber": "6799991234",
+     "stockStatus": "in_stock",
+     "description": "",
+     "rating": 5,
+     "originalPrice": "FJ$1,999",
+     "badge": "SAVE $200",
+     "sku": "LP-14S"
+    },
+    {
+     "id": "e41",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "TechPro Pacific",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#f1f5f9",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e42",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 26,
+      "fontWeight": "bold",
+      "color": "#0f172a",
+      "textAlign": "left"
+     },
+     "content": "Why buy local?",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e43",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 100,
+      "width": 245,
+      "height": 180
+     },
+     "x": 40,
+     "y": 100,
+     "w": 245,
+     "h": 180,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e44",
+     "type": "text",
+     "frame": {
+      "x": 58,
+      "y": 118,
+      "width": 210,
+      "height": 26
+     },
+     "x": 58,
+     "y": 118,
+     "w": 210,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left"
+     },
+     "content": "Warranty in Fiji",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e45",
+     "type": "text",
+     "frame": {
+      "x": 58,
+      "y": 148,
+      "width": 210,
+      "height": 120
+     },
+     "x": 58,
+     "y": 148,
+     "w": 210,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Claims handled in store. No overseas shipping, no waiting.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e46",
+     "type": "shape",
+     "frame": {
+      "x": 310,
+      "y": 100,
+      "width": 245,
+      "height": 180
+     },
+     "x": 310,
+     "y": 100,
+     "w": 245,
+     "h": 180,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e47",
+     "type": "text",
+     "frame": {
+      "x": 328,
+      "y": 118,
+      "width": 210,
+      "height": 26
+     },
+     "x": 328,
+     "y": 118,
+     "w": 210,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left"
+     },
+     "content": "Free setup",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e48",
+     "type": "text",
+     "frame": {
+      "x": 328,
+      "y": 148,
+      "width": 210,
+      "height": 120
+     },
+     "x": 328,
+     "y": 148,
+     "w": 210,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "We configure your device and transfer your files before you leave.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e49",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 310,
+      "width": 245,
+      "height": 180
+     },
+     "x": 40,
+     "y": 310,
+     "w": 245,
+     "h": 180,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e50",
+     "type": "text",
+     "frame": {
+      "x": 58,
+      "y": 328,
+      "width": 210,
+      "height": 26
+     },
+     "x": 58,
+     "y": 328,
+     "w": 210,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left"
+     },
+     "content": "Trade-in credit",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e51",
+     "type": "text",
+     "frame": {
+      "x": 58,
+      "y": 358,
+      "width": 210,
+      "height": 120
+     },
+     "x": 58,
+     "y": 358,
+     "w": 210,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Bring your old phone or laptop and get credit towards an upgrade.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e52",
+     "type": "shape",
+     "frame": {
+      "x": 310,
+      "y": 310,
+      "width": 245,
+      "height": 180
+     },
+     "x": 310,
+     "y": 310,
+     "w": 245,
+     "h": 180,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#ffffff",
+      "borderRadius": 14
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e53",
+     "type": "text",
+     "frame": {
+      "x": 328,
+      "y": 328,
+      "width": 210,
+      "height": 26
+     },
+     "x": 328,
+     "y": 328,
+     "w": 210,
+     "h": 26,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "left"
+     },
+     "content": "Pay your way",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e54",
+     "type": "text",
+     "frame": {
+      "x": 328,
+      "y": 358,
+      "width": 210,
+      "height": 120
+     },
+     "x": 328,
+     "y": 358,
+     "w": 210,
+     "h": 120,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.5
+     },
+     "content": "Cash, card, mobile money or 12-month instalments.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e55",
+     "type": "button",
+     "frame": {
+      "x": 160,
+      "y": 540,
+      "width": 275,
+      "height": 44
+     },
+     "x": 160,
+     "y": 540,
+     "w": 275,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 22.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Ask us on WhatsApp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    },
+    {
+     "id": "e56",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "TechPro Pacific",
+     "folioShowPage": true
+    }
+   ]
+  }
+ ]
 }

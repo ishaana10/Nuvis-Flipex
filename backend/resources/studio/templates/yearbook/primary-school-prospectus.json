@@ -1,0 +1,752 @@
+{
+ "$schema": "https://nuvis.flipex/schemas/fds-v1.json",
+ "schema": "flipex.design",
+ "schemaVersion": "1.0.0",
+ "id": "tpl_mag_school_14",
+ "title": "Primary School Prospectus",
+ "description": "Welcoming school prospectus with values, facilities and an enrolment enquiry button.",
+ "category": "school_yearbook",
+ "docType": "magazine",
+ "version": "2.0.0",
+ "document": {
+  "width": 595.28,
+  "height": 841.89,
+  "unit": "pt",
+  "orientation": "portrait",
+  "dpi": 300,
+  "bleed": {
+   "top": 9,
+   "right": 9,
+   "bottom": 9,
+   "left": 9
+  },
+  "safeMargins": {
+   "top": 36,
+   "right": 36,
+   "bottom": 36,
+   "left": 36
+  },
+  "grid": {
+   "columns": 12,
+   "rows": 8,
+   "gutter": 12
+  }
+ },
+ "pages": [
+  {
+   "pageNumber": 1,
+   "id": "page_1",
+   "name": "Page 1",
+   "type": "cover",
+   "background": {
+    "type": "solid",
+    "value": "#0b5cad",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e326",
+     "type": "imageFrame",
+     "frame": {
+      "x": 0,
+      "y": 0,
+      "width": 595.28,
+      "height": 430
+     },
+     "x": 0,
+     "y": 0,
+     "w": 595.28,
+     "h": 430,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_edu_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_edu_01.svg",
+     "src": "/api/v1/studio-stock/stock_edu_01.svg",
+     "image": "/api/v1/studio-stock/stock_edu_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e327",
+     "type": "shape",
+     "frame": {
+      "x": 0,
+      "y": 400,
+      "width": 595.28,
+      "height": 40
+     },
+     "x": 0,
+     "y": 400,
+     "w": 595.28,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#f5c542",
+      "borderRadius": 0
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e328",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 470,
+      "width": 515,
+      "height": 40
+     },
+     "x": 40,
+     "y": 470,
+     "w": 515,
+     "h": 40,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 12,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "left",
+      "letterSpacing": "3px",
+      "textTransform": "uppercase"
+     },
+     "content": "Enrolments open",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e329",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 504,
+      "width": 515,
+      "height": 130
+     },
+     "x": 40,
+     "y": 504,
+     "w": 515,
+     "h": 130,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#ffffff",
+      "textAlign": "left",
+      "lineHeight": 1.1
+     },
+     "content": "Sunrise Primary School",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e330",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 640,
+      "width": 515,
+      "height": 70
+     },
+     "x": 40,
+     "y": 640,
+     "w": 515,
+     "h": 70,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 14,
+      "fontWeight": "normal",
+      "color": "#cbd5e1",
+      "textAlign": "left",
+      "lineHeight": 1.45
+     },
+     "content": "Where every child is known, valued and inspired to learn.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    }
+   ]
+  },
+  {
+   "pageNumber": 2,
+   "id": "page_2",
+   "name": "Page 2",
+   "type": "inside",
+   "background": {
+    "type": "solid",
+    "value": "#ffffff",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e331",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 36,
+      "width": 515,
+      "height": 36
+     },
+     "x": 40,
+     "y": 36,
+     "w": 515,
+     "h": 36,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 28,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Our values",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e332",
+     "type": "shape",
+     "frame": {
+      "x": 40,
+      "y": 96,
+      "width": 160,
+      "height": 150
+     },
+     "x": 40,
+     "y": 96,
+     "w": 160,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#eff6ff",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e333",
+     "type": "text",
+     "frame": {
+      "x": 50,
+      "y": 116,
+      "width": 140,
+      "height": 28
+     },
+     "x": 50,
+     "y": 116,
+     "w": 140,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "center"
+     },
+     "content": "Respect",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e334",
+     "type": "text",
+     "frame": {
+      "x": 52,
+      "y": 152,
+      "width": 136,
+      "height": 80
+     },
+     "x": 52,
+     "y": 152,
+     "w": 136,
+     "h": 80,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11.5,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "center",
+      "lineHeight": 1.45
+     },
+     "content": "For ourselves, each other and our environment.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e335",
+     "type": "shape",
+     "frame": {
+      "x": 218,
+      "y": 96,
+      "width": 160,
+      "height": 150
+     },
+     "x": 218,
+     "y": 96,
+     "w": 160,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#eff6ff",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e336",
+     "type": "text",
+     "frame": {
+      "x": 228,
+      "y": 116,
+      "width": 140,
+      "height": 28
+     },
+     "x": 228,
+     "y": 116,
+     "w": 140,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "center"
+     },
+     "content": "Curiosity",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e337",
+     "type": "text",
+     "frame": {
+      "x": 230,
+      "y": 152,
+      "width": 136,
+      "height": 80
+     },
+     "x": 230,
+     "y": 152,
+     "w": 136,
+     "h": 80,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11.5,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "center",
+      "lineHeight": 1.45
+     },
+     "content": "We ask questions and love finding the answers.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e338",
+     "type": "shape",
+     "frame": {
+      "x": 396,
+      "y": 96,
+      "width": 159,
+      "height": 150
+     },
+     "x": 396,
+     "y": 96,
+     "w": 159,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#eff6ff",
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "shapeType": "rect"
+    },
+    {
+     "id": "e339",
+     "type": "text",
+     "frame": {
+      "x": 406,
+      "y": 116,
+      "width": 139,
+      "height": 28
+     },
+     "x": 406,
+     "y": 116,
+     "w": 139,
+     "h": 28,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 18,
+      "fontWeight": "bold",
+      "color": "#0b5cad",
+      "textAlign": "center"
+     },
+     "content": "Service",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e340",
+     "type": "text",
+     "frame": {
+      "x": 408,
+      "y": 152,
+      "width": 135,
+      "height": 80
+     },
+     "x": 408,
+     "y": 152,
+     "w": 135,
+     "h": 80,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 11.5,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "center",
+      "lineHeight": 1.45
+     },
+     "content": "We contribute to our families and community.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e341",
+     "type": "imageFrame",
+     "frame": {
+      "x": 40,
+      "y": 280,
+      "width": 515,
+      "height": 260
+     },
+     "x": 40,
+     "y": 280,
+     "w": 515,
+     "h": 260,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "borderRadius": 12
+     },
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "assetRef": {
+      "url": "/api/v1/studio-stock/stock_prt_01.svg"
+     },
+     "url": "/api/v1/studio-stock/stock_prt_01.svg",
+     "src": "/api/v1/studio-stock/stock_prt_01.svg",
+     "image": "/api/v1/studio-stock/stock_prt_01.svg",
+     "objectFit": "cover"
+    },
+    {
+     "id": "e342",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 560,
+      "width": 515,
+      "height": 24
+     },
+     "x": 40,
+     "y": 560,
+     "w": 515,
+     "h": 24,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 20,
+      "fontWeight": "bold",
+      "color": "#0a2a5e",
+      "textAlign": "left"
+     },
+     "content": "Facilities",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e343",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 592,
+      "width": 515,
+      "height": 150
+     },
+     "x": 40,
+     "y": 592,
+     "w": 515,
+     "h": 150,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 13,
+      "fontWeight": "normal",
+      "color": "#475569",
+      "textAlign": "left",
+      "lineHeight": 1.7
+     },
+     "content": "Modern classrooms with learning technology  -  library and reading garden  -  sports field and covered court  -  music and arts studio  -  breakfast and after-school care.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e344",
+     "type": "folio",
+     "frame": {
+      "x": 36,
+      "y": 805.89,
+      "width": 523.28,
+      "height": 20
+     },
+     "x": 36,
+     "y": 805.89,
+     "w": 523.28,
+     "h": 20,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {},
+     "content": "",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "folioHeader": "Sunrise Primary School",
+     "folioShowPage": true
+    }
+   ]
+  },
+  {
+   "pageNumber": 3,
+   "id": "page_3",
+   "name": "Page 3",
+   "type": "back_cover",
+   "background": {
+    "type": "solid",
+    "value": "#0a2a5e",
+    "stops": null,
+    "angle": null
+   },
+   "elements": [
+    {
+     "id": "e345",
+     "type": "text",
+     "frame": {
+      "x": 40,
+      "y": 280,
+      "width": 515,
+      "height": 60
+     },
+     "x": 40,
+     "y": 280,
+     "w": 515,
+     "h": 60,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 40,
+      "fontWeight": "bold",
+      "color": "#f5c542",
+      "textAlign": "center"
+     },
+     "content": "Visit us",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e346",
+     "type": "text",
+     "frame": {
+      "x": 70,
+      "y": 360,
+      "width": 455,
+      "height": 100
+     },
+     "x": 70,
+     "y": 360,
+     "w": 455,
+     "h": 100,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "fontSize": 15,
+      "fontWeight": "normal",
+      "color": "#bfdbfe",
+      "textAlign": "center",
+      "lineHeight": 1.6
+     },
+     "content": "Open mornings every second Saturday. Tour the school, meet teachers and ask us anything.",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1
+    },
+    {
+     "id": "e347",
+     "type": "button",
+     "frame": {
+      "x": 160,
+      "y": 500,
+      "width": 275,
+      "height": 44
+     },
+     "x": 160,
+     "y": 500,
+     "w": 275,
+     "h": 44,
+     "transform": {
+      "rotation": 0,
+      "scaleX": 1,
+      "scaleY": 1,
+      "opacity": 1
+     },
+     "style": {
+      "backgroundColor": "#059669",
+      "color": "#ffffff",
+      "borderRadius": 22.0,
+      "fontWeight": "bold",
+      "fontSize": 12,
+      "textAlign": "center"
+     },
+     "content": "Enquire on WhatsApp",
+     "locked": false,
+     "editable": true,
+     "zIndex": 1,
+     "linkUrl": "https://wa.me/6799991234"
+    }
+   ]
+  }
+ ]
+}

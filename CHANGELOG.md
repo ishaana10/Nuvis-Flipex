@@ -5,6 +5,28 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+### Tabs, icons and publish UI
+- **Wrapping tabs everywhere (no scrolling):** one shared `TabBar` (pill / grid / segment / app variants) with bundled inline-SVG icons replaces every tab row in Studio, Dashboard, Share, Lifecycle, Customisation, Admin, Billing, Integrations and DevOps. No icon font, CDN or external asset.
+- **Readable buttons:** base-layer resets stop utility background colours from showing the gradient image behind them.
+- **Customisation dialog:** live reader preview (header, contents drawer, arrows, toolbar) beside Design and Themes; cards use the full width; emoji in publish/customise buttons replaced with bundled icons.
+- **Studio publish respects the plan's publication limit** (403 like uploads; re-publishing an existing document is free).
+
+### Security and audit fixes
+- **Webhook SSRF guard** (`App\Support\UrlGuard`): public http(s) targets on ports 80/443/8080/8443 only, no credentials, no private/loopback/link-local/metadata addresses; enforced at creation and at delivery in both dispatchers (no redirects, DNS pinned). `WEBHOOK_ALLOW_PRIVATE=1` opts out for intranet installs.
+- **Public unlock / lock / search / download** work on renamed (redirected) slugs; **oEmbed** only exposes live, non-password, non-expired publications of the requested slug.
+- **Public directory** no longer errors (`published` / `pages_count` column fixes).
+
+### Studio (Flipex Studio)
+- **Publish now works from Studio:** pages are rendered server-side to SVG (`StudioSvgRenderer`) and stored per tenant, so documents created in the editor, from a template or through the API all publish the same way and open in the public flipbook viewer.
+- **18 new bundled templates** (supermarket, tech, restaurant, real estate, yearbook, lifestyle magazine, wedding, annual report, adventure, portfolio, cafe menu, price list, newsletter, school prospectus, family album, travel journal, event programme, lookbook), 3-4 pages each with real content. Regenerate with `scripts/gen-templates.py`.
+- **26 original CC0 stock illustrations** served from `/api/v1/studio-stock/{id}.svg` (`scripts/gen-stock-art.py`); every Unsplash hotlink is gone, so Studio has no external image dependency.
+- **Template API:** `POST /api/v1/studio/templates/import` and `GET /api/v1/studio/templates/{id}/export` (FDS v1.0 JSON). API keys with the flipbooks scope can now use `/studio`.
+- **Navigation:** "Back to Dashboard" on the Studio hub and a gold "Dashboard" button in the editor (saves first).
+- **Security:** tenant context is required (no fallback to tenant 1), `flipbook.publish` / `flipbook.edit` permission checks, strict size and count limits, SVG safety checks, sanitized link URLs, CSP sandbox on served SVG, and no exception text leaked to clients.
+- **Navigation & icons:** all Studio tab rows (hub sections, document filters, template categories and sources, editor tool tabs, editor toolbar) are now scrollable strips with arrow buttons, edge fades, wheel/drag scrolling, keyboard arrows/Home/End and automatic scroll to the active tab. Emoji in navigation and main actions are replaced by a bundled inline SVG icon set (`components/studio/StudioIcon.tsx`), so there is no icon font or CDN.
+- **UI fixes:** template card titles and the "Keep Editing" button were unreadable (light-on-light).
+- After deploying, run `php backend/bin/cache.php flush` so the new template manifest is picked up.
+
 ### Added
 - Dependency-free Redis support (phpredis or built-in client; unix socket for A2 Turbo, TCP for VPS) with automatic file/MySQL fallback.
 - Redis-backed rate limiting, locks, cache namespaces and a schema-check guard (`SchemaGuard`) so DDL no longer runs on every request.

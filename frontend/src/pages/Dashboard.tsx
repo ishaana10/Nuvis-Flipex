@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import StudioIcon from '../components/studio/StudioIcon';
+import TabBar from '../components/studio/TabBar';
 import { api, ApiError, uploadForm } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import ShareDialog from '../components/ShareDialog';
@@ -103,6 +105,7 @@ export interface LeadStats {
 
 export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 'flipbooks' | 'leads' }) {
   const { user, can } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState<Flipbook[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [collections, setCollections] = useState<CollectionItem[]>([]);
@@ -546,7 +549,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
         <div className="flex items-center gap-2.5 flex-wrap">
           {view === 'overview' && (
             <Link to="/flipbooks" className="btn-secondary boardui-btn-sm" style={{ textDecoration: 'none' }}>
-              📚 Manage All Flipbooks ({items.length})
+              Manage All Flipbooks ({items.length})
             </Link>
           )}
           <Button
@@ -596,7 +599,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   }}
                   title="Flipex Studio: Visual Document Creation Engine (Developer / Admin Preview)"
                 >
-                  <span>✨</span> Studio
+                  <StudioIcon name="sparkles" size={14} /> Studio
                 </Link>
               )}
               <button disabled={uploading} onClick={() => input.current?.click()} className="btn-secondary">
@@ -608,7 +611,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                   className="btn-secondary flex items-center gap-1.5 text-xs font-semibold py-2 px-3"
                   title="Open Interactive Page Designer & Enrichments Studio"
                 >
-                  <span>🎨</span> Interactive Page Designer
+                  <StudioIcon name="palette" size={14} /> Interactive Page Designer
                 </Link>
               )}
             </>
@@ -621,45 +624,19 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
       </div>
 
       {/* 3-View Tab Navigation: Overview | Flipbooks | Storefront & Leads */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 mb-4 flex-wrap">
-        <Link
-          to="/dashboard"
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            view === 'overview'
-              ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
-              : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
-          }`}
-          style={{ textDecoration: 'none' }}
-        >
-          📊 Executive Overview
-        </Link>
-        <Link
-          to="/flipbooks"
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            view === 'flipbooks'
-              ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
-              : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
-          }`}
-          style={{ textDecoration: 'none' }}
-        >
-          📚 Flipbooks Library ({items.length})
-        </Link>
-        <Link
-          to="/leads"
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-            view === 'leads'
-              ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
-              : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
-          }`}
-          style={{ textDecoration: 'none' }}
-        >
-          <span>🏪</span> Storefront &amp; Leads CRM
-          {leadStats.new > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-bold">
-              {leadStats.new} new
-            </span>
-          )}
-        </Link>
+      <div className="mb-4">
+        <TabBar
+          variant="app"
+          ariaLabel="Workspace views"
+          testId="dash-views"
+          value={view}
+          onChange={(id) => navigate(id === 'overview' ? '/dashboard' : id === 'flipbooks' ? '/flipbooks' : '/leads')}
+          tabs={[
+            { id: 'overview', label: 'Executive Overview', icon: 'chart' },
+            { id: 'flipbooks', label: 'Flipbooks Library', icon: 'book', count: items.length },
+            { id: 'leads', label: 'Storefront & Leads CRM', icon: 'cart', count: leadStats.new > 0 ? `${leadStats.new} new` : undefined },
+          ]}
+        />
       </div>
 
       {/* Live Byte-Level Upload Progress Banner */}
@@ -756,10 +733,10 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                           className="action-pill preview"
                           style={{ cursor: 'pointer', border: 'none' }}
                         >
-                          🚀 Share &amp; Publish
+                          <StudioIcon name="rocket" size={15} /> Share &amp; Publish
                         </button>
                         <Link to={`/dashboard/editor/${featuredBook.id}`} className="action-pill editor" title="Design interactive links, products, videos, audios & callouts">
-                          🎨 Interactive Page Designer
+                          <StudioIcon name="palette" size={15} /> Interactive Page Designer
                         </Link>
                         <Link to={`/dashboard/analytics/${featuredBook.id}`} className="action-pill analytics">
                           Statistics 📊
@@ -1251,29 +1228,22 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
         </div>
 
         {/* 7-Stage Workflow Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {[
-            { id: 'all', label: 'All Publications' },
-            { id: 'editing', label: 'Editing / Drafts' },
-            { id: 'in_review', label: 'In Review' },
-            { id: 'scheduled', label: 'Scheduled' },
-            { id: 'published', label: 'Published' },
-            { id: 'archived', label: 'Archived' },
-          ].map((tabItem) => (
-            <button
-              key={tabItem.id}
-              type="button"
-              onClick={() => setWorkflowFilter(tabItem.id)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                workflowFilter === tabItem.id
-                  ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-slate-950 font-bold shadow-md border border-amber-300/60 transform -translate-y-0.5'
-                  : 'bg-gradient-to-r from-white via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-850 dark:to-slate-900 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200 dark:border-slate-700 shadow-sm hover:-translate-y-0.5'
-              }`}
-            >
-              {tabItem.label}
-            </button>
-          ))}
-        </div>
+        <TabBar
+          variant="app"
+          className="st-flat"
+          ariaLabel="Filter by publication status"
+          testId="dash-status"
+          value={workflowFilter}
+          onChange={setWorkflowFilter}
+          tabs={[
+            { id: 'all', label: 'All Publications', icon: 'files' },
+            { id: 'editing', label: 'Editing / Drafts', icon: 'file' },
+            { id: 'in_review', label: 'In Review', icon: 'eye' },
+            { id: 'scheduled', label: 'Scheduled', icon: 'history' },
+            { id: 'published', label: 'Published', icon: 'checkCircle' },
+            { id: 'archived', label: 'Archived', icon: 'folder' },
+          ]}
+        />
       </div>
 
       {items.length === 0 ? (
@@ -1479,12 +1449,12 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                 <div className="fb-tools-grid">
                   {f.status === 'ready' && can('hotspot.manage') && (
                     <Link to={`/dashboard/editor/${f.id}`} className="fb-tool-btn" title="Open Interactive Page Designer & Enrichments Studio">
-                      <span>🎨</span> Page Designer
+                      <StudioIcon name="palette" size={15} /> Page Designer
                     </Link>
                   )}
                   {f.status === 'ready' && can('flipbook.edit') && (
                     <button type="button" className="fb-tool-btn" onClick={() => setCustomize(f)}>
-                      <span>🛠️</span> Customize
+                      <StudioIcon name="sliders" size={15} /> Customize
                     </button>
                   )}
                   {f.status === 'ready' && can('analytics.view') && (
@@ -1499,7 +1469,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                       onClick={() => setLifecycleBook({ book: f, tab: 'workflow' })}
                       title="Workflow, Approval, Schedule, Versions & SEO"
                     >
-                      <span>🔄</span> Lifecycle
+                      <StudioIcon name="history" size={15} /> Lifecycle
                     </button>
                   )}
                 </div>
@@ -1515,7 +1485,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
                           onClick={() => quickPublish(f)}
                           title="Publish flipbook immediately"
                         >
-                          <span>🚀 Publish</span>
+                          <span><StudioIcon name="rocket" size={15} /> Publish</span>
                         </button>
                       )}
                       <button

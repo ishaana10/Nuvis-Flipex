@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import TabBar from '../components/studio/TabBar';
 import { Link, Navigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -516,56 +517,28 @@ export default function AdminPanel() {
       )}
 
       {/* Navigation Tabs (BoardUI Style) */}
-      <div className="admin-tabs">
-        <button
-          className={`admin-tab-btn ${tab === 'overview' ? 'active' : ''}`}
-          onClick={() => setTab('overview')}
-        >
-          📊 Overview
-        </button>
-        <button
-          className={`admin-tab-btn ${tab === 'users' ? 'active' : ''}`}
-          onClick={() => setTab('users')}
-        >
-          👥 User Management ({(users || []).length})
-        </button>
-        <button
-          className={`admin-tab-btn ${tab === 'roles' ? 'active' : ''}`}
-          onClick={() => {
-            setTab('roles');
-            if ((roles || []).length > 0 && !selectedRole) {
-              setSelectedRole(roles[0]);
-              setRoleFormPerms(roles[0].permissions || []);
-            }
-          }}
-        >
-          🎭 Role Manager & RBAC ({(roles || []).length})
-        </button>
-        <button
-          className={`admin-tab-btn ${tab === 'companies' ? 'active' : ''}`}
-          onClick={() => setTab('companies')}
-        >
-          🏢 Company Management ({(companies || []).length})
-        </button>
-        <button
-          className={`admin-tab-btn ${tab === 'subscriptions' ? 'active' : ''}`}
-          onClick={() => setTab('subscriptions')}
-        >
-          💎 Subscriptions & Plans ({(plans || []).length})
-        </button>
-        <button
-          className={`admin-tab-btn ${tab === 'email' ? 'active' : ''}`}
-          onClick={() => setTab('email')}
-        >
-          📧 Email Setup & Access
-        </button>
-        <button
-          className={`admin-tab-btn ${tab === 'security' ? 'active' : ''}`}
-          onClick={() => setTab('security')}
-        >
-          🛡️ Security & Audit Trail ({(securityEvents || []).length})
-        </button>
-      </div>
+      <TabBar
+        variant="app"
+        ariaLabel="Admin sections"
+        testId="admin-tabs"
+        value={tab}
+        onChange={(id) => {
+          setTab(id as any);
+          if (id === 'roles' && (roles || []).length > 0 && !selectedRole) {
+            setSelectedRole(roles[0]);
+            setRoleFormPerms(roles[0].permissions || []);
+          }
+        }}
+        tabs={[
+          { id: 'overview', label: 'Overview', icon: 'chart' },
+          { id: 'users', label: 'Users', icon: 'users', count: (users || []).length },
+          { id: 'roles', label: 'Roles & RBAC', icon: 'key', count: (roles || []).length },
+          { id: 'companies', label: 'Companies', icon: 'building', count: (companies || []).length },
+          { id: 'subscriptions', label: 'Subscriptions', icon: 'award', count: (plans || []).length },
+          { id: 'email', label: 'Email & Access', icon: 'mail' },
+          { id: 'security', label: 'Security & Audit', icon: 'shield', count: (securityEvents || []).length },
+        ]}
+      />
 
       {/* Tab 1: Overview */}
       {tab === 'overview' && (

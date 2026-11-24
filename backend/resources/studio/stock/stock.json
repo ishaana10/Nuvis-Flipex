@@ -1,0 +1,285 @@
+{
+ "items": [
+  {
+   "id": "stock_ret_01",
+   "name": "Premium Island Rice 10kg",
+   "category": "retail",
+   "tags": "retail,groceries,rice,food,staple",
+   "width": 800,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_ret_02",
+   "name": "Fresh Yellow Island Bananas",
+   "category": "retail",
+   "tags": "retail,bananas,fruit,market,fresh",
+   "width": 800,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_ret_03",
+   "name": "Cold-Pressed Coconut & Island Oil",
+   "category": "retail",
+   "tags": "retail,oil,cooking,fmcg",
+   "width": 800,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_ret_04",
+   "name": "Organic Sweet Pineapples",
+   "category": "retail",
+   "tags": "retail,fruit,pineapple,market",
+   "width": 800,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_ret_05",
+   "name": "Vine-Ripened Field Tomatoes",
+   "category": "retail",
+   "tags": "retail,vegetables,tomatoes,fresh",
+   "width": 800,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_ret_06",
+   "name": "Neighbourhood Market Storefront",
+   "category": "retail",
+   "tags": "retail,store,market,shop",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_din_01",
+   "name": "Island Kokoda Ceviche Bowl",
+   "category": "dining",
+   "tags": "dining,seafood,kokoda,fiji,restaurant",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_din_02",
+   "name": "Grilled Coral Rock Lobster Platter",
+   "category": "dining",
+   "tags": "dining,lobster,seafood,fine dining",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_din_03",
+   "name": "Pacific Sunset Tropical Cocktail",
+   "category": "dining",
+   "tags": "dining,cocktail,drinks,bar,resort",
+   "width": 800,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_din_04",
+   "name": "Botanical Gin & Tonic",
+   "category": "dining",
+   "tags": "dining,cocktail,beverage,tonic",
+   "width": 800,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_tch_01",
+   "name": "ANC Wireless Headphones Pro",
+   "category": "tech",
+   "tags": "tech,audio,headphones,gadgets",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_tch_02",
+   "name": "GPS Multisport Smartwatch",
+   "category": "tech",
+   "tags": "tech,smartwatch,wearables,fitness",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_tch_03",
+   "name": "Ultra-Slim Laptop",
+   "category": "tech",
+   "tags": "tech,laptop,computer,workstation",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_re_01",
+   "name": "Waterfront Luxury Villa",
+   "category": "realestate",
+   "tags": "realestate,villa,luxury,waterfront",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_re_02",
+   "name": "Tropical Pavilion with Pool",
+   "category": "realestate",
+   "tags": "realestate,pool,architecture,residence",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_nat_01",
+   "name": "Barrier Reef Coral Lagoon",
+   "category": "nature",
+   "tags": "nature,ocean,coral,reef,diving,marine",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_nat_02",
+   "name": "Turquoise Ocean & White Sand Cay",
+   "category": "nature",
+   "tags": "nature,beach,pacific,tropical,sand",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_nat_03",
+   "name": "Island Sunset over the Lagoon",
+   "category": "nature",
+   "tags": "nature,sunset,evening,ocean",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_nat_04",
+   "name": "Highland Adventure Trail",
+   "category": "nature",
+   "tags": "nature,mountain,hiking,adventure,eco",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_prt_01",
+   "name": "Student Portrait (illustration)",
+   "category": "people",
+   "tags": "people,student,portrait,yearbook",
+   "width": 600,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_prt_02",
+   "name": "Graduate Portrait (illustration)",
+   "category": "people",
+   "tags": "people,graduate,portrait,student",
+   "width": 600,
+   "height": 800,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_edu_01",
+   "name": "Graduation Cap",
+   "category": "people",
+   "tags": "education,graduation,school,yearbook",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_wed_01",
+   "name": "Wedding Rings & Blooms",
+   "category": "people",
+   "tags": "wedding,rings,album,celebration",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_biz_01",
+   "name": "Business District Skyline",
+   "category": "business",
+   "tags": "business,office,city,corporate",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_abs_01",
+   "name": "Abstract Ocean Gradient",
+   "category": "business",
+   "tags": "abstract,background,gradient,blue",
+   "width": 800,
+   "height": 600,
+   "assetType": "image"
+  },
+  {
+   "id": "stock_bdg_01",
+   "name": "Fiji Grown & Crafted Badge",
+   "category": "badges",
+   "tags": "badge,fiji made,seal,local,organic",
+   "width": 400,
+   "height": 400,
+   "assetType": "badge"
+  }
+ ],
+ "legacyUnsplash": {
+  "1534528741775-53994a69daeb": "stock_prt_01",
+  "1544551763-46a013bb70d5": "stock_nat_01",
+  "1507525428034-b723cf961d3e": "stock_nat_02",
+  "1519741497674-611481863552": "stock_wed_01",
+  "1600585154340-be6161a56a0c": "stock_re_01",
+  "1505740420928-5e560c06d30e": "stock_tch_01",
+  "1542838132-92c53300491e": "stock_ret_06",
+  "1511285560929-80b456fea0bc": "stock_nat_03",
+  "1474979266404-7eaacbcd87c5": "stock_ret_03",
+  "1586201375761-83865001e31c": "stock_ret_01",
+  "1544025162-d76694265947": "stock_din_01",
+  "1507003211169-0a1dd7228f2d": "stock_prt_02",
+  "1600596542815-ffad4c1539a9": "stock_re_02",
+  "1587049352846-4a222e784d38": "stock_ret_02",
+  "1551024709-8f23befc6f87": "stock_din_04",
+  "1550583724-b2692b85b150": "stock_ret_06",
+  "1523240795612-9a054b0db644": "stock_edu_01",
+  "1517841905240-472988babdf9": "stock_prt_01",
+  "1509440159596-0249088772ff": "stock_ret_06",
+  "1500648767791-00dcc994a43e": "stock_prt_02",
+  "1494790108377-be9c29b29330": "stock_prt_01",
+  "1486406146926-c627a92ad1ab": "stock_biz_01",
+  "1618005182384-a83a8bd57fbe": "stock_bdg_01",
+  "1610832958506-aa56368176cf": "stock_ret_02",
+  "1593642632823-8f785ba67e45": "stock_tch_03",
+  "1589985270826-4b7bb135bc9d": "stock_din_02",
+  "1585771724684-38269d6639fd": "stock_ret_05",
+  "1571771894821-ce9b6c11b08e": "stock_ret_02",
+  "1559056199-641a0ac8b55e": "stock_din_01",
+  "1558317374-067fb5f30001": "stock_nat_04",
+  "1550258987-190a2d41a8ba": "stock_ret_04",
+  "1549007994-cb92caebd54b": "stock_din_03",
+  "1546470427-e26264be0b11": "stock_ret_05",
+  "1539571696357-5a69c17a67c6": "stock_prt_01",
+  "1534483509719-3feaee7c30da": "stock_abs_01",
+  "1533777857889-4be7c70b33f7": "stock_din_02",
+  "1526947425960-945c6e72858f": "stock_ret_06",
+  "1524504388940-b1c1722653e1": "stock_prt_01",
+  "1523275335684-37898b6baf30": "stock_tch_02",
+  "1522337360788-8b13dee7a37e": "stock_edu_01",
+  "1518110925495-5fe2fda0442c": "stock_nat_04",
+  "1517336714731-489689fd1ca8": "stock_tch_03",
+  "1517282009859-f000ec3b26fe": "stock_nat_03",
+  "1514362545857-3bc16c4c7d1b": "stock_din_03",
+  "1496181133206-80ce9b88a853": "stock_tch_03"
+ }
+}
