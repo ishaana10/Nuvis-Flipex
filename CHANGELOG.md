@@ -5,6 +5,11 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+## [2.3.6] - 2026-11-24
+
+### Improvements
+- **New loading icon:** the animated loader is now the gold book badge (cover, page lift, fanning pages, page turn, then the X mark) with slow cross-fades and soft gold sparkles. Smaller sizes by default; respects reduced-motion. Bundled WebP frames, no external dependencies.
+
 ## [2.3.5] - 2026-11-24
 
 ### Improvements
