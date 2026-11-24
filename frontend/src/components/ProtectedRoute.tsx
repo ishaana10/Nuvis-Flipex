@@ -3,6 +3,7 @@ import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-d
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api/client';
 import ChangePasswordModal from './ChangePasswordModal';
+import { APP_VERSION } from '../version';
 
 interface QuickJobItem {
   id: number;
@@ -587,6 +588,21 @@ export function ProtectedRoute() {
             </svg>
             <span className="sidebar-label">Settings</span>
           </Link>
+          <div
+            className="sidebar-version-tag"
+            style={{
+              padding: '6px 12px',
+              fontSize: '11px',
+              color: '#94a3b8',
+              textAlign: 'center',
+              letterSpacing: '0.4px',
+              borderTop: '1px solid rgba(226, 232, 240, 0.6)',
+              marginTop: '4px',
+              fontWeight: 600,
+            }}
+          >
+            v{APP_VERSION}
+          </div>
         </div>
       </aside>
       )}
@@ -1109,6 +1125,52 @@ export function ProtectedRoute() {
             <Outlet />
           )}
         </main>
+
+        {/* APPLICATION FOOTER */}
+        {!isStudio && (
+          <footer
+            className="app-global-footer"
+            style={{
+              borderTop: '1px solid var(--border-color, #e2e8f0)',
+              padding: '12px 24px',
+              marginTop: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              color: '#64748b',
+              background: 'var(--surface, #ffffff)',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span><b>Nuvis Flipex</b> — Commercial Publishing Platform</span>
+              <span
+                style={{
+                  fontSize: '10.5px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  background: 'rgba(245, 197, 66, 0.15)',
+                  color: '#b45309',
+                  border: '1px solid rgba(245, 197, 66, 0.4)',
+                }}
+              >
+                v{APP_VERSION}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Link to="/explore" style={{ color: 'inherit', textDecoration: 'none' }}>
+                Directory
+              </Link>
+              <Link to="/settings" style={{ color: 'inherit', textDecoration: 'none' }}>
+                Settings
+              </Link>
+              <span style={{ color: '#94a3b8' }}>Release 2.1</span>
+            </div>
+          </footer>
+        )}
 
         {/* CHANGE PASSWORD MODAL (Triggered from Top-Right Profile Menu) */}
         {showChangePasswordModal && (

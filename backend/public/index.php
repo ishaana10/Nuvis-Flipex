@@ -73,7 +73,8 @@ $app->addErrorMiddleware(($_ENV['APP_ENV'] ?? 'local') !== 'production', true, t
 $app->options('/{routes:.+}', fn($req, $res) => $res); // handled by Cors
 
 $app->group('/api/v1', function (RouteCollectorProxy $g) {
-    $g->get('/health', fn($req, $res) => Http::json($res, ['status' => 'ok']));
+    $g->get('/health', fn($req, $res) => Http::json($res, ['status' => 'ok', 'version' => '2.1.0', 'platform' => 'Nuvis Flipex']));
+    $g->get('/version', fn($req, $res) => Http::json($res, ['version' => '2.1.0', 'platform' => 'Nuvis Flipex', 'release' => '2.1.0', 'build' => '2026.11.24']));
     $g->post('/internal/worker/process-next', [FlipbookController::class, 'processNextJob']);
 
     $g->group('/auth', function (RouteCollectorProxy $a) {

@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../version';
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -322,7 +323,7 @@ export default function PublicSchoolPortal() {
       <footer className="border-t border-slate-800/80 bg-slate-900/40 py-6 px-4 mt-auto">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 text-center sm:text-left">
           <div>
-            &copy; {new Date().getFullYear()} {profile.institutionName}. Powered by Nuvis Flipex Educational Publishing Platform.
+            &copy; {new Date().getFullYear()} {profile.institutionName}. Powered by Nuvis Flipex v{APP_VERSION} · Educational Publishing Platform.
           </div>
           <div className="flex items-center gap-3">
             <Link to="/login" className="hover:text-slate-300 transition-colors">

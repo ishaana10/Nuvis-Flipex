@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { APP_VERSION } from '../version';
 import './bizProfile.css';
 import {
   ExternalLink,
@@ -329,7 +330,7 @@ export default function PublicBusinessProfile() {
 
       <footer className="bp-foot">
         <div className="bp-wrap">
-          Powered by <b>Nuvis Flipex</b> · Commercial Publishing &amp; Interactive Catalogues
+          Powered by <b>Nuvis Flipex</b> v{APP_VERSION} · Commercial Publishing &amp; Interactive Catalogues
         </div>
       </footer>
 

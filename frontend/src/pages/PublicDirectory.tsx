@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../version';
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { Badge } from '../components/ui/badge';
@@ -425,7 +426,7 @@ export default function PublicDirectory() {
       {/* Footer */}
       <footer className="border-t border-slate-800 bg-slate-900/60 py-8 px-4 sm:px-6 mt-12 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Nuvis Flipex. Pacific Regional Digital Publishing Platform.</p>
+          <p>© 2026 Nuvis Flipex v{APP_VERSION} · Pacific Regional Digital Publishing Platform.</p>
           <div className="flex items-center gap-4">
             <a href="/explore" className="hover:text-slate-300">Directory</a>
             <a href="/dashboard" className="hover:text-slate-300">Publishers</a>

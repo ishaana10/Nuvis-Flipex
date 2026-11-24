@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, type LoginResult } from '../auth/AuthContext';
 import { AuthCard, Field, useForm } from '../components/Form';
+import { APP_VERSION } from '../version';
 
 export default function Login() {
   const { login, verify2fa, resend2fa } = useAuth();
@@ -97,6 +98,10 @@ export default function Login() {
         <button disabled={f.busy}>{f.busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
       <p><Link to="/forgot-password">Forgot password?</Link> · <Link to="/register">Create account</Link></p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', marginTop: '16px', paddingTop: '10px', fontSize: '11px', color: '#94a3b8' }}>
+        <span>Secure Publisher Portal</span>
+        <span style={{ fontWeight: 600, color: '#64748b' }}>Release v{APP_VERSION}</span>
+      </div>
     </AuthCard>
   );
 }
