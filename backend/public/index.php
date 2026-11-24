@@ -66,7 +66,7 @@ $app->addErrorMiddleware(($_ENV['APP_ENV'] ?? 'local') !== 'production', true, t
         if ($status >= 500) {
             CentralExceptionReporter::report($e, 'error');
         }
-        $msg = $status === 500 ? 'Server error' : $e->getMessage();
+        $msg = $status === 500 ? ('Server error: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')') : $e->getMessage();
         return Http::error($app->getResponseFactory()->createResponse(), $msg, $status);
     });
 
