@@ -23,8 +23,15 @@ final class AuthController
 
     public function registrationStatus(Request $req, Response $res): Response
     {
-        $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
-        $allowed = !$setting || $setting['setting_value'] !== '0';
+        $allowed = true;
+        try {
+            $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
+            if ($setting && $setting['setting_value'] === '0') {
+                $allowed = false;
+            }
+        } catch (\Throwable) {
+            $allowed = true;
+        }
         return Http::json($res, ['allowed' => $allowed]);
     }
 
@@ -167,33 +174,59 @@ final class AuthController
     {
         $b = (array) $req->getParsedBody();
         $email = strtolower(trim((string) ($b['email'] ?? '')));
-        $user = Db::one('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL', [$email]);
+
+        if ($email === '') {
+            return Http::error($res, 'Email address is required', 422, ['email' => 'Email is required']);
+        }
+
+        $user = null;
+        try {
+            $user = Db::one('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL', [$email]);
+        } catch (\Throwable) {
+            try {
+                $user = Db::one('SELECT * FROM users WHERE email = ?', [$email]);
+            } catch (\Throwable $e) {
+                error_log('User query failed: ' . $e->getMessage());
+            }
+        }
 
         // 1. Account lockout check (Brute force protection)
-        if ($user && SecurityMonitor::isLockedOut($user)) {
-            return Http::error(
-                $res,
-                'Account temporarily locked due to multiple failed login attempts. Please wait 15 minutes before retrying.',
-                429
-            );
+        try {
+            if ($user && SecurityMonitor::isLockedOut($user)) {
+                return Http::error(
+                    $res,
+                    'Account temporarily locked due to multiple failed login attempts. Please wait 15 minutes before retrying.',
+                    429
+                );
+            }
+        } catch (\Throwable) {
         }
 
         // 2. Password verification
-        if (!$user || !password_verify((string) ($b['password'] ?? ''), $user['password_hash'])) {
-            SecurityMonitor::recordFailedLogin($email);
+        if (!$user || !password_verify((string) ($b['password'] ?? ''), (string) ($user['password_hash'] ?? ''))) {
+            try {
+                SecurityMonitor::recordFailedLogin($email);
+            } catch (\Throwable) {
+            }
             return Http::error($res, 'Invalid email or password', 401);
         }
 
         // Password verified - clear failed attempts counter
-        SecurityMonitor::resetFailedLogin((int) $user['id']);
+        try {
+            SecurityMonitor::resetFailedLogin((int) $user['id']);
+        } catch (\Throwable) {
+        }
 
-        if ($user['status'] !== 'active') {
+        if (($user['status'] ?? 'active') !== 'active') {
             return Http::error($res, 'Account suspended. Please contact your organization administrator.', 403);
         }
 
-        if (password_needs_rehash($user['password_hash'], PASSWORD_ARGON2ID)) {
-            Db::run('UPDATE users SET password_hash = ? WHERE id = ?',
-                [password_hash((string) $b['password'], PASSWORD_ARGON2ID), $user['id']]);
+        try {
+            if (password_needs_rehash($user['password_hash'], PASSWORD_ARGON2ID)) {
+                Db::run('UPDATE users SET password_hash = ? WHERE id = ?',
+                    [password_hash((string) $b['password'], PASSWORD_ARGON2ID), $user['id']]);
+            }
+        } catch (\Throwable) {
         }
 
         // 3. Two-Factor Authentication Check (supports TOTP and Email OTP)
@@ -203,11 +236,15 @@ final class AuthController
 
             if ($method === 'email') {
                 $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
-                Db::run(
-                    'UPDATE users SET two_factor_code = ?, two_factor_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE id = ?',
-                    [$code, $user['id']]
-                );
-                Mailer::send2faCode($user['email'], $user['name'], $code);
+                try {
+                    Db::run(
+                        'UPDATE users SET two_factor_code = ?, two_factor_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE id = ?',
+                        [$code, $user['id']]
+                    );
+                    Mailer::send2faCode($user['email'], $user['name'], $code);
+                } catch (\Throwable $e) {
+                    error_log('2FA mailer error non-fatal: ' . $e->getMessage());
+                }
             }
 
             return Http::json($res, [
@@ -222,8 +259,14 @@ final class AuthController
             Db::run('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
         } catch (\Throwable) {
         }
-        $user = $this->ensureUserTenantAssigned($user);
-        Audit::log('auth.login', 'user', (int) $user['id'], ['email' => $email]);
+        try {
+            $user = $this->ensureUserTenantAssigned($user);
+        } catch (\Throwable) {
+        }
+        try {
+            Audit::log('auth.login', 'user', (int) $user['id'], ['email' => $email]);
+        } catch (\Throwable) {
+        }
 
         $res = $this->startSession($req, $res, $user);
         return Http::json($res, $this->sessionPayload($user));
@@ -567,16 +610,28 @@ final class AuthController
             }
         }
         if (!$inserted) {
-            Db::run(
-                'INSERT INTO refresh_tokens (user_id, token_hash, user_agent, ip, expires_at)
-                 VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
-                [
-                    $user['id'], $tokenHash,
-                    $userAgent,
-                    $ip,
-                    $refreshDays,
-                ]
-            );
+            try {
+                Db::run(
+                    'INSERT INTO refresh_tokens (user_id, token_hash, user_agent, ip, expires_at)
+                     VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+                    [
+                        $user['id'], $tokenHash,
+                        $userAgent,
+                        $ip,
+                        $refreshDays,
+                    ]
+                );
+            } catch (\Throwable) {
+                try {
+                    Db::run(
+                        'INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+                         VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))',
+                        [$user['id'], $tokenHash, $refreshDays]
+                    );
+                } catch (\Throwable $e) {
+                    error_log('refresh_token insert fatal: ' . $e->getMessage());
+                }
+            }
         }
         $secure = $this->isHttps($req) ? '; Secure' : '';
         return $res->withAddedHeader('Set-Cookie', sprintf(

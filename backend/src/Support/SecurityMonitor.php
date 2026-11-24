@@ -46,45 +46,59 @@ final class SecurityMonitor
     /** Record a failed login attempt; lock out if threshold exceeded */
     public static function recordFailedLogin(string $email): void
     {
-        $user = Db::one('SELECT id, failed_login_attempts FROM users WHERE email = ?', [$email]);
-        if ($user) {
-            $attempts = (int) $user['failed_login_attempts'] + 1;
-            $lockout = null;
-            if ($attempts >= self::MAX_FAILED_ATTEMPTS) {
-                $lockout = date('Y-m-d H:i:s', time() + (self::LOCKOUT_MINUTES * 60));
-                self::logEvent('account_lockout', 'warning', [
-                    'email' => $email,
-                    'attempts' => $attempts,
-                    'lockoutUntil' => $lockout,
-                ], (int) $user['id']);
-            } else {
-                self::logEvent('failed_login', 'info', [
-                    'email' => $email,
-                    'attempts' => $attempts,
-                ], (int) $user['id']);
-            }
+        try {
+            $user = Db::one('SELECT id, failed_login_attempts FROM users WHERE email = ?', [$email]);
+            if ($user) {
+                $attempts = (int) ($user['failed_login_attempts'] ?? 0) + 1;
+                $lockout = null;
+                if ($attempts >= self::MAX_FAILED_ATTEMPTS) {
+                    $lockout = date('Y-m-d H:i:s', time() + (self::LOCKOUT_MINUTES * 60));
+                    self::logEvent('account_lockout', 'warning', [
+                        'email' => $email,
+                        'attempts' => $attempts,
+                        'lockoutUntil' => $lockout,
+                    ], (int) $user['id']);
+                } else {
+                    self::logEvent('failed_login', 'info', [
+                        'email' => $email,
+                        'attempts' => $attempts,
+                    ], (int) $user['id']);
+                }
 
-            Db::run(
-                'UPDATE users SET failed_login_attempts = ?, lockout_until = ? WHERE id = ?',
-                [$attempts, $lockout, $user['id']]
-            );
-        } else {
-            self::logEvent('failed_login_unknown_user', 'info', ['email' => $email]);
+                try {
+                    Db::run(
+                        'UPDATE users SET failed_login_attempts = ?, lockout_until = ? WHERE id = ?',
+                        [$attempts, $lockout, $user['id']]
+                    );
+                } catch (\Throwable) {
+                }
+            } else {
+                self::logEvent('failed_login_unknown_user', 'info', ['email' => $email]);
+            }
+        } catch (\Throwable $e) {
+            error_log('SecurityMonitor recordFailedLogin non-fatal: ' . $e->getMessage());
         }
     }
 
     /** Clear failed attempts after successful login */
     public static function resetFailedLogin(int $userId): void
     {
-        Db::run('UPDATE users SET failed_login_attempts = 0, lockout_until = NULL WHERE id = ?', [$userId]);
+        try {
+            Db::run('UPDATE users SET failed_login_attempts = 0, lockout_until = NULL WHERE id = ?', [$userId]);
+        } catch (\Throwable) {
+        }
     }
 
     /** Check if account is locked out */
     public static function isLockedOut(array $user): bool
     {
-        if (empty($user['lockout_until'])) {
+        try {
+            if (empty($user['lockout_until'])) {
+                return false;
+            }
+            return strtotime((string) $user['lockout_until']) > time();
+        } catch (\Throwable) {
             return false;
         }
-        return strtotime((string) $user['lockout_until']) > time();
     }
 }

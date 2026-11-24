@@ -66,7 +66,7 @@ $app->addErrorMiddleware(($_ENV['APP_ENV'] ?? 'local') !== 'production', true, t
         if ($status >= 500) {
             CentralExceptionReporter::report($e, 'error');
         }
-        $msg = $status === 500 ? ('Server error: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')') : $e->getMessage();
+        $msg = $status === 500 ? 'Server error' : $e->getMessage();
         return Http::error($app->getResponseFactory()->createResponse(), $msg, $status);
     });
 
@@ -75,16 +75,6 @@ $app->options('/{routes:.+}', fn($req, $res) => $res); // handled by Cors
 $app->group('/api/v1', function (RouteCollectorProxy $g) {
     $g->get('/health', fn($req, $res) => Http::json($res, ['status' => 'ok', 'version' => '2.1.0', 'platform' => 'Nuvis Flipex']));
     $g->get('/version', fn($req, $res) => Http::json($res, ['version' => '2.1.0', 'platform' => 'Nuvis Flipex', 'release' => '2.1.0', 'build' => '2026.11.24']));
-    $g->get('/test-db', function ($req, $res) {
-        try {
-            $pdo = \App\Support\Db::pdo();
-            $tables = $pdo->query("SHOW TABLES")->fetchAll(\PDO::FETCH_COLUMN);
-            $userCols = $pdo->query("SHOW COLUMNS FROM users")->fetchAll(\PDO::FETCH_COLUMN);
-            return \App\Support\Http::json($res, ['ok' => true, 'tables' => $tables, 'user_cols' => $userCols]);
-        } catch (\Throwable $e) {
-            return \App\Support\Http::json($res, ['ok' => false, 'error' => $e->getMessage(), 'file' => basename($e->getFile()), 'line' => $e->getLine()], 200);
-        }
-    });
     $g->post('/internal/worker/process-next', [FlipbookController::class, 'processNextJob']);
 
     $g->group('/auth', function (RouteCollectorProxy $a) {
