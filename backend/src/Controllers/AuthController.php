@@ -20,9 +20,100 @@ final class AuthController
 {
     private const REFRESH_DAYS = 30;
     private const COOKIE = 'refresh_token';
+    private static bool $authSchemaEnsured = false;
+
+    public static function ensureAuthSchema(): void
+    {
+        if (self::$authSchemaEnsured) {
+            return;
+        }
+        self::$authSchemaEnsured = true;
+        try {
+            $pdo = Db::pdo();
+
+            // 1. Ensure rate_limits table exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `rate_limits` (
+              `k` VARCHAR(190) NOT NULL,
+              `window_start` INT UNSIGNED NOT NULL,
+              `hits` INT UNSIGNED NOT NULL DEFAULT 1,
+              PRIMARY KEY (`k`, `window_start`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // 2. Ensure system_settings table exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `system_settings` (
+              `setting_key` VARCHAR(80) NOT NULL PRIMARY KEY,
+              `setting_value` TEXT NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // 3. Ensure refresh_tokens table exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `refresh_tokens` (
+              `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              `user_id` BIGINT UNSIGNED NOT NULL,
+              `family_id` CHAR(32) NULL,
+              `token_hash` VARCHAR(64) NOT NULL UNIQUE,
+              `user_agent` VARCHAR(255) NULL,
+              `ip` VARCHAR(45) NULL,
+              `expires_at` DATETIME NOT NULL,
+              `revoked_at` DATETIME NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              INDEX (`user_id`),
+              INDEX `idx_refresh_family` (`family_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // 4. Ensure security_events table exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `security_events` (
+              `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              `tenant_id` BIGINT UNSIGNED NULL,
+              `user_id` BIGINT UNSIGNED NULL,
+              `event_type` VARCHAR(80) NOT NULL,
+              `severity` ENUM('info','warning','critical') NOT NULL DEFAULT 'info',
+              `ip` VARCHAR(45) NOT NULL,
+              `user_agent` VARCHAR(255) NULL,
+              `details` JSON NULL,
+              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // 5. Ensure missing columns on users table
+            $cols = $pdo->query("SHOW COLUMNS FROM `users`")->fetchAll(\PDO::FETCH_COLUMN);
+            $colMap = array_flip($cols);
+
+            if (!isset($colMap['failed_login_attempts'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `failed_login_attempts` INT NOT NULL DEFAULT 0"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['lockout_until'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `lockout_until` DATETIME NULL"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['deleted_at'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `deleted_at` DATETIME NULL"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['two_factor_enabled'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `two_factor_enabled` TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['two_factor_method'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `two_factor_method` ENUM('email','totp') NOT NULL DEFAULT 'email'"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['two_factor_code'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `two_factor_code` VARCHAR(10) NULL"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['two_factor_expires_at'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `two_factor_expires_at` DATETIME NULL"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['totp_secret'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `totp_secret` VARCHAR(64) NULL"); } catch (\Throwable) {}
+            }
+            if (!isset($colMap['last_login_at'])) {
+                try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `last_login_at` DATETIME NULL"); } catch (\Throwable) {}
+            }
+        } catch (\Throwable $e) {
+            error_log('ensureAuthSchema non-fatal: ' . $e->getMessage());
+        }
+    }
 
     public function registrationStatus(Request $req, Response $res): Response
     {
+        self::ensureAuthSchema();
         $allowed = true;
         try {
             $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
@@ -172,6 +263,7 @@ final class AuthController
 
     public function login(Request $req, Response $res): Response
     {
+        self::ensureAuthSchema();
         $b = (array) $req->getParsedBody();
         $email = strtolower(trim((string) ($b['email'] ?? '')));
 
