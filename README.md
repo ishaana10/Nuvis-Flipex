@@ -54,6 +54,19 @@
 
 ---
 
+## Releasing a new version
+
+The release number lives in one place: the root `VERSION` file. The frontend build, the API (`/api/v1/version`), the DevOps console and `package.json` all read it.
+
+```bash
+node scripts/bump-version.mjs patch      # or minor | major | 2.3.0
+git push origin HEAD --follow-tags       # --tag on the script commits and tags for you
+```
+
+On every push to `main`, CI rebuilds the committed `frontend/dist`, creates the `vX.Y.Z` tag from `VERSION` and publishes a GitHub release. Open browser tabs notice the new `dist/version.json` and offer a one-click refresh. See `CHANGELOG.md` for history.
+
+---
+
 ## 🌟 Executive Overview
 
 **Nuvis Flipex** is an all-in-one enterprise digital publishing ecosystem. Originating as a high-performance interactive 3D HTML5 flipbook reader for PDFs, Flipex has evolved into a complete, native browser-based design, marketing, educational, and commercial publishing powerhouse.

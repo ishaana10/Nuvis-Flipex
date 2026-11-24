@@ -44,7 +44,7 @@ final class SystemHealthService
         return [
             'status' => 'healthy',
             'environment' => $_ENV['APP_ENV'] ?? 'production',
-            'releaseVersion' => $_ENV['APP_VERSION'] ?? 'v2.5.0-enterprise',
+            'releaseVersion' => 'v' . \App\Support\AppVersion::version(),
             'phpVersion' => PHP_VERSION,
             'osFamily' => PHP_OS_FAMILY,
             'timestampUtc' => gmdate('Y-m-d\TH:i:s\Z'),

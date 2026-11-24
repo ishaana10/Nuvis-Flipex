@@ -144,6 +144,15 @@ final class Rbac
      */
     public static function ensureSchema(): void
     {
+        if (\App\Support\SchemaGuard::isCurrent('rbac')) {
+            return;
+        }
+        self::ensureSchemaImpl();
+        \App\Support\SchemaGuard::done('rbac');
+    }
+
+    private static function ensureSchemaImpl(): void
+    {
         if (self::$ensured) {
             return;
         }

@@ -45,7 +45,7 @@ jobs:
 
       - name: Automated Dependency Vulnerability Scanning (Composer Audit)
         working-directory: backend
-        run: composer audit --locked || true
+        run: composer audit --locked
 
       - name: Lint Modular Backend & Infrastructure Classes
         run: |
@@ -84,11 +84,17 @@ jobs:
 
       - name: Automated Dependency Vulnerability Scanning (NPM Audit)
         working-directory: frontend
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high --omit=dev
 
       - name: TypeScript Strict Check & Vite Production Bundle
         working-directory: frontend
         run: npm run build
+
+      - name: Verify VERSION and package.json agree
+        run: |
+          V="$(tr -d '[:space:]' < VERSION)"
+          PKG="$(node -p "require('./frontend/package.json').version")"
+          test "$V" = "$PKG" || { echo "VERSION ($V) != frontend/package.json ($PKG). Run: node scripts/bump-version.mjs $V"; exit 1; }
 
   deploy-staging:
     name: Deploy to Staging Environment

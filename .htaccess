@@ -21,7 +21,16 @@
     # 1. Block direct HTTP access to internal storage & sensitive directories
     RewriteRule ^backend/storage/ - [F,L]
     RewriteRule ^storage/ - [F,L]
-    RewriteRule ^backend/(\.env|composer\.(json|lock)|phpunit\.xml|src/|bin/|database/|tests/|vendor/) - [F,L]
+    RewriteRule ^backend/(\.env|composer\.(json|lock)|phpunit\.xml|src/|bin/|database/|tests/|vendor/|resources/|test\.pdf) - [F,L]
+
+    # 1b. Repo/dev files must never be web-readable (the site is deployed straight from git):
+    #     .git/, .github/, any dotfile (.env, .gitignore, .htaccess copies...), docs, compose files,
+    #     frontend sources/lockfiles, docker build files.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+    RewriteRule ^(docker/|frontend/(src|node_modules)/|frontend/(package(-lock)?\.json|tsconfig.*|vite\.config\..*)$) - [F,L]
+    RewriteRule ^(README|INSTALLATION|AGENTS|CLAUDE|CHANGELOG|plans)\.md$ - [F,NC,L]
+    RewriteRule ^(VERSION|CHANGELOG|scripts/.*|docker-compose\.ya?ml)$ - [F,NC,L]
+    RewriteRule \.(sql|log|bak|orig|swp|dist|ini|lock)$ - [F,NC,L]
 
     # 2. Route all /api/* requests to the PHP Slim API Gateway
     RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
@@ -47,4 +56,21 @@
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    # HSTS: only sent over HTTPS (browsers ignore it on plain HTTP).
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+    # CSP: the SPA ships no inline scripts and loads no third-party scripts or fonts.
+    # Inline styles are allowed because the editor and reader set element styles at runtime.
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" "expr=%{REQUEST_URI} !~ m#^/(api|storage)/#"
+    # Hashed build assets can be cached for a year; the HTML shell must always be revalidated
+    # so a new release (and its new version number) is picked up immediately.
+    <FilesMatch "\.(html)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/html "access plus 0 seconds"
 </IfModule>

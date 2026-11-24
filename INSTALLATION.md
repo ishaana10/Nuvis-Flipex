@@ -586,3 +586,19 @@ Web: [https://nuvistechnologies.com.fj](https://nuvistechnologies.com.fj)
 ---
 
 *Copyright © 2026 Nuvis Technologies. Proprietary & Confidential.*
+
+
+## Redis on A2 Hosting (optional, no extra packages)
+
+Nuvis Flipex ships its own Redis client, so nothing needs installing in PHP or Composer. If the `redis` PHP extension is loaded it is used; otherwise the built-in client takes over.
+
+| A2 plan | What to do |
+|---|---|
+| Shared/Reseller **Turbo** | Enable Redis in cPanel. The socket `~/.redis/redis.sock` is detected automatically; or set `REDIS_SOCKET` in `backend/.env`. |
+| Managed VPS / Dedicated | Redis runs on `127.0.0.1:6379`. Set `REDIS_HOST=127.0.0.1` (and `REDIS_PASSWORD` if set). |
+| Unmanaged VPS | Install `redis-server` yourself, bind to localhost, then as above. |
+| Shared (non-Turbo) | Redis is not offered. Leave it unset: the app uses the file cache and MySQL. |
+
+Redis is used for caching, rate limiting, distributed locks and skipping per-request schema checks. If it goes down, the app falls back within the same request and retries every 30 seconds.
+
+Check it from SSH: `php backend/bin/cache.php status` (also `ping`, `flush`, `gc`). The DevOps Center shows the active driver, transport, latency and Redis version.

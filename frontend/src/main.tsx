@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import './utilities.css';
 import './styles.css';
+import './theme-commercial.css';
 
 // Auth pages are tiny and are the entry point for signed-out visitors.
 const Login = lazy(() => import('./pages/Login'));
@@ -28,6 +30,7 @@ const BillingPortal = lazy(() => import('./pages/BillingPortal'));
 const DevOpsCenter = lazy(() => import('./pages/DevOpsCenter'));
 const FlipexStudio = lazy(() => import('./pages/FlipexStudio'));
 import FlipexLoader from './components/FlipexLoader';
+import UpdateBanner from './components/UpdateBanner';
 
 /** One loading boundary per area so a slow chunk only blanks its own region. */
 function Boundary({ area, children }: { area: string; children: ReactNode }) {
@@ -42,6 +45,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
+        <UpdateBanner />
         <Routes>
           <Route path="/login" element={<Boundary area="sign in"><Login /></Boundary>} />
           <Route path="/register" element={<Boundary area="sign up"><Register /></Boundary>} />

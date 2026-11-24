@@ -31,6 +31,15 @@ final class PublisherIdentity
 
     public static function ensureSchema(): void
     {
+        if (\App\Support\SchemaGuard::isCurrent('publisher_identity')) {
+            return;
+        }
+        self::ensureSchemaImpl();
+        \App\Support\SchemaGuard::done('publisher_identity');
+    }
+
+    private static function ensureSchemaImpl(): void
+    {
         if (self::$schemaEnsured) {
             return;
         }

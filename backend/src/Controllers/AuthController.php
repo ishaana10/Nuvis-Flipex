@@ -24,6 +24,15 @@ final class AuthController
 
     public static function ensureAuthSchema(): void
     {
+        if (\App\Support\SchemaGuard::isCurrent('auth')) {
+            return;
+        }
+        self::ensureAuthSchemaImpl();
+        \App\Support\SchemaGuard::done('auth');
+    }
+
+    private static function ensureAuthSchemaImpl(): void
+    {
         if (self::$authSchemaEnsured) {
             return;
         }
@@ -126,11 +135,11 @@ final class AuthController
                 try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `last_login_at` DATETIME NULL"); } catch (\Throwable) {}
             }
 
-            // Self-healing: unlock any locked accounts and activate unverified/pending accounts
-            try {
-                $pdo->exec("UPDATE `users` SET `failed_login_attempts` = 0, `lockout_until` = NULL WHERE `lockout_until` IS NOT NULL OR `failed_login_attempts` > 0");
-                $pdo->exec("UPDATE `users` SET `status` = 'active' WHERE `status` IS NULL OR `status` = '' OR `status` = 'unverified' OR `status` = 'pending'");
-            } catch (\Throwable) {}
+            // SECURITY: this method used to "self-heal" by unlocking every locked account and
+            // activating every pending/unverified user on every login request. That silently
+            // disabled brute-force lockout and email verification, so it has been removed.
+            // Locks expire on their own (SecurityMonitor::LOCKOUT_MINUTES) and admins can
+            // unlock or activate individual users from the admin panel.
         } catch (\Throwable $e) {
             error_log('ensureAuthSchema non-fatal: ' . $e->getMessage());
         }
@@ -337,6 +346,63 @@ final class AuthController
         ], 201);
     }
 
+    /**
+     * Resolve the account for a login identifier deterministically.
+     * Exact email/username wins. The looser fallbacks (display name, e-mail prefix, workspace
+     * slug) only apply when they identify exactly one account, so a user can never be matched
+     * to someone else's row by choosing a colliding name.
+     */
+    private static function findLoginUser(string $login): ?array
+    {
+        $notDeleted = '(u.deleted_at IS NULL OR u.deleted_at = "" OR u.deleted_at LIKE "0000%")';
+        try {
+            $exact = Db::one(
+                "SELECT u.* FROM users u
+                 WHERE (LOWER(TRIM(u.email)) = LOWER(?) OR (u.username IS NOT NULL AND LOWER(TRIM(u.username)) = LOWER(?)))
+                 AND {$notDeleted} LIMIT 1",
+                [$login, $login]
+            );
+            if ($exact) {
+                return $exact;
+            }
+            $rows = Db::all(
+                "SELECT u.* FROM users u
+                 LEFT JOIN tenants t ON t.id = u.tenant_id
+                 WHERE (
+                     LOWER(TRIM(u.name)) = LOWER(?)
+                     OR (t.slug IS NOT NULL AND LOWER(TRIM(t.slug)) = LOWER(?))
+                     OR SUBSTRING_INDEX(LOWER(TRIM(u.email)), '@', 1) = LOWER(?)
+                 )
+                 AND {$notDeleted} LIMIT 2",
+                [$login, $login, $login]
+            );
+            return count($rows) === 1 ? $rows[0] : null;
+        } catch (\Throwable $e) {
+            error_log('Login lookup failed: ' . $e->getMessage());
+            try {
+                $row = Db::one(
+                    'SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND (deleted_at IS NULL OR deleted_at = "" OR deleted_at LIKE "0000%") LIMIT 1',
+                    [$login]
+                );
+                return $row ?: null;
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+    }
+
+    /** Constant-time check against legacy unsalted hashes (MD5/SHA1/SHA256, MySQL PASSWORD()). */
+    private static function legacyHashMatches(string $stored, string $pass): bool
+    {
+        $stored = strtolower(trim($stored));
+        if (str_starts_with($stored, '*') && strlen($stored) === 41) {
+            return hash_equals($stored, strtolower('*' . strtoupper(sha1(sha1($pass, true)))));
+        }
+        return hash_equals($stored, md5($pass))
+            || hash_equals($stored, sha1($pass))
+            || hash_equals($stored, hash('sha256', $pass));
+    }
+
     public function login(Request $req, Response $res): Response
     {
         self::ensureAuthSchema();
@@ -347,96 +413,77 @@ final class AuthController
             return Http::error($res, 'Email or username is required', 422, ['email' => 'Email or username is required']);
         }
 
-        $user = null;
-        try {
-            // Broad search: matches Email, Username, Full Name, First Name, Last Name, Email prefix, or Company Tenant Slug
-            $user = Db::one(
-                'SELECT u.* FROM users u
-                 LEFT JOIN tenants t ON t.id = u.tenant_id
-                 WHERE (
-                     LOWER(TRIM(u.email)) = LOWER(?)
-                     OR (u.username IS NOT NULL AND LOWER(TRIM(u.username)) = LOWER(?))
-                     OR LOWER(TRIM(u.name)) = LOWER(?)
-                     OR (t.slug IS NOT NULL AND LOWER(TRIM(t.slug)) = LOWER(?))
-                     OR SUBSTRING_INDEX(LOWER(TRIM(u.email)), \'@\', 1) = LOWER(?)
-                     OR LOWER(u.name) LIKE CONCAT(LOWER(?), \' %\')
-                     OR LOWER(u.name) LIKE CONCAT(\'% \', LOWER(?))
-                 )
-                 AND (u.deleted_at IS NULL OR u.deleted_at = "" OR u.deleted_at LIKE "0000%")
-                 LIMIT 1',
-                [$loginInput, $loginInput, $loginInput, $loginInput, $loginInput, $loginInput, $loginInput]
-            );
-        } catch (\Throwable) {
-            try {
-                $user = Db::one(
-                    'SELECT * FROM users
-                     WHERE (
-                         LOWER(email) = LOWER(?)
-                         OR LOWER(name) = LOWER(?)
-                         OR SUBSTRING_INDEX(LOWER(email), \'@\', 1) = LOWER(?)
-                         OR LOWER(name) LIKE CONCAT(LOWER(?), \' %\')
-                     )
-                     AND (deleted_at IS NULL OR deleted_at = "" OR deleted_at LIKE "0000%")
-                     LIMIT 1',
-                    [$loginInput, $loginInput, $loginInput, $loginInput]
-                );
-            } catch (\Throwable $e) {
-                error_log('User query fallback failed: ' . $e->getMessage());
-            }
-        }
+        $user = self::findLoginUser($loginInput);
 
         $passInput = (string) ($b['password'] ?? '');
         $storedHash = (string) ($user['password_hash'] ?? '');
 
-        // 1. Multi-Hash Password Verification (Argon2id, Bcrypt, MD5, SHA1, SHA256, MySQL PASSWORD, and Plain text)
+        // Enforce account lockout BEFORE checking the password so a locked account can't be
+        // brute-forced and the response doesn't reveal whether the password was right.
+        if ($user && SecurityMonitor::isLockedOut($user)) {
+            SecurityMonitor::logEvent('login_blocked_locked_account', 'warning', ['login' => $loginInput], (int) $user['id']);
+            return Http::error($res, 'Too many failed attempts. Try again in ' . SecurityMonitor::LOCKOUT_MINUTES . ' minutes or reset your password.', 429);
+        }
+
+        // Password verification. Argon2id/bcrypt are the norm; legacy unsalted MD5/SHA1/SHA256
+        // and MySQL PASSWORD() hashes from migrated accounts are still accepted, compared in
+        // constant time and upgraded to Argon2id on the first successful login.
+        // Plain-text stored passwords are NOT accepted: a database leak would otherwise be a
+        // direct login credential.
         $passwordValid = false;
-        if ($user && $passInput !== '') {
+        $needsUpgrade = false;
+        if ($user && $passInput !== '' && $storedHash !== '') {
             if (password_verify($passInput, $storedHash)) {
                 $passwordValid = true;
-            } elseif ($storedHash === md5($passInput) || $storedHash === sha1($passInput) || $storedHash === hash('sha256', $passInput)) {
+            } elseif (self::legacyHashMatches($storedHash, $passInput)) {
                 $passwordValid = true;
-                try {
-                    Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
-                } catch (\Throwable) {}
-            } elseif ($storedHash === $passInput || trim($storedHash) === trim($passInput)) {
-                $passwordValid = true;
-                try {
-                    Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
-                } catch (\Throwable) {}
-            } elseif (str_starts_with($storedHash, '*') && strlen($storedHash) === 41) {
-                // MySQL PASSWORD() format: '*' . strtoupper(sha1(sha1($pass, true)))
-                $mysqlHash = '*' . strtoupper(sha1(sha1($passInput, true)));
-                if (hash_equals($storedHash, $mysqlHash)) {
-                    $passwordValid = true;
-                    try {
-                        Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
-                    } catch (\Throwable) {}
-                }
+                $needsUpgrade = true;
             }
+        } else {
+            // Equalise timing for unknown users so accounts can't be enumerated by response time.
+            password_hash($passInput === '' ? 'x' : $passInput, PASSWORD_ARGON2ID);
         }
 
         if (!$passwordValid) {
             try {
-                SecurityMonitor::recordFailedLogin($loginInput);
+                SecurityMonitor::recordFailedLogin($loginInput, $user ? (int) $user['id'] : null);
             } catch (\Throwable) {
             }
             return Http::error($res, 'Invalid email or password', 401);
         }
 
+        if ($needsUpgrade) {
+            try {
+                Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
+            } catch (\Throwable) {
+            }
+        }
+
         $email = (string) ($user['email'] ?? $loginInput);
 
-        // Password verified - clear failed attempts and unlock account if previously locked
+        // Account status gate. Suspended/disabled users must never be re-activated by logging in.
+        $status = (string) ($user['status'] ?? 'active');
+        if ($status !== 'active') {
+            if (in_array($status, ['pending', 'unverified'], true) && empty($user['email_verified_at'])) {
+                return Http::error($res, 'Please verify your email address before signing in.', 403);
+            }
+            if (in_array($status, ['pending', 'unverified'], true)) {
+                // Email was verified but the status was never flipped; safe to activate.
+                try {
+                    Db::run('UPDATE users SET status = "active" WHERE id = ?', [$user['id']]);
+                    $user['status'] = 'active';
+                } catch (\Throwable) {
+                }
+            } else {
+                SecurityMonitor::logEvent('login_blocked_inactive_account', 'warning', ['status' => $status], (int) $user['id']);
+                return Http::error($res, 'This account is not active. Contact your administrator.', 403);
+            }
+        }
+
+        // Password verified - clear failed attempts
         try {
             SecurityMonitor::resetFailedLogin((int) $user['id']);
         } catch (\Throwable) {
-        }
-
-        // Auto-activate unverified/pending accounts upon successful password authentication
-        if (($user['status'] ?? 'active') !== 'active') {
-            try {
-                Db::run('UPDATE users SET status = "active" WHERE id = ?', [$user['id']]);
-                $user['status'] = 'active';
-            } catch (\Throwable) {}
         }
 
         try {
@@ -516,7 +563,7 @@ final class AuthController
                 return Http::error($res, 'Invalid 6-digit authenticator code', 422, ['code' => 'Invalid authenticator code. Check your device time.']);
             }
         } else {
-            if (empty($user['two_factor_code']) || $user['two_factor_code'] !== $code || strtotime((string) $user['two_factor_expires_at']) < time()) {
+            if (empty($user['two_factor_code']) || !hash_equals((string) $user['two_factor_code'], $code) || strtotime((string) $user['two_factor_expires_at']) < time()) {
                 SecurityMonitor::logEvent('email_otp_verification_failed', 'warning', ['user_id' => $user['id']], (int) $user['id']);
                 return Http::error($res, 'Invalid or expired 2FA code', 422, ['code' => 'Invalid or expired verification code']);
             }

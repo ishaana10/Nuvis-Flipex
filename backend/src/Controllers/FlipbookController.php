@@ -1108,7 +1108,8 @@ final class FlipbookController
     {
         $u = $req->getAttribute('user');
         $workerSecret = $req->getHeaderLine('X-Worker-Secret');
-        $expectedSecret = $_ENV['WORKER_SECRET'] ?? ($_ENV['JWT_SECRET'] ?? '');
+        // A dedicated WORKER_SECRET is required; the JWT signing key must never double as a shared secret.
+        $expectedSecret = (string) ($_ENV['WORKER_SECRET'] ?? '');
 
         $isPlatformAdmin = is_array($u) && ($u['role'] ?? '') === 'admin';
         $isInternalWorker = !empty($workerSecret) && !empty($expectedSecret) && hash_equals($expectedSecret, $workerSecret);
@@ -1305,6 +1306,7 @@ final class FlipbookController
             'webp' => 'image/webp',
             'avif' => 'image/avif',
             'png' => 'image/png',
+            'svg' => 'image/svg+xml',
             default => 'image/jpeg',
         };
 
@@ -1331,6 +1333,8 @@ final class FlipbookController
             ->withHeader('ETag', $etag)
             ->withHeader('Last-Modified', $lastMod)
             ->withHeader('X-Content-Type-Options', 'nosniff')
+            // Anything served from this origin is treated as an inert resource: no scripts, no framing.
+            ->withHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
             ->withHeader('Content-Length', (string) $fsize)
             ->withBody($stream);
     }
