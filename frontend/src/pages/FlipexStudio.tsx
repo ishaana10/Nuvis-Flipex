@@ -619,7 +619,7 @@ export default function FlipexStudio() {
   const [gridSnap, setGridSnap] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [saveMessage, setSaveMessage] = useState<string>('');
-  const [publishModal, setPublishModal] = useState<{ open: boolean; slug?: string; url?: string; previewUrl?: string; flipbookId?: number } | null>(null);
+  const [publishModal, setPublishModal] = useState<{ open: boolean; slug?: string; url?: string; previewUrl?: string; flipbookId?: number; blankPages?: number[] } | null>(null);
   // Stage 6: Facing Pages / 2-Page Magazine Centerfold Spread
   const [spreadMode, setSpreadMode] = useState<boolean>(false);
 
@@ -1303,6 +1303,7 @@ export default function FlipexStudio() {
         url: res.public_url || `/v/${res.slug}`,
         previewUrl: res.preview_url || (res.flipbook_id ? `/dashboard/preview/${res.flipbook_id}` : undefined),
         flipbookId: res.flipbook_id,
+        blankPages: pages.filter((pg) => !(pg.elements && pg.elements.length)).map((pg) => pg.page_number),
       });
     } catch (e: any) {
       alert('Publish failed: ' + e.message);
@@ -4328,7 +4329,7 @@ export default function FlipexStudio() {
       className="flipex-studio-root"
       style={{
         display: 'grid',
-        gridTemplateRows: bottomStripCollapsed ? 'auto minmax(0, 1fr) 34px' : 'auto minmax(0, 1fr) 115px',
+        gridTemplateRows: bottomStripCollapsed ? 'auto minmax(0, 1fr) 34px' : 'auto minmax(0, 1fr) 104px',
         height: '100vh',
         width: '100vw',
         maxWidth: '100vw',
@@ -4838,16 +4839,23 @@ export default function FlipexStudio() {
       {/* Stage 8: Local Crash Recovery Snapshot Banner */}
       {backupAvailable && (
         <div
+          role="status"
           style={{
+            position: 'fixed',
+            right: '16px',
+            bottom: bottomStripCollapsed ? '48px' : '128px',
+            maxWidth: '460px',
             background: 'linear-gradient(90deg, #0f172a 0%, #0369a1 100%)',
-            borderBottom: '1px solid #0284c7',
-            padding: '6px 16px',
+            border: '1px solid #0284c7',
+            borderRadius: '12px',
+            boxShadow: '0 12px 32px rgba(0,0,0,.5)',
+            padding: '10px 14px',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            flexDirection: 'column',
+            gap: '8px',
             fontSize: '12px',
             color: '#e0e7ff',
-            zIndex: 40,
+            zIndex: 60,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -4893,7 +4901,7 @@ export default function FlipexStudio() {
         className="studio-workspace-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: `${sidebarCollapsed ? '0px' : '285px'} minmax(0, 1fr) ${inspectorCollapsed ? '0px' : '320px'}`,
+          gridTemplateColumns: `${sidebarCollapsed ? '0px' : '250px'} minmax(0, 1fr) ${inspectorCollapsed ? '0px' : '285px'}`,
           minHeight: 0,
           minWidth: 0,
           overflow: 'hidden',
@@ -4904,7 +4912,7 @@ export default function FlipexStudio() {
         {/* LEFT TOOLBAR TABS (Collapsible) */}
         <aside
           style={{
-            width: sidebarCollapsed ? '0px' : '285px',
+            width: sidebarCollapsed ? '0px' : '250px',
             minWidth: 0,
             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             overflowY: 'auto',
@@ -9572,6 +9580,13 @@ export default function FlipexStudio() {
               Your document canvas has been compiled into a high-performance vector flipbook with active WhatsApp buying hotspots, senior rosters, and mobile zoom.
             </p>
 
+            {publishModal.blankPages && publishModal.blankPages.length > 0 && (
+              <p className="text-amber-300 text-xs mb-4" role="note" data-testid="studio-publish-blank-warning">
+                {publishModal.blankPages.length === pages.length
+                  ? 'Every page is blank, so the reader will look empty. Add content, then publish again.'
+                  : `Page${publishModal.blankPages.length > 1 ? 's' : ''} ${publishModal.blankPages.join(', ')} ${publishModal.blankPages.length > 1 ? 'are' : 'is'} blank and will appear empty in the reader.`}
+              </p>
+            )}
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between mb-6">
               <span className="font-mono text-xs text-sky-300 truncate max-w-xs">{window.location.origin}{publishModal.url}</span>
               <button

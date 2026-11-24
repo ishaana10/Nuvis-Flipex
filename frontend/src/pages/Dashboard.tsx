@@ -159,7 +159,10 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     if (workflowFilter && workflowFilter !== 'all') params.set('workflow', workflowFilter);
     if (categoryFilter) params.set('categoryId', categoryFilter);
     if (collectionFilter) params.set('collectionId', collectionFilter);
-    return api<Flipbook[]>(`/flipbooks?${params.toString()}`).then(setItems);
+    return api<Flipbook[]>(`/flipbooks?${params.toString()}`).then((next) =>
+      // keep the previous array when nothing changed so polling never re-renders (or flickers) the grid
+      setItems((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
+    );
   }, [q, workflowFilter, categoryFilter, collectionFilter]);
 
   const loadTaxonomy = useCallback(() => {
