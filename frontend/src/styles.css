@@ -7557,3 +7557,42 @@ html.dark .topbar-action-btn.solid:hover,
   text-align: center;
 }
 
+
+/* ===== Studio scrollable tabs & icons (bundled, dependency-free) ===== */
+.ss-wrap { position: relative; display: flex; align-items: center; min-width: 0; max-width: 100%; }
+.ss-track { display: flex; align-items: center; gap: 8px; overflow-x: auto; overflow-y: hidden; flex: 1 1 auto; min-width: 0; scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; cursor: default; }
+.ss-track::-webkit-scrollbar { display: none; }
+.ss-track > * { flex-shrink: 0; }
+.ss-wrap.has-right > .ss-track { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+.ss-wrap.has-left > .ss-track { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
+.ss-wrap.has-left.has-right > .ss-track { -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
+.ss-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; color: #0a2a5e; background: linear-gradient(135deg, #f8d66d, #f5c542 50%, #d99a0b); border: 1px solid #d99a0b; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.ss-arrow:hover { filter: brightness(1.08); }
+.ss-arrow-l { left: 0; }
+.ss-arrow-r { right: 0; }
+.ss-arrow:focus-visible, .st-tab:focus-visible { outline: 2px solid #f5c542; outline-offset: 2px; }
+.st-list { display: flex; align-items: center; gap: 6px; }
+.st-tab { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer; font-weight: 700; color: #cbd5e1; background: rgba(30,41,59,.7); border: 1px solid #334155; border-radius: 999px; padding: 8px 15px; font-size: 13px; transition: background .15s, color .15s, border-color .15s; }
+.st-tab:hover { color: #fff; border-color: #38bdf8; background: rgba(2,132,199,.18); }
+.st-tab.active { color: #fff; border-color: #38bdf8; background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 50%, #0c2d6b 100%); box-shadow: 0 2px 10px rgba(2,132,199,.4); }
+.st-tab.active svg { color: #f5c542; }
+.st-count { font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgba(2,6,23,.55); color: #e2e8f0; }
+.st-compact .st-list { gap: 2px; padding: 4px; }
+.st-compact .st-tab { border-radius: 8px; border-color: transparent; background: transparent; padding: 6px 10px; font-size: 11px; color: #94a3b8; }
+.st-compact .st-tab:hover { background: rgba(30,41,59,.9); color: #fff; }
+.st-compact .st-tab.active { border-color: transparent; }
+.st-segment .st-list { background: rgba(15,23,42,.9); border: 1px solid #334155; border-radius: 12px; padding: 3px; gap: 2px; }
+.st-segment .st-tab { border-radius: 9px; border-color: transparent; background: transparent; padding: 7px 14px; font-size: 12px; }
+.studio-header-strip { flex: 1; width: 100%; }
+.studio-header-strip > .ss-track { justify-content: space-between; gap: 12px; }
+.studio-crumbs { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #94a3b8; white-space: nowrap; }
+.studio-crumbs a, .studio-crumbs button { color: #cbd5e1; background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; font: inherit; text-decoration: none; }
+.studio-crumbs a:hover, .studio-crumbs button:hover { background: rgba(56,189,248,.15); color: #fff; }
+.studio-crumbs .cur { color: #fff; font-weight: 800; padding: 4px 6px; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) { .ss-track { scroll-behavior: auto; } .st-tab { transition: none; } }
+
+.st-iconic .st-list { gap: 2px; padding: 4px; }
+.st-iconic .st-tab { border-radius: 9px; border-color: transparent; background: transparent; padding: 8px 9px; font-size: 11px; color: #94a3b8; }
+.st-iconic .st-tab:hover { background: rgba(30,41,59,.9); color: #fff; }
+.st-iconic .st-tab.active { border-color: transparent; padding: 8px 12px; }
+.st-iconic .st-tab:not(.active) .st-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

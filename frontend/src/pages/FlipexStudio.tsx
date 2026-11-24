@@ -4,6 +4,8 @@ import { api, uploadForm } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import StudioIcon from '../components/studio/StudioIcon';
+import { ScrollStrip, ScrollTabs } from '../components/studio/ScrollTabs';
 import {
   Sparkles,
   Upload,
@@ -251,17 +253,17 @@ export interface StudioTemplate {
 }
 
 export const TEMPLATE_CATEGORIES = [
-  { id: 'all', label: 'All Categories', icon: '🌟' },
-  { id: 'retail_catalogue', label: 'Retail & Supermarket', icon: '🛒' },
-  { id: 'electronics_tech', label: 'Tech & Electronics', icon: '⚡' },
-  { id: 'food_restaurant', label: 'Food & Dining Menus', icon: '🍽️' },
-  { id: 'real_estate', label: 'Real Estate & Property', icon: '🏡' },
-  { id: 'school_yearbook', label: 'School & Yearbooks', icon: '🎓' },
-  { id: 'community_magazine', label: 'Editorial Magazines', icon: '📖' },
-  { id: 'wedding_album', label: 'Wedding & Keepsakes', icon: '💍' },
-  { id: 'annual_report', label: 'Corporate & Annual Reports', icon: '📊' },
-  { id: 'marketing_brochure', label: 'Marketing & Brochures', icon: '🚀' },
-  { id: 'creative_portfolio', label: 'Creative Portfolios', icon: '🎨' },
+  { id: 'all', label: 'All Categories', icon: 'sparkles' },
+  { id: 'retail_catalogue', label: 'Retail & Supermarket', icon: 'cart' },
+  { id: 'electronics_tech', label: 'Tech & Electronics', icon: 'bolt' },
+  { id: 'food_restaurant', label: 'Food & Dining Menus', icon: 'utensils' },
+  { id: 'real_estate', label: 'Real Estate & Property', icon: 'building' },
+  { id: 'school_yearbook', label: 'School & Yearbooks', icon: 'grad' },
+  { id: 'community_magazine', label: 'Editorial Magazines', icon: 'book' },
+  { id: 'wedding_album', label: 'Wedding & Keepsakes', icon: 'heart' },
+  { id: 'annual_report', label: 'Corporate & Annual Reports', icon: 'chart' },
+  { id: 'marketing_brochure', label: 'Marketing & Brochures', icon: 'rocket' },
+  { id: 'creative_portfolio', label: 'Creative Portfolios', icon: 'palette' },
 ];
 
 export interface StudioAsset {
@@ -3608,7 +3610,7 @@ export default function FlipexStudio() {
               data-testid="studio-hub-back-dashboard"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '999px', background: 'linear-gradient(135deg, #f5c542, #d99a0b)', color: '#0a2a5e', fontWeight: 800, fontSize: '0.82rem', textDecoration: 'none', border: '1px solid #d99a0b' }}
             >
-              ← Back to Dashboard
+              <StudioIcon name="arrowLeft" size={14} stroke={2.4} /> Back to Dashboard
             </Link>
           </div>
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
@@ -3640,61 +3642,52 @@ export default function FlipexStudio() {
                   borderRadius: '12px',
                 }}
               >
-                <span>➕</span> Create New Document
+                <StudioIcon name="plus" size={16} stroke={2.4} /> Create New Document
               </button>
             </div>
           </div>
         </div>
 
         {/* Stage 4: Top Navigation View Switcher (My Documents vs Template Discovery Browser) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '14px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setHubView('documents')}
-            className={`studio-filter-pill ${hubView === 'documents' ? 'active' : ''}`}
-            style={{ fontSize: '0.88rem', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <span>📚</span>
-            <span>My Documents ({documents.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setHubView('templates');
-              loadTemplates();
+        <div style={{ marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '14px' }}>
+          <ScrollTabs
+            ariaLabel="Studio sections"
+            testId="studio-hub-tabs"
+            variant="pill"
+            value={hubView}
+            tabs={[
+              { id: 'documents', label: 'My Documents', icon: 'files', count: documents.length },
+              { id: 'templates', label: 'Template Discovery Browser', icon: 'layout', count: templates.length },
+            ]}
+            onChange={(id) => {
+              setHubView(id as 'documents' | 'templates');
+              if (id === 'templates') loadTemplates();
             }}
-            className={`studio-filter-pill ${hubView === 'templates' ? 'active' : ''}`}
-            style={{ fontSize: '0.88rem', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <span>🎨</span>
-            <span>Template Discovery Browser ({templates.length})</span>
-          </button>
+          />
         </div>
 
         {hubView === 'documents' ? (
           <>
             {/* Filter Pills & Search */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-            {[
-              { id: 'all', label: 'All Documents' },
-              { id: 'catalogue', label: '🛒 Product Catalogues' },
-              { id: 'magazine', label: '📖 Magazines & Yearbooks' },
-              { id: 'album', label: '📷 Keepsake Albums' },
-              { id: 'custom', label: '🎨 Custom Vector' },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setFilterType(f.id)}
-                className={`studio-filter-pill ${filterType === f.id ? 'active' : ''}`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <ScrollTabs
+              ariaLabel="Filter documents by type"
+              testId="studio-doc-filter"
+              value={filterType}
+              onChange={setFilterType}
+              tabs={[
+                { id: 'all', label: 'All Documents', icon: 'files' },
+                { id: 'catalogue', label: 'Product Catalogues', icon: 'cart' },
+                { id: 'magazine', label: 'Magazines & Yearbooks', icon: 'book' },
+                { id: 'album', label: 'Keepsake Albums', icon: 'camera' },
+                { id: 'custom', label: 'Custom Vector', icon: 'palette' },
+              ]}
+            />
           </div>
 
           <div className="studio-search-wrap">
-            <span className="studio-search-icon">🔍</span>
+            <span className="studio-search-icon"><StudioIcon name="search" size={15} /></span>
             <input
               type="text"
               placeholder="Search documents…"
@@ -3863,46 +3856,28 @@ export default function FlipexStudio() {
              ========================================================== */
           <div className="space-y-6">
             {/* 10 Commercial Categories Filter Row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '6px' }}>
-              {TEMPLATE_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setTemplateCategory(cat.id)}
-                  className={`studio-filter-pill ${templateCategory === cat.id ? 'active' : ''}`}
-                  style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <span>{cat.icon}</span>
-                  <span>{cat.label}</span>
-                </button>
-              ))}
-            </div>
+            <ScrollTabs
+              ariaLabel="Template categories"
+              testId="studio-template-cats"
+              value={templateCategory}
+              onChange={setTemplateCategory}
+              tabs={TEMPLATE_CATEGORIES.map((c) => ({ id: c.id, label: c.label, icon: c.icon }))}
+            />
 
             {/* Scope Tabs & Search Controls */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setTemplateScope('all')}
-                  className={`studio-fmt-btn ${templateScope === 'all' ? 'active' : ''}`}
-                >
-                  All Templates
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTemplateScope('system')}
-                  className={`studio-fmt-btn ${templateScope === 'system' ? 'active' : ''}`}
-                >
-                  ⭐ Official Presets
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTemplateScope('custom')}
-                  className={`studio-fmt-btn ${templateScope === 'custom' ? 'active' : ''}`}
-                >
-                  🏢 My Custom Templates
-                </button>
-              </div>
+              <ScrollTabs
+                variant="segment"
+                ariaLabel="Template source"
+                testId="studio-template-scope"
+                value={templateScope}
+                onChange={(id) => setTemplateScope(id as any)}
+                tabs={[
+                  { id: 'all', label: 'All Templates', icon: 'layout' },
+                  { id: 'system', label: 'Official Presets', icon: 'star' },
+                  { id: 'custom', label: 'My Custom Templates', icon: 'building' },
+                ]}
+              />
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <select
@@ -3912,14 +3887,14 @@ export default function FlipexStudio() {
                   style={{ width: '160px', padding: '6px 10px', fontSize: '11px' }}
                 >
                   <option value="all">All Formats</option>
-                  <option value="catalogue">🛒 Catalogues</option>
-                  <option value="magazine">📖 Magazines</option>
-                  <option value="album">📷 Photo Albums</option>
-                  <option value="custom">🎨 Custom</option>
+                  <option value="catalogue">Catalogues</option>
+                  <option value="magazine">Magazines</option>
+                  <option value="album">Photo Albums</option>
+                  <option value="custom">Custom</option>
                 </select>
 
                 <div className="studio-search-wrap" style={{ width: '240px' }}>
-                  <span className="studio-search-icon">🔍</span>
+                  <span className="studio-search-icon"><StudioIcon name="search" size={15} /></span>
                   <input
                     type="text"
                     placeholder="Search templates…"
@@ -4011,7 +3986,7 @@ export default function FlipexStudio() {
                         className="studio-tool-btn ocean"
                         style={{ flex: 1, padding: '8px 0', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                       >
-                        <span>👁️</span> Preview
+                        <StudioIcon name="eye" size={14} /> Preview
                       </button>
                       <button
                         type="button"
@@ -4019,7 +3994,7 @@ export default function FlipexStudio() {
                         className="studio-gradient-btn cosmic"
                         style={{ flex: 1, padding: '8px 0', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                       >
-                        <span>✨</span> Use Template
+                        <StudioIcon name="sparkles" size={14} /> Use Template
                       </button>
                     </div>
                   </div>
@@ -4365,7 +4340,8 @@ export default function FlipexStudio() {
       }}
     >
       {/* TOP STUDIO TOOLBAR - Single line, non-wrapping, clean layout with 3-Gradients */}
-      <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'nowrap', overflowX: 'auto' }}>
+      <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'nowrap', minWidth: 0, maxWidth: '100%', width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
+        <ScrollStrip className="studio-header-strip" ariaLabel="Editor toolbar">
         {/* Left: Back, Sidebar Toggle & Document Metadata */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <button
@@ -4389,7 +4365,7 @@ export default function FlipexStudio() {
             }}
             title="Return to Documents Hub"
           >
-            ← Documents
+            <StudioIcon name="arrowLeft" size={14} stroke={2.2} /> Documents
           </button>
 
           <button
@@ -4411,7 +4387,7 @@ export default function FlipexStudio() {
             }}
             title="Save and go back to your Flipex dashboard"
           >
-            ⌂ Dashboard
+            <StudioIcon name="home" size={14} stroke={2.2} /> Dashboard
           </button>
 
           {/* Toggle Left Tools Sidebar */}
@@ -4433,7 +4409,7 @@ export default function FlipexStudio() {
             }}
             title={sidebarCollapsed ? "Expand Tools Sidebar" : "Collapse Tools Sidebar to Expand Canvas Workspace"}
           >
-            {sidebarCollapsed ? '⇥ Tools' : '⇤ Tools'}
+            <StudioIcon name={sidebarCollapsed ? 'panelOpen' : 'panel'} size={14} /> Tools
           </button>
 
           <div style={{ height: '18px', width: '1px', background: '#334155' }} />
@@ -4457,7 +4433,7 @@ export default function FlipexStudio() {
               }}
               title="Commercial Tier: Enterprise Suite Active (Full 300 DPI Export, Brand Kits & Catalogues)"
             >
-              🏢 ENTERPRISE
+              <StudioIcon name="shield" size={11} /> ENTERPRISE
             </span>
             <span
               style={{
@@ -4817,7 +4793,7 @@ export default function FlipexStudio() {
             }}
             title="Run Preflight Quality & Readiness Check"
           >
-            <span>✈️</span> Preflight
+            <StudioIcon name="checkCircle" size={15} /> Preflight
           </button>
           <button
             type="button"
@@ -4830,7 +4806,7 @@ export default function FlipexStudio() {
               borderRadius: '8px',
             }}
           >
-            <span>🚀</span> Publish to Flipbook
+            <StudioIcon name="send" size={15} /> Publish to Flipbook
           </button>
 
           {/* Toggle Right Inspector */}
@@ -4856,6 +4832,7 @@ export default function FlipexStudio() {
             {inspectorCollapsed ? 'Inspector ⇤' : 'Inspector ⇥'}
           </button>
         </div>
+      </ScrollStrip>
       </header>
 
       {/* Stage 8: Local Crash Recovery Snapshot Banner */}
@@ -4938,43 +4915,24 @@ export default function FlipexStudio() {
             zIndex: 20,
           }}
         >
-          <div className="flex items-center border-b border-slate-800 text-xs overflow-x-auto p-1 bg-slate-900/60">
-            {[
-              { id: 'products', label: '🛒 Products' },
-              { id: 'magazine', label: '📖 Magazine' },
-              { id: 'yearbook', label: '🎓 Yearbook' },
-              { id: 'album', label: '📷 Album' },
-              { id: 'text', label: '🔤 Text' },
-              { id: 'media', label: '🖼️ Media' },
-              { id: 'shapes', label: '⭐ Badges' },
-              { id: 'csv', label: '📊 CSV Import' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveToolTab(tab.id as any)}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '11px',
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'all 0.2s ease',
-                  background:
-                    activeToolTab === tab.id
-                      ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0c4a6e 100%)'
-                      : 'transparent',
-                  color: activeToolTab === tab.id ? '#ffffff' : '#94a3b8',
-                  boxShadow:
-                    activeToolTab === tab.id
-                      ? '0 2px 10px rgba(2, 132, 199, 0.4)'
-                      : 'none',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="border-b border-slate-800 bg-slate-900/60" style={{ minWidth: 285 }}>
+            <ScrollTabs
+              variant="iconic"
+              ariaLabel="Studio tools"
+              testId="studio-tool-tabs"
+              value={activeToolTab}
+              onChange={(id) => setActiveToolTab(id as any)}
+              tabs={[
+                { id: 'products', label: 'Products', icon: 'cart' },
+                { id: 'magazine', label: 'Magazine', icon: 'book' },
+                { id: 'yearbook', label: 'Yearbook', icon: 'grad' },
+                { id: 'album', label: 'Album', icon: 'camera' },
+                { id: 'text', label: 'Text', icon: 'type' },
+                { id: 'media', label: 'Media', icon: 'image' },
+                { id: 'shapes', label: 'Badges', icon: 'award' },
+                { id: 'csv', label: 'CSV Import', icon: 'table' },
+              ]}
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -9702,7 +9660,7 @@ export default function FlipexStudio() {
                 >
                   {TEMPLATE_CATEGORIES.filter((c) => c.id !== 'all').map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.icon} {c.label}
+                      {c.label}
                     </option>
                   ))}
                 </select>

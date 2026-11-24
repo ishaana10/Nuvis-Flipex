@@ -12,6 +12,7 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 - **Template API:** `POST /api/v1/studio/templates/import` and `GET /api/v1/studio/templates/{id}/export` (FDS v1.0 JSON). API keys with the flipbooks scope can now use `/studio`.
 - **Navigation:** "Back to Dashboard" on the Studio hub and a gold "Dashboard" button in the editor (saves first).
 - **Security:** tenant context is required (no fallback to tenant 1), `flipbook.publish` / `flipbook.edit` permission checks, strict size and count limits, SVG safety checks, sanitized link URLs, CSP sandbox on served SVG, and no exception text leaked to clients.
+- **Navigation & icons:** all Studio tab rows (hub sections, document filters, template categories and sources, editor tool tabs, editor toolbar) are now scrollable strips with arrow buttons, edge fades, wheel/drag scrolling, keyboard arrows/Home/End and automatic scroll to the active tab. Emoji in navigation and main actions are replaced by a bundled inline SVG icon set (`components/studio/StudioIcon.tsx`), so there is no icon font or CDN.
 - **UI fixes:** template card titles and the "Keep Editing" button were unreadable (light-on-light).
 - After deploying, run `php backend/bin/cache.php flush` so the new template manifest is picked up.
 
