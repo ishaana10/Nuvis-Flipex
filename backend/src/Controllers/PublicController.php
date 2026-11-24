@@ -595,7 +595,7 @@ HTML;
         $res->getBody()->write($html);
         return $res
             ->withHeader('Content-Type', 'text/html; charset=utf-8')
-            ->withHeader('Cache-Control', $isPreview ? 'no-cache, private' : 'public, max-age=300');
+            ->withHeader('Cache-Control', $isPreview ? 'no-cache, private' : 'public, max-age=0, must-revalidate');
     }
 
     private function serveAsset(Request $req, Response $res, string $slug, int $pageNumber, bool $isThumb): Response

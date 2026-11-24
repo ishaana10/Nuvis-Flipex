@@ -5,6 +5,15 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-11-24
+
+### Customise panel
+- **Layouts:** each of the 16 layouts now shows a wireframe thumbnail and actually changes the reader (top bar, bottom bar, arrows, slider, zoom). A separate layout can be chosen for mobile.
+- **Ambient effects:** the selected effect now renders in the reader and in the live preview.
+- **Page flip:** all eight flip transitions are selectable cards with animated icons and work in the reader.
+- **Privacy and visibility:** the tab now has show/hide switches for every reader control (top bar, title, contents, bookmarks, resources, notes, presentation, offline, shortcuts, page slider, zoom, arrows, page number).
+- **Settings changes show immediately:** the public flipbook JSON now revalidates instead of being cached for 5 minutes.
+
 ## [2.3.0] - 2026-11-24
 
 ### Fixes: flicker, Studio layout, publish
