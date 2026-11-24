@@ -55,7 +55,7 @@ export type ViewerSettings = FlipbookSettings;
 export interface PageToastData {
   type: 'first' | 'last' | 'info';
   title: string;
-  message: string;
+  message?: string;
   badge?: string;
   actionLabel?: string;
   onAction?: () => void;
@@ -2382,18 +2382,14 @@ export default function FlipbookViewer({
         if (isEnd) {
           showToast({
             type: 'last',
-            badge: 'Final Page',
-            title: 'End of Publication',
-            message: "You have reached the last page of this flipbook.",
-            actionLabel: 'Read from start ↺',
+            title: 'The end',
+            actionLabel: 'Start over',
             onAction: () => gotoRef.current(0),
           });
         } else if (pageIdx === 0) {
           showToast({
             type: 'first',
-            badge: 'First Page',
-            title: 'Front Cover',
-            message: 'You are viewing the beginning of this publication.',
+            title: 'Front cover',
           });
         }
       }
@@ -2557,18 +2553,14 @@ export default function FlipbookViewer({
       if (isEnd && isInitializedRef.current) {
         showToast({
           type: 'last',
-          badge: 'Final Page',
-          title: 'End of Publication',
-          message: "You have reached the last page of this flipbook.",
-          actionLabel: 'Read from start ↺',
+          title: 'The end',
+          actionLabel: 'Start over',
           onAction: () => gotoRef.current(0),
         });
       } else if (target === 0 && isInitializedRef.current) {
         showToast({
           type: 'first',
-          badge: 'First Page',
-          title: 'Front Cover',
-          message: 'You are viewing the beginning of this publication.',
+          title: 'Front cover',
         });
       }
       if (readingMode === 'flip' && flip.current) {
@@ -2595,10 +2587,8 @@ export default function FlipbookViewer({
     if (isAtEnd) {
       showToast({
         type: 'last',
-        badge: 'Last Page',
-        title: 'Publication Complete',
-        message: 'This is the final page. Click below to start over from the beginning.',
-        actionLabel: 'Read from start ↺',
+        title: 'The end',
+        actionLabel: 'Start over',
         onAction: () => goto(0),
       });
       return;
@@ -2632,9 +2622,7 @@ export default function FlipbookViewer({
     if (current === 0) {
       showToast({
         type: 'first',
-        badge: 'First Page',
-        title: 'Front Cover Reached',
-        message: 'You are already at the beginning of this publication.',
+        title: 'Front cover',
       });
       return;
     }
@@ -5220,7 +5208,7 @@ export default function FlipbookViewer({
                 )}
                 <span className="hz-toast-title">{pageToast.title}</span>
               </div>
-              <p className="hz-toast-msg">{pageToast.message}</p>
+              {pageToast.message && <p className="hz-toast-msg">{pageToast.message}</p>}
             </div>
 
             {pageToast.actionLabel && pageToast.onAction && (

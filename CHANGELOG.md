@@ -5,6 +5,11 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+## [2.3.5] - 2026-11-24
+
+### Improvements
+- **First/last page prompt:** now one small pill ("The end" + Start over, or "Front cover") instead of a large card with badge and paragraph.
+
 ## [2.3.4] - 2026-11-24
 
 ### Fixes
