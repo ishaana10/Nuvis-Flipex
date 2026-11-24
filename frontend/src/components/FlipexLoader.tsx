@@ -16,7 +16,7 @@ const FRAMES_SOLID = [
 ];
 
 export interface FlipexLoaderProps {
-  size?: 'icon' | 'sm' | 'md' | 'lg' | 'hero';
+  size?: 'xs' | 'icon' | 'sm' | 'md' | 'lg' | 'hero';
   label?: string | null;
   transparent?: boolean;
   centered?: boolean;
@@ -29,7 +29,7 @@ export default function FlipexLoader({
   label = 'Loading interactive pages…',
   transparent = true,
   centered = true,
-  speedMs = 240,
+  speedMs = 450,
   className = '',
 }: FlipexLoaderProps) {
   const [activeFrame, setActiveFrame] = useState(0);

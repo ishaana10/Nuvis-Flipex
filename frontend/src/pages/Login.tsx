@@ -99,7 +99,7 @@ export default function Login() {
         <button disabled={f.busy} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           {f.busy ? (
             <>
-              <FlipexLoader size="icon" centered={false} label={null} speedMs={160} />
+              <FlipexLoader size="xs" centered={false} label={null} speedMs={420} />
               <span>Signing in…</span>
             </>
           ) : (

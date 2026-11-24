@@ -31,7 +31,7 @@
   object-fit: contain;
   opacity: 0;
   transform: scale(0.985);
-  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s ease-out;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s ease-out;
   pointer-events: none;
   filter: drop-shadow(0 12px 28px rgba(245, 197, 66, 0.38)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
 }
@@ -56,6 +56,20 @@
 }
 
 /* Size Variants */
+.flipex-loader-xs .flipex-book-stage {
+  width: 26px;
+  height: 44px;
+  animation-duration: 3.2s;
+}
+
+.flipex-loader-xs .flipex-book-glow {
+  filter: blur(6px);
+}
+
+.flipex-loader-xs .flipex-book-frame {
+  filter: drop-shadow(0 2px 8px rgba(245, 197, 66, 0.4));
+}
+
 .flipex-loader-icon .flipex-book-stage {
   width: 50px;
   height: 84px;
