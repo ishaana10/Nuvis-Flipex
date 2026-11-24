@@ -73,7 +73,10 @@ final class Storage
             return $relPath;
         }
 
-        $expires = time() + $ttlSeconds;
+        // Stable within a time bucket: the same file yields the same URL on every list refresh, so the
+        // browser keeps its cached image instead of reloading every thumbnail on each poll (that reload looked like flicker).
+        $bucket = max(60, intdiv($ttlSeconds, 4));
+        $expires = (intdiv(time(), $bucket) + 1) * $bucket + ($ttlSeconds - $bucket);
         $secret = CryptoSecrets::storageSigningSecret();
         $sig = hash_hmac('sha256', "{$relPath}|{$expires}", $secret);
 

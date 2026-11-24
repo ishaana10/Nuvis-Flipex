@@ -1271,7 +1271,7 @@ export default function FlipbookViewer({
     const normalizedPageEffect = (settings.pageEffect || 'magazine').toLowerCase().replace(/\s+/g, '_');
     const isExplicitSinglePage = ['one_page', 'slider', 'cards', 'coverflow'].includes(normalizedPageEffect);
     const isHardCoverEffect = ['book', 'album', 'notebook'].includes(normalizedPageEffect);
-    const shouldUsePortrait = isExplicitSinglePage || isMobilePortrait;
+    const shouldUsePortrait = isExplicitSinglePage || isMobilePortrait || pages.length === 1;
     const startPageIdx = Math.max(0, Math.min(pages.length - 1, currentRef.current));
 
     setMode(shouldUsePortrait ? 'portrait' : 'landscape');

@@ -5,6 +5,12 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+### Fixes: flicker, Studio layout, publish
+- **Flicker fixed:** signed thumbnail URLs were regenerated on every list refresh, so while any publication was converting every cover image reloaded every ~2 seconds. URLs are now stable within a time bucket and the library skips re-rendering when nothing changed.
+- **Studio editor room:** the recovery-snapshot banner was a stray grid row that squeezed the canvas; it is now a small corner notice. Header buttons (Brand Kits, As Template) no longer stretch full width; side panels are slimmer.
+- **Studio documents page scrolls** again (templates and documents below the first row).
+- **Reader:** single-page publications no longer render the page twice off-centre. Publishing warns when pages are blank.
+
 ### Tabs, icons and publish UI
 - **Wrapping tabs everywhere (no scrolling):** one shared `TabBar` (pill / grid / segment / app variants) with bundled inline-SVG icons replaces every tab row in Studio, Dashboard, Share, Lifecycle, Customisation, Admin, Billing, Integrations and DevOps. No icon font, CDN or external asset.
 - **Readable buttons:** base-layer resets stop utility background colours from showing the gradient image behind them.
