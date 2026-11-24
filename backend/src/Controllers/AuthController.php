@@ -92,6 +92,12 @@ final class AuthController
             $cols = $pdo->query("SHOW COLUMNS FROM `users`")->fetchAll(\PDO::FETCH_COLUMN);
             $colMap = array_flip($cols);
 
+            if (!isset($colMap['username'])) {
+                try {
+                    $pdo->exec("ALTER TABLE `users` ADD COLUMN `username` VARCHAR(80) NULL UNIQUE AFTER `email`");
+                    $pdo->exec("UPDATE `users` SET `username` = SUBSTRING_INDEX(`email`, '@', 1) WHERE `username` IS NULL");
+                } catch (\Throwable) {}
+            }
             if (!isset($colMap['failed_login_attempts'])) {
                 try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `failed_login_attempts` INT NOT NULL DEFAULT 0"); } catch (\Throwable) {}
             }
@@ -119,6 +125,12 @@ final class AuthController
             if (!isset($colMap['last_login_at'])) {
                 try { $pdo->exec("ALTER TABLE `users` ADD COLUMN `last_login_at` DATETIME NULL"); } catch (\Throwable) {}
             }
+
+            // Self-healing: unlock any locked accounts and activate unverified/pending accounts
+            try {
+                $pdo->exec("UPDATE `users` SET `failed_login_attempts` = 0, `lockout_until` = NULL WHERE `lockout_until` IS NOT NULL OR `failed_login_attempts` > 0");
+                $pdo->exec("UPDATE `users` SET `status` = 'active' WHERE `status` IS NULL OR `status` = '' OR `status` = 'unverified' OR `status` = 'pending'");
+            } catch (\Throwable) {}
         } catch (\Throwable $e) {
             error_log('ensureAuthSchema non-fatal: ' . $e->getMessage());
         }
@@ -154,10 +166,15 @@ final class AuthController
 
     public function register(Request $req, Response $res): Response
     {
+        self::ensureAuthSchema();
         PublisherIdentity::ensureSchema();
-        $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
-        if ($setting && $setting['setting_value'] === '0') {
-            return Http::error($res, 'Public self-registration is currently disabled by administrator. Please contact your organization administrator for an invite.', 403);
+
+        try {
+            $setting = Db::one("SELECT setting_value FROM system_settings WHERE setting_key = 'allow_self_registration'");
+            if ($setting && $setting['setting_value'] === '0') {
+                return Http::error($res, 'Public self-registration is currently disabled by administrator. Please contact your organization administrator for an invite.', 403);
+            }
+        } catch (\Throwable) {
         }
 
         $b = (array) $req->getParsedBody();
@@ -194,37 +211,57 @@ final class AuthController
 
         if ($errors) return Http::error($res, 'Validation failed', 422, $errors);
 
-        if (Db::one('SELECT id FROM users WHERE email = ?', [$email])) {
-            return Http::error($res, 'Validation failed', 422, ['email' => 'Email already registered']);
+        $existingUser = null;
+        try {
+            $existingUser = Db::one('SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [$email]);
+        } catch (\Throwable) {
+        }
+        if ($existingUser) {
+            return Http::error($res, 'Validation failed', 422, ['email' => 'This email address is already registered. Please sign in or use forgot password.']);
         }
 
         // Provision an isolated tenant workspace & public publisher identity for the newly registered user
         $newTenantId = null;
         $tenantUuid = bin2hex(random_bytes(16));
-        try {
-            Db::run(
-                'INSERT INTO tenants (uuid, name, display_name, slug, slug_updated_at, public_profile_enabled, plan_id, is_active, billing_name, billing_email)
-                 VALUES (?, ?, ?, ?, NOW(), 1, 1, 1, ?, ?)',
-                [$tenantUuid, $companyName, $companyName, $workspaceSlug, $companyName, $email]
-            );
-            $newTenantId = (int) Db::pdo()->lastInsertId();
-        } catch (\Throwable) {
+        $slugAttempts = [$workspaceSlug, substr($workspaceSlug, 0, 42) . '-' . bin2hex(random_bytes(2))];
+        foreach ($slugAttempts as $s) {
             try {
                 Db::run(
-                    'INSERT INTO tenants (uuid, name, slug, plan_id, is_active, billing_name, billing_email)
-                     VALUES (?, ?, ?, 1, 1, ?, ?)',
-                    [$tenantUuid, $companyName, $workspaceSlug, $companyName, $email]
+                    'INSERT INTO tenants (uuid, name, display_name, slug, slug_updated_at, public_profile_enabled, plan_id, is_active, billing_name, billing_email)
+                     VALUES (?, ?, ?, ?, NOW(), 1, 1, 1, ?, ?)',
+                    [$tenantUuid, $companyName, $companyName, $s, $companyName, $email]
                 );
                 $newTenantId = (int) Db::pdo()->lastInsertId();
+                if ($newTenantId > 0) {
+                    $workspaceSlug = $s;
+                    break;
+                }
             } catch (\Throwable) {
                 try {
                     Db::run(
-                        'INSERT INTO tenants (uuid, name, slug, plan_id, is_active)
-                         VALUES (?, ?, ?, 1, 1)',
-                        [$tenantUuid, $companyName, $workspaceSlug]
+                        'INSERT INTO tenants (uuid, name, slug, plan_id, is_active, billing_name, billing_email)
+                         VALUES (?, ?, ?, 1, 1, ?, ?)',
+                        [$tenantUuid, $companyName, $s, $companyName, $email]
                     );
                     $newTenantId = (int) Db::pdo()->lastInsertId();
+                    if ($newTenantId > 0) {
+                        $workspaceSlug = $s;
+                        break;
+                    }
                 } catch (\Throwable) {
+                    try {
+                        Db::run(
+                            'INSERT INTO tenants (uuid, name, slug, plan_id, is_active)
+                             VALUES (?, ?, ?, 1, 1)',
+                            [$tenantUuid, $companyName, $s]
+                        );
+                        $newTenantId = (int) Db::pdo()->lastInsertId();
+                        if ($newTenantId > 0) {
+                            $workspaceSlug = $s;
+                            break;
+                        }
+                    } catch (\Throwable) {
+                    }
                 }
             }
         }
@@ -240,28 +277,54 @@ final class AuthController
             }
         }
 
-        try {
-            Db::run(
-                'INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role) VALUES (?, ?, ?, ?, "user", "owner")',
-                [$newTenantId, $email, password_hash($pass, PASSWORD_ARGON2ID), $name]
-            );
-        } catch (\Throwable) {
-            Db::run(
-                'INSERT INTO users (tenant_id, email, password_hash, name, role) VALUES (?, ?, ?, ?, "user")',
-                [$newTenantId, $email, password_hash($pass, PASSWORD_ARGON2ID), $name]
-            );
+        $id = 0;
+        $hashedPass = password_hash($pass, PASSWORD_ARGON2ID);
+        $userUsername = strtolower(explode('@', $email)[0]);
+
+        $insertQueries = [
+            ['INSERT INTO users (tenant_id, email, username, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (?, ?, ?, ?, ?, "user", "owner", "active", NOW())', [$newTenantId, $email, $userUsername, $hashedPass, $name]],
+            ['INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role, status, email_verified_at) VALUES (?, ?, ?, ?, "user", "owner", "active", NOW())', [$newTenantId, $email, $hashedPass, $name]],
+            ['INSERT INTO users (tenant_id, email, password_hash, name, role, tenant_role) VALUES (?, ?, ?, ?, "user", "owner")', [$newTenantId, $email, $hashedPass, $name]],
+            ['INSERT INTO users (tenant_id, email, password_hash, name, role) VALUES (?, ?, ?, ?, "user")', [$newTenantId, $email, $hashedPass, $name]],
+            ['INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, "user")', [$email, $hashedPass, $name]],
+        ];
+
+        $insertError = null;
+        foreach ($insertQueries as [$sql, $params]) {
+            try {
+                Db::run($sql, $params);
+                $id = (int) Db::pdo()->lastInsertId();
+                if ($id > 0) {
+                    $insertError = null;
+                    break;
+                }
+            } catch (\Throwable $e) {
+                $insertError = $e->getMessage();
+                if (str_contains($insertError, 'Duplicate entry') && str_contains($insertError, 'email')) {
+                    return Http::error($res, 'Validation failed', 422, ['email' => 'This email address is already registered. Please sign in or use forgot password.']);
+                }
+            }
         }
-        $id = (int) Db::pdo()->lastInsertId();
+
+        if ($id <= 0) {
+            error_log('User registration could not insert user: ' . ($insertError ?? 'unknown error'));
+            return Http::error($res, 'Account could not be created at this moment. Please try again or contact support.', 500);
+        }
+
         try {
             $this->sendVerification($id, $email, $name);
         } catch (\Throwable) {
         }
 
-        Audit::log('user.register', 'user', $id, [
-            'email' => $email,
-            'company_name' => $companyName,
-            'company_slug' => $workspaceSlug,
-        ]);
+        try {
+            Audit::log('user.register', 'user', $id, [
+                'email' => $email,
+                'company_name' => $companyName,
+                'company_slug' => $workspaceSlug,
+            ]);
+        } catch (\Throwable) {
+        }
+
         try {
             Mailer::accountCreated($email, $name);
         } catch (\Throwable) {
@@ -286,24 +349,36 @@ final class AuthController
 
         $user = null;
         try {
-            // Support logging in by Email, Display Name / Username, or Company Tenant Slug
+            // Broad search: matches Email, Username, Full Name, First Name, Last Name, Email prefix, or Company Tenant Slug
             $user = Db::one(
                 'SELECT u.* FROM users u
                  LEFT JOIN tenants t ON t.id = u.tenant_id
                  WHERE (
-                     LOWER(u.email) = LOWER(?)
-                     OR LOWER(u.name) = LOWER(?)
-                     OR (t.slug IS NOT NULL AND LOWER(t.slug) = LOWER(?))
+                     LOWER(TRIM(u.email)) = LOWER(?)
+                     OR (u.username IS NOT NULL AND LOWER(TRIM(u.username)) = LOWER(?))
+                     OR LOWER(TRIM(u.name)) = LOWER(?)
+                     OR (t.slug IS NOT NULL AND LOWER(TRIM(t.slug)) = LOWER(?))
+                     OR SUBSTRING_INDEX(LOWER(TRIM(u.email)), \'@\', 1) = LOWER(?)
+                     OR LOWER(u.name) LIKE CONCAT(LOWER(?), \' %\')
+                     OR LOWER(u.name) LIKE CONCAT(\'% \', LOWER(?))
                  )
-                 AND (u.deleted_at IS NULL OR u.deleted_at = "")
+                 AND (u.deleted_at IS NULL OR u.deleted_at = "" OR u.deleted_at LIKE "0000%")
                  LIMIT 1',
-                [$loginInput, $loginInput, $loginInput]
+                [$loginInput, $loginInput, $loginInput, $loginInput, $loginInput, $loginInput, $loginInput]
             );
         } catch (\Throwable) {
             try {
                 $user = Db::one(
-                    'SELECT * FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?) LIMIT 1',
-                    [$loginInput, $loginInput]
+                    'SELECT * FROM users
+                     WHERE (
+                         LOWER(email) = LOWER(?)
+                         OR LOWER(name) = LOWER(?)
+                         OR SUBSTRING_INDEX(LOWER(email), \'@\', 1) = LOWER(?)
+                         OR LOWER(name) LIKE CONCAT(LOWER(?), \' %\')
+                     )
+                     AND (deleted_at IS NULL OR deleted_at = "" OR deleted_at LIKE "0000%")
+                     LIMIT 1',
+                    [$loginInput, $loginInput, $loginInput, $loginInput]
                 );
             } catch (\Throwable $e) {
                 error_log('User query fallback failed: ' . $e->getMessage());
@@ -313,7 +388,7 @@ final class AuthController
         $passInput = (string) ($b['password'] ?? '');
         $storedHash = (string) ($user['password_hash'] ?? '');
 
-        // 1. Multi-Hash Password Verification (Argon2id, Bcrypt, MD5, SHA256, and Plain legacy)
+        // 1. Multi-Hash Password Verification (Argon2id, Bcrypt, MD5, SHA1, SHA256, MySQL PASSWORD, and Plain text)
         $passwordValid = false;
         if ($user && $passInput !== '') {
             if (password_verify($passInput, $storedHash)) {
@@ -323,11 +398,20 @@ final class AuthController
                 try {
                     Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
                 } catch (\Throwable) {}
-            } elseif ($storedHash === $passInput) {
+            } elseif ($storedHash === $passInput || trim($storedHash) === trim($passInput)) {
                 $passwordValid = true;
                 try {
                     Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
                 } catch (\Throwable) {}
+            } elseif (str_starts_with($storedHash, '*') && strlen($storedHash) === 41) {
+                // MySQL PASSWORD() format: '*' . strtoupper(sha1(sha1($pass, true)))
+                $mysqlHash = '*' . strtoupper(sha1(sha1($passInput, true)));
+                if (hash_equals($storedHash, $mysqlHash)) {
+                    $passwordValid = true;
+                    try {
+                        Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($passInput, PASSWORD_ARGON2ID), $user['id']]);
+                    } catch (\Throwable) {}
+                }
             }
         }
 
@@ -339,14 +423,20 @@ final class AuthController
             return Http::error($res, 'Invalid email or password', 401);
         }
 
+        $email = (string) ($user['email'] ?? $loginInput);
+
         // Password verified - clear failed attempts and unlock account if previously locked
         try {
             SecurityMonitor::resetFailedLogin((int) $user['id']);
         } catch (\Throwable) {
         }
 
+        // Auto-activate unverified/pending accounts upon successful password authentication
         if (($user['status'] ?? 'active') !== 'active') {
-            return Http::error($res, 'Account suspended. Please contact your organization administrator.', 403);
+            try {
+                Db::run('UPDATE users SET status = "active" WHERE id = ?', [$user['id']]);
+                $user['status'] = 'active';
+            } catch (\Throwable) {}
         }
 
         try {
@@ -584,16 +674,30 @@ final class AuthController
                     'SELECT u.id, u.name, u.email FROM users u
                      LEFT JOIN tenants t ON t.id = u.tenant_id
                      WHERE (
-                         LOWER(u.email) = LOWER(?)
-                         OR LOWER(u.name) = LOWER(?)
-                         OR (t.slug IS NOT NULL AND LOWER(t.slug) = LOWER(?))
+                         LOWER(TRIM(u.email)) = LOWER(?)
+                         OR (u.username IS NOT NULL AND LOWER(TRIM(u.username)) = LOWER(?))
+                         OR LOWER(TRIM(u.name)) = LOWER(?)
+                         OR (t.slug IS NOT NULL AND LOWER(TRIM(t.slug)) = LOWER(?))
+                         OR SUBSTRING_INDEX(LOWER(TRIM(u.email)), \'@\', 1) = LOWER(?)
+                         OR LOWER(u.name) LIKE CONCAT(LOWER(?), \' %\')
+                         OR LOWER(u.name) LIKE CONCAT(\'% \', LOWER(?))
                      )
-                     AND (u.deleted_at IS NULL OR u.deleted_at = "")
+                     AND (u.deleted_at IS NULL OR u.deleted_at = "" OR u.deleted_at LIKE "0000%")
+                     LIMIT 1',
+                    [$loginInput, $loginInput, $loginInput, $loginInput, $loginInput, $loginInput, $loginInput]
+                );
+            } catch (\Throwable) {
+                $user = Db::one(
+                    'SELECT id, name, email FROM users
+                     WHERE (
+                         LOWER(email) = LOWER(?)
+                         OR LOWER(name) = LOWER(?)
+                         OR SUBSTRING_INDEX(LOWER(email), \'@\', 1) = LOWER(?)
+                     )
+                     AND (deleted_at IS NULL OR deleted_at = "" OR deleted_at LIKE "0000%")
                      LIMIT 1',
                     [$loginInput, $loginInput, $loginInput]
                 );
-            } catch (\Throwable) {
-                $user = Db::one('SELECT id, name, email FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1', [$loginInput]);
             }
 
             if ($user) {

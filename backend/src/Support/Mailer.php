@@ -44,7 +44,7 @@ final class Mailer
             $mail->isSMTP();
             $mail->Host = $cfg['host'];
             $mail->Port = $cfg['port'];
-            $mail->Timeout = 5;
+            $mail->Timeout = 3;
 
             if ($cfg['encryption'] === 'ssl') {
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
@@ -87,9 +87,27 @@ final class Mailer
 
             $mail->send();
         } catch (MailerException | \Throwable $e) {
-            // If SMTP is unavailable in development, log as simulated so the app never crashes
-            $status = 'simulated';
             $error = $e->getMessage();
+            $status = 'simulated';
+
+            // Native PHP mail() fallback for shared hosting / cPanel / LiteSpeed environments
+            try {
+                $fromEmail = !empty($cfg['from_email']) ? $cfg['from_email'] : 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'flipex.ict-fj.com');
+                $fromName = !empty($cfg['from_name']) ? $cfg['from_name'] : 'Nuvis Flipex';
+                $headers = [
+                    'MIME-Version: 1.0',
+                    'Content-type: text/html; charset=UTF-8',
+                    'From: ' . $fromName . ' <' . $fromEmail . '>',
+                    'Reply-To: ' . $fromEmail,
+                    'X-Mailer: PHP/' . phpversion(),
+                ];
+                $nativeSent = @mail($to, $subject, $html, implode("\r\n", $headers));
+                if ($nativeSent) {
+                    $status = 'sent';
+                    $error = null;
+                }
+            } catch (\Throwable) {
+            }
 
             // Save copy to storage for inspection
             $dir = __DIR__ . '/../../storage/mail_logs';
@@ -97,7 +115,7 @@ final class Mailer
                 @mkdir($dir, 0777, true);
             }
             $filename = $dir . '/' . date('Ymd_His') . '_' . bin2hex(random_bytes(3)) . '.html';
-            @file_put_contents($filename, "<!-- To: $to | Subject: $subject | Error: $error -->\n" . $html);
+            @file_put_contents($filename, "<!-- To: $to | Subject: $subject | Status: $status | Error: $error -->\n" . $html);
         }
 
         // Record in email_logs audit table
