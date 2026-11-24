@@ -270,6 +270,9 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
   // (2s → 15s, reset when the set of processing items changes), pauses while the tab is hidden, and
   // only drains the queue from the browser when VITE_BROWSER_QUEUE_DRAIN !== 'false' (disable it when a
   // dedicated `php bin/worker.php` is running). Claiming is lock-safe server-side, so sessions cannot double-process.
+  // While a dialog is open nothing behind it needs refreshing; polling then only repaints under the blurred backdrop.
+  const dialogOpenRef = useRef(false);
+  dialogOpenRef.current = !!(customize || share || lifecycleBook);
   const processingKey = items
     .filter((i) => i.status === 'processing' || i.status === 'uploading')
     .map((i) => i.id)
@@ -286,6 +289,7 @@ export default function Dashboard({ view = 'flipbooks' }: { view?: 'overview' | 
     const tick = async () => {
       if (cancelled) return;
       if (document.hidden) return; // resumed by visibilitychange
+      if (dialogOpenRef.current) { timer = setTimeout(tick, 4000); return; }
       if (hasProcessing && drainInBrowser) {
         await triggerQueueDrain();
       } else {

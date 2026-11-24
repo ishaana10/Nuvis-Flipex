@@ -5,6 +5,11 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-11-24
+
+### Fixes
+- **Customise dialog flicker:** the library no longer polls in the background while Customise, Share or Lifecycle dialogs are open (it only repainted under the blurred backdrop). Effect previews animate on hover or when selected instead of nine canvases at once.
+
 ## [2.3.2] - 2026-11-24
 
 ### Fixes

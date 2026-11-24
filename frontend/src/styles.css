@@ -7756,7 +7756,7 @@ html[data-theme="dark"] .fixed .st-segment .st-tab:hover { background: #1e293b; 
 .flipex-effect-card:hover { border-color: #F5C542; transform: translateY(-1px); }
 .flipex-effect-card.active { border-color: #F5C542; box-shadow: 0 0 0 3px rgba(245,197,66,.35); }
 .flipex-effect-stage { position: relative; display: block; height: 84px; overflow: hidden; background-size: cover; }
-.flipex-effect-none { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: rgba(255,255,255,.6); }
+.flipex-effect-none, .flipex-effect-idle { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: rgba(255,255,255,.6); }
 .flipex-effect-name { padding: 8px 12px; font-size: 12px; font-weight: 700; background: var(--surface-muted); }
 
 .flipex-effect-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 8px; }
