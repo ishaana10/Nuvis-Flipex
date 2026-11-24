@@ -44,10 +44,13 @@ final class SecurityMonitor
     }
 
     /** Record a failed login attempt; lock out if threshold exceeded */
-    public static function recordFailedLogin(string $email): void
+    public static function recordFailedLogin(string $email, ?int $userId = null): void
     {
         try {
-            $user = Db::one('SELECT id, failed_login_attempts FROM users WHERE email = ?', [$email]);
+            // Count by resolved account id when known (login may be by username/name), else by e-mail.
+            $user = $userId !== null
+                ? Db::one('SELECT id, failed_login_attempts FROM users WHERE id = ?', [$userId])
+                : Db::one('SELECT id, failed_login_attempts FROM users WHERE email = ?', [$email]);
             if ($user) {
                 $attempts = (int) ($user['failed_login_attempts'] ?? 0) + 1;
                 $lockout = null;

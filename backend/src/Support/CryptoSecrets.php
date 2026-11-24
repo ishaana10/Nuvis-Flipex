@@ -230,7 +230,7 @@ final class CryptoSecrets
     }
 
     /**
-     * Ensure all four separated secrets exist and are cryptographically strong in the given .env file content.
+     * Ensure all five separated secrets exist and are cryptographically strong in the given .env file content.
      * Returns [$updatedEnvContent, $generatedKeysList].
      */
     public static function ensureEnvSecrets(string $envContent, bool $forceRotate = false): array
@@ -240,6 +240,7 @@ final class CryptoSecrets
             'STORAGE_SIGNING_SECRET',
             'PREVIEW_TOKEN_SECRET',
             'UNLOCK_TOKEN_SECRET',
+            'WORKER_SECRET',
         ];
 
         $generated = [];

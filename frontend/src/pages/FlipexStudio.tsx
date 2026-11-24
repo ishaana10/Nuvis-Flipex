@@ -363,6 +363,40 @@ export function optimizeImageUrlForBandwidth(url: string | undefined, isDataSave
 }
 
 /**
+ * SVG safety helpers. renderPageToSvg() output is injected with dangerouslySetInnerHTML and
+ * published into the reader, so every interpolated value must be escaped or validated here.
+ */
+const svgEsc = (v: unknown): string =>
+  String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+/** Allow only http(s), site-relative and raster data-image URLs. */
+const svgUrl = (v: unknown): string => {
+  const u = String(v ?? '').trim();
+  if (!u) return '';
+  if (/^(https?:)?\/\//i.test(u) || (u.startsWith('/') && !u.startsWith('//'))) return u;
+  if (/^data:image\/(png|jpe?g|webp|gif|avif);base64,[a-z0-9+/=]+$/i.test(u)) return u;
+  return '';
+};
+
+/** CSS/SVG paint or font value: drop anything that could break out of the attribute or style. */
+const svgCss = (v: unknown, fallback = ''): string => {
+  const c = String(v ?? '').trim();
+  return c && /^[\w\s#.,%()'"\-+/]*$/.test(c) && !/url\s*\(|expression|javascript|@import/i.test(c) ? c.replace(/["']/g, '') : fallback;
+};
+
+const svgNum = (v: unknown, fallback: number): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const svgId = (v: unknown): string => String(v ?? 'x').replace(/[^\w-]/g, '');
+
+/**
  * Stage 8 / Sprint 5: Unified High-Fidelity Rendering Pipeline
  * Generates an exact SVG vector representation of a page for flipbook publishing
  * with optional bandwidth-adaptive asset compression.
@@ -374,10 +408,10 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
 
   if (bg) {
     if (bg.type === 'gradient' || (bg.value && bg.value.includes('gradient'))) {
-      const stop1 = bg.stop1 || '#0f172a';
-      const stop2 = bg.stop2 || '#0369a1';
-      const stop3 = bg.stop3 || '#0284c7';
-      const gradId = `pBgGrad_${page.id || page.page_number || 'default'}`;
+      const stop1 = svgCss(bg.stop1, '#0f172a');
+      const stop2 = svgCss(bg.stop2, '#0369a1');
+      const stop3 = svgCss(bg.stop3, '#0284c7');
+      const gradId = `pBgGrad_${svgId(page.id || page.page_number || 'default')}`;
       defs = `<defs>
         <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="${stop1}" />
@@ -387,37 +421,34 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
       </defs>`;
       bgStyle = `fill: url(#${gradId});`;
     } else if ((bg as any).color || bg.value) {
-      bgStyle = `fill: ${(bg as any).color || bg.value};`;
+      bgStyle = `fill: ${svgCss((bg as any).color || bg.value, '#ffffff')};`;
     }
   }
 
   let elementsSvg = '';
   (page.elements || []).forEach((el) => {
-    const x = el.x ?? el.frame?.x ?? 0;
-    const y = el.y ?? el.frame?.y ?? 0;
-    const w = el.w ?? el.frame?.width ?? 100;
-    const h = el.h ?? el.frame?.height ?? 50;
-    const rot = el.rotation || 0;
+    const x = svgNum(el.x ?? el.frame?.x, 0);
+    const y = svgNum(el.y ?? el.frame?.y, 0);
+    const w = svgNum(el.w ?? el.frame?.width, 100);
+    const h = svgNum(el.h ?? el.frame?.height, 50);
+    const rot = svgNum(el.rotation, 0);
     const transform = rot ? `transform="rotate(${rot} ${x + w / 2} ${y + h / 2})"` : '';
     const rawImgSrc = el.src || el.image || el.url || el.assetRef?.url || el.photoUrl || '';
-    const imgSrc = optimizeImageUrlForBandwidth(rawImgSrc, isDataSaver);
+    const imgSrc = svgEsc(svgUrl(optimizeImageUrlForBandwidth(rawImgSrc, isDataSaver)));
 
     if ((el.type === 'image' || el.type === 'imageFrame') && imgSrc) {
       elementsSvg += `<g ${transform}><image href="${imgSrc}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" /></g>`;
     } else if (el.type === 'text' || el.type === 'column_text' || el.type === 'article' || el.type === 'richText') {
-      const color = el.style?.color || '#0f172a';
-      const fs = el.style?.fontSize || 14;
-      const fw = el.style?.fontWeight || 'normal';
-      const ff = el.style?.fontFamily || 'Inter, sans-serif';
-      const text = (el.content || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      const kickerHtml = el.kicker ? `<div style="font-size: 10px; font-weight: bold; color: #0284c7; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">${el.kicker.replace(/&/g, '&amp;')}</div>` : '';
-      const subHtml = el.subtitle ? `<div style="font-size: 12px; font-style: italic; color: #64748b; margin-bottom: 6px;">${el.subtitle.replace(/&/g, '&amp;')}</div>` : '';
-      const bylineHtml = el.authorName ? `<div style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">BY ${el.authorName.replace(/&/g, '&amp;').toUpperCase()}${el.authorRole ? ` • ${el.authorRole.replace(/&/g, '&amp;')}` : ''}</div>` : '';
-      const cols = (el.type === 'column_text' || el.type === 'article') ? (el.columns || 2) : 1;
-      const gutter = el.columnGutter || 20;
+      const color = svgCss(el.style?.color, '#0f172a');
+      const fs = svgNum(el.style?.fontSize, 14);
+      const fw = svgCss(el.style?.fontWeight, 'normal');
+      const ff = svgCss(el.style?.fontFamily, 'Inter, sans-serif');
+      const text = svgEsc(el.content || '');
+      const kickerHtml = el.kicker ? `<div style="font-size: 10px; font-weight: bold; color: #0284c7; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">${svgEsc(el.kicker)}</div>` : '';
+      const subHtml = el.subtitle ? `<div style="font-size: 12px; font-style: italic; color: #64748b; margin-bottom: 6px;">${svgEsc(el.subtitle)}</div>` : '';
+      const bylineHtml = el.authorName ? `<div style="font-size: 10px; font-weight: bold; color: #334155; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">BY ${svgEsc(String(el.authorName).toUpperCase())}${el.authorRole ? ` • ${svgEsc(el.authorRole)}` : ''}</div>` : '';
+      const cols = (el.type === 'column_text' || el.type === 'article') ? Math.max(1, Math.min(6, svgNum(el.columns, 2))) : 1;
+      const gutter = svgNum(el.columnGutter, 20);
 
       elementsSvg += `<g ${transform}><foreignObject x="${x}" y="${y}" width="${w}" height="${h}">
         <div xmlns="http://www.w3.org/1999/xhtml" style="color: ${color}; font-size: ${fs}px; font-weight: ${fw}; font-family: ${ff}; line-height: 1.5; word-wrap: break-word; column-count: ${cols}; column-gap: ${gutter}px; height: 100%; box-sizing: border-box;">
@@ -425,9 +456,9 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
         </div>
       </foreignObject></g>`;
     } else if (el.type === 'product' || el.type === 'productCard') {
-      const name = (el.name || 'Product').replace(/&/g, '&amp;');
-      const price = (el.price || '').replace(/&/g, '&amp;');
-      const sku = (el.sku || '').replace(/&/g, '&amp;');
+      const name = svgEsc((el.name || 'Product'));
+      const price = svgEsc((el.price || ''));
+      const sku = svgEsc((el.sku || ''));
       const img = imgSrc;
       elementsSvg += `<g ${transform}>
         <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
@@ -439,28 +470,28 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
         <text x="${x + w / 2}" y="${y + h * 0.81 + 18}" font-size="11" font-weight="bold" fill="#ffffff" text-anchor="middle" font-family="sans-serif">💬 WhatsApp Order</text>
       </g>`;
     } else if (el.type === 'studentCard') {
-      const sName = (el.name || 'Student Name').replace(/&/g, '&amp;');
-      const sAward = (el.award || '').replace(/&/g, '&amp;');
-      const sQuote = (el.quote || el.description || '').replace(/&/g, '&amp;');
-      const img = imgSrc || el.photoUrl || '';
+      const sName = svgEsc((el.name || 'Student Name'));
+      const sAward = svgEsc((el.award || ''));
+      const sQuote = svgEsc((el.quote || el.description || ''));
+      const img = imgSrc || svgEsc(svgUrl(el.photoUrl || ''));
       elementsSvg += `<g ${transform}>
         <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
         ${sAward ? `<rect x="${x + w - 100}" y="${y + 10}" width="90" height="20" rx="10" fill="#f59e0b"/><text x="${x + w - 55}" y="${y + 24}" font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle" font-family="sans-serif">${sAward}</text>` : ''}
-        ${img ? `<clipPath id="sc_clip_${el.id}"><circle cx="${x + w / 2}" cy="${y + 60}" r="40"/></clipPath><image href="${img}" x="${x + w / 2 - 40}" y="${y + 20}" width="80" height="80" clip-path="url(#sc_clip_${el.id})" preserveAspectRatio="xMidYMid slice"/>` : ''}
+        ${img ? `<clipPath id="sc_clip_${svgId(el.id)}"><circle cx="${x + w / 2}" cy="${y + 60}" r="40"/></clipPath><image href="${img}" x="${x + w / 2 - 40}" y="${y + 20}" width="80" height="80" clip-path="url(#sc_clip_${svgId(el.id)})" preserveAspectRatio="xMidYMid slice"/>` : ''}
         <text x="${x + w / 2}" y="${y + 125}" font-size="13" font-weight="bold" fill="#0f172a" text-anchor="middle" font-family="sans-serif">${sName}</text>
         ${sQuote ? `<text x="${x + w / 2}" y="${y + 145}" font-size="10" font-style="italic" fill="#475569" text-anchor="middle" font-family="serif">“${sQuote.slice(0, 45)}…”</text>` : ''}
       </g>`;
     } else if (el.type === 'toc') {
-      const title = (el.content || 'TABLE OF CONTENTS').replace(/&/g, '&amp;');
+      const title = svgEsc((el.content || 'TABLE OF CONTENTS'));
       const items = el.tocItems || [];
       let itemsSvg = '';
       items.forEach((item, idx) => {
         const rowY = y + 50 + idx * 24;
-        const itemTitle = (item.title || `Chapter ${idx + 1}`).replace(/&/g, '&amp;');
+        const itemTitle = svgEsc((item.title || `Chapter ${idx + 1}`));
         const pNum = item.page_number || (idx + 1);
         itemsSvg += `<text x="${x + 20}" y="${rowY}" font-size="11" font-weight="600" fill="#1e293b" font-family="sans-serif">${itemTitle}</text>
           <line x1="${x + 180}" y1="${rowY - 2}" x2="${x + w - 45}" y2="${rowY - 2}" stroke="#94a3b8" stroke-dasharray="2,3"/>
-          <text x="${x + w - 20}" y="${rowY}" font-size="11" font-weight="bold" fill="#0284c7" text-anchor="end" font-family="monospace">${pNum}</text>`;
+          <text x="${x + w - 20}" y="${rowY}" font-size="11" font-weight="bold" fill="#0284c7" text-anchor="end" font-family="monospace">${svgEsc(pNum)}</text>`;
       });
       elementsSvg += `<g ${transform}>
         <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
@@ -469,15 +500,15 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
         ${itemsSvg}
       </g>`;
     } else if (el.type === 'folio') {
-      const headerText = (el.folioHeader || 'Nuvis Flipex Publication').replace(/&/g, '&amp;');
+      const headerText = svgEsc((el.folioHeader || 'Nuvis Flipex Publication'));
       elementsSvg += `<g ${transform}>
         <line x1="${x}" y1="${y + 2}" x2="${x + w}" y2="${y + 2}" stroke="#cbd5e1" stroke-width="1"/>
         <text x="${x}" y="${y + 14}" font-size="9" fill="#94a3b8" font-family="monospace">${headerText}</text>
-        ${el.folioShowPage ? `<text x="${x + w}" y="${y + 14}" font-size="9" fill="#94a3b8" text-anchor="end" font-family="monospace">Page ${page.page_number}</text>` : ''}
+        ${el.folioShowPage ? `<text x="${x + w}" y="${y + 14}" font-size="9" fill="#94a3b8" text-anchor="end" font-family="monospace">Page ${svgEsc(page.page_number)}</text>` : ''}
       </g>`;
     } else if (el.type === 'shape') {
-      const fill = el.style?.backgroundColor || '#0284c7';
-      const rx = el.shapeType === 'circle' ? w / 2 : (el.style?.borderRadius || 0);
+      const fill = svgCss(el.style?.backgroundColor, '#0284c7');
+      const rx = el.shapeType === 'circle' ? w / 2 : svgNum(el.style?.borderRadius, 0);
       elementsSvg += `<g ${transform}><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}"/></g>`;
     } else if (el.type === 'yearbook_grid') {
       elementsSvg += `<g ${transform}>
@@ -490,7 +521,7 @@ export function renderPageToSvg(page: StudioPage, widthPt: number = 595.28, heig
     }
   });
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${widthPt} ${heightPt}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:100%;">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgNum(widthPt, 595.28)} ${svgNum(heightPt, 841.89)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:100%;">
     ${defs}
     <rect width="100%" height="100%" ${bgStyle} />
     ${elementsSvg}

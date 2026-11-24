@@ -970,6 +970,35 @@ final class StudioController
     /**
      * POST /studio/assets/upload: Upload image, logo or graphic asset with dimension extraction and MIME validation.
      */
+    /** Strip path parts and control characters from a client-supplied filename (display only). */
+    private static function safeDisplayName(string $name): string
+    {
+        $name = basename(str_replace('\\', '/', $name));
+        $name = preg_replace('/[^\p{L}\p{N}._ \-()]+/u', '_', $name) ?? 'asset';
+        $name = trim($name, '. ');
+        return $name === '' ? 'asset' : mb_substr($name, 0, 120);
+    }
+
+    /** Reject SVG files that can execute script or pull in external resources. */
+    private static function isSafeSvg(string $svg): bool
+    {
+        if ($svg === '' || strlen($svg) > 5 * 1024 * 1024) {
+            return false;
+        }
+        $patterns = [
+            '/<\s*script\b/i', '/<\s*foreignObject\b/i', '/<\s*iframe\b/i', '/<\s*embed\b/i', '/<\s*object\b/i',
+            '/<\s*audio\b/i', '/<\s*video\b/i', '/<\s*link\b/i', '/<!ENTITY/i', '/<!DOCTYPE[^>]*\[/i',
+            '/\son[a-z]+\s*=/i', '/javascript\s*:/i', '/data\s*:\s*text\/html/i',
+            '/(?:xlink:)?href\s*=\s*["\']\s*(?:https?:)?\/\//i', '/url\(\s*["\']?\s*(?:https?:)?\/\//i', '/@import/i',
+        ];
+        foreach ($patterns as $re) {
+            if (preg_match($re, $svg)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public function uploadAsset(Request $req, Response $res): Response
     {
         $this->ensureSchema();
@@ -1015,29 +1044,59 @@ final class StudioController
             return Http::json($res, ['ok' => true, 'asset_id' => $assetId, 'file_url' => $url, 'name' => $name], 201);
         }
 
-        $clientName = $file->getClientFilename() ?? 'asset.png';
-        $mime = strtolower((string) ($file->getClientMediaType() ?? 'image/png'));
+        // Never trust the client-supplied name or Content-Type: inspect the real bytes.
+        $clientName = self::safeDisplayName((string) ($file->getClientFilename() ?? 'asset.png'));
         $size = (int) $file->getSize();
-
-        // Validate MIME type
-        if (!in_array($mime, $allowedMimes, true)) {
-            return Http::error($res, "Unsupported file format '{$mime}'. Supported formats: JPG, PNG, WebP, SVG.", 422);
-        }
 
         // Validate Max File Size (15MB)
         if ($size > 15 * 1024 * 1024) {
             return Http::error($res, 'File size exceeds maximum allowed limit (15MB)', 422);
         }
 
+        $tmpUpload = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'studio_' . bin2hex(random_bytes(8));
+        $file->moveTo($tmpUpload);
+
+        $detected = (new \finfo(FILEINFO_MIME_TYPE))->file($tmpUpload) ?: '';
+        $extByMime = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/svg+xml' => 'svg'];
+        // finfo reports SVG as text/xml or text/plain depending on libmagic; confirm by content.
+        if (in_array($detected, ['text/xml', 'text/plain', 'application/xml', 'image/svg+xml'], true)) {
+            $head = (string) file_get_contents($tmpUpload, false, null, 0, 4096);
+            if (stripos($head, '<svg') !== false) {
+                $detected = 'image/svg+xml';
+            }
+        }
+        $mime = $detected;
+
+        if (!isset($extByMime[$mime]) || !in_array($mime, $allowedMimes, true)) {
+            @unlink($tmpUpload);
+            return Http::error($res, 'Unsupported file format. Supported formats: JPG, PNG, WebP, SVG.', 422);
+        }
+
+        if ($mime === 'image/svg+xml') {
+            $svgSource = (string) file_get_contents($tmpUpload);
+            if (!self::isSafeSvg($svgSource)) {
+                @unlink($tmpUpload);
+                return Http::error($res, 'This SVG contains scripts or external references and cannot be uploaded. Export a plain SVG and try again.', 422);
+            }
+        } elseif (@getimagesize($tmpUpload) === false) {
+            @unlink($tmpUpload);
+            return Http::error($res, 'The file is not a valid image.', 422);
+        }
+
         // Target directory: /storage/tenants/{id}/studio/
         $destDir = Storage::tenantDir($tenantId) . '/studio';
         Storage::ensureDir($destDir);
 
-        $ext = pathinfo($clientName, PATHINFO_EXTENSION) ?: 'png';
-        $filename = bin2hex(random_bytes(12)) . '.' . strtolower($ext);
+        // Extension comes from the detected type, never from the client's filename.
+        $filename = bin2hex(random_bytes(12)) . '.' . $extByMime[$mime];
         $fullPath = $destDir . '/' . $filename;
 
-        $file->moveTo($fullPath);
+        if (!@rename($tmpUpload, $fullPath) && !@copy($tmpUpload, $fullPath)) {
+            @unlink($tmpUpload);
+            return Http::error($res, 'Could not store the uploaded file', 500);
+        }
+        @unlink($tmpUpload);
+        @chmod($fullPath, 0640);
 
         // Extract image dimensions for layout optimisation
         $width = null;

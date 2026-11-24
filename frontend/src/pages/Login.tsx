@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, type LoginResult } from '../auth/AuthContext';
 import { AuthCard, Field, useForm } from '../components/Form';
 import FlipexLoader from '../components/FlipexLoader';
-import { APP_VERSION } from '../version';
 
 export default function Login() {
   const { login, verify2fa, resend2fa } = useAuth();
@@ -91,7 +90,7 @@ export default function Login() {
   }
 
   return (
-    <AuthCard title="Sign in">
+    <AuthCard title="Welcome back" subtitle="Sign in to manage your publications, leads and analytics.">
       <form onSubmit={f.submit}>
         <Field label="Email or Username" name="email" type="text" autoComplete="username" value={email} onChange={setEmail} />
         <Field label="Password" name="password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
@@ -107,10 +106,13 @@ export default function Login() {
           )}
         </button>
       </form>
-      <p><Link to="/forgot-password">Forgot password?</Link> · <Link to="/register">Create account</Link></p>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', marginTop: '16px', paddingTop: '10px', fontSize: '11px', color: '#94a3b8' }}>
-        <span>Secure Publisher Portal</span>
-        <span style={{ fontWeight: 600, color: '#64748b' }}>Release v{APP_VERSION}</span>
+      <div className="nx-auth-links">
+        <Link to="/forgot-password">Forgot password?</Link>
+        <Link to="/register">Create an account</Link>
+      </div>
+      <div className="nx-auth-secure">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+        <span>Encrypted sign-in with optional two-factor protection</span>
       </div>
     </AuthCard>
   );

@@ -1,0 +1,289 @@
+/* ============================================================================
+   NUVIS FLIPEX — COMMERCIAL THEME LAYER (v2.2)
+   Identity: gold logo, deep-ocean blue surfaces, three-stop gradients throughout.
+   Loaded after styles.css. It only re-skins tokens and shared components, so the
+   user-selectable 3-stop button gradient (--btn-grad-*) and light/dark switch keep working.
+   ============================================================================ */
+
+:root {
+  /* Brand */
+  --nx-gold: #f5c542;
+  --nx-gold-deep: #d99a0b;
+  --nx-gold-pale: #fde9a2;
+  --nx-navy-1: #050f26;
+  --nx-navy-2: #0a2a5e;
+  --nx-navy-3: #0b5cad;
+  --nx-sky: #38bdf8;
+
+  /* Three-stop blue gradients */
+  --nx-grad-hero: linear-gradient(140deg, #050f26 0%, #0a2a5e 46%, #0b6bc4 100%);
+  --nx-grad-rail: linear-gradient(180deg, #050f26 0%, #0a2a5e 58%, #0b4f9a 100%);
+  --nx-grad-action: linear-gradient(135deg, #0ea5e9 0%, #0369a1 52%, #0a2a5e 100%);
+  --nx-grad-action-hover: linear-gradient(135deg, #38bdf8 0%, #0284c7 45%, #0a2a5e 100%);
+  --nx-grad-gold: linear-gradient(135deg, #fde9a2 0%, #f5c542 48%, #d99a0b 100%);
+
+  /* Tokens used across the existing stylesheet */
+  --brand: #0369a1;
+  --brand-strong: #0b5cad;
+  --brand-hover: #0a4a8f;
+  --brand-soft: rgba(3, 105, 161, 0.1);
+  --brand-border: rgba(245, 197, 66, 0.55);
+  --bg: #eef3fb;
+  --surface: #ffffff;
+  --surface-muted: #f4f8fe;
+  --text-main: #0b1b3a;
+  --text-muted: #5b6b86;
+  --border-color: #d9e4f4;
+
+  --nx-radius: 14px;
+  --nx-radius-sm: 10px;
+  --nx-shadow-1: 0 1px 2px rgba(5, 15, 38, 0.05), 0 4px 14px rgba(10, 42, 94, 0.06);
+  --nx-shadow-2: 0 2px 4px rgba(5, 15, 38, 0.06), 0 14px 34px rgba(10, 42, 94, 0.14);
+  --nx-focus: 0 0 0 3px rgba(245, 197, 66, 0.45);
+
+  font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+}
+
+html[data-theme='dark'],
+html.dark {
+  --brand: #38bdf8;
+  --brand-strong: #0ea5e9;
+  --brand-hover: #7dd3fc;
+  --brand-soft: rgba(56, 189, 248, 0.14);
+  --bg: #060f24;
+  --surface: #0b1a38;
+  --surface-muted: #0f2145;
+  --text-main: #e8eefb;
+  --text-muted: #93a4c4;
+  --border-color: #1b3262;
+  --nx-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 14px rgba(0, 0, 0, 0.3);
+  --nx-shadow-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+body {
+  font-family: inherit;
+  background:
+    radial-gradient(1100px 520px at 100% -10%, rgba(14, 165, 233, 0.09), transparent 60%),
+    radial-gradient(900px 480px at -10% 0%, rgba(10, 42, 94, 0.07), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, select, textarea { font-family: inherit; }
+h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.2; }
+
+/* ---------- Shared controls ---------- */
+@layer base {
+  button {
+    background: var(--nx-grad-action);
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 4px 12px rgba(3, 105, 161, 0.28);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  }
+  button:hover:not(:disabled) { background: var(--nx-grad-action-hover); transform: translateY(-1px); }
+  button:active:not(:disabled) { transform: translateY(0); }
+  button.link, button.link:hover:not(:disabled) { background: none; box-shadow: none; transform: none; color: var(--brand); text-decoration: none; }
+  button.link:hover:not(:disabled) { text-decoration: underline; }
+  button:disabled { cursor: not-allowed; box-shadow: none; }
+}
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--nx-gold);
+  outline-offset: 2px;
+}
+
+.field > span { font-size: 13px; font-weight: 600; color: var(--text-main); }
+.field input, .search, select, textarea {
+  background: var(--surface);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: var(--nx-radius-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field input { padding: 12px 14px; }
+.field input:focus, .search:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--nx-navy-3);
+  box-shadow: var(--nx-focus);
+}
+
+.card {
+  border-radius: var(--nx-radius);
+  border-color: var(--border-color);
+  box-shadow: var(--nx-shadow-1);
+}
+.card.fb { border-radius: 18px; box-shadow: var(--nx-shadow-1); }
+.card.fb:hover { box-shadow: var(--nx-shadow-2); border-color: rgba(245, 197, 66, 0.7); }
+
+/* ---------- App shell: ocean rail with gold marker ---------- */
+.app-sidebar {
+  background: var(--nx-grad-rail);
+  border-right: 1px solid rgba(245, 197, 66, 0.16);
+  color: #b4c4e4;
+  box-shadow: 4px 0 24px rgba(5, 15, 38, 0.18);
+}
+.sidebar-brand { border-bottom: 1px solid rgba(245, 197, 66, 0.14); }
+.sidebar-logo-img { filter: drop-shadow(0 2px 10px rgba(245, 197, 66, 0.55)); }
+.sidebar-brand-title {
+  background: var(--nx-grad-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.sidebar-item { color: #b4c4e4; border-radius: 0 12px 12px 0; }
+.sidebar-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.sidebar-item.active {
+  background: linear-gradient(90deg, rgba(245, 197, 66, 0.22) 0%, rgba(245, 197, 66, 0.04) 100%);
+  border-left-color: var(--nx-gold);
+  color: #fff;
+}
+.sidebar-item.active .sidebar-icon { color: var(--nx-gold); }
+.sidebar-footer { border-top: 1px solid rgba(245, 197, 66, 0.14); }
+
+.app-topbar {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--border-color);
+}
+.topbar-tab.active { border-bottom-color: var(--nx-gold-deep); color: var(--text-main); }
+
+/* ---------- "New version available" banner ---------- */
+.nx-update-banner {
+  position: fixed;
+  z-index: 9999;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 18px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--nx-grad-hero);
+  border: 1px solid rgba(245, 197, 66, 0.55);
+  box-shadow: var(--nx-shadow-2);
+}
+.nx-update-banner button {
+  background: var(--nx-grad-gold);
+  color: #3a2a00;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  box-shadow: none;
+}
+.nx-update-banner button.nx-update-dismiss { background: transparent; color: #cfe0ff; padding: 4px 8px; font-size: 18px; line-height: 1; }
+
+/* ============================================================================
+   AUTH SHELL — split screen: ocean hero + form panel
+   ============================================================================ */
+.nx-auth {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+}
+
+.nx-auth-hero {
+  position: relative;
+  overflow: hidden;
+  color: #eaf2ff;
+  background: var(--nx-grad-hero);
+  padding: clamp(32px, 5vw, 72px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 40px;
+  isolation: isolate;
+}
+.nx-auth-hero::before {
+  content: '';
+  position: absolute;
+  inset: auto -18% -30% auto;
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(245, 197, 66, 0.28), rgba(245, 197, 66, 0) 70%);
+  z-index: -1;
+}
+.nx-auth-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 38px);
+  z-index: -1;
+}
+.nx-auth-brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
+.nx-auth-brand img { width: 46px; height: 46px; object-fit: contain; filter: drop-shadow(0 4px 14px rgba(245, 197, 66, 0.6)); }
+.nx-auth-wordmark {
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: var(--nx-grad-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.nx-auth-hero h2 {
+  margin: 0 0 14px;
+  max-width: 15ch;
+  font-size: clamp(30px, 3.6vw, 50px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  color: #fff;
+}
+.nx-auth-hero p.nx-lede { margin: 0; max-width: 46ch; font-size: 16.5px; line-height: 1.6; color: #bcd0f2; }
+.nx-auth-points { list-style: none; margin: 30px 0 0; padding: 0; display: grid; gap: 14px; max-width: 46ch; }
+.nx-auth-points li { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; font-size: 14.5px; line-height: 1.5; color: #d5e2fa; }
+.nx-auth-points b { display: block; color: #fff; font-size: 15px; margin-bottom: 1px; }
+.nx-auth-points .nx-dot {
+  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: rgba(245, 197, 66, 0.14); border: 1px solid rgba(245, 197, 66, 0.4); color: var(--nx-gold);
+}
+.nx-auth-points svg { width: 18px; height: 18px; }
+.nx-auth-book { position: absolute; right: -3%; bottom: -3%; width: min(34%, 270px); opacity: 0.92; z-index: -1; pointer-events: none; }
+@media (max-height: 820px) { .nx-auth-book { display: none; } }
+.nx-auth-hero-foot { font-size: 12.5px; color: #8fa8d6; }
+
+.nx-auth-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: clamp(24px, 4vw, 56px);
+  background: var(--bg);
+}
+.nx-auth-panel .card { max-width: 440px; padding: 34px 32px; border-radius: 20px; box-shadow: var(--nx-shadow-2); }
+.nx-auth-panel .card h1 { margin: 0 0 6px; font-size: 26px; font-weight: 800; }
+.nx-auth-sub { margin: 0 0 22px; color: var(--text-muted); font-size: 14.5px; line-height: 1.5; }
+.nx-auth-panel .card form button:not(.link) { width: 100%; padding: 13px 16px; border-radius: 12px; margin-top: 6px; }
+.nx-auth-mobile-brand { display: none; align-items: center; gap: 10px; }
+.nx-auth-mobile-brand img { width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 3px 10px rgba(245, 197, 66, 0.55)); }
+.nx-auth-foot { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); text-align: center; }
+.nx-version-chip {
+  display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  color: #7a5200; background: rgba(245, 197, 66, 0.2); border: 1px solid rgba(217, 154, 11, 0.45);
+}
+html[data-theme='dark'] .nx-version-chip, html.dark .nx-version-chip { color: var(--nx-gold-pale); }
+.nx-auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 18px 0 0; font-size: 13.5px; }
+.nx-auth-links a { font-weight: 600; text-decoration: none; }
+.nx-auth-links a:hover { text-decoration: underline; }
+.nx-auth-secure { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted); }
+
+@media (max-width: 960px) {
+  .nx-auth { grid-template-columns: 1fr; }
+  .nx-auth-hero { display: none; }
+  .nx-auth-mobile-brand { display: inline-flex; }
+  .nx-auth-panel { justify-content: flex-start; padding-top: 36px; background: var(--nx-grad-hero); }
+  .nx-auth-panel .nx-auth-foot { color: #9db6e2; }
+  .nx-auth-panel .nx-version-chip { color: var(--nx-gold-pale); background: rgba(245, 197, 66, 0.16); border-color: rgba(245, 197, 66, 0.5); }
+  .nx-auth-mobile-brand .nx-auth-wordmark { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

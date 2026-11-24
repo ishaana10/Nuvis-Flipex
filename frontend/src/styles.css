@@ -107,9 +107,12 @@ html.dark .nuvis-brand-text {
 }
 .field { display:grid; gap:4px; margin-bottom:12px; }
 .field input { padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:15px; }
-button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:15px; cursor:pointer; }
-button:disabled { opacity:.6; }
-button.link { background:none; color:var(--brand); padding:0; }
+/* Base element styles live in the `base` layer so Tailwind utilities (bg-*, text-*, p-*) can override them. */
+@layer base {
+  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:15px; cursor:pointer; }
+  button:disabled { opacity:.6; }
+  button.link { background:none; color:var(--brand); padding:0; }
+}
 .err { color:var(--err); }
 .muted { color:#6b7280; }
 .banner { background:#fef3c7; padding:12px; border-radius:8px; margin-bottom:16px; }

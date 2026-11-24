@@ -1,33 +1,75 @@
-name: Nuvis Flipex — Formal Semantic Release Process
+name: Nuvis Flipex — Build, Tag & Release
 
+# The committed frontend/dist is what production serves (git-based cPanel deploy), so CI is
+# responsible for keeping it in step with the source and with /VERSION.
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches: [main]
+    paths-ignore:
+      - 'frontend/dist/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  formal-release:
-    name: Verify, Bundle & Publish Formal Release
+  build-tag-release:
+    name: Rebuild dist, tag from VERSION, publish release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Tagged Commit
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Build Production Frontend Bundle
+      - name: Read release version
+        id: ver
+        run: |
+          V="$(tr -d '[:space:]' < VERSION)"
+          echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "VERSION must be x.y.z (got '$V')"; exit 1; }
+          PKG="$(node -p "require('./frontend/package.json').version")"
+          [ "$V" = "$PKG" ] || { echo "VERSION ($V) and frontend/package.json ($PKG) disagree. Run: node scripts/bump-version.mjs $V"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Build production frontend
         working-directory: frontend
         run: |
-          npm install
+          npm ci
           npm run build
 
-      - name: Generate Release Checksums & Changelog Manifest
+      - name: Commit refreshed dist
         run: |
-          echo "Release Tag: ${GITHUB_REF_NAME}" > RELEASE_MANIFEST.txt
-          echo "Built At (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> RELEASE_MANIFEST.txt
-          echo "Architecture: 15-Module Domain Monolith + 8 Infrastructure Services" >> RELEASE_MANIFEST.txt
+          git config user.name  "nuvis-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add -A frontend/dist
+          if git diff --cached --quiet; then
+            echo "dist already up to date"
+          else
+            git commit -m "chore(build): rebuild frontend dist for v${{ steps.ver.outputs.version }} [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - name: Tag and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            echo "Tag v$V already exists; nothing to release."
+            exit 0
+          fi
+          git tag -a "v$V" -m "Nuvis Flipex v$V"
+          git push origin "v$V"
+          tar -czf "nuvis-flipex-v$V-dist.tar.gz" -C frontend dist
+          sha256sum "nuvis-flipex-v$V-dist.tar.gz" > "nuvis-flipex-v$V-dist.sha256"
+          gh release create "v$V" "nuvis-flipex-v$V-dist.tar.gz" "nuvis-flipex-v$V-dist.sha256" \
+            --title "Nuvis Flipex v$V" --generate-notes
