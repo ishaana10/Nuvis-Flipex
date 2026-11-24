@@ -99,6 +99,28 @@ h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.2; }
   button.link:hover:not(:disabled) { text-decoration: underline; }
   button:disabled { cursor: not-allowed; box-shadow: none; }
 }
+/* Buttons styled only with Tailwind-style text-colour utilities (no bg-*) were painted brand-blue with unreadable text.
+   Restore the transparent default those components were written for. Utilities (bg-*, hover:bg-*) still override. */
+@layer base {
+  button:where([class*="text-slate-"], [class*="text-sky-"], [class*="text-amber-"], [class*="text-emerald-"], [class*="text-red-"], [class*="text-gray-"], [class*="text-blue-"]),
+  button:where([class*="text-slate-"], [class*="text-sky-"], [class*="text-amber-"], [class*="text-emerald-"], [class*="text-red-"], [class*="text-gray-"], [class*="text-blue-"]):hover:not(:disabled) {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+  button:where([class*="text-slate-"], [class*="text-sky-"], [class*="text-amber-"], [class*="text-emerald-"], [class*="text-red-"], [class*="text-gray-"], [class*="text-blue-"]):hover:not(:disabled) { transform: none; }
+}
+/* Tailwind-style `bg-*` utilities only set background-color, so the default gradient image painted on top of them.
+   Buttons that choose their own background keep it; `bg-gradient-*` utilities still win (they sit in a later layer). */
+@layer base {
+  button:where([class*="bg-"]),
+  button:where([class*="bg-"]):hover:not(:disabled) {
+    background-image: none;
+    box-shadow: none;
+    transform: none;
+  }
+  button:where([class*="bg-"]):hover:not(:disabled) { filter: brightness(0.97); }
+}
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   outline: 2px solid var(--nx-gold);
   outline-offset: 2px;

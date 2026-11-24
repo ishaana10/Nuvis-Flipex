@@ -57,7 +57,11 @@ final class WebhookDispatcher
         $responseBody = '{"status":"delivered"}';
 
         $url = (string) $hook['target_url'];
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+        $safe = \App\Support\UrlGuard::check($url);
+        if ($safe === null) {
+            $statusCode = 400;
+            $responseBody = json_encode(['error' => 'Blocked: webhook target is not a public http(s) address']);
+        } elseif (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             try {
                 $ch = curl_init($url);
                 curl_setopt_array($ch, [
@@ -66,6 +70,10 @@ final class WebhookDispatcher
                     CURLOPT_POSTFIELDS => $json,
                     CURLOPT_TIMEOUT => 5,
                     CURLOPT_CONNECTTIMEOUT => 3,
+                    CURLOPT_FOLLOWLOCATION => false,
+                    CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                    // pin the validated address so DNS cannot change between the check and the request
+                    CURLOPT_RESOLVE => [$safe['host'] . ':' . $safe['port'] . ':' . $safe['ips'][0]],
                     CURLOPT_HTTPHEADER => [
                         'Content-Type: application/json',
                         'User-Agent: NuvisFlipex-Webhook/2.0',

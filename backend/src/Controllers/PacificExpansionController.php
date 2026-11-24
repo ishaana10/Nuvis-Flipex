@@ -129,7 +129,7 @@ class PacificExpansionController
         $limit = min(50, max(1, (int) ($params['limit'] ?? 24)));
         $offset = max(0, (int) ($params['offset'] ?? 0));
 
-        $where = ['d.is_public = 1', 'f.published = 1'];
+        $where = ['d.is_public = 1', 'f.published_at IS NOT NULL', "f.workflow_status = 'published'"];
         $bindings = [];
 
         if ($country !== '' && $country !== 'ALL' && array_key_exists($country, self::COUNTRIES)) {
@@ -164,7 +164,7 @@ class PacificExpansionController
             SELECT 
                 d.id, d.flipbook_id, d.title, d.description, d.country_code, d.region_name,
                 d.category, d.tags, d.cover_image_url, d.is_featured, d.view_count, d.created_at,
-                f.slug, f.pages_count, f.visibility, f.settings AS flipbook_settings,
+                f.slug, f.page_count AS pages_count, f.visibility, f.settings AS flipbook_settings,
                 t.name AS publisher_name, t.id AS publisher_tenant_id
             FROM regional_directory_entries d
             JOIN flipbooks f ON f.id = d.flipbook_id
@@ -181,11 +181,11 @@ class PacificExpansionController
             SELECT 
                 d.id, d.flipbook_id, d.title, d.description, d.country_code, d.region_name,
                 d.category, d.cover_image_url, d.view_count,
-                f.slug, f.pages_count, t.name AS publisher_name
+                f.slug, f.page_count AS pages_count, t.name AS publisher_name
             FROM regional_directory_entries d
             JOIN flipbooks f ON f.id = d.flipbook_id
             JOIN tenants t ON t.id = d.tenant_id
-            WHERE d.is_public = 1 AND f.published = 1 AND d.is_featured = 1
+            WHERE d.is_public = 1 AND f.published_at IS NOT NULL AND f.workflow_status = 'published' AND d.is_featured = 1
             ORDER BY d.view_count DESC
             LIMIT 6
         ";

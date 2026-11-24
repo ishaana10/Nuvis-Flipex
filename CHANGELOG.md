@@ -5,6 +5,17 @@ All notable changes to Nuvis Flipex. Versions follow semver; the number lives in
 
 ## [Unreleased]
 
+### Tabs, icons and publish UI
+- **Wrapping tabs everywhere (no scrolling):** one shared `TabBar` (pill / grid / segment / app variants) with bundled inline-SVG icons replaces every tab row in Studio, Dashboard, Share, Lifecycle, Customisation, Admin, Billing, Integrations and DevOps. No icon font, CDN or external asset.
+- **Readable buttons:** base-layer resets stop utility background colours from showing the gradient image behind them.
+- **Customisation dialog:** live reader preview (header, contents drawer, arrows, toolbar) beside Design and Themes; cards use the full width; emoji in publish/customise buttons replaced with bundled icons.
+- **Studio publish respects the plan's publication limit** (403 like uploads; re-publishing an existing document is free).
+
+### Security and audit fixes
+- **Webhook SSRF guard** (`App\Support\UrlGuard`): public http(s) targets on ports 80/443/8080/8443 only, no credentials, no private/loopback/link-local/metadata addresses; enforced at creation and at delivery in both dispatchers (no redirects, DNS pinned). `WEBHOOK_ALLOW_PRIVATE=1` opts out for intranet installs.
+- **Public unlock / lock / search / download** work on renamed (redirected) slugs; **oEmbed** only exposes live, non-password, non-expired publications of the requested slug.
+- **Public directory** no longer errors (`published` / `pages_count` column fixes).
+
 ### Studio (Flipex Studio)
 - **Publish now works from Studio:** pages are rendered server-side to SVG (`StudioSvgRenderer`) and stored per tenant, so documents created in the editor, from a template or through the API all publish the same way and open in the public flipbook viewer.
 - **18 new bundled templates** (supermarket, tech, restaurant, real estate, yearbook, lifestyle magazine, wedding, annual report, adventure, portfolio, cafe menu, price list, newsletter, school prospectus, family album, travel journal, event programme, lookbook), 3-4 pages each with real content. Regenerate with `scripts/gen-templates.py`.

@@ -1457,6 +1457,19 @@ final class StudioController
             return Http::error($res, 'Document must have at least one page to publish', 400);
         }
 
+        // Plan limit: only a brand-new publication counts against it (re-publishing an existing one is free).
+        $linked = $doc['flipbook_id'] ? Db::one('SELECT id FROM flipbooks WHERE id = ? AND tenant_id = ?', [(int) $doc['flipbook_id'], $tenantId]) : null;
+        if (!$linked) {
+            $tenantRow = Db::one('SELECT t.max_flipbooks, p.max_flipbooks AS plan_max FROM tenants t LEFT JOIN plans p ON p.id = t.plan_id WHERE t.id = ?', [$tenantId]);
+            $maxAllowed = (int) ($tenantRow['max_flipbooks'] ?? $tenantRow['plan_max'] ?? 0);
+            if ($maxAllowed > 0) {
+                $used = (int) Db::one('SELECT COUNT(*) c FROM flipbooks WHERE tenant_id = ?', [$tenantId])['c'];
+                if ($used >= $maxAllowed) {
+                    return Http::error($res, "Your workspace plan allows a maximum of {$maxAllowed} publications.", 403);
+                }
+            }
+        }
+
         $writtenFiles = [];
         Db::pdo()->beginTransaction();
         try {

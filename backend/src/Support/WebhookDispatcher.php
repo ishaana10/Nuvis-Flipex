@@ -53,7 +53,10 @@ final class WebhookDispatcher
         $responseBody = '{"status":"delivered","simulated":false}';
 
         $url = (string) $hook['target_url'];
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+        if (\App\Support\UrlGuard::check($url) === null) {
+            $statusCode = 400;
+            $responseBody = json_encode(['error' => 'Blocked: webhook target is not a public http(s) address']);
+        } elseif (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             $ctx = stream_context_create([
                 'http' => [
                     'method' => 'POST',
@@ -65,6 +68,8 @@ final class WebhookDispatcher
                     ]),
                     'content' => $json,
                     'timeout' => 3.5,
+                    'follow_location' => 0,
+                    'max_redirects' => 0,
                     'ignore_errors' => true,
                 ],
             ]);

@@ -394,6 +394,9 @@ final class IntegrationController
         if ($targetUrl === '' || (!str_starts_with($targetUrl, 'http://') && !str_starts_with($targetUrl, 'https://'))) {
             return Http::error($res, 'Valid http:// or https:// target URL is required', 422);
         }
+        if (\App\Support\UrlGuard::check($targetUrl) === null) {
+            return Http::error($res, 'Webhook target must be a public http(s) address on port 80, 443, 8080 or 8443 (no localhost, private or internal hosts, no credentials in the URL)', 422, ['targetUrl' => 'Target is not allowed']);
+        }
 
         $events = isset($b['events']) && is_array($b['events']) && count($b['events']) > 0
             ? array_values(array_map('strval', $b['events']))
@@ -668,11 +671,30 @@ final class IntegrationController
             $slug = trim((string) $q['slug']);
         }
 
-        $book = $slug !== ''
-            ? Db::one('SELECT id, title, slug FROM flipbooks WHERE slug = ? LIMIT 1', [$slug])
-            : Db::one('SELECT id, title, slug FROM flipbooks ORDER BY id DESC LIMIT 1');
+        if ($slug === '' || strlen($slug) > 120) {
+            return Http::error($res, 'A publication url or slug is required', 400);
+        }
 
+        // Resolve like the public reader does (slug, custom public slug, then renamed-URL history).
+        $book = Db::one('SELECT id, title, slug, visibility, published_at, workflow_status, expires_at FROM flipbooks WHERE slug = ? OR public_slug = ? LIMIT 1', [$slug, $slug]);
         if (!$book) {
+            try {
+                $redir = Db::one("SELECT entity_id FROM slug_redirects WHERE entity_type = 'flipbook' AND old_slug = ? ORDER BY id DESC LIMIT 1", [$slug]);
+                if ($redir && !empty($redir['entity_id'])) {
+                    $book = Db::one('SELECT id, title, slug, visibility, published_at, workflow_status, expires_at FROM flipbooks WHERE id = ? LIMIT 1', [(int) $redir['entity_id']]);
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        // Only live, public/unlisted publications may be described to anonymous callers.
+        $live = $book
+            && $book['published_at'] !== null
+            && ($book['workflow_status'] ?? 'published') === 'published'
+            && ($book['visibility'] ?? 'public') !== 'password'
+            && (empty($book['expires_at']) || strtotime((string) $book['expires_at']) > time());
+
+        if (!$live) {
             return Http::error($res, 'Publication not found for oEmbed', 404);
         }
 

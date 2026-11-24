@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react';
+import TabBar from './studio/TabBar';
 import { api, uploadForm, ApiError } from '../api/client';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -466,56 +467,20 @@ export default function PublicationLifecycleModal({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50/60 px-6 dark:border-slate-800 dark:bg-slate-950/40">
-          <button
-            type="button"
-            onClick={() => { setTab('workflow'); setMsg(null); }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
-              tab === 'workflow'
-                ? 'border-amber-400 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <ShieldCheck className="h-4 w-4" />
-            1. Workflow, Review & Schedule
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('versions'); setMsg(null); }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
-              tab === 'versions'
-                ? 'border-amber-400 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <History className="h-4 w-4" />
-            2. Version History & Replace PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('seo'); setMsg(null); }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
-              tab === 'seo'
-                ? 'border-amber-400 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <Globe className="h-4 w-4" />
-            3. Custom URL, Taxonomy & SEO
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('education'); setMsg(null); }}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors ${
-              tab === 'education'
-                ? 'border-amber-400 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <GraduationCap className="h-4 w-4" />
-            4. School & Academic Publishing
-          </button>
-        </div>
+        <TabBar
+          variant="app"
+          className="st-compact-modal"
+          ariaLabel="Publication lifecycle sections"
+          testId="lifecycle-tabs"
+          value={tab}
+          onChange={(id) => { setTab(id as any); setMsg(null); }}
+          tabs={[
+            { id: 'workflow', label: 'Workflow & Schedule', icon: 'workflow', title: 'Workflow, review and scheduling' },
+            { id: 'versions', label: 'Versions & Replace PDF', icon: 'layers', title: 'Version history and replacing the PDF' },
+            { id: 'seo', label: 'URL, Taxonomy & SEO', icon: 'search', title: 'Custom URL, categories and SEO' },
+            { id: 'education', label: 'School & Academic', icon: 'grad', title: 'School and academic publishing' },
+          ]}
+        />
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">

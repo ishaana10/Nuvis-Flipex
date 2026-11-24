@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import StudioIcon from '../components/studio/StudioIcon';
-import { ScrollStrip, ScrollTabs } from '../components/studio/ScrollTabs';
+import { ToolbarWrap, TabBar } from '../components/studio/TabBar';
 import {
   Sparkles,
   Upload,
@@ -3650,7 +3650,7 @@ export default function FlipexStudio() {
 
         {/* Stage 4: Top Navigation View Switcher (My Documents vs Template Discovery Browser) */}
         <div style={{ marginBottom: '24px', borderBottom: '1px solid #334155', paddingBottom: '14px' }}>
-          <ScrollTabs
+          <TabBar
             ariaLabel="Studio sections"
             testId="studio-hub-tabs"
             variant="pill"
@@ -3671,7 +3671,7 @@ export default function FlipexStudio() {
             {/* Filter Pills & Search */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <ScrollTabs
+            <TabBar
               ariaLabel="Filter documents by type"
               testId="studio-doc-filter"
               value={filterType}
@@ -3856,7 +3856,7 @@ export default function FlipexStudio() {
              ========================================================== */
           <div className="space-y-6">
             {/* 10 Commercial Categories Filter Row */}
-            <ScrollTabs
+            <TabBar
               ariaLabel="Template categories"
               testId="studio-template-cats"
               value={templateCategory}
@@ -3866,7 +3866,7 @@ export default function FlipexStudio() {
 
             {/* Scope Tabs & Search Controls */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <ScrollTabs
+              <TabBar
                 variant="segment"
                 ariaLabel="Template source"
                 testId="studio-template-scope"
@@ -4328,7 +4328,7 @@ export default function FlipexStudio() {
       className="flipex-studio-root"
       style={{
         display: 'grid',
-        gridTemplateRows: bottomStripCollapsed ? '56px minmax(0, 1fr) 34px' : '56px minmax(0, 1fr) 115px',
+        gridTemplateRows: bottomStripCollapsed ? 'auto minmax(0, 1fr) 34px' : 'auto minmax(0, 1fr) 115px',
         height: '100vh',
         width: '100vw',
         maxWidth: '100vw',
@@ -4340,10 +4340,10 @@ export default function FlipexStudio() {
       }}
     >
       {/* TOP STUDIO TOOLBAR - Single line, non-wrapping, clean layout with 3-Gradients */}
-      <header style={{ height: '56px', minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'nowrap', minWidth: 0, maxWidth: '100%', width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
-        <ScrollStrip className="studio-header-strip" ariaLabel="Editor toolbar">
+      <header style={{ minHeight: '56px', background: '#090d16', borderBottom: '1px solid #1e293b', padding: '6px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', zIndex: 30, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%', width: '100%', flexShrink: 0, boxSizing: 'border-box' }}>
+        <ToolbarWrap className="studio-header-strip">
         {/* Left: Back, Sidebar Toggle & Document Metadata */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 1, flexWrap: 'wrap', minWidth: 0 }}>
           <button
             type="button"
             onClick={() => {
@@ -4485,7 +4485,7 @@ export default function FlipexStudio() {
         </div>
 
         {/* Center: Page Switcher, Zoom & Fit, Bleed, Snap & Auto Tools */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 1, flexWrap: 'wrap', minWidth: 0 }}>
           {/* Page Switcher (Adapts in Spread Mode) */}
           <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '2px', fontSize: '12px' }}>
             <button
@@ -4705,7 +4705,7 @@ export default function FlipexStudio() {
         </div>
 
         {/* Right: Print PDF, Save, Publish Action & Inspector Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 1, flexWrap: 'wrap', minWidth: 0 }}>
           {/* Stage 8: Commercial Print & Vector PDF Export Modal */}
           <button
             type="button"
@@ -4832,7 +4832,7 @@ export default function FlipexStudio() {
             {inspectorCollapsed ? 'Inspector ⇤' : 'Inspector ⇥'}
           </button>
         </div>
-      </ScrollStrip>
+      </ToolbarWrap>
       </header>
 
       {/* Stage 8: Local Crash Recovery Snapshot Banner */}
@@ -4915,9 +4915,9 @@ export default function FlipexStudio() {
             zIndex: 20,
           }}
         >
-          <div className="border-b border-slate-800 bg-slate-900/60" style={{ minWidth: 285 }}>
-            <ScrollTabs
-              variant="iconic"
+          <div className="border-b border-slate-800 bg-slate-900/60">
+            <TabBar
+              variant="grid"
               ariaLabel="Studio tools"
               testId="studio-tool-tabs"
               value={activeToolTab}
@@ -4930,7 +4930,7 @@ export default function FlipexStudio() {
                 { id: 'text', label: 'Text', icon: 'type' },
                 { id: 'media', label: 'Media', icon: 'image' },
                 { id: 'shapes', label: 'Badges', icon: 'award' },
-                { id: 'csv', label: 'CSV Import', icon: 'table' },
+                { id: 'csv', label: 'CSV', icon: 'table' },
               ]}
             />
           </div>

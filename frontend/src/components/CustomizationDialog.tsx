@@ -1,4 +1,6 @@
+import StudioIcon from './studio/StudioIcon';
 import { useState, useEffect, type ChangeEvent } from 'react';
+import TabBar from './studio/TabBar';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -1022,7 +1024,7 @@ export default function CustomizationDialog({
               <span className="flipex-promo-dot bg-blue-500" />
               <span className="flipex-promo-dot bg-amber-500" />
             </div>
-            <span className="flipex-promo-text">🎨 Interactive Page Designer &amp; Enrichments Studio</span>
+            <span className="flipex-promo-text">Interactive Page Designer &amp; Enrichments Studio</span>
             <Link
               to={`/dashboard/editor/${flipbook.id}`}
               className="flipex-promo-btn"
@@ -1060,7 +1062,39 @@ export default function CustomizationDialog({
           </div>
 
           {/* Body Content */}
-          <div className="hz-studio-body">
+          <div className={`hz-studio-body ${activeNav === 'design' || activeNav === 'themes' ? 'hz-has-preview' : ''}`}>
+            {(activeNav === 'design' || activeNav === 'themes') && (
+              <aside className="hz-live-preview" aria-label="Live reader preview" data-testid="cust-live-preview">
+                <div className="hz-lp-label">Live preview</div>
+                <div className="hz-lp-reader" style={{ background }}>
+                  <div className="hz-lp-header" style={{ background: headerBgColor, color: headerTextColor }}>
+                    <span className="hz-lp-menu" style={{ background: headerTextColor }} />
+                    <span className="hz-lp-title">{companyName || flipbook.title}</span>
+                    <span className="hz-lp-dot" style={{ background: brandAccentColor }} />
+                  </div>
+                  <div className="hz-lp-stage">
+                    <span className="hz-lp-arrow" style={{ background: prevNextBg, color: prevNextColor }}>‹</span>
+                    <div className="hz-lp-spread">
+                      <div className="hz-lp-page"><i /><i /><i className="short" /></div>
+                      <div className="hz-lp-page"><b style={{ background: brandAccentColor }} /><i /><i className="short" /></div>
+                    </div>
+                    <span className="hz-lp-arrow" style={{ background: prevNextBg, color: prevNextColor }}>›</span>
+                    <div className="hz-lp-drawer" style={{ background: drawerBgColor, color: drawerTextColor }}>
+                      <div className="hz-lp-drawer-head" style={{ background: drawerHeaderBgColor }}>Contents</div>
+                      <div className="hz-lp-drawer-row on" style={{ background: drawerActiveColor, color: drawerActiveTextColor }}>Cover</div>
+                      <div className="hz-lp-drawer-row">Page 2</div>
+                    </div>
+                  </div>
+                  <div className="hz-lp-toolbar" style={{ background: toolbarColor, opacity: Math.max(0.5, toolbarOpacity), color: toolbarFontColor }}>
+                    {['⌕', '☰', '⤢', '⇩'].map((g) => (
+                      <span key={g} style={{ color: toolbarButtonColor }}>{g}</span>
+                    ))}
+                    <span className="hz-lp-pageno" style={{ color: pageNumberFontColor }}>1 / {flipbook.pageCount ?? 1}</span>
+                  </div>
+                </div>
+                <p className="hz-lp-note">Updates as you change colours and themes. Save to apply to the public reader.</p>
+              </aside>
+            )}
             {/* ==================== 1. BRANDING -> LOGO (IMAGE 1) ==================== */}
             {activeNav === 'logo' && (
               <div className="space-y-6">
@@ -1328,29 +1362,19 @@ export default function CustomizationDialog({
             {activeNav === 'design' && (
               <div>
                 {/* Segmented Sub-Tabs: Color & Theme Studio | Basic Settings | ToolBar Settings */}
-                <div className="flipex-segmented-tabs">
-                  <button
-                    type="button"
-                    className={`flipex-segmented-tab ${designTab === 'colors' ? 'active' : ''}`}
-                    onClick={() => setDesignTab('colors')}
-                  >
-                    🎨 Color &amp; Theme Studio
-                  </button>
-                  <button
-                    type="button"
-                    className={`flipex-segmented-tab ${designTab === 'basic' ? 'active' : ''}`}
-                    onClick={() => setDesignTab('basic')}
-                  >
-                    Basic Settings
-                  </button>
-                  <button
-                    type="button"
-                    className={`flipex-segmented-tab ${designTab === 'toolbar' ? 'active' : ''}`}
-                    onClick={() => setDesignTab('toolbar')}
-                  >
-                    ToolBar Settings
-                  </button>
-                </div>
+                <TabBar
+                  variant="segment"
+                  ariaLabel="Design settings"
+                  testId="design-subtabs"
+                  className="mb-4"
+                  value={designTab}
+                  onChange={(id) => setDesignTab(id as any)}
+                  tabs={[
+                    { id: 'colors', label: 'Color & Theme Studio', icon: 'palette' },
+                    { id: 'basic', label: 'Basic Settings', icon: 'sliders' },
+                    { id: 'toolbar', label: 'ToolBar Settings', icon: 'menu' },
+                  ]}
+                />
 
                 {designTab === 'colors' ? (
                   <div className="space-y-4">
@@ -1359,7 +1383,7 @@ export default function CustomizationDialog({
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
-                            🎨 Curated 1-Click Themes
+                            <StudioIcon name="palette" size={15} /> Curated 1-Click Themes
                           </h4>
                           <p className="text-[11px] text-slate-500 m-0 mt-0.5">
                             Harmonizes reader background, contents drawer, header &amp; highlights instantly.
@@ -1415,7 +1439,7 @@ export default function CustomizationDialog({
                     <div className="card p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0 flex items-center gap-2">
-                          <span>🏢</span> Workspace Brand Kits
+                          <StudioIcon name="layers" size={15} /> Workspace Brand Kits
                         </h4>
                         {brandKitFeedback && (
                           <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -2199,7 +2223,7 @@ export default function CustomizationDialog({
                             checked={showShareButton}
                             onChange={(e) => setShowShareButton(e.target.checked)}
                           />
-                          <span>Share 🚀</span>
+                          <span>Share</span>
                         </label>
                         <label className="flex items-center gap-2 text-xs cursor-pointer">
                           <input
